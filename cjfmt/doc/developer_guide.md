@@ -33,7 +33,7 @@
 ### 构建步骤
 本地构建流程如下：
 
-1. 通过 `git clone` 命令获取 `cjfmt` 的源码：
+1. 通过 `git clone` 命令获取 `cjfmt` 的最新源码：
 
     ```shell
     cd ${WORKDIR}
