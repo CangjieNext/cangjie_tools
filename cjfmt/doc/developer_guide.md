@@ -2,7 +2,23 @@
 
 ## 开源项目介绍
 
-`cjfmt (Cangjie Formatter)` 仓颉格式化工具是一款基于仓颉语言编程规范开发的代码自动格式化工具。
+`cjfmt (Cangjie Formatter)` 仓颉格式化工具是一款基于仓颉语言编程规范开发的代码自动格式化工具。其整体技术架构如下图所示：
+
+![cjfmt架构设计图](../figures/cjfmt架构.png)
+
+## 目录
+
+` cjfmt ` 源码目录如下图所示，其主要功能如注释中所描述。
+```
+|-- build   # 构建脚本
+|-- config  # 配置文件
+|-- doc     # 介绍文档
+|-- include # 源码相关头文件
+|-- src
+    |-- Format
+        |-- DocProcessor # Doc结构体转化为源码
+        `-- NodeFomatter # AST节点转化为Doc结构体
+```
 
 ## 安装和使用指导
 
@@ -10,6 +26,11 @@
 
 - `clang` 或者 `gcc`编译器
 
+### 构建准备
+
+`cjfmt` 构建依赖 `cjc`, 构建方式参见[ sdk 构建](https://gitcode.com/Cangjie/cangjie_build/blob/develop/README_zh.md)
+
+### 构建步骤
 本地构建流程如下：
 
 1. 通过 `git clone` 命令获取 `cjfmt` 的源码：
@@ -43,12 +64,6 @@
 
     ```shell
     python3 build.py build -t release
-    ```
-
-    `python3 build.py build` 命令也支持其它参数设置，具体可通过如下命令来查询：
-    
-    ```shell
-    python3 build.py build -h
     ```
 
 4. 安装到指定目录：
@@ -92,6 +107,14 @@ python3 build.py install
 ```
 
 执行该命令后，构建产物位于 `cjfmt/dist` 目录下。
+
+### 更多构建选项
+
+`python3 build.py build` 命令也支持其它参数设置，具体可通过如下命令来查询：
+
+```shell
+python3 build.py build -h
+```
 
 ## API 和配置说明
 
@@ -187,3 +210,9 @@ cjfmt -f a.cj -c ./cangjie-format.toml
 ```shell
 cjfmt -f a.cj -o .cj -l 10:25 // 仅格式化第10行至第25行
 ```
+
+## 相关仓
+
+[`cangjie` 仓](https://gitcode.com/Cangjie/cangjie-compiler)
+
+[sdk 构建](https://gitcode.com/Cangjie/cangjie_build)
