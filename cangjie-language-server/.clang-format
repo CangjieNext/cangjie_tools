@@ -1,0 +1,43 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+# This source file is part of the Cangjie project, licensed under Apache-2.0
+# with Runtime Library Exception.
+#
+# See https://cangjie-lang.cn/pages/LICENSE for license information.
+
+Language: Cpp
+
+BasedOnStyle: LLVM
+
+BinPackParameters: false
+AlwaysBreakAfterReturnType: None
+AlwaysBreakAfterDefinitionReturnType: None
+PenaltyReturnTypeOnItsOwnLine: 9999
+
+# Control alignment within template argument lists.  
+AlignAfterOpenBracket: false  
+AlwaysBreakTemplateDeclarations: Yes 
+
+IndentWidth: 4
+
+ColumnLimit: 120
+
+AccessModifierOffset: -4
+
+IndentCaseLabels: true
+
+BraceWrapping:
+  AfterClass: false
+  AfterNamespace: false
+  AfterFunction: true
+
+
+BreakBeforeBraces: Custom
+
+# 头文件排序规则，<> , "" 按字母排序
+IncludeCategories:
+  - Regex:           '^"(llvm|llvm-c|clang|clang-c)/'
+    Priority:        2
+  - Regex:           '^(<|"(gtest|isl|json)/)'
+    Priority:        2
+  - Regex:           '.\*'
+    Priority:        1

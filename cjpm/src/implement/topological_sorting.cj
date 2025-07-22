@@ -1,0 +1,331 @@
+// Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+// This source file is part of the Cangjie project, licensed under Apache-2.0
+// with Runtime Library Exception.
+//
+// See https://cangjie-lang.cn/pages/LICENSE for license information.
+
+package cjpm.implement
+
+import std.collection.*
+import std.sort.*
+import cjpm.config.*
+
+// Topological sorting by BFS.
+func topoSort(topoData: DepModel): Bool {
+    for (pkgName in topoData.binaryPkgList.keys()) {
+        if (!topoData.packageDepMap.contains(pkgName)) {
+            topoData.packageDepMap[pkgName] = ResolveItem()
+        }
+    }
+
+    let numModules = topoData.getLen()
+    if (numModules == 0) {
+        return true
+    }
+
+    topoData.forEach(
+        {
+            name: String, indegrees: HashMap<String, Int64>, outdegrees: HashMap<String, Int64>, edges: HashMap<String,
+            ArrayList<String>> =>
+            indegrees[name] = 0 // Setting default values for maps to prevent nil exceptions.
+            topoData.forEachDependency(
+                name,
+                {
+                    depName: String =>
+                    indegrees[name] += 1 // Record indegree.
+                    if (!outdegrees.contains(name)) {
+                        outdegrees[name] = 0
+                    }
+                    if (edges.contains(depName)) {
+                        edges[depName].add(name)
+                        outdegrees[depName] += 1
+                    } else {
+                        edges[depName] = ArrayList<String>([name])
+                        outdegrees[depName] = 1
+                    }
+                    return
+                }
+            )
+            return
+        }
+    )
+
+    if (!lackPackageCheck(topoData)) {
+        return false
+    }
+
+    // If there are nodes left unprocessed, it cannot be completed.
+    dependencyAnalysis(topoData)
+    if (topoData.readyPkgs.size != numModules) {
+        reverseEdges(topoData)
+        outDegreeAnalysis(topoData)
+        printCyclicDependency(topoData)
+        return false
+    }
+
+    retainSourceCodePkg(topoData)
+    return true
+}
+
+// Delete redundant packages from readyPkgs
+func retainSourceCodePkg(topoData: DepModel): Unit {
+    var res = ArrayList<String>()
+    for (pkg in topoData.readyPkgs) {
+        if (topoData.sourceCodePkgList.contains(pkg)) {
+            res.add(pkg)
+        }
+    }
+    topoData.readyPkgs = res
+    return
+}
+
+// Check the missing packages
+func lackPackageCheck(topoData: DepModel) {
+    var lackPackage = ArrayList<String>()
+    for ((packageName, _) in topoData.edges) {
+        if (!topoData.sourceCodePkgList.contains(packageName) && !topoData.binaryPkgList.contains(packageName)) {
+            lackPackage.add(packageName)
+        }
+    }
+    if (lackPackage.size != 0) {
+        eprintln("Error: can not find the following dependencies")
+        for (packageName in lackPackage) {
+            eprintln("    ${packageName}")
+        }
+        return false
+    }
+    return true
+}
+
+func dependencyAnalysis(topoData: DepModel): Unit {
+    // Queue all nodes with zero indegree.
+    var queue = ArrayList<String>()
+    for ((i, _) in topoData.indegrees) {
+        if (topoData.indegrees[i] == 0) {
+            queue.add(i)
+        }
+    }
+    sort(queue, by: cmpStr, stable: true)
+
+    var curQueue = ArrayList<String>()
+
+    // Loop processing all queue.
+    while (queue.size != 0) {
+        var cur = queue[0]
+        queue.remove(at: 0)
+        topoData.readyPkgs.add(cur)
+
+        if (!topoData.edges.contains(cur)) {
+            if (queue.size == 0 && curQueue.size != 0) {
+                queue.add(all: curQueue)
+                sort(queue, by: cmpStr, stable: true)
+                curQueue.clear()
+            }
+            continue
+        }
+
+        // Dealing with subsequent nodes of that node.
+        for (v in topoData.edges[cur]) {
+            if (!topoData.indegrees.contains(v)) {
+                continue
+            }
+            topoData.indegrees[v] -= 1
+            topoData.outdegrees[cur] -= 1
+            if (topoData.indegrees[v] == 0) {
+                curQueue.add(v)
+            }
+        }
+
+        if (queue.size == 0 && curQueue.size != 0) {
+            queue.add(all: curQueue)
+            sort(queue, by: cmpStr, stable: true)
+            curQueue.clear()
+        }
+    }
+
+    return
+}
+
+func cmpStr(str1: String, str2: String): Ordering {
+    return str1.compare(str2)
+}
+
+func reverseEdges(topoData: DepModel): Unit {
+    topoData.reverseEdges = HashMap<String, ArrayList<String>>()
+    for ((src, dstList) in topoData.edges) {
+        for (dst in dstList) {
+            if (!topoData.reverseEdges.contains(dst)) {
+                topoData.reverseEdges.add(dst, ArrayList<String>([src]))
+            } else {
+                topoData.reverseEdges[dst].add(src)
+            }
+        }
+    }
+}
+
+func outDegreeAnalysis(topoData: DepModel): Unit {
+    // Queue all nodes with zero outdegree.
+    var queue = ArrayList<String>()
+    for ((i, _) in topoData.outdegrees) {
+        if (topoData.outdegrees[i] == 0 && !topoData.readyPkgs.contains(i)) {
+            queue.add(i)
+        }
+    }
+    sort(queue, by: cmpStr, stable: true)
+
+    var curQueue = ArrayList<String>()
+
+    // Loop processing all queue.
+    while (queue.size != 0) {
+        var cur = queue[0]
+        queue.remove(at: 0)
+        topoData.readyPkgs.add(cur)
+
+        if (!topoData.reverseEdges.contains(cur)) {
+            if (queue.size == 0 && curQueue.size != 0) {
+                queue.add(all: curQueue)
+                sort(queue, by: cmpStr, stable: true)
+                curQueue.clear()
+            }
+            continue
+        }
+
+        // Dealing with presequent nodes of that node.
+        for (v in topoData.reverseEdges[cur]) {
+            if (!topoData.outdegrees.contains(v)) {
+                continue
+            }
+            topoData.indegrees[cur] -= 1
+            topoData.outdegrees[v] -= 1
+            if (topoData.outdegrees[v] == 0 && !topoData.readyPkgs.contains(v)) {
+                curQueue.add(v)
+            }
+        }
+
+        if (queue.size == 0 && curQueue.size != 0) {
+            queue.add(all: curQueue)
+            sort(queue, by: cmpStr, stable: true)
+            curQueue.clear()
+        }
+    }
+}
+
+func printCyclicDependency(topoData: DepModel): Unit {
+    for ((fullName, _) in topoData.edges) {
+        var cyclicList = ArrayList<String>()
+        let start = fullName
+        cyclicSearch(fullName, cyclicList, start, topoData)
+        topoData.visit.add(fullName)
+    }
+    return
+}
+
+func cyclicSearch(fullName: String, cyclicList: ArrayList<String>, start: String, topoData: DepModel): Unit {
+    if (topoData.readyPkgs.contains(fullName) || topoData.visit.contains(fullName)) {
+        return
+    }
+
+    if (cyclicList.contains(fullName)) {
+        if (fullName == start) {
+            cyclicPrint(cyclicList)
+        }
+        return
+    }
+
+    if (!topoData.edges.contains(fullName)) {
+        return
+    }
+
+    let index = cyclicList.size
+    cyclicList.add(fullName)
+    for (pkg in topoData.edges[fullName]) {
+        cyclicSearch(pkg, cyclicList, start, topoData)
+    }
+    cyclicList.remove(at: index)
+    return
+}
+
+func cyclicPrint(cyclicList: ArrayList<String>): Unit {
+    if (cyclicList.size == 0) {
+        return
+    }
+    eprintln("cyclic dependency:")
+    var size = cyclicList.size
+    for (i in size - 1..=0 : -1) {
+        var prePackage: String = cyclicList[i]
+        var nextPackage: String = ""
+        if (i + 1 == size) {
+            nextPackage = cyclicList[0]
+        } else {
+            nextPackage = cyclicList[i + 1]
+        }
+        eprintln("${nextPackage} -> ${prePackage}")
+    }
+    eprint("\n")
+}
+
+// Get valid order for package requires.
+func packageReruiresSort(pkgMap: HashMap<String, RequiresPackagesInfo>): BinDeps {
+    if (pkgMap.isEmpty()) {
+        return BinDeps()
+    }
+
+    // Record all dependency in edges.
+    var edges = getPackageRequireDependency(pkgMap)
+
+    var queue = ArrayList<String>()
+    for ((p, cnt) in edges) {
+        if (cnt == 0) {
+            queue.add(p)
+        }
+    }
+
+    let pkgSort = ArrayList<String>()
+    // Loop processing all queue.
+    while (queue.size != 0) {
+        sort(queue, by: cmpStr, stable: true)
+        let cur = queue[0]
+        queue.remove(at: 0)
+        pkgSort.add(cur)
+        // Dealing with subsequent nodes of cur node.
+        for ((k, v) in pkgMap) {
+            if (!v.requires.contains(cur)) {
+                continue
+            }
+            edges[k] -= 1
+            if (edges[k] == 0) {
+                queue.add(k)
+            }
+        }
+    }
+
+    let binDeps = BinDeps()
+    for (fullName in pkgSort) {
+        if (!pkgMap.contains(fullName)) {
+            continue
+        }
+        binDeps.packageRequiresSort.add(fullName)
+    }
+    binDeps.packageRequires = HashMap<String, RequiresPackagesInfo>(pkgMap)
+    return binDeps
+}
+
+func getPackageRequireDependency(pkgMap: HashMap<String, RequiresPackagesInfo>): HashMap<String, Int64> {
+    // Record all packages.
+    var allPackages = HashSet<String>()
+    for ((k, v) in pkgMap) {
+        allPackages.add(k)
+        allPackages.add(all: v.requires)
+    }
+
+    // Record all dependency in edges.
+    var edges = HashMap<String, Int64>()
+    for (p in allPackages) {
+        if (pkgMap.contains(p)) {
+            edges[p] = pkgMap[p].requires.size
+        } else {
+            edges[p] = 0
+        }
+    }
+    return edges
+}

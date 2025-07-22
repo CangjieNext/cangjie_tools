@@ -1,0 +1,61 @@
+// Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+// This source file is part of the Cangjie project, licensed under Apache-2.0
+// with Runtime Library Exception.
+//
+// See https://cangjie-lang.cn/pages/LICENSE for license information.
+
+package cjpm.implement
+
+import std.fs.*
+import cjpm.config.*
+
+// Command clean implement.
+public func doClean(rootPath: String, cmdDir: String, isDebug: Bool): Bool {
+    let tomlInfo: TomlInfo = loadModuleFile(rootPath) ?? return false
+    let (flag, errInfo) = tomlInfo.isCompatible()
+    if (!flag) {
+        let tomlDir = Path(rootPath).join(CONFIG_FILE_NAME).toString()
+        eprintln("Error: ${errInfo} at ${tomlDir}")
+        return false
+    }
+
+    let (dirFlag, configFileDir) = getConfigFileDir(rootPath, tomlInfo)
+    if (!dirFlag) {
+        return false
+    }
+
+    var targetDir = getOriginTargetDirectory(TARGET, rootPath, cmdDir, configFileDir, false) ?? return false
+
+    if (checkParentDir(getCanonicalPath(targetDir), getCanonicalPath(rootPath))) {
+        eprintln("Error: cannot clean target directory which contains current directory, " +
+            "please check related configuration")
+        return false
+    }
+
+    var cleanDir: String = targetDir
+    if (isDebug) {
+        cleanDir = Path(cleanDir).join(DEBUG).toString()
+    }
+    if (!deleteDirectory(cleanDir)) {
+        return false
+    }
+    if (!deleteDirectory(BUILD_SCRIPT_DIR)) {
+        return false
+    }
+
+    return true
+}
+
+func getConfigFileDir(rootPath: String, tomlInfo: TomlInfo): (Bool, String) {
+    if (tomlInfo.isPkgConfig) {
+        if (!replaceEnvforTargetDir(tomlInfo, Path(rootPath).join(CONFIG_FILE_NAME).toString())) {
+            return (false, "")
+        }
+        return (true, tomlInfo.pkg.targetDir)
+    } else {
+        if (!verifyTargetDir(rootPath, tomlInfo.workspace.targetDir)) {
+            return (false, "")
+        }
+        return (true, COMMON_INFO.targetDir)
+    }
+}

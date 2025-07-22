@@ -1,0 +1,38 @@
+.idea/*
+**/dist/*
+**/build/*
+output
+!build/build.py
+*.swp
+*.ast
+
+#opensource
+open_source/char
+
+# Various tag programs
+/tags
+/TAGS
+/GPATH
+/GRTAGS
+/GSYMS
+/GTAGS
+.gitusers
+autom4te.cache
+cscope.files
+cscope.out
+autoconf/aclocal.m4
+autoconf/autom4te.cache
+/compile_commands.json
+
+# CLion project configuration
+/.idea
+
+# VS2017 and VSCode config files.
+.vscode
+.vs
+# clangd index
+.clangd
+
+# flatbuffers generated
+include/flatbuffers/*.h
+/cmake-build-debug/

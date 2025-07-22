@@ -1,0 +1,383 @@
+// Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+// This source file is part of the Cangjie project, licensed under Apache-2.0
+// with Runtime Library Exception.
+//
+// See https://cangjie-lang.cn/pages/LICENSE for license information.
+
+package cjpm.implement
+
+import std.collection.*
+import std.fs.*
+import stdx.serialization.serialization.*
+import cjpm.toml.*
+import cjpm.config.*
+
+public let INSTALL_LIST: String = ".packages.toml"
+public var installedBinList: HashMap<String, InstallBinary> = HashMap<String, InstallBinary>()
+var resInfo: ModuleResolve = ModuleResolve()
+
+public class InstallBinary <: Serializable<InstallBinary> {
+    public var version: String = ""
+    public var localPath: String = ""
+    public var gitUrl: String = ""
+
+    public func serialize(): DataModel {
+        var res = DataModelStruct()
+        res.add(field<String>("version", this.version))
+        if (!this.localPath.isEmpty()) {
+            res.add(field<String>("path", this.localPath))
+        }
+        if (!this.gitUrl.isEmpty()) {
+            res.add(field<String>("git-url", this.gitUrl))
+        }
+        return res
+    }
+
+    public static func deserialize(dm: DataModel): InstallBinary {
+        var dms = match (dm) {
+            case data: DataModelStruct => data
+            case _ => throw Exception("this data is not DataModelStruct")
+        }
+        var result = InstallBinary()
+        result.version = String.deserialize((dms.get("version") as DataModelString) ?? DataModelString(""))
+        result.localPath = String.deserialize((dms.get("path") as DataModelString) ?? DataModelString(""))
+        result.gitUrl = String.deserialize((dms.get("git-url") as DataModelString) ?? DataModelString(""))
+        return result
+    }
+
+    public func printBinary(binName: String): Unit {
+        var binFrom = ""
+        if (!this.localPath.isEmpty()) {
+            binFrom = "from local project (${this.localPath})"
+        } else if (!this.gitUrl.isEmpty()) {
+            binFrom = "from git (${this.gitUrl})"
+        }
+        println("${binName}: v${this.version} ${binFrom}")
+    }
+}
+
+public func doInstall(installConfig: InstallConfig): Bool {
+    // Command install implement.
+    if (directoryExists(installConfig.root)) {
+        installedBinList = loadInstallList(installConfig.root) ?? HashMap<String, InstallBinary>()
+    }
+
+    match (installConfig.installType) {
+        case InstallType.Git =>
+            if (!setGitRoot(installConfig) || !installProject(installConfig) || !cleanProject(installConfig)) {
+                return false
+            }
+        case InstallType.Local =>
+            if (!setLocalRoot(installConfig) || !installProject(installConfig)) {
+                return false
+            }
+        case _ => ()
+    }
+
+    return true
+}
+
+func setLocalRoot(installConfig: InstallConfig): Bool {
+    if (installConfig.localPath.isEmpty()) {
+        installConfig.localPath = DIR_CURRENT
+    }
+    if (installConfig.verbose) {
+        println("cjpm install: installing local module from path '${installConfig.localPath}'")
+    }
+    if (!directoryExists(installConfig.localPath)) {
+        eprintln("Error: --path '${installConfig.localPath}' does not exist")
+        return false
+    }
+    installConfig.globalConfig.rootPath = getCanonicalPath(installConfig.localPath)
+    if (!fileExists(getPath(installConfig.globalConfig.rootPath, CONFIG_FILE_NAME))) {
+        eprintln("Error: there is no valid cjpm config in --path ${installConfig.localPath}")
+        return false
+    }
+    let tomlInfo: TomlInfo = loadModuleFile(installConfig.globalConfig.rootPath) ?? return false
+    var configFileDir: String = ""
+    if (tomlInfo.isPkgConfig) {
+        configFileDir = tomlInfo.pkg.targetDir
+    } else {
+        configFileDir = tomlInfo.workspace.targetDir
+    }
+    installConfig.globalConfig.targetDir = getPath(
+        installConfig.globalConfig.rootPath,
+        getOriginTargetDirectory(TARGET, installConfig.globalConfig.rootPath,
+            installConfig.targetDir, configFileDir, false) ?? return false)
+
+    return true
+}
+
+func installProject(installConfig: InstallConfig): Bool {
+    // Build and install project
+    match (installConfig.installType) {
+        case InstallType.Local =>
+            if (installConfig.skipBuild) {
+                return isSkipBuild(installConfig)
+            }
+        case _ => ()
+    }
+
+    let buildConfig = BuildConfig()
+    buildConfig.isVerbose = installConfig.verbose
+    buildConfig.isDebug = installConfig.debug
+    buildConfig.targetDir = installConfig.targetDir
+    buildConfig.isIncremental = true
+    buildConfig.memberModule = installConfig.memberModule
+    buildConfig.customizedOption = installConfig.customizedOption
+    buildConfig.isInstall = true
+
+    buildConfig.globalConfig.isVerbose = buildConfig.isVerbose
+    buildConfig.globalConfig.isInstall = true
+    buildConfig.globalConfig.isIncremental = true
+    buildConfig.globalConfig.resolveType = RESOLVE_BUILD
+    buildConfig.globalConfig.rootPath = installConfig.globalConfig.rootPath
+    buildConfig.globalConfig.targetDir = installConfig.globalConfig.targetDir
+    buildConfig.globalConfig.isSkipScript = installConfig.globalConfig.isSkipScript
+
+    if (!doBuild(buildConfig)) {
+        return false
+    }
+
+    installConfig.globalConfig.targetDir = buildConfig.globalConfig.targetDir
+    installConfig.globalConfig.ldPath = buildConfig.globalConfig.ldPath
+    installConfig.globalConfig.originDir = buildConfig.globalConfig.originDir
+
+    let flag = installBinary(installConfig)
+    saveInstallList(installConfig.root)
+    return flag
+}
+
+func isSkipBuild(installConfig: InstallConfig): Bool {
+    let tomlInfo: TomlInfo = loadModuleFile(installConfig.globalConfig.rootPath) ?? return false
+    if (tomlInfo.isPkgConfig) {
+        COMMON_INFO.singleModuleName = tomlInfo.pkg.name
+        COMMON_INFO.moduleVersionMap.add(tomlInfo.pkg.name, tomlInfo.pkg.version)
+    } else {
+        if (!checkForWorkspace(installConfig.globalConfig.rootPath, tomlInfo, installConfig.memberModule,
+            isDebug: installConfig.debug)) {
+            return false
+        }
+        for (member in COMMON_INFO.buildMembers) {
+            let memberTomlInfo: TomlInfo = loadModuleFile(member) ?? return false
+            COMMON_INFO.moduleVersionMap.add(memberTomlInfo.pkg.name, memberTomlInfo.pkg.version)
+        }
+    }
+    installConfig.globalConfig.originDir = installConfig.globalConfig.targetDir
+
+    if (installConfig.debug) {
+        installConfig.globalConfig.targetDir = getPath(installConfig.globalConfig.targetDir, "debug")
+    } else {
+        installConfig.globalConfig.targetDir = getPath(installConfig.globalConfig.targetDir, "release")
+    }
+    if (installConfig.verbose) {
+        println("cjpm install: skip build, output is in '${installConfig.globalConfig.targetDir}'")
+    }
+    let flag = installBinary(installConfig)
+    saveInstallList(installConfig.root)
+    return flag
+}
+
+func installBinary(installConfig: InstallConfig): Bool {
+    let binPath = Path(installConfig.root).join(BIN).toString()
+    if (!createDirectory(binPath)) {
+        return false
+    }
+
+    let historyFile = Path(installConfig.globalConfig.originDir).join(HISTORY_FILE_NAME).toString()
+    resInfo = loadHistoryFile(historyFile) ?? ModuleResolve()
+    getLdPathConfig(installConfig.globalConfig.targetDir, installConfig.globalConfig.nativeDir, resInfo)
+
+    if (COMMON_INFO.inWorkspace) {
+        if (!installWorkspaceBinary(installConfig)) {
+            return false
+        }
+    } else if (!installSingleBinary(installConfig)) {
+        return false
+    }
+
+    if (installConfig.verbose) {
+        println("cjpm install: successfully installed binary into ${binPath}")
+    }
+
+    return true
+}
+
+func installSingleBinary(installConfig: InstallConfig): Bool {
+    let moduleName = COMMON_INFO.singleModuleName
+    let srcBin = Path(installConfig.globalConfig.targetDir).join(BIN)
+    let dstBin = Path(installConfig.root).join(BIN)
+    try {
+        if (!installConfig.installName.isEmpty()) {
+            copy(srcBin.join(makeExeName(installConfig.installName)),
+                to: dstBin.join(makeExeName(installConfig.installName)), overwrite: true)
+            if (!installDynamicLibs(installConfig, installConfig.installName)) {
+                return false
+            }
+            return addInstallList(installConfig, moduleName, installConfig.installName)
+        }
+        if (fileExists(srcBin.join(makeExeName("main")))) {
+            copy(srcBin.join(makeExeName("main")), to: dstBin.join(makeExeName(moduleName)), overwrite: true)
+            if (!installDynamicLibs(installConfig, moduleName)) {
+                return false
+            }
+            return addInstallList(installConfig, moduleName, moduleName)
+        }
+        return installAllExe(installConfig)
+    } catch (e: Exception) {
+        eprintln(e.message)
+        eprintln("Error: failed to copy binary from ${srcBin.toString()} to ${dstBin.toString()}")
+        return false
+    }
+}
+
+func installWorkspaceBinary(installConfig: InstallConfig): Bool {
+    let srcBin = Path(installConfig.globalConfig.targetDir).join(BIN)
+    let dstBin = Path(installConfig.root).join(BIN)
+    try {
+        if (installConfig.installName.isEmpty()) {
+            return installAllExe(installConfig)
+        }
+
+        var moduleName: String = ""
+        for (resolve in resInfo.resolves) {
+            if (installConfig.installName == resolve.fullName) {
+                moduleName = resolve.rootPkgName
+                break
+            }
+        }
+        if (moduleName.isEmpty()) {
+            eprintln("Error: no matched binary named '${installConfig.installName}'")
+            return false
+        }
+        copy(srcBin.join(makeExeName(installConfig.installName)),
+            to: dstBin.join(makeExeName(installConfig.installName)), overwrite: true)
+        if (!installDynamicLibs(installConfig, installConfig.installName)) {
+            return false
+        }
+        return addInstallList(installConfig, moduleName, installConfig.installName)
+    } catch (e: Exception) {
+        eprintln(e.message)
+        eprintln("Error: failed to copy binary from ${srcBin.toString()} to ${dstBin.toString()}")
+        return false
+    }
+}
+
+func installAllExe(installConfig: InstallConfig): Bool {
+    let srcBin = Path(installConfig.globalConfig.targetDir).join(BIN)
+    let dstBin = Path(installConfig.root).join(BIN)
+    var res = false
+    for (resolve in resInfo.resolves) {
+        if (resolve.outputType == EXE_TYPE) {
+            let binName = resolve.fullName
+            copy(srcBin.join(makeExeName(binName)), to: dstBin.join(makeExeName(binName)), overwrite: true)
+            if (!installDynamicLibs(installConfig, binName)) {
+                return false
+            }
+            if (!addInstallList(installConfig, resolve.rootPkgName, binName)) {
+                return false
+            }
+            res = true
+        }
+    }
+    return res
+}
+
+func installDynamicLibs(installConfig: InstallConfig, moduleName: String): Bool {
+    let libPath = Path(installConfig.root).join("libs").join(moduleName).toString()
+    if (!installConfig.globalConfig.ldPath.isEmpty() && !createDirectory(libPath)) {
+        return false
+    }
+    for (path in installConfig.globalConfig.ldPath) {
+        if (!addDylibFileList(installConfig.globalConfig.targetDir, path, libPath)) {
+            return false
+        }
+    }
+    return true
+}
+
+func addDylibFileList(targetDir: String, path: String, libPath: String): Bool {
+    try {
+        for (info in getFileList(path)) {
+            if (info.path.toString().endsWith(DYLIB_POSTFIX)) {
+                let fileName: String = info.path.fileName
+                copy(info.path, to: Path(libPath).join(fileName), overwrite: true)
+            }
+        }
+    } catch (e: Exception) {
+        eprintln(e.message)
+        eprintln("Error: failed to copy dynamic libs from ${targetDir} to ${libPath}")
+        return false
+    }
+
+    return true
+}
+
+func addInstallList(installConfig: InstallConfig, moduleName: String, binName: String): Bool {
+    var installBinary: InstallBinary = InstallBinary()
+    installBinary.version = COMMON_INFO.moduleVersionMap[moduleName]
+    match (installConfig.installType) {
+        case InstallType.Local => installBinary.localPath = getCanonicalPath(installConfig.localPath)
+        case InstallType.Git => installBinary.gitUrl = installConfig.gitConfig.url
+        case _ => ()
+    }
+    if (installedBinList.contains(binName)) {
+        installedBinList.remove(binName)
+    }
+    installedBinList.add(binName, installBinary)
+    print("cjpm successfully installed ")
+    installBinary.printBinary(binName)
+    return true
+}
+
+func cleanProject(installConfig: InstallConfig): Bool {
+    installConfig.globalConfig.targetDir = getPath(installConfig.globalConfig.rootPath, TARGET)
+    return doClean(installConfig.globalConfig.rootPath, installConfig.globalConfig.targetDir, false)
+}
+
+public func doInstallList(rootPath: String): Unit {
+    // Print installed binary list
+    if (directoryExists(rootPath)) {
+        installedBinList = loadInstallList(rootPath) ?? HashMap<String, InstallBinary>()
+        for ((binName, installBinary) in installedBinList) {
+            installBinary.printBinary(binName)
+        }
+    }
+}
+
+public func loadInstallList(root: String): Option<HashMap<String, InstallBinary>> {
+    let path: String = getPath(root, INSTALL_LIST)
+    if (!fileExists(path)) {
+        return Option.None
+    }
+    try {
+        let file = File(path, ReadWrite)
+        let de = Decoder(file)
+        let to = de.decode()
+        file.close()
+        let dm = DataModelStruct.fromToml(to)
+        var dms = match (dm) {
+            case data: DataModelStruct => data
+            case _ => throw Exception("this data is not DataModelStruct")
+        }
+        return HashMap<String, InstallBinary>.deserialize((dms.get("install") as DataModelStruct) ?? DataModelStruct())
+    } catch (e: Exception) {
+        eprintln("${e.message}\nError: parse the '${path}' file failed")
+        return Option.None
+    }
+}
+
+public func saveInstallList(root: String): Bool {
+    let path: String = getPath(root, INSTALL_LIST)
+    try {
+        var f = File(path, Write)
+        let enc = Encoder(f)
+        enc.encode(DataModelStruct().add(field<HashMap<String, InstallBinary>>("install", installedBinList)))
+        f.close()
+        return true
+    } catch (e: Exception) {
+        eprintln(e.message)
+        eprintln("Error: generate the '${path}' file failed")
+        return false
+    }
+}

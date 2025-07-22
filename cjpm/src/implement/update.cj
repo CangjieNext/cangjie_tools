@@ -1,0 +1,166 @@
+// Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+// This source file is part of the Cangjie project, licensed under Apache-2.0
+// with Runtime Library Exception.
+//
+// See https://cangjie-lang.cn/pages/LICENSE for license information.
+
+package cjpm.implement
+
+import std.collection.*
+import std.fs.*
+import cjpm.config.*
+
+let UPDATE_DEP_PATH_MAP = HashMap<String, String>()
+let UPDATE_GLOBAL_CONFIG = GlobalConfig()
+
+// Command update implement.
+public func doUpdate(): Bool {
+    var tomlInfo: TomlInfo = loadModuleFile(DIR_CURRENT) ?? return false
+    if (!checkForWorkspace(DIR_CURRENT, tomlInfo, "")) {
+        return false
+    }
+
+    let (loadFlag, lockFile) = loadLockFile(DIR_CURRENT)
+    if (!loadFlag) {
+        return false
+    }
+
+    if (!deleteFile(LOCK_FILE_NAME)) {
+        return false
+    }
+
+    // update 'cjpm.lock' file
+    let depMap = HashMap<String, DepInfo>()
+    if (!COMMON_INFO.inWorkspace) {
+        if (!updateDepMap(depMap, DIR_CURRENT, "", "", None)) {
+            return false
+        }
+    } else {
+        var checkFlag: Bool = true
+        for (mem in COMMON_INFO.members) {
+            checkFlag = checkFlag && updateDepMap(depMap, mem, "", "", None)
+        }
+        if (!checkFlag) {
+            return false
+        }
+    }
+
+    // Don't add path dependencies for 'cjpm.lock'
+    depMap.removeIf {_, v => v.path.isSome()}
+
+    return creatLockFile(DIR_CURRENT, ModuleLock(depMap, lockFile.scripts))
+}
+
+func updateDepMap(depMap: HashMap<String, DepInfo>, path: String, preName: String, prePath: String,
+    requires: ?DepInfo): Bool {
+    if (!directoryExists(path)) {
+        eprintln("Error: the path '${path}' does not exist")
+        return false
+    }
+
+    var tomlInfo = loadModuleFile(path) ?? return false
+    var curModulePath: String = path
+
+    if (let Some(depInfo) <- requires) {
+        if (tomlInfo.isWorkSpaceConfig) {
+            let memPath = searchModuleFromWorkspace(tomlInfo, preName, curModulePath)
+            if (memPath.isEmpty()) {
+                eprintln("Error: the member module '${preName}' does not exist in the workspace of '${path}'")
+                return false
+            }
+            tomlInfo = loadModuleFile(memPath) ?? return false
+            depInfo.pathInWorkspace = memPath
+            curModulePath = memPath
+        }
+    }
+
+    if (!verifyModuleConfig(tomlInfo, curModulePath, DIR_CURRENT)) {
+        return false
+    }
+
+    if (let Some(depInfo) <- requires) {
+        // verify that `requires` block that added this module is compatible with its medatada
+        if (preName != tomlInfo.pkg.name) {
+            eprintln("Error: the require name '${preName}' is different to name '${tomlInfo.pkg.name}'")
+            eprintln("  - ${Path(getCanonicalPath(prePath)).join(CONFIG_FILE_NAME).toString()}")
+            eprintln("  - ${Path(curModulePath).join(CONFIG_FILE_NAME).toString()}")
+            return false
+        }
+    } else {
+        depMap[tomlInfo.pkg.name] = DepInfo(getCanonicalPath(curModulePath))
+    }
+    UPDATE_DEP_PATH_MAP[tomlInfo.pkg.name] = curModulePath
+
+    tomlInfo.pkg.path = curModulePath
+    return updateDepModule(depMap, tomlInfo.dependencies, curModulePath, "dependencies") &&
+        updateDepModule(depMap, tomlInfo.testDependencies, curModulePath, "test-dependencies")
+}
+
+func updateDepModule(depMap: HashMap<String, DepInfo>, requires: HashMap<String, DepInfo>, prePath: String,
+    fieldName: String): Bool {
+    var updateCheckFlag = true
+    for ((name, v) in requires) {
+        // convert to absolute path for future comparisons
+        if (let Some(vpath) <- v.path) {
+            if (!checkEnvVars(vpath, prePath)) {
+                updateCheckFlag = false
+                continue
+            }
+            let newPath = replaceEnvVars(vpath)
+            if (newPath.isEmpty()) {
+                eprintln("Error: the path can't be empty which is listed in '${fieldName}' field" +
+                    " at ${Path(prePath).join(CONFIG_FILE_NAME).toString()}")
+                updateCheckFlag = false
+                continue
+            }
+            let depPath: String = getPath(prePath, newPath)
+            if (!directoryExists(depPath)) {
+                eprintln("Error: the path '${newPath}' does not exist which is listed in '${fieldName}' field" +
+                    " at ${Path(prePath).join(CONFIG_FILE_NAME).toString()}")
+                return false
+            }
+            v.path = depPath
+        }
+
+        v.importedPath = Path(getCanonicalPath(prePath)).join(CONFIG_FILE_NAME).toString()
+
+        if (let Some(current) <- depMap.get(name)) {
+            let (isAlternative, errInfo) = current.isAlternative(v)
+            let isGitLocalDep = checkGitLocalDep(name, current, v, UPDATE_DEP_PATH_MAP)
+            if (!errInfo.isEmpty() && !isGitLocalDep) {
+                eprintln("Error: modules with name '${name}' in dependency tree are conflicted. " +
+                    "If existing dependency was updated in cjpm.toml then do `cjpm update`")
+                eprintln(errInfo)
+                updateCheckFlag = false
+            }
+            if (!errInfo.isEmpty() && isGitLocalDep) {
+                continue
+            }
+            if (errInfo.isEmpty() && !isAlternative) {
+                current.updateWith(v)
+                continue
+            }
+        }
+        depMap.add(name, v)
+
+        let depInfo: DepInfo = depMap[name]
+        let (flag, isOnlineDep, depPath) = getDepPath(name, depInfo, prePath, UPDATE_GLOBAL_CONFIG)
+        if (!flag) {
+            updateCheckFlag = false
+            continue
+        }
+
+        freshGitPathDep(depInfo, UPDATE_GLOBAL_CONFIG)
+
+        if (!updateDepMap(depMap, depPath, name, prePath, depInfo)) {
+            updateCheckFlag = false
+        }
+
+        if (isOnlineDep && !UPDATE_GLOBAL_CONFIG.gitStack.pop()) {
+            eprintln("Error: failed to analyse online dependencies")
+            updateCheckFlag = false
+        }
+    }
+
+    return updateCheckFlag
+}

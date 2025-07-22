@@ -1,0 +1,508 @@
+// Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+// This source file is part of the Cangjie project, licensed under Apache-2.0
+// with Runtime Library Exception.
+//
+// See https://cangjie-lang.cn/pages/LICENSE for license information.
+
+package cjpm.config
+
+import std.collection.*
+import std.fs.*
+import stdx.serialization.serialization.*
+import cjpm.toml.*
+import cjpm.toml.Decoder as DecoderToml
+
+// Top-level fields
+const PACKAGE = "package"
+const DEPENDENCIES = "dependencies"
+const TEST_DEPENDENCIES = "test-dependencies"
+const SCRIPT_DEPENDENCIES = "script-dependencies"
+const REPLACE = "replace"
+const PROFILE = "profile"
+const TARGET_CONFIG = "target"
+
+public class TomlInfo <: Serializable<TomlInfo> {
+    public var pkg: Package = Package()
+    public var workspace: WorkSpace = WorkSpace()
+    public var dependencies: HashMap<String, DepInfo> = HashMap<String, DepInfo>()
+    public var testDependencies: HashMap<String, DepInfo> = HashMap<String, DepInfo>()
+    public var scriptDependencies: HashMap<String, DepInfo> = HashMap<String, DepInfo>()
+    public var replaceDeps: HashMap<String, DepInfo> = HashMap<String, DepInfo>()
+    public var ffi: ForeignInterfaces = ForeignInterfaces()
+    public var profile: Profile = Profile()
+    public var targetConfigMap: HashMap<String, TargetConfig> = HashMap<String, TargetConfig>()
+    public var isPkgConfig: Bool = true
+    public var isWorkSpaceConfig: Bool = false
+
+    public init() {}
+
+    public init(isPkgConfig: Bool, isWorkSpaceConfig: Bool) {
+        this.isPkgConfig = isPkgConfig
+        this.isWorkSpaceConfig = isWorkSpaceConfig
+    }
+
+    public init(rootPkgName: String, outputType: String, cjcVersion: String) {
+        this.pkg.name = rootPkgName
+        this.pkg.outputType = outputType
+        this.pkg.cjcVersion = cjcVersion
+    }
+
+    public func isCompatible(): (Bool, String) {
+        if (this.isWorkSpaceConfig && this.isPkgConfig) {
+            return (false, "only one of 'workspace' or 'package' fields can exist")
+        }
+        if (!this.isWorkSpaceConfig && !this.isPkgConfig) {
+            return (false, "one of 'workspace' or 'package' fields must exist")
+        }
+        return (true, "")
+    }
+
+    public func serialize(): DataModel {
+        let result = DataModelStruct()
+        if (this.isPkgConfig) {
+            result.add(field<Package>(PACKAGE, this.pkg))
+        }
+        if (this.isWorkSpaceConfig) {
+            result.add(field<WorkSpace>("workspace", this.workspace))
+        }
+        result.add(field<HashMap<String, DepInfo>>(DEPENDENCIES, this.dependencies))
+        return result
+    }
+
+    public static func deserialize(dm: DataModel): TomlInfo {
+        var dms = match (dm) {
+            case data: DataModelStruct => data
+            case _ => throw Exception("this data is not DataModelStruct")
+        }
+        var result = TomlInfo()
+        match (dms.get(PACKAGE) as DataModelStruct) {
+            case Some(val) => result.pkg = Package.deserialize(val)
+            case None => result.isPkgConfig = false
+        }
+        match (dms.get("workspace") as DataModelStruct) {
+            case Some(val) =>
+                result.workspace = WorkSpace.deserialize(val)
+                result.isWorkSpaceConfig = true
+            case None => ()
+        }
+        result.dependencies = HashMap<String, DepInfo>.deserialize(
+            (dms.get(DEPENDENCIES) as DataModelStruct) ?? DataModelStruct())
+        result.testDependencies = HashMap<String, DepInfo>.deserialize(
+            (dms.get(TEST_DEPENDENCIES) as DataModelStruct) ?? DataModelStruct())
+        result.scriptDependencies = HashMap<String, DepInfo>.deserialize(
+            (dms.get(SCRIPT_DEPENDENCIES) as DataModelStruct) ?? DataModelStruct())
+        result.replaceDeps = HashMap<String, DepInfo>.deserialize(
+            (dms.get(REPLACE) as DataModelStruct) ?? DataModelStruct())
+        result.ffi = ForeignInterfaces.deserialize((dms.get("ffi") as DataModelStruct) ?? DataModelStruct())
+        result.profile = Profile.deserialize((dms.get(PROFILE) as DataModelStruct) ?? DataModelStruct())
+        result.targetConfigMap = HashMap<String, TargetConfig>.deserialize(
+            (dms.get(TARGET_CONFIG) as DataModelStruct) ?? DataModelStruct())
+        for ((targetName, targetConfig) in result.targetConfigMap) {
+            targetConfig.targetName = targetName
+            targetConfig.commonTargetInfo.targetName = targetName
+            targetConfig.debugTargetInfo.targetName = targetName
+            targetConfig.releaseTargetInfo.targetName = targetName
+        }
+        return result
+    }
+
+    public func getDirectDependencies(): HashSet<String> {
+        let result = HashSet<String>()
+        result.add(all: this.dependencies.keys())
+        result.add(all: this.testDependencies.keys())
+        result.add(this.pkg.name)
+        return result
+    }
+
+    public func checkJsonEnvVars(): Bool {
+        var checkList = ArrayList<String>()
+        checkList.add(this.pkg.compileOption)
+        checkList.add(this.pkg.nativeCompileOption)
+        checkList.add(this.pkg.overrideCompileOption)
+        checkList.add(this.pkg.linkOption)
+        checkList.add(this.pkg.nativeLinkOption)
+        checkList.add(this.pkg.targetDir)
+        checkList.add(this.workspace.compileOption)
+        checkList.add(this.workspace.overrideCompileOption)
+        checkList.add(this.workspace.linkOption)
+        checkList.add(this.workspace.targetDir)
+        checkList.add(all: this.workspace.members)
+        checkList.add(all: this.workspace.buildMembers)
+        checkList.add(all: this.workspace.testMembers)
+        checkList.add(all: getChecker(this.profile.customizedOption))
+        for ((_, targetConfig) in this.targetConfigMap) {
+            checkList.add(all: targetConfig.getCheckEnvVars())
+        }
+
+        for ((_, v) in this.dependencies) {
+            if (v.path.isSome()) {
+                checkList.add(v.path.getOrThrow())
+            }
+        }
+
+        for ((_, v) in this.testDependencies) {
+            if (v.path.isSome()) {
+                checkList.add(v.path.getOrThrow())
+            }
+        }
+
+        for ((_, v) in this.scriptDependencies) {
+            if (v.path.isSome()) {
+                checkList.add(v.path.getOrThrow())
+            }
+        }
+
+        for ((_, v) in this.replaceDeps) {
+            if (v.path.isSome()) {
+                checkList.add(v.path.getOrThrow())
+            }
+        }
+
+        for ((_, cLibPath) in this.ffi.cLibs) {
+            checkList.add(cLibPath)
+        }
+
+        for ((_, v) in this.pkg.packageConfiguration) {
+            checkList.add(v.compileOption)
+        }
+
+        var checkFlag = true
+        for (str in checkList) {
+            if (!checkEnvVars(str, this.pkg.path)) {
+                checkFlag = false
+            }
+        }
+        return checkFlag
+    }
+
+    public func replaceJsonEnvVars(): Unit {
+        for ((_, v) in this.dependencies) {
+            if (v.path.isSome()) {
+                v.path = replaceEnvVars(v.path.getOrThrow())
+            }
+        }
+
+        for ((_, v) in this.testDependencies) {
+            if (v.path.isSome()) {
+                v.path = replaceEnvVars(v.path.getOrThrow())
+            }
+        }
+
+        for ((_, v) in this.scriptDependencies) {
+            if (v.path.isSome()) {
+                v.path = replaceEnvVars(v.path.getOrThrow())
+            }
+        }
+
+        for ((_, v) in this.replaceDeps) {
+            if (v.path.isSome()) {
+                v.path = replaceEnvVars(v.path.getOrThrow())
+            }
+        }
+
+        for ((cLibName, cLibPath) in this.ffi.cLibs) {
+            this.ffi.cLibs[cLibName] = replaceEnvVars(cLibPath)
+        }
+
+        for ((k, v) in this.profile.customizedOption) {
+            this.profile.customizedOption[k] = replaceEnvVars(v)
+        }
+
+        for ((_, v) in this.pkg.packageConfiguration) {
+            v.compileOption = replaceEnvVars(v.compileOption)
+        }
+
+        this.pkg.compileOption = replaceEnvVars(this.pkg.compileOption)
+        this.pkg.overrideCompileOption = replaceEnvVars(this.pkg.overrideCompileOption)
+        this.pkg.linkOption = replaceEnvVars(this.pkg.linkOption)
+        this.pkg.nativeCompileOption = replaceEnvVars(this.pkg.nativeCompileOption)
+        this.pkg.nativeLinkOption = replaceEnvVars(this.pkg.nativeLinkOption)
+        this.pkg.targetDir = replaceEnvVars(this.pkg.targetDir)
+        this.workspace.compileOption = replaceEnvVars(this.workspace.compileOption)
+        this.workspace.overrideCompileOption = replaceEnvVars(this.workspace.overrideCompileOption)
+        this.workspace.linkOption = replaceEnvVars(this.workspace.linkOption)
+        this.workspace.targetDir = replaceEnvVars(this.workspace.targetDir)
+        for (k in 0..this.workspace.members.size) {
+            this.workspace.members[k] = replaceEnvVars(this.workspace.members[k])
+        }
+        for (k in 0..this.workspace.buildMembers.size) {
+            this.workspace.buildMembers[k] = replaceEnvVars(this.workspace.buildMembers[k])
+        }
+        for (k in 0..this.workspace.testMembers.size) {
+            this.workspace.testMembers[k] = replaceEnvVars(this.workspace.testMembers[k])
+        }
+
+        for ((_, targetConfig) in this.targetConfigMap) {
+            targetConfig.replaceEnvVars()
+        }
+        return
+    }
+
+    public func replaceTargetConfig(path: String, targetName: String, debug: Bool, isTest: Bool): Bool {
+        if (!this.targetConfigMap.contains(targetName)) {
+            return true
+        }
+
+        var targetInfo: TargetInfo = this.targetConfigMap[targetName].commonTargetInfo
+        if (debug) {
+            if (!replaceTargetInfo(path, targetInfo, this.targetConfigMap[targetName].debugTargetInfo, targetName,
+                isTest)) {
+                return false
+            }
+        } else {
+            if (!replaceTargetInfo(path, targetInfo, this.targetConfigMap[targetName].releaseTargetInfo, targetName,
+                isTest)) {
+                return false
+            }
+        }
+
+        this.pkg.compileOption = combineOptionString(this.pkg.compileOption, targetInfo.compileOption)
+        this.pkg.overrideCompileOption = combineOptionString(this.pkg.overrideCompileOption,
+            targetInfo.overrideCompileOption)
+        this.pkg.linkOption = combineOptionString(this.pkg.linkOption, targetInfo.linkOption)
+        if (!combineDependencies(path, this.dependencies, targetInfo.dependencies, targetName)) {
+            return false
+        }
+        if (isTest && !combineDependencies(path, this.testDependencies, targetInfo.testDependencies, targetName)) {
+            return false
+        }
+        if (!combineDependencies(path, this.scriptDependencies, targetInfo.scriptDependencies, targetName)) {
+            return false
+        }
+        if (!combineDependencies(path, this.replaceDeps, targetInfo.replaceDeps, targetName)) {
+            return false
+        }
+
+        return true
+    }
+
+    func replaceScriptDepEnv(scriptDep: HashMap<String, DepInfo>): Bool {
+        for ((_, v) in scriptDep) {
+            if (v.path.isSome()) {
+                if (!checkEnvVars(v.path.getOrThrow(), this.pkg.path)) {
+                    return false
+                }
+                v.path = replaceEnvVars(v.path.getOrThrow())
+            }
+        }
+        return true
+    }
+
+    public func getBuildDependencies(path: String, targetName: String, debug: Bool): Option<HashMap<String, DepInfo>> {
+        var res: HashMap<String, DepInfo> = this.scriptDependencies
+        if (!replaceScriptDepEnv(res)) {
+            return Option.None
+        }
+        var targetDep: HashMap<String, DepInfo> = HashMap<String, DepInfo>()
+        var targetDebugDep: HashMap<String, DepInfo> = HashMap<String, DepInfo>()
+        if (this.targetConfigMap.contains(targetName)) {
+            targetDep = this.targetConfigMap[targetName].commonTargetInfo.scriptDependencies
+            if (debug) {
+                targetDebugDep = this.targetConfigMap[targetName].debugTargetInfo.scriptDependencies
+            } else {
+                targetDebugDep = this.targetConfigMap[targetName].releaseTargetInfo.scriptDependencies
+            }
+        }
+        if (!replaceScriptDepEnv(targetDep) || !replaceScriptDepEnv(targetDebugDep)) {
+            return Option.None
+        }
+        if (!combineDependencies(path, targetDep, targetDebugDep, targetName)) {
+            return Option.None
+        }
+        if (!combineDependencies(path, res, targetDep, targetName)) {
+            return Option.None
+        }
+        return res
+    }
+
+    public func replaceNativeConfig(targetName: String, debug: Bool): String {
+        if (!this.targetConfigMap.contains(targetName)) {
+            this.pkg.nativeCompileOption = this.pkg.compileOption
+            this.pkg.nativeLinkOption = this.pkg.linkOption
+            return this.pkg.overrideCompileOption
+        }
+
+        let targetInfo: TargetInfo = this.targetConfigMap[targetName].commonTargetInfo
+        if (debug) {
+            replaceNativeInfo(targetInfo, this.targetConfigMap[targetName].debugTargetInfo)
+        } else {
+            replaceNativeInfo(targetInfo, this.targetConfigMap[targetName].releaseTargetInfo)
+        }
+
+        this.pkg.nativeCompileOption = combineOptionString(this.pkg.compileOption, targetInfo.compileOption)
+        this.pkg.nativeLinkOption = combineOptionString(this.pkg.linkOption, targetInfo.linkOption)
+
+        return combineOptionString(this.pkg.overrideCompileOption, targetInfo.overrideCompileOption)
+    }
+
+    public func replaceCommonInfo(rootPath: String, targetName: String): Bool {
+        this.pkg.compileOption = combineOptionString(COMMON_INFO.compileOption, this.pkg.compileOption)
+        this.pkg.overrideCompileOption = combineOptionString(COMMON_INFO.overrideCompileOption,
+            this.pkg.overrideCompileOption)
+        this.pkg.linkOption = combineOptionString(COMMON_INFO.linkOption, this.pkg.linkOption)
+        for ((_, dep) in COMMON_INFO.dependencies) {
+            if (let Some(path) <- dep.path) {
+                dep.path = getPath(rootPath, path)
+            }
+        }
+        for ((_, devDep) in COMMON_INFO.testDependencies) {
+            if (let Some(path) <- devDep.path) {
+                devDep.path = getPath(rootPath, path)
+            }
+        }
+        for ((_, dep) in COMMON_INFO.scriptDependencies) {
+            if (let Some(path) <- dep.path) {
+                dep.path = getPath(rootPath, path)
+            }
+        }
+        for ((_, dep) in COMMON_INFO.replaceDeps) {
+            if (let Some(path) <- dep.path) {
+                dep.path = getPath(rootPath, path)
+            }
+        }
+        if (!combineDependencies(rootPath, this.dependencies, COMMON_INFO.dependencies, targetName)) {
+            return false
+        }
+        if (!combineDependencies(rootPath, this.testDependencies, COMMON_INFO.testDependencies, targetName)) {
+            return false
+        }
+        if (!combineDependencies(rootPath, this.scriptDependencies, COMMON_INFO.scriptDependencies, targetName)) {
+            return false
+        }
+        if (!combineDependencies(rootPath, this.replaceDeps, COMMON_INFO.replaceDeps, targetName)) {
+            return false
+        }
+
+        this.ffi.combineForeigns(COMMON_INFO.ffi)
+        return true
+    }
+}
+
+func getChecker(map: HashMap<String, String>): ArrayList<String> {
+    let res = ArrayList<String>()
+    for ((_, v) in map) {
+        res.add(v)
+    }
+    return res
+}
+
+// load cjpm config file from path
+public func loadModuleFile(path: String): Option<TomlInfo> {
+    let tomlFile = Path(path).join(CONFIG_FILE_NAME).toString()
+
+    if (!fileExists(tomlFile)) {
+        eprintln("Error: the file '${tomlFile}' does not exist")
+        return Option<TomlInfo>.None
+    }
+
+    var tomlInfo: TomlInfo
+    try {
+        let file = File(tomlFile, ReadWrite)
+        let de = DecoderToml(file)
+        let to = de.decode()
+        tomlInfo = TomlInfo.deserialize(DataModel.fromToml(to))
+        file.close()
+    } catch (e: Exception) {
+        eprintln("${e.message}\nError: parse the '${tomlFile}' file failed")
+        return Option<TomlInfo>.None
+    }
+
+    return tomlInfo
+}
+
+public func loadStringFromFile(file: String): (String, Bool) {
+    var buf: String = ""
+    try {
+        buf = String.fromUtf8(File.readFrom(file))
+    } catch (e: Exception) {
+        eprintln("Error: ${e.toString()} at ${file}")
+        return (buf, false)
+    }
+    return (buf, true)
+}
+
+public func verifyModuleConfig(cfg: TomlInfo, path: String, rootPath: String, isTest!: Bool = false): Bool {
+    return verifyModuleConfigPre(cfg, path, rootPath, isTest: isTest) && verifyModuleConfigPost(cfg, path,
+        isTest: isTest)
+}
+
+// verify cjpm.toml field before resolving
+public func verifyModuleConfigPre(cfg: TomlInfo, path: String, rootPath: String, isTest!: Bool = false): Bool {
+    let configFilePath: String = Path(path).join(CONFIG_FILE_NAME).toString()
+    let (flag, errInfo) = cfg.isCompatible()
+    if (!flag) {
+        eprintln("Error: ${errInfo} at ${configFilePath}")
+        return false
+    }
+    if (cfg.isWorkSpaceConfig && getCanonicalPath(path) != getCanonicalPath(rootPath)) {
+        eprintln("Error: the member module can't be another workspace at ${configFilePath}")
+        return false
+    }
+
+    if (!cfg.checkJsonEnvVars()) {
+        return false
+    }
+    cfg.replaceJsonEnvVars()
+
+    if (!verifyDependencyConfig(cfg.dependencies, "'dependencies' field at ${configFilePath}", path)) {
+        return false
+    }
+    if (isTest && !verifyDependencyConfig(cfg.testDependencies,
+        "'test-dependencies' field at ${configFilePath}", path)) {
+        return false
+    }
+    if (!verifyDependencyConfig(cfg.scriptDependencies, "'script-dependencies' field at ${configFilePath}", path)) {
+        return false
+    }
+    if (!verifyDependencyConfig(cfg.replaceDeps, "'replace' field at ${configFilePath}", path)) {
+        return false
+    }
+    if (!verifyCustomizedOption(cfg.profile.customizedOption, configFilePath)) {
+        return false
+    }
+    if (!ltoValueCheck(cfg.profile.build.ltoValue, configFilePath)) {
+        return false
+    }
+    if (!ltoValueCheck(cfg.profile.test.ltoValue, configFilePath)) {
+        return false
+    }
+
+    if (cfg.isPkgConfig) {
+        cfg.pkg.compileOption = fixCompileOption(cfg.pkg.compileOption, configFilePath)
+        cfg.pkg.overrideCompileOption = fixCompileOption(cfg.pkg.overrideCompileOption, configFilePath)
+        for ((pkg, pkgCfg) in cfg.pkg.packageConfiguration) {
+            pkgCfg.compileOption = fixCompileOption(pkgCfg.compileOption, configFilePath)
+        }
+        return verifyPackageField(cfg, path)
+    }
+    return true
+}
+
+// verify cjpm.toml field after resolving
+public func verifyModuleConfigPost(cfg: TomlInfo, path: String, isTest!: Bool = false): Bool {
+    let configFilePath: String = Path(path).join(CONFIG_FILE_NAME).toString()
+
+    if (!verifyCLibConfig(cfg.ffi.cLibs, path, configFilePath)) {
+        return false
+    }
+    if (!verifyTargetConfig(cfg.targetConfigMap, path, configFilePath, isTest: isTest)) {
+        return false
+    }
+
+    return true
+}
+
+func verifyLinkOption(option: String, configFilePath: String): Bool {
+    return safeCheck(option, configFilePath)
+}
+
+func verifyAll<T>(location: String, checkList: T): Bool where T <: Iterable<((String, String) -> Bool, ?String)> {
+    var result = true
+    for ((check, v) in checkList) {
+        if (let Some(val) <- v) {
+            result &&= check(val, location)
+        }
+    }
+
+    return result
+}

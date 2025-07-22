@@ -1,0 +1,426 @@
+// Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+// This source file is part of the Cangjie project, licensed under Apache-2.0
+// with Runtime Library Exception.
+//
+// See https://cangjie-lang.cn/pages/LICENSE for license information.
+
+package cjpm.implement
+
+import std.collection.*
+import std.fs.*
+import stdx.encoding.json.*
+import stdx.serialization.serialization.*
+import cjpm.config.*
+
+public func runScript(scriptConfig: ScriptConfig, step: String, command: String): Bool {
+    if (scriptConfig.isEmpty()) {
+        return true
+    }
+
+    if ((step == BUILD_SCRIPT_STEP_PRE) && !scriptConfig.isRelocated && !buildScriptExe(scriptConfig)) {
+        return false
+    }
+
+    return runScriptExe(scriptConfig, step + command)
+}
+
+public func makeScriptConfigByToml(rootPath: String, modulePath: String, tomlInfo: TomlInfo, debug: Bool,
+    verbose: Bool, cross: Bool): Option<ScriptConfig> {
+    let (flag, errlog) = tomlInfo.isCompatible()
+    if (!flag) {
+        eprintln("Error: ${errlog} at ${Path(modulePath).join(CONFIG_FILE_NAME).toString()}")
+        return Option.None
+    }
+    var moduleName: String = WORKSPACE_NAME
+    if (tomlInfo.isPkgConfig) {
+        if (!nameCheck(tomlInfo.pkg.name, Path(modulePath).join(CONFIG_FILE_NAME).toString())) {
+            return Option.None
+        }
+        moduleName = tomlInfo.pkg.name
+    }
+
+    var scriptConfig: ScriptConfig = ScriptConfig()
+    if (!fileExists(Path(modulePath).join(BUILD_SCRIPT_NAME))) {
+        if (fileExists(Path(modulePath).join(BUILD_SCRIPT_NAME).toString() + ".bak")) {
+            scriptConfig.isRelocated = true
+        } else {
+            return scriptConfig
+        }
+    }
+
+    // targetDirectory is prepared here
+    scriptConfig.isVerbose = verbose
+    scriptConfig.moduleName = moduleName
+    scriptConfig.modulePath = getCanonicalPath(modulePath)
+    var srcDir = tomlInfo.pkg.srcDir
+    if (srcDir.isEmpty()) {
+        srcDir = "src"
+    }
+    scriptConfig.moduleSrcPath = getPath(scriptConfig.modulePath, replaceEnvVars(srcDir))
+    scriptConfig.scriptPath = Path(scriptConfig.modulePath).join(BUILD_SCRIPT_NAME).toString()
+
+    var targetPath: Path = Path(getCanonicalPath(rootPath)).join(BUILD_SCRIPT_DIR)
+    var targetName: String = targetConfigName
+    if (cross) {
+        targetPath = targetPath.join(crossCompileTarget)
+        targetName = crossCompileTarget
+        scriptConfig.isCrossCompile = true
+    }
+    if (debug) {
+        targetPath = targetPath.join("debug")
+        scriptConfig.isDebug = true
+    } else {
+        targetPath = targetPath.join("release")
+    }
+    scriptConfig.scriptDep = tomlInfo.getBuildDependencies(modulePath, targetName, debug) ?? return Option.None
+    scriptConfig.scriptTargetDir = targetPath.join(moduleName).toString()
+
+    scriptConfig.scriptExe = Path(scriptConfig.scriptTargetDir).join("bin").join(BUILD_SCRIPT_OUTPUT).toString()
+    scriptConfig.scriptHash = Path(scriptConfig.scriptTargetDir).join("bin").join(BUILD_SCRIPT_CACHE).toString()
+    scriptConfig.scriptLog = Path(scriptConfig.scriptTargetDir).join("bin").join(BUILD_SCRIPT_LOG).toString()
+
+    return scriptConfig
+}
+
+public func makeScriptConfig(modulePath: String, debug: Bool, verbose: Bool, cross: Bool): Option<ScriptConfig> {
+    let absoluteModulePath: String = getCanonicalPath(modulePath)
+    if (!safeCheck(absoluteModulePath, modulePath)) {
+        return Option.None
+    }
+
+    if (!fileExists(Path(modulePath).join(BUILD_SCRIPT_NAME)) &&
+        !fileExists(Path(modulePath).join(BUILD_SCRIPT_NAME).toString() + ".bak")) {
+        return ScriptConfig()
+    }
+
+    let tomlInfo: TomlInfo = loadModuleFile(modulePath) ?? return Option.None
+
+    return makeScriptConfigByToml(DIR_CURRENT, modulePath, tomlInfo, debug, verbose, cross)
+}
+
+func runScriptExe(scriptConfig: ScriptConfig, commandArg: String): Bool {
+    var cmd = ""
+    var exePath = ""
+    var envs = HashMap<String, String>()
+    if (RUN_SCRIPT_CMD_MAP.contains(scriptConfig.moduleName)) {
+        (cmd, exePath, envs) = RUN_SCRIPT_CMD_MAP[scriptConfig.moduleName]
+        if (scriptConfig.isVerbose) {
+            println("${cmd} ${commandArg}")
+        }
+    } else {
+        exePath = scriptConfig.scriptExe
+        envs = getEnvMap(scriptConfig.scriptLdPath)
+        if (scriptConfig.isVerbose) {
+            cmd = "Run build script: "
+            if (!scriptConfig.scriptLdPath.isEmpty()) {
+                cmd += "${setLdLibraryPath(scriptConfig.scriptLdPath)} "
+            }
+            cmd += "${scriptConfig.scriptExe}"
+            println("${cmd} ${commandArg}")
+        }
+        RUN_SCRIPT_CMD_MAP.add(scriptConfig.moduleName, (cmd, exePath, envs))
+    }
+    let (flag, outInfo, errInfo) = execWithOutput(exePath, ArrayList<String>([commandArg]), envMap: envs,
+        workingDirectory: Path(scriptConfig.modulePath), spawnForScript: true)
+    let output: String = errInfo + outInfo
+    try {
+        File.appendTo(scriptConfig.scriptLog, output.toArray())
+    } catch (_: Exception) {
+        eprintln("Error: failed to generate log file ${scriptConfig.scriptLog}")
+        return false
+    }
+    if (!flag) {
+        eprintln(errInfo)
+        eprintln("Error: failed to run build script in path ${scriptConfig.modulePath} by operation " +
+            "'${commandArg}', output is redirected into ${scriptConfig.scriptLog}")
+        return false
+    }
+
+    return true
+}
+
+public func runMultiScriptPost(globalConfig: GlobalConfig): Bool {
+    globalConfig.scriptList.reverse()
+    for (scriptConfig in globalConfig.scriptList) {
+        if (!runScript(scriptConfig, BUILD_SCRIPT_STEP_POST, globalConfig.resolveType)) {
+            return false
+        }
+    }
+    return true
+}
+
+func getDepPath(modulePath: String, depName: String, depInfo: DepInfo): Option<String> {
+    if (let Some(depPath) <- depInfo.path) {
+        return getPath(modulePath, depPath)
+    }
+    return getOnlineDepPath(modulePath, depName, depInfo)
+}
+
+func getScriptDeps(scriptConfig: ScriptConfig): HashMap<String, DepInfo> {
+    let deps = scriptConfig.scriptDep
+    let (loadFlag, lockFile) = loadLockFile(scriptConfig.modulePath)
+    if (!loadFlag) {
+        return deps
+    }
+
+    for ((depName, depInfo) in lockFile.scripts) {
+        if (deps.contains(depName)) {
+            deps.add(depName, depInfo)
+        }
+    }
+    return deps
+}
+
+func writeScriptLock(rootPath: String, scriptDeps: HashMap<String, DepInfo>): Bool {
+    if (scriptDeps.isEmpty()) {
+        return true
+    }
+
+    let (loadFlag, lockFile) = loadLockFile(rootPath)
+    if (!loadFlag) {
+        return false
+    }
+
+    scriptDeps.removeIf {_, v => v.path.isSome()}
+    var lockFilePath: String = Path(rootPath).join(LOCK_FILE_NAME).toString()
+    // Overwrite file only if we have meaningful changes in case field serialization order got changed
+    if (lockFile.scripts != scriptDeps || !fileExists(lockFilePath)) {
+        if (!lockFile.scripts.isEmpty() && !deleteFile(lockFilePath)) {
+            return false
+        }
+
+        if (!creatLockFile(rootPath, ModuleLock(lockFile.requires, scriptDeps))) {
+            return false
+        }
+    }
+
+    return true
+}
+
+func buildScriptExe(scriptConfig: ScriptConfig): Bool {
+    let crossCompileBackup: String = crossCompileTarget
+    crossCompileTarget = ""
+
+    let buildConfig = BuildConfig()
+    let scriptDeps = getScriptDeps(scriptConfig)
+    if (!scriptDeps.isEmpty()) {
+        var depPathList: ArrayList<String> = ArrayList<String>()
+        for ((depName, depInfo) in scriptDeps) {
+            let depPath: String = getDepPath(scriptConfig.modulePath, depName, depInfo) ?? return false
+            depPathList.add(depPath)
+        }
+
+        buildConfig.isVerbose = scriptConfig.isVerbose
+        buildConfig.isIncremental = true
+        buildConfig.isDebug = scriptConfig.isDebug
+        buildConfig.targetDir = Path(scriptConfig.scriptTargetDir).join("libs").toString()
+
+        buildConfig.globalConfig.isVerbose = buildConfig.isVerbose
+        buildConfig.globalConfig.isIncremental = true
+        buildConfig.globalConfig.rootPath = scriptConfig.modulePath
+        buildConfig.globalConfig.resolveType = RESOLVE_BUILD
+
+        let tomlInfo: TomlInfo = TomlInfo()
+        tomlInfo.isWorkSpaceConfig = true
+        tomlInfo.isPkgConfig = false
+        tomlInfo.workspace.members.add(all: depPathList)
+
+        let commonInfoCache: CommonInfo = COMMON_INFO
+        COMMON_INFO = CommonInfo()
+        if (!doBuild(tomlInfo, buildConfig, isScriptDep: true)) {
+            return false
+        }
+        COMMON_INFO = commonInfoCache
+        scriptConfig.scriptLdPath.add(all: buildConfig.globalConfig.ldPath)
+    }
+
+    crossCompileTarget = crossCompileBackup
+
+    if (!makeScriptExe(scriptConfig, buildConfig)) {
+        return false
+    }
+
+    // change name of build.cj
+    if (checkParentDir(scriptConfig.moduleSrcPath, scriptConfig.scriptPath) && !relocateScript(scriptConfig)) {
+        return false
+    }
+
+    return writeScriptLock(scriptConfig.modulePath, scriptDeps)
+}
+
+func relocateScript(scriptConfig: ScriptConfig): Bool {
+    try {
+        rename(scriptConfig.scriptPath, to: scriptConfig.scriptPath.removeSuffix("build.cj") + "build.cj.bak",
+            overwrite: true)
+        RELOCATED_SCRIPT_MAP.add(scriptConfig.scriptPath)
+        scriptConfig.isRelocated = true
+    } catch (e: Exception) {
+        eprintln(e.message)
+        eprintln("Error: failed to backup build.cj")
+        return false
+    }
+
+    return true
+}
+
+func getScriptDepLink(modulePath: String, buildConfig: BuildConfig): Option<ArrayList<String>> {
+    var arguments = ArrayList<String>(["-p", modulePath, "--scan-dependency"])
+    let (scanFlag, outInfo, errInfo) = execWithOutput(COMPILE_TOOL, arguments)
+    let scanDepCmd: String = COMPILE_TOOL + " " + String.join(arguments.toArray(), delimiter: " ")
+    if (!scanFlag) {
+        eprintln(errInfo)
+        eprintln("Error: failed to obtain package import information, please execute '${scanDepCmd}' to check")
+        return Option.None
+    }
+
+    var res = RequiresPackages()
+    try {
+        res = RequiresPackages.deserialize(DataModel.fromJson(JsonValue.fromStr(outInfo)))
+    } catch (e: Exception) {
+        eprintln("Error: failed to parse package import information, please execute '${scanDepCmd}' to check")
+        println(outInfo)
+        return Option.None
+    }
+
+    var allPackageSet: HashSet<String> = HashSet<String>(buildConfig.allPackages)
+    var requires: HashSet<String> = HashSet<String>()
+    for (fullName in res.dependencies) {
+        for (importInfo in fullName.importsList) {
+            if (!importInfo.fileImported.endsWith(PATH_SPLIT_CHAR + BUILD_SCRIPT_NAME)) {
+                continue
+            }
+            if (allPackageSet.contains(fullName.orPkgName)) {
+                requires.add(fullName.orPkgName)
+            } else if (allPackageSet.contains(fullName.packageName)) {
+                requires.add(fullName.packageName)
+            } else {
+                eprintln("Error: dependency ${fullName.packageName} is not compiled")
+                return Option.None
+            }
+        }
+    }
+
+    var stdRequires: HashSet<String> = HashSet<String>()
+    for (fullName in res.stdDependencies) {
+        for (importInfo in fullName.importsList) {
+            stdRequires.add(fullName.packageName)
+        }
+    }
+
+    var resolveConfig: ResolveConfig = ResolveConfig()
+    resolveConfig.fullName = "build-script"
+    resolveConfig.outputType = EXE_TYPE
+    resolveConfig.requirePkgs = requires
+    resolveConfig.stdRequirePkgs = stdRequires
+    buildConfig.requiresMap.add(resolveConfig.fullName, requires)
+    return getDepLinkCommand(resolveConfig, buildConfig, false)
+}
+
+func getEnvMap(ldPath: HashSet<String>): HashMap<String, String> {
+    let ldPathString: String = getNativeLdLibraryConfig(ldPath)
+    let envs: HashMap<String, String> = HashMap<String, String>()
+    if (!LD_PATH.isEmpty() && !ldPathString.isEmpty()) {
+        envs.add(LD_PATH, ldPathString)
+        if (LD_PATH == "Path") {
+            envs.add("PATH", ldPathString)
+            envs.add("path", ldPathString)
+        }
+    }
+    return envs
+}
+
+func getCompileArgs(scriptConfig: ScriptConfig, buildConfig: BuildConfig): Option<(HashMap<String, String>, ArrayList<String>)> {
+    let ldPathString: String = getNativeLdLibraryConfig(scriptConfig.scriptLdPath)
+    var cmd: String = "\"${scriptConfig.scriptPath}\""
+    for (p in buildConfig.globalConfig.cjPathList) {
+        if (directoryExists(p)) {
+            cmd += " --import-path=${p}"
+        }
+    }
+    cmd += " -o ${scriptConfig.scriptExe}"
+    if (scriptConfig.isCrossCompile) {
+        cmd += " --cfg=\"target=${crossCompileTarget}\""
+    } else {
+        cmd += " --cfg=\"target=${targetConfigName}\""
+    }
+    var depLinkList: ArrayList<String> = getScriptDepLink(scriptConfig.modulePath, buildConfig) ?? return Option.None
+    if (!depLinkList.isEmpty()) {
+        cmd += " ${String.join(depLinkList.toArray(), delimiter: " ")} "
+    }
+    if (scriptConfig.isVerbose) {
+        print("Compiling build script of `${scriptConfig.moduleName}`:")
+        if (!ldPathString.isEmpty()) {
+            print(" ${setLdLibraryPath(scriptConfig.scriptLdPath)}")
+        }
+        print(" ${COMPILE_TOOL} ${cmd}\n")
+    }
+
+    return (getEnvMap(scriptConfig.scriptLdPath), extractOptionByString(cmd))
+}
+
+func getScriptIncremental(scriptConfig: ScriptConfig): String {
+    var res: String = ""
+    if (!directoryExists(scriptConfig.scriptTargetDir) || !fileExists(scriptConfig.scriptExe)) {
+        return ""
+    }
+    try {
+        if (fileExists(scriptConfig.scriptPath)) {
+            res += String.fromUtf8(File.readFrom(scriptConfig.scriptPath))
+        } else if (fileExists(scriptConfig.scriptPath + ".bak")) {
+            res += String.fromUtf8(File.readFrom(scriptConfig.scriptPath + ".bak"))
+        }
+        res += FileInfo(scriptConfig.scriptExe).lastModificationTime.toUnixTimeStamp().toSeconds().toString()
+    } catch (e: Exception) {
+        eprintln(e.message)
+        eprintln("Warning: file error in ${scriptConfig.scriptTargetDir}, cannot generate hash code, rebuild build.cj")
+        return ""
+    }
+    return res.hashCode().toString()
+}
+
+func isRebuild(scriptConfig: ScriptConfig, buildConfig: BuildConfig): Bool {
+    if (buildConfig.isRebuild) {
+        return true
+    }
+
+    if (!fileExists(scriptConfig.scriptHash)) {
+        return true
+    }
+
+    let preHash = String.fromUtf8(File.readFrom(scriptConfig.scriptHash))
+    let curHash: String = getScriptIncremental(scriptConfig)
+
+    return preHash != curHash
+}
+
+func makeScriptExe(scriptConfig: ScriptConfig, buildConfig: BuildConfig): Bool {
+    if (!isRebuild(scriptConfig, buildConfig)) {
+        return true
+    }
+
+    if (!createDirectory(Path(scriptConfig.scriptTargetDir).join("bin").toString())) {
+        return false
+    }
+
+    let (envs, args) = getCompileArgs(scriptConfig, buildConfig) ?? return false
+    let (flag, outInfo, errInfo) = execWithOutput(COMPILE_TOOL, args, envMap: envs)
+
+    if (!outInfo.isEmpty()) {
+        println(outInfo)
+    }
+    if (!flag) {
+        eprintln(errInfo)
+        eprintln("Error: failed to build script ${scriptConfig.scriptPath}")
+        return false
+    }
+
+    try {
+        File.writeTo(scriptConfig.scriptHash, getScriptIncremental(scriptConfig).toArray())
+    } catch (e: Exception) {
+        eprintln(e.message)
+        eprintln("Error: failed to generate ${BUILD_SCRIPT_CACHE}")
+        return false
+    }
+
+    return true
+}

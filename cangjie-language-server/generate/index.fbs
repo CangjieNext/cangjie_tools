@@ -1,0 +1,79 @@
+// Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+// This source file is part of the Cangjie project, licensed under Apache-2.0
+// with Runtime Library Exception.
+//
+// See https://cangjie-lang.cn/pages/LICENSE for license information.
+
+namespace IdxFormat;
+
+// Module
+file_identifier "CJID";
+
+struct Position {
+  file_id:uint32;
+  line:int32;
+  column:int32;
+}
+
+table Location {
+  begin:Position;
+  end:Position;
+  file_uri:string;
+}
+
+table Symbol {
+  id:uint64;
+  name:string;
+  scope:string;
+  location:Location;
+  declaration:Location;
+  kind:uint16;
+  signature:string;
+  return_type:string;
+  is_member_param:bool;
+  modifier:uint8;
+  is_cjo_sym:bool;
+  is_deprecated:bool;
+  insert_text:string;
+  cur_module:string;
+  cur_macro_call:Location;
+}
+
+table Ref {
+  location:Location;
+  kind:uint16;
+  id:uint64;
+  is_cjo_ref:bool;
+}
+
+table Sym2Ref {
+  id:uint64;
+  refs:[Ref];
+}
+
+table Extend {
+  id:uint64;
+  modifier:uint8;
+  interface:string;
+}
+
+table Sym2Extend {
+  id:uint64;
+  extends:[Extend];
+}
+
+table Relation {
+  subject:uint64;
+  kind:uint16;
+  object:uint64;
+}
+
+table HashedPackage {
+  symbol_slab:[Symbol];
+  ref_slab:[Sym2Ref];
+  relation_slab:[Relation];
+  extend_slab:[Sym2Extend];
+}
+
+file_extension "idx";
+root_type HashedPackage;

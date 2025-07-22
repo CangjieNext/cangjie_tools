@@ -1,0 +1,388 @@
+// Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+// This source file is part of the Cangjie project, licensed under Apache-2.0
+// with Runtime Library Exception.
+//
+// See https://cangjie-lang.cn/pages/LICENSE for license information.
+
+package cjpm.config
+
+import std.collection.*
+import std.fs.*
+import std.regex.*
+import std.io.*
+import std.process.*
+import std.runtime.*
+import std.env.*
+
+foreign func system(command: CString): Int32
+
+// Simply execute the command.
+// For expand command and without env config
+public func execAndToTerminal(exeTool: String, arguments: Array<String>, timeout!: Option<Duration> = None,
+    workingDirectory!: ?Path = None): Bool {
+    try {
+        let subProcess: SubProcess
+        var returnCode: Int64
+        subProcess = launch(exeTool, arguments, workingDirectory: workingDirectory)
+        returnCode = subProcess.wait(timeout: timeout)
+        return returnCode == 0
+    } catch (e: Exception) {
+        eprintln(e.message)
+        return false
+    }
+}
+
+// Execute the command and store the output.
+public func execWithOutput(exeTool: String, arguments: ArrayList<String>,
+    envMap!: HashMap<String, String> = HashMap<String, String>(), timeout!: Option<Duration> = None,
+    workingDirectory!: ?Path = None, spawnForScript!: Bool = false): (Bool, String, String) {
+    let subProcess: SubProcess
+    var returnCode: Int64
+    var outInfo = ""
+    var errInfo = ""
+    try {
+        let env = HashMap<String, String>(getVariables())
+        for ((k, v) in envMap) {
+            if (env.contains(k)) {
+                env[k] = v + env[k]
+            } else {
+                env[k] = v
+            }
+        }
+        subProcess = launch(exeTool, arguments.toArray(), environment: env, workingDirectory: workingDirectory,
+            stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
+        if (spawnForScript) {
+            let outInfoFuture = spawn {StringReader(subProcess.stdOutPipe).readToEnd()}
+            let errInfoFuture = spawn {StringReader(subProcess.stdErrPipe).readToEnd()}
+            outInfo = outInfoFuture.get()
+            errInfo = errInfoFuture.get()
+        } else {
+            outInfo = StringReader(subProcess.stdOutPipe).readToEnd()
+            errInfo = StringReader(subProcess.stdErrPipe).readToEnd()
+        }
+        returnCode = subProcess.wait(timeout: timeout)
+        return (returnCode == 0, outInfo, errInfo)
+    } catch (e: Exception) {
+        eprintln(e.message)
+        return (false, outInfo, errInfo)
+    }
+}
+
+// Execute command, and print the output indirectly.
+public func exec(command: String): Bool {
+    let cCommand = unsafe { LibC.mallocCString(command) }
+    let res = unsafe { system(cCommand) }
+    unsafe {
+        LibC.free(cCommand)
+    }
+    return res == 0
+}
+
+// Execute commands through pipes and redirect the output to files.
+public func execAndToFile(exeTool: String, arguments: ArrayList<String>, outFile: File, errFile: File,
+    envMap!: HashMap<String, String> = HashMap<String, String>(), workingDirectory!: ?Path = None): Option<Int64> {
+    let subProcess: SubProcess
+    try {
+        let env = HashMap<String, String>(getVariables())
+        for ((k, v) in envMap) {
+            if (env.contains(k)) {
+                env[k] = v + env[k]
+            } else {
+                env[k] = v
+            }
+        }
+        subProcess = launch(exeTool, arguments.toArray(), workingDirectory: workingDirectory, environment: env,
+            stdOut: ProcessRedirect.FromFile(outFile), stdErr: ProcessRedirect.FromFile(errFile))
+        return subProcess.wait()
+    } catch (e: Exception) {
+        errFile.write("${e.message}\n".toArray())
+        return Option.None
+    }
+}
+
+// Execute the executable product for run command.
+public func execWithEnvReplace(exeTool: String, arguments: Array<String>,
+    envMap!: HashMap<String, String> = HashMap<String, String>(), timeout!: Option<Duration> = None,
+    workingDirectory!: ?Path = None): Unit {
+    try {
+        let subProcess: SubProcess
+        let env = HashMap<String, String>(getVariables())
+        for ((k, v) in envMap) {
+            if (k == PATH) {
+                fixWindowsPath(env, v)
+            } else if (k == LD_PATH && env.contains(k)) {
+                env[k] = v + SPLIT_ENV + env[k]
+            } else {
+                env[k] = v
+            }
+        }
+        subProcess = launch(exeTool, arguments, environment: env, workingDirectory: workingDirectory)
+        subProcess.wait(timeout: timeout)
+        return
+    } catch (e: Exception) {
+        eprintln(e.message)
+    }
+}
+
+public func getCpus(): Int64 {
+    let size: Int64 = getProcessorCount()
+    if (size <= 0) {
+        // Faied to get cpu size, so it is set as the default value '8'
+        return 8
+    }
+    return size
+}
+
+public func getOriginTargetDirectory(oriTargetDir: String, rootPath: String, cmdDir: String, configFileDir: String,
+    needCreate: Bool): Option<String> {
+    var targetDir: String = oriTargetDir
+
+    if (targetDir == TARGET) {
+        if (!cmdDir.isEmpty()) {
+            targetDir = cmdDir
+        } else if (!configFileDir.isEmpty()) {
+            targetDir = configFileDir
+        }
+    }
+
+    if (!safeCheck(getCanonicalPath(rootPath), "current path") ||
+        !safeCheck(targetDir, Path(rootPath).join(CONFIG_FILE_NAME).toString())) {
+        return Option.None
+    }
+
+    if (needCreate && !createDirectory(targetDir)) {
+        return Option.None
+    }
+
+    if (directoryExists(targetDir)) {
+        targetDir = getCanonicalPath(targetDir)
+    }
+
+    return targetDir
+}
+
+public func replaceEnvforTargetDir(tomlInfo: TomlInfo, path: String): Bool {
+    if (tomlInfo.isPkgConfig) {
+        if (!tomlInfo.pkg.targetDir.isEmpty() && !checkEnvVars(tomlInfo.pkg.targetDir, path)) {
+            return false
+        }
+        tomlInfo.pkg.targetDir = replaceEnvVars(tomlInfo.pkg.targetDir)
+    } else {
+        if (!tomlInfo.workspace.targetDir.isEmpty() && !checkEnvVars(tomlInfo.workspace.targetDir, path)) {
+            return false
+        }
+        tomlInfo.workspace.targetDir = replaceEnvVars(tomlInfo.workspace.targetDir)
+    }
+    return true
+}
+
+// extract options from string, such as: ( -a  --ab="a bc" -g --bc "c d" ) -> [-a,--ab,"a bc",-g,--bc,"c d"]
+public func extractOptionByString(input: String): ArrayList<String> {
+    if (input.isEmpty()) {
+        return ArrayList<String>()
+    }
+
+    let options = ArrayList<String>()
+    var option: String = ""
+    var count = 0
+    for (k in input.runes()) {
+        if (k == r' ') {
+            if (option.isEmpty()) {
+                continue
+            }
+            if (count % 2 == 0) {
+                options.add(option)
+                option = ""
+                continue
+            }
+        }
+        if (k == r'"') {
+            if (option.isEmpty() || option[option.size - 1] != UInt8(UInt32(r'\\'))) {
+                count += 1
+            }
+        }
+        option += k.toString()
+    }
+    if (!option.isEmpty()) {
+        options.add(option)
+    }
+
+    let res = ArrayList<String>()
+    for (val in options) {
+        res.add(all: parseEachArgs(val))
+    }
+    return res
+}
+
+// Check if dir1 is a parent of (or is same with) dir2
+public func checkParentDir(dir1: String, dir2: String): Bool {
+    if (dir1.isEmpty() || !directoryExists(dir1)) {
+        return false
+    }
+    let arr1: Array<String> = dir1.split(PATH_SPLIT_CHAR)
+    let arr2: Array<String> = dir2.split(PATH_SPLIT_CHAR)
+    if (arr1.size > arr2.size) {
+        return false
+    }
+    for (index in 0..arr1.size) {
+        if (arr1[index] != arr2[index]) {
+            return false
+        }
+    }
+    return true
+}
+
+public func getRootPkgName(name: String): String {
+    var idx = 0
+    if (name[idx] == UInt8(UInt32(r'`'))) {
+        if (let Some(next) <- name.indexOf(UInt8(UInt32(r'`')), idx + 1)) {
+            return name[0..=next]
+        }
+    } else {
+        if (let Some(next) <- name.indexOf(UInt8(UInt32(r'.')), idx + 1)) {
+            return name[0..next]
+        }
+    }
+    return name
+}
+
+public func getParentPkgName(name: String): String {
+    if (let Some(next) <- name.lastIndexOf(UInt8(UInt32(r'.')))) {
+        return name[0..next]
+    }
+    return ""
+}
+
+// parse option for pure string, such as: ("abc",-o=aaa,-d="vvv",k"l) -> [abc,-o,aaa,-d,vvv,k"l]
+func parseEachArgs(input: String): ArrayList<String> {
+    let res = ArrayList<String>()
+    var option: String = ""
+    var counts = 0
+    var equals = 0
+    var hasLeft: Bool = false
+    for (k in input.runes()) {
+        if (k == r'=') {
+            if (counts % 2 == 0 && equals == 0 && !option.isEmpty() && option.contains("-")) {
+                res.add(option)
+                option = ""
+                equals += 1
+                continue
+            }
+            if (counts % 2 == 0) {
+                equals += 1
+            }
+        }
+        if (k == r'"') {
+            if (!option.isEmpty() && option[option.size - 1] == UInt8(UInt32(r'\\'))) {
+                option += k.toString()
+                continue
+            }
+            if (option.isEmpty() && !hasLeft) {
+                counts += 1
+                hasLeft = true
+                continue
+            }
+            if (hasLeft) {
+                counts += 1
+                hasLeft = false
+                continue
+            }
+        }
+        option += k.toString()
+    }
+    if (!option.isEmpty()) {
+        res.add(option)
+    }
+
+    if (counts % 2 != 0) {
+        return ArrayList<String>.of(input)
+    }
+    return res
+}
+
+func combineOptionString(preStr: String, postStr: String): String {
+    if (preStr.isEmpty() || postStr.isEmpty()) {
+        return preStr + postStr
+    }
+    return preStr + " " + postStr
+}
+
+// Change Path from "xxx/xxx/pro/xoo.cjo" to (xxx/xxx, xxx/xxx/pro), this path must be exist.
+public func makePackagePath(path: String): (String, String) {
+    let packagePath = Path(path).parent.toString()
+    if (packagePath.isEmpty()) {
+        throw NoneValueException()
+    }
+    let cangjiePath = Path(packagePath).parent.toString()
+    if (cangjiePath.isEmpty()) {
+        throw NoneValueException()
+    }
+    return (cangjiePath, packagePath)
+}
+
+// Hashcode of json data
+public func bufferHashCode(b: ArrayList<String>): String {
+    var dfh: DefaultHasher = DefaultHasher()
+    for (k in b) {
+        dfh.write(k.hashCode())
+    }
+    return dfh.finish().toString()
+}
+
+// Check environment config in field values
+public func checkEnvVars(envVar: String, path: String): Bool {
+    let regexEnvVars = Regex("\\$\\{(.*?)\\}")
+    let matchDataArray: Array<MatchData> = regexEnvVars.findAll(envVar, group: true)
+    for (matchData in matchDataArray) {
+        if (!checkEnvKeys(matchData.matchString(0), path)) {
+            return false
+        }
+    }
+
+    return true
+}
+
+// Check if environment keys in field values exist
+public func checkEnvKeys(key: String, path: String): Bool {
+    var matched = Regex(#"^\${[a-zA-Z]+[_a-zA-Z0-9]*}$"#)
+    if (matched.find(key).isNone()) {
+        let jsonPath = path + PATH_SPLIT_CHAR + CONFIG_FILE_NAME
+        eprintln("Error: the environment variable '${key}' is wrong in ${jsonPath}")
+        return false
+    }
+    return true
+}
+
+// Replace environment config by real path
+public func replaceEnvVars(envVar: String): String {
+    if (envVar.isEmpty()) {
+        return envVar
+    }
+
+    var res = envVar
+    let regexEnvVars = Regex("\\$\\{(.*?)\\}")
+    let matchDataArray = regexEnvVars.findAll(res, group: true)
+    for (matchData in matchDataArray) {
+        let key: String = matchData.matchString(0)
+        let value: String = getVariable(matchData.matchString(1)) ?? ""
+        res = res.replace(key, value)
+    }
+
+    return res
+}
+
+// extract config options from string, such as: ( -a  --cfg="a bc" -g --cfg "c d" ) -> [--cfg,"a bc",--cfg,"c d"]
+public func extractCfgOption(input: String): ArrayList<String> {
+    let oriRes = extractOptionByString(input)
+    let res = ArrayList<String>()
+    var index = 0
+    while (index < oriRes.size - 1) {
+        if ((oriRes[index] == "--cfg")) {
+            res.add(all: oriRes[index..(index + 2)])
+            index += 2
+        } else {
+            index += 1
+        }
+    }
+    return res
+}

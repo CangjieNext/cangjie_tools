@@ -1,0 +1,198 @@
+// Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+// This source file is part of the Cangjie project, licensed under Apache-2.0
+// with Runtime Library Exception.
+//
+// See https://cangjie-lang.cn/pages/LICENSE for license information.
+
+package cjpm.command
+
+import std.collection.*
+import std.convert.*
+import std.regex.*
+import cjpm.implement.*
+import cjpm.config.*
+
+let BUILD_LONG_OPTION: Array<String> = ["verbose", "output=", "target=", "incremental", "target-dir=",
+    "jobs=", "mock", "member=", "skip-script"]
+let BUILD_USAGE: String = """
+Compile a local module and all of its dependencies.
+
+Usage:
+  cjpm build [option]
+
+Available options:
+  -h, --help                    help for build
+  -i, --incremental             enable incremental compilation
+  -j, --jobs <N>                the number of jobs to spawn in parallel during the build process
+  -V, --verbose                 enable verbose
+  -g                            enable compile debug version target
+  --cfg                         enable the customized option 'cfg'
+  -m, --member <value>          specify a member module of the workspace
+  --target <value>              generate code for the given target platform
+  --target-dir <value>          specify target directory
+  -o, --output <value>          specify product name when compiling an executable file
+  --mock                        enable support of mocking classes in tests
+  --skip-script                 disable script 'build.cj'."""
+@When[os == "Windows"]
+let EXAMPLE_OUTPUT_NAME = "main.exe"
+@When[os != "Windows"]
+let EXAMPLE_OUTPUT_NAME = "main"
+
+// BuildCommand represents the build command
+class BuildCommand <: Handle {
+    private let BUILD_SHORT_OPTION: String = "Vo:gij:lm:"
+
+    init(args: Array<String>) {
+        this.cmdName = args[0]
+        this.arguments = args[1..] // remove build itself
+    }
+
+    public override func printHelp(): Unit {
+        println(BUILD_USAGE)
+        return
+    }
+
+    // Check output name for the executable file.
+    func outputNameCheck(name: String, buildConfig: BuildConfig): Bool {
+        if (name.size == 0) {
+            eprintln("Error: the '--output' option needs a value")
+            return false
+        }
+        // Regexp output name.
+        let REGEXP_OUTPUT_NAME = "^([a-zA-Z]+[-._a-zA-Z0-9]*)$"
+        var matched = Regex(REGEXP_OUTPUT_NAME)
+        match (matched.find(name)) {
+            case Some(_) =>
+                buildConfig.exeName = name
+                return true
+            case None => eprintln("Error: the output name '${name}' is wrong, the example is '${EXAMPLE_OUTPUT_NAME}'")
+        }
+        return false
+    }
+
+    func handleOutputName(argMap: HashMap<String, String>, buildConfig: BuildConfig): Bool {
+        let (newName, nameFlag) = getArgValue(argMap, "--output", "-o")
+        if (nameFlag) {
+            if (!outputNameCheck(newName, buildConfig)) {
+                return false
+            }
+        }
+        return true
+    }
+
+    func handleUnparseArgs(unparseArgs: Array<String>, buildConfig: BuildConfig): Bool {
+        if (unparseArgs.isEmpty()) {
+            return true
+        }
+
+        if (unparseArgs.contains("-j") || unparseArgs.contains("--jobs")) {
+            eprintln("Error: the '-j/--jobs' option requires a positive integer argument, " +
+                "its valid range is (0, 2147483647]")
+            return false
+        }
+
+        let options = ["-o", "--output", "--target", "--target-dir", "-m", "--member"]
+        for (val in options) {
+            if (unparseArgs.contains(val)) {
+                eprintln("Error: the '${val}' option needs a value")
+                return false
+            }
+        }
+
+        for (arg in unparseArgs) {
+            if (!arg.startsWith("--")) {
+                eprintln("Error: unknow command '${arg}' for cjpm build")
+                return false
+            }
+            let option: String = arg[2..] // remove -- prefix
+            if (!customizedOptionCheck(option, "")) {
+                return false
+            }
+            buildConfig.customizedOption.add(option)
+        }
+
+        return true
+    }
+
+    public override func handleCommand(): Bool {
+        if (this.arguments.size == 0) {
+            maxParallelSize = getCpus()
+            let buildConfig = BuildConfig()
+            buildConfig.globalConfig.resolveType = RESOLVE_BUILD
+            return doBuild(buildConfig)
+        }
+
+        let (argMap, unparseArgs) = getParseOption(this.arguments, BUILD_SHORT_OPTION, BUILD_LONG_OPTION)
+        let buildConfig = BuildConfig()
+        buildConfig.isVerbose = getBoolOption(argMap, "-V", "--verbose")
+        buildConfig.isIncremental = getBoolOption(argMap, "-i", "--incremental")
+        buildConfig.isDebug = getBoolOption(argMap, "-g")
+        buildConfig.mockSupported = getBoolOption(argMap, "--mock")
+        buildConfig.globalConfig.isSkipScript = getBoolOption(argMap, "--skip-script")
+
+        if (!handleOutputName(argMap, buildConfig)) {
+            return false
+        }
+
+        if (let Some(dir) <- handleTargetDirOption(argMap)) {
+            buildConfig.targetDir = dir
+        } else {
+            return false
+        }
+
+        if (let Some(val) <- handleCrossTarget(argMap)) {
+            buildConfig.isCrossCompile = val
+        } else {
+            return false
+        }
+
+        if (!handleParallelSize(argMap)) {
+            return false
+        }
+
+        if (let Some(val) <- handleMemberOption(argMap)) {
+            buildConfig.memberModule = val
+        } else {
+            return false
+        }
+
+        if (!handleUnparseArgs(unparseArgs, buildConfig)) {
+            return false
+        }
+
+        buildConfig.globalConfig.isVerbose = buildConfig.isVerbose
+        buildConfig.globalConfig.isDebug = buildConfig.isDebug
+        buildConfig.globalConfig.isCross = buildConfig.isCrossCompile
+        buildConfig.globalConfig.isIncremental = buildConfig.isIncremental
+        buildConfig.globalConfig.resolveType = RESOLVE_BUILD
+
+        return doBuild(buildConfig)
+    }
+}
+
+public func handleParallelSize(argMap: HashMap<String, String>): Bool {
+    let cpuSize: Int64 = getCpus()
+    let (sizeStr, sizeFlag) = getArgValue(argMap, "-j", "--jobs")
+    if (sizeFlag) {
+        var size: Int32 = 0
+        try {
+            size = Int32.parse(sizeStr)
+        } catch (e: Exception) {
+            eprintln("Error: the '-j/--jobs' option requires a positive integer argument, " +
+                "its valid range is (0, 2147483647]")
+            return false
+        }
+
+        if (size <= 0) {
+            eprintln("Error: the '-j/--jobs' option requires a positive integer argument, " +
+                "its valid range is (0, 2147483647]")
+            return false
+        } else {
+            maxParallelSize = min(Int64(size), 2 * cpuSize)
+            return true
+        }
+    }
+
+    maxParallelSize = cpuSize
+    return true
+}
