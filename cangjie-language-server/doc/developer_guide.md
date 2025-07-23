@@ -62,8 +62,7 @@ python build.py build -h
 
 本仓为仓颉工具源码，本文档介绍的是仓颉语言服务工具，完整组件相关仓如下：
 
-- [仓颉语言开发指南](https://gitcode.com/Cangjie/cangjie-docs/tree/release-cangjie-merged/docs/dev-guide)：提供仓颉语言开发指南；
-- [仓颉编译器](https://gitcode.com/Cangjie/cangjie-compiler/tree/release-cangjie-merged)：提供仓颉编译器源码；
-- [仓颉标准库](https://gitcode.com/Cangjie/cangjie-runtime/tree/release-cangjie-merged/std)：提供仓颉标准库源码；
-- [仓颉运行时](https://gitcode.com/Cangjie/cangjie-runtime/tree/release-cangjie-merged/runtime)：提供仓颉运行时源码；
-- [**仓颉工具**](https://gitcode.com/Cangjie/cangjie-tools/tree/release-cangjie-merged)：提供仓颉工具套源码。
+- [仓颉编译器](https://gitcode.com/Cangjie/cangjie_compiler)：提供仓颉编译器源码；
+- [仓颉标准库](https://gitcode.com/Cangjie/cangjie_runtime)：提供仓颉标准库源码；
+- [仓颉运行时](https://gitcode.com/Cangjie/cangjie_runtime)：提供仓颉运行时源码；
+- [**仓颉工具**](https://gitcode.com/Cangjie/cangjie_tools)：提供仓颉工具套源码。
