@@ -21,8 +21,15 @@ std::string GetFullPackageName(const Cangjie::AST::PackageSpec& pkg)
     if (pkg.prefixPaths.empty()) {
         return pkg.packageName;
     }
-    auto prefix = Cangjie::Utils::JoinStrings(pkg.prefixPaths, ".");
-    return prefix + "." + pkg.packageName;
+    auto prefix = Cangjie::Utils::JoinStrings(pkg.prefixPaths, ".") + ".";
+    if (pkg.hasDoubleColon) {
+        size_t firstDotPos = prefix.find('.');
+        if (firstDotPos != std::string::npos) {
+            prefix.replace(firstDotPos, 1, "::");
+        }
+    }
+    auto res = prefix  + pkg.packageName;
+    return res;
 }
 } // namespace
 
@@ -31,7 +38,7 @@ using namespace Cangjie;
 using namespace AST;
 using namespace Meta;
 
-const std::string REGEX = "^[a-z]+[a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$";
+const std::string REGEX = "^_?[a-z][a-z0-9_]*(\\._?[a-z][a-z0-9_]*)*$";
 
 /*
  * This method is used to check whether the package name complies with the regular expression.
@@ -42,15 +49,19 @@ void StructuralRuleGNAM01::FileDeclHandler(const File &file)
         return;
     }
     const auto& package = *file.package;
+    if (package.prefixPaths.size() == 0 && package.packageName.Val() == "<invalid identifier>") {
+        return;
+    }
     std::regex reg = std::regex(REGEX);
     if (!(std::regex_match(package.packageName.Val(), reg))) {
         Diagnose(package.packageName.Begin(), package.packageName.Begin(),
             CodeCheckDiagKind::G_NAM_01_Package_Information, GetFullPackageName(package));
     }
     // Root packages can have any valid package name.
-    if (package.prefixPaths.empty()) {
+    if (package.prefixPaths.empty() || (package.hasDoubleColon && package.prefixPaths.size() == 1)) {
         return;
     }
+
     auto filePath = FileUtil::GetDirPath(file.filePath);
     auto lastSlashPos = filePath.rfind(PATH_SEPARATOR);
     auto curDir = lastSlashPos != std::string::npos ? filePath.substr(lastSlashPos + 1) : "";
