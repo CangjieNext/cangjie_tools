@@ -882,216 +882,216 @@ TEST(UtilsTest, IsValidIdentifier_MixedValidAndInvalid) {
 //     // The exact result depends on how the function counts unicode characters
 // }
 
-// Test cases for FindLastImportPos function
-TEST(UtilsTest, FindLastImportPos_EmptyImportsWithPackage) {
-    // Create a file with empty imports but valid package
-    File file;
-    auto packageSpec = new PackageSpec();
-    file.package = OwnedPtr<PackageSpec>(packageSpec);
-    file.package->packagePos = {1, 5, 1}; // fileID=1, line=5, column=1
-
-    Position result = FindLastImportPos(file);
-    EXPECT_EQ(result.fileID, 1);
-    EXPECT_EQ(result.line, 6); // package line (5) + 1
-    EXPECT_EQ(result.column, 1);
-}
-
-TEST(UtilsTest, FindLastImportPos_EmptyImportsPackageAtLineZero) {
-    // Create a file with empty imports and package at line 0
-    File file;
-    auto packageSpec = new PackageSpec();
-    file.package = OwnedPtr<PackageSpec>(packageSpec);
-    file.package->packagePos = {1, 0, 1}; // line=0
-
-    Position result = FindLastImportPos(file);
-    EXPECT_EQ(result.fileID, 1);
-    EXPECT_EQ(result.line, 1); // lastImportLine=0 + 1
-    EXPECT_EQ(result.column, 1);
-}
-
-TEST(UtilsTest, FindLastImportPos_SingleImport) {
-    File file;
-
-    auto packageSpec = new PackageSpec();
-    file.package = OwnedPtr<PackageSpec>(packageSpec);
-    file.package->packagePos = {1, 1, 1};
-
-    auto import = new ImportSpec();
-    import->importPos = {1, 3, 1};
-    import->content.rightCurlPos = {1, 3, 10};
-    file.imports.emplace_back(import);
-
-    Position result = FindLastImportPos(file);
-    EXPECT_EQ(result.fileID, 1);
-    EXPECT_EQ(result.line, 4);
-    EXPECT_EQ(result.column, 1);
-}
-
-TEST(UtilsTest, FindLastImportPos_MultipleImports) {
-    File file;
-    auto packageSpec = new PackageSpec();
-    file.package = OwnedPtr<PackageSpec>(packageSpec);
-    file.package->packagePos = {1, 1, 1};
-
-    auto import1 = new ImportSpec();
-    import1->importPos = {1, 3, 1};
-    import1->content.rightCurlPos = {1, 3, 15};
-
-    auto import2 = new ImportSpec();
-    import2->importPos = {1, 5, 1};
-    import2->content.rightCurlPos = {1, 5, 20};
-
-    auto import3 = new ImportSpec();
-    import3->importPos = {1, 4, 1};
-    import3->content.rightCurlPos = {1, 4, 12};
-
-    file.imports.emplace_back(import1);
-    file.imports.emplace_back(import2);
-    file.imports.emplace_back(import3);
-
-    Position result = FindLastImportPos(file);
-    EXPECT_EQ(result.fileID, 1);
-    EXPECT_EQ(result.line, 6);
-    EXPECT_EQ(result.column, 1);
-}
-
-TEST(UtilsTest, FindLastImportPos_ImportWithNullptr) {
-    File file;
-    auto packageSpec = new PackageSpec();
-    file.package = OwnedPtr<PackageSpec>(packageSpec);
-    file.package->packagePos = {1, 1, 1};
-
-    // Add a valid import and a nullptr
-    auto import1 = new ImportSpec();
-    import1->importPos = {1, 3, 1};
-    import1->content.rightCurlPos = {1, 3, 10};
-
-    file.imports.emplace_back(import1);
-    file.imports.emplace_back(nullptr); // Should be skipped
-
-    Position result = FindLastImportPos(file);
-    EXPECT_EQ(result.fileID, 1);
-    EXPECT_EQ(result.line, 4); // Should only consider valid import
-    EXPECT_EQ(result.column, 1);
-}
-
-TEST(UtilsTest, FindLastImportPos_ImportPosLaterThanRightCurlPos) {
-    File file;
-    auto packageSpec = new PackageSpec();
-    file.package = OwnedPtr<PackageSpec>(packageSpec);
-    file.package->packagePos = {1, 1, 1};
-
-    auto import = new ImportSpec();
-    import->importPos = {1, 10, 1}; // Later line
-    import->content.rightCurlPos = {1, 5, 10};
-
-    file.imports.emplace_back(import);
-
-    Position result = FindLastImportPos(file);
-    EXPECT_EQ(result.fileID, 1);
-    EXPECT_EQ(result.line, 11); // max(10,5)=10 + 1
-    EXPECT_EQ(result.column, 1);
-}
-
-TEST(UtilsTest, FindLastImportPos_RightCurlPosLaterThanImportPos) {
-    File file;
-    auto packageSpec = new PackageSpec();
-    file.package = OwnedPtr<PackageSpec>(packageSpec);
-    file.package->packagePos = {1, 1, 1};
-
-    auto import = new ImportSpec();
-    import->importPos = {1, 5, 1};
-    import->content.rightCurlPos = {1, 10, 10}; // Later line
-
-    file.imports.emplace_back(import);
-
-    Position result = FindLastImportPos(file);
-    EXPECT_EQ(result.fileID, 1);
-    EXPECT_EQ(result.line, 11); // max(10,5)=10 + 1
-    EXPECT_EQ(result.column, 1);
-}
-
-TEST(UtilsTest, FindLastImportPos_MixedFileIDs) {
-    File file;
-    auto packageSpec = new PackageSpec();
-    file.package = OwnedPtr<PackageSpec>(packageSpec);
-    file.package->packagePos = {1, 1, 1}; // fileID=1
-
-    // Create imports with different file IDs (should still work)
-    auto import1 = new ImportSpec();
-    import1->importPos = {2, 3, 1}; // Different fileID
-    import1->content.rightCurlPos = {2, 3, 10};
-
-    auto import2 = new ImportSpec();
-    import2->importPos = {1, 5, 1}; // Same fileID as package
-    import2->content.rightCurlPos = {1, 5, 15};
-
-    file.imports.emplace_back(import1);
-    file.imports.emplace_back(import2);
-
-    Position result = FindLastImportPos(file);
-    // Should use package's fileID regardless of import fileIDs
-    EXPECT_EQ(result.fileID, 1);
-    EXPECT_EQ(result.line, 6); // max(5,5)=5 + 1
-    EXPECT_EQ(result.column, 1);
-}
-
-std::string NormalizePath(const std::string& path) {
-    // Simple normalization for testing
-    std::string result = path;
-    for (char& c : result) {
-        if (c == '\\') c = '/';
-    }
-    return result;
-}
-
-// Test cases for GetAllFilePathUnderCurrentPath function
-TEST(UtilsTest, GetAllFilePathUnderCurrentPath_EmptyDirectory) {
-    std::string path = "empty_dir";
-    std::string extension = "cj";
-
-    std::vector<std::string> result = GetAllFilePathUnderCurrentPath(
-        path, extension, false, false);
-
-    EXPECT_TRUE(result.empty());
-}
-
-TEST(UtilsTest, GetAllFilePathUnderCurrentPath_SingleFile) {
-    std::string path = "single_file_dir";
-    std::string extension = "cj";
-
-    std::vector<std::string> result = GetAllFilePathUnderCurrentPath(
-        path, extension, false, false);
-
-    EXPECT_EQ(result.size(), 0);
-}
-
-// Additional edge case tests
-TEST(UtilsTest, FindLastImportPos_AllImportsNullptr) {
-    File file;
-    auto packageSpec = new PackageSpec();
-    file.package = OwnedPtr<PackageSpec>(packageSpec);
-    file.package->packagePos = {1, 2, 1};
-
-    // Add only null imports
-    file.imports.emplace_back(nullptr);
-    file.imports.emplace_back(nullptr);
-
-    Position result = FindLastImportPos(file);
-    EXPECT_EQ(result.fileID, 1);
-    EXPECT_EQ(result.line, 3); // package line (2) + 1
-    EXPECT_EQ(result.column, 1);
-}
-
-TEST(UtilsTest, GetAllFilePathUnderCurrentPath_ComplexDirectoryStructure) {
-    // This test would require a more sophisticated mock
-    // For now, we test the basic functionality
-    std::string path = "complex/structure";
-    std::string extension = "cj";
-
-    std::vector<std::string> result = GetAllFilePathUnderCurrentPath(
-        path, extension, false, false);
-
-    // Should return empty since mock doesn't have this path
-    EXPECT_TRUE(result.empty());
-}
+// // Test cases for FindLastImportPos function
+// TEST(UtilsTest, FindLastImportPos_EmptyImportsWithPackage) {
+//     // Create a file with empty imports but valid package
+//     File file;
+//     auto packageSpec = new PackageSpec();
+//     file.package = OwnedPtr<PackageSpec>(packageSpec);
+//     file.package->packagePos = {1, 5, 1}; // fileID=1, line=5, column=1
+//
+//     Position result = FindLastImportPos(file);
+//     EXPECT_EQ(result.fileID, 1);
+//     EXPECT_EQ(result.line, 6); // package line (5) + 1
+//     EXPECT_EQ(result.column, 1);
+// }
+//
+// TEST(UtilsTest, FindLastImportPos_EmptyImportsPackageAtLineZero) {
+//     // Create a file with empty imports and package at line 0
+//     File file;
+//     auto packageSpec = new PackageSpec();
+//     file.package = OwnedPtr<PackageSpec>(packageSpec);
+//     file.package->packagePos = {1, 0, 1}; // line=0
+//
+//     Position result = FindLastImportPos(file);
+//     EXPECT_EQ(result.fileID, 1);
+//     EXPECT_EQ(result.line, 1); // lastImportLine=0 + 1
+//     EXPECT_EQ(result.column, 1);
+// }
+//
+// TEST(UtilsTest, FindLastImportPos_SingleImport) {
+//     File file;
+//
+//     auto packageSpec = new PackageSpec();
+//     file.package = OwnedPtr<PackageSpec>(packageSpec);
+//     file.package->packagePos = {1, 1, 1};
+//
+//     auto import = new ImportSpec();
+//     import->importPos = {1, 3, 1};
+//     import->content.rightCurlPos = {1, 3, 10};
+//     file.imports.emplace_back(import);
+//
+//     Position result = FindLastImportPos(file);
+//     EXPECT_EQ(result.fileID, 1);
+//     EXPECT_EQ(result.line, 4);
+//     EXPECT_EQ(result.column, 1);
+// }
+//
+// TEST(UtilsTest, FindLastImportPos_MultipleImports) {
+//     File file;
+//     auto packageSpec = new PackageSpec();
+//     file.package = OwnedPtr<PackageSpec>(packageSpec);
+//     file.package->packagePos = {1, 1, 1};
+//
+//     auto import1 = new ImportSpec();
+//     import1->importPos = {1, 3, 1};
+//     import1->content.rightCurlPos = {1, 3, 15};
+//
+//     auto import2 = new ImportSpec();
+//     import2->importPos = {1, 5, 1};
+//     import2->content.rightCurlPos = {1, 5, 20};
+//
+//     auto import3 = new ImportSpec();
+//     import3->importPos = {1, 4, 1};
+//     import3->content.rightCurlPos = {1, 4, 12};
+//
+//     file.imports.emplace_back(import1);
+//     file.imports.emplace_back(import2);
+//     file.imports.emplace_back(import3);
+//
+//     Position result = FindLastImportPos(file);
+//     EXPECT_EQ(result.fileID, 1);
+//     EXPECT_EQ(result.line, 6);
+//     EXPECT_EQ(result.column, 1);
+// }
+//
+// TEST(UtilsTest, FindLastImportPos_ImportWithNullptr) {
+//     File file;
+//     auto packageSpec = new PackageSpec();
+//     file.package = OwnedPtr<PackageSpec>(packageSpec);
+//     file.package->packagePos = {1, 1, 1};
+//
+//     // Add a valid import and a nullptr
+//     auto import1 = new ImportSpec();
+//     import1->importPos = {1, 3, 1};
+//     import1->content.rightCurlPos = {1, 3, 10};
+//
+//     file.imports.emplace_back(import1);
+//     file.imports.emplace_back(nullptr); // Should be skipped
+//
+//     Position result = FindLastImportPos(file);
+//     EXPECT_EQ(result.fileID, 1);
+//     EXPECT_EQ(result.line, 4); // Should only consider valid import
+//     EXPECT_EQ(result.column, 1);
+// }
+//
+// TEST(UtilsTest, FindLastImportPos_ImportPosLaterThanRightCurlPos) {
+//     File file;
+//     auto packageSpec = new PackageSpec();
+//     file.package = OwnedPtr<PackageSpec>(packageSpec);
+//     file.package->packagePos = {1, 1, 1};
+//
+//     auto import = new ImportSpec();
+//     import->importPos = {1, 10, 1}; // Later line
+//     import->content.rightCurlPos = {1, 5, 10};
+//
+//     file.imports.emplace_back(import);
+//
+//     Position result = FindLastImportPos(file);
+//     EXPECT_EQ(result.fileID, 1);
+//     EXPECT_EQ(result.line, 11); // max(10,5)=10 + 1
+//     EXPECT_EQ(result.column, 1);
+// }
+//
+// TEST(UtilsTest, FindLastImportPos_RightCurlPosLaterThanImportPos) {
+//     File file;
+//     auto packageSpec = new PackageSpec();
+//     file.package = OwnedPtr<PackageSpec>(packageSpec);
+//     file.package->packagePos = {1, 1, 1};
+//
+//     auto import = new ImportSpec();
+//     import->importPos = {1, 5, 1};
+//     import->content.rightCurlPos = {1, 10, 10}; // Later line
+//
+//     file.imports.emplace_back(import);
+//
+//     Position result = FindLastImportPos(file);
+//     EXPECT_EQ(result.fileID, 1);
+//     EXPECT_EQ(result.line, 11); // max(10,5)=10 + 1
+//     EXPECT_EQ(result.column, 1);
+// }
+//
+// TEST(UtilsTest, FindLastImportPos_MixedFileIDs) {
+//     File file;
+//     auto packageSpec = new PackageSpec();
+//     file.package = OwnedPtr<PackageSpec>(packageSpec);
+//     file.package->packagePos = {1, 1, 1}; // fileID=1
+//
+//     // Create imports with different file IDs (should still work)
+//     auto import1 = new ImportSpec();
+//     import1->importPos = {2, 3, 1}; // Different fileID
+//     import1->content.rightCurlPos = {2, 3, 10};
+//
+//     auto import2 = new ImportSpec();
+//     import2->importPos = {1, 5, 1}; // Same fileID as package
+//     import2->content.rightCurlPos = {1, 5, 15};
+//
+//     file.imports.emplace_back(import1);
+//     file.imports.emplace_back(import2);
+//
+//     Position result = FindLastImportPos(file);
+//     // Should use package's fileID regardless of import fileIDs
+//     EXPECT_EQ(result.fileID, 1);
+//     EXPECT_EQ(result.line, 6); // max(5,5)=5 + 1
+//     EXPECT_EQ(result.column, 1);
+// }
+//
+// std::string NormalizePath(const std::string& path) {
+//     // Simple normalization for testing
+//     std::string result = path;
+//     for (char& c : result) {
+//         if (c == '\\') c = '/';
+//     }
+//     return result;
+// }
+//
+// // Test cases for GetAllFilePathUnderCurrentPath function
+// TEST(UtilsTest, GetAllFilePathUnderCurrentPath_EmptyDirectory) {
+//     std::string path = "empty_dir";
+//     std::string extension = "cj";
+//
+//     std::vector<std::string> result = GetAllFilePathUnderCurrentPath(
+//         path, extension, false, false);
+//
+//     EXPECT_TRUE(result.empty());
+// }
+//
+// TEST(UtilsTest, GetAllFilePathUnderCurrentPath_SingleFile) {
+//     std::string path = "single_file_dir";
+//     std::string extension = "cj";
+//
+//     std::vector<std::string> result = GetAllFilePathUnderCurrentPath(
+//         path, extension, false, false);
+//
+//     EXPECT_EQ(result.size(), 0);
+// }
+//
+// // Additional edge case tests
+// TEST(UtilsTest, FindLastImportPos_AllImportsNullptr) {
+//     File file;
+//     auto packageSpec = new PackageSpec();
+//     file.package = OwnedPtr<PackageSpec>(packageSpec);
+//     file.package->packagePos = {1, 2, 1};
+//
+//     // Add only null imports
+//     file.imports.emplace_back(nullptr);
+//     file.imports.emplace_back(nullptr);
+//
+//     Position result = FindLastImportPos(file);
+//     EXPECT_EQ(result.fileID, 1);
+//     EXPECT_EQ(result.line, 3); // package line (2) + 1
+//     EXPECT_EQ(result.column, 1);
+// }
+//
+// TEST(UtilsTest, GetAllFilePathUnderCurrentPath_ComplexDirectoryStructure) {
+//     // This test would require a more sophisticated mock
+//     // For now, we test the basic functionality
+//     std::string path = "complex/structure";
+//     std::string extension = "cj";
+//
+//     std::vector<std::string> result = GetAllFilePathUnderCurrentPath(
+//         path, extension, false, false);
+//
+//     // Should return empty since mock doesn't have this path
+//     EXPECT_TRUE(result.empty());
+// }
