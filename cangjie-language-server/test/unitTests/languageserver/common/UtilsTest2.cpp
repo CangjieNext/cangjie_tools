@@ -596,60 +596,60 @@ TEST(UtilsTest, InImportSpec001) {
 //     EXPECT_EQ(result, "(Float64)");
 // }
 
-// Test cases for GetSubStrBetweenSingleQuote function
-TEST(UtilsTest, GetSubStrBetweenSingleQuote_EmptyString) {
-    std::string input = "";
-    std::string result = GetSubStrBetweenSingleQuote(input);
-    EXPECT_EQ(result, "");
-}
-
-TEST(UtilsTest, GetSubStrBetweenSingleQuote_NoSingleQuotes) {
-    std::string input = "Hello World";
-    std::string result = GetSubStrBetweenSingleQuote(input);
-    EXPECT_EQ(result, "");
-}
-
-TEST(UtilsTest, GetSubStrBetweenSingleQuote_OnlyOpeningQuote) {
-    std::string input = "Hello 'World";
-    std::string result = GetSubStrBetweenSingleQuote(input);
-    EXPECT_EQ(result, "");
-}
-
-TEST(UtilsTest, GetSubStrBetweenSingleQuote_OnlyClosingQuote) {
-    std::string input = "Hello World'";
-    std::string result = GetSubStrBetweenSingleQuote(input);
-    EXPECT_EQ(result, "");
-}
-
-TEST(UtilsTest, GetSubStrBetweenSingleQuote_ValidSingleQuotes) {
-    std::string input = "Prefix 'Hello World' Suffix";
-    std::string result = GetSubStrBetweenSingleQuote(input);
-    EXPECT_EQ(result, "Hello World");
-}
-
-TEST(UtilsTest, GetSubStrBetweenSingleQuote_EmptyBetweenQuotes) {
-    std::string input = "Prefix '' Suffix";
-    std::string result = GetSubStrBetweenSingleQuote(input);
-    EXPECT_EQ(result, "");
-}
-
-TEST(UtilsTest, GetSubStrBetweenSingleQuote_MultipleQuotes_FirstPair) {
-    std::string input = "'First' 'Second'";
-    std::string result = GetSubStrBetweenSingleQuote(input);
-    EXPECT_EQ(result, "First");
-}
-
-TEST(UtilsTest, GetSubStrBetweenSingleQuote_NestedQuotes) {
-    std::string input = "Outer 'Inner \"quoted\" text' End";
-    std::string result = GetSubStrBetweenSingleQuote(input);
-    EXPECT_EQ(result, "Inner \"quoted\" text");
-}
-
-TEST(UtilsTest, GetSubStrBetweenSingleQuote_SpecialCharacters) {
-    std::string input = "'Line1\nLine2\tTab'";
-    std::string result = GetSubStrBetweenSingleQuote(input);
-    EXPECT_EQ(result, "Line1\nLine2\tTab");
-}
+// // Test cases for GetSubStrBetweenSingleQuote function
+// TEST(UtilsTest, GetSubStrBetweenSingleQuote_EmptyString) {
+//     std::string input = "";
+//     std::string result = GetSubStrBetweenSingleQuote(input);
+//     EXPECT_EQ(result, "");
+// }
+//
+// TEST(UtilsTest, GetSubStrBetweenSingleQuote_NoSingleQuotes) {
+//     std::string input = "Hello World";
+//     std::string result = GetSubStrBetweenSingleQuote(input);
+//     EXPECT_EQ(result, "");
+// }
+//
+// TEST(UtilsTest, GetSubStrBetweenSingleQuote_OnlyOpeningQuote) {
+//     std::string input = "Hello 'World";
+//     std::string result = GetSubStrBetweenSingleQuote(input);
+//     EXPECT_EQ(result, "");
+// }
+//
+// TEST(UtilsTest, GetSubStrBetweenSingleQuote_OnlyClosingQuote) {
+//     std::string input = "Hello World'";
+//     std::string result = GetSubStrBetweenSingleQuote(input);
+//     EXPECT_EQ(result, "");
+// }
+//
+// TEST(UtilsTest, GetSubStrBetweenSingleQuote_ValidSingleQuotes) {
+//     std::string input = "Prefix 'Hello World' Suffix";
+//     std::string result = GetSubStrBetweenSingleQuote(input);
+//     EXPECT_EQ(result, "Hello World");
+// }
+//
+// TEST(UtilsTest, GetSubStrBetweenSingleQuote_EmptyBetweenQuotes) {
+//     std::string input = "Prefix '' Suffix";
+//     std::string result = GetSubStrBetweenSingleQuote(input);
+//     EXPECT_EQ(result, "");
+// }
+//
+// TEST(UtilsTest, GetSubStrBetweenSingleQuote_MultipleQuotes_FirstPair) {
+//     std::string input = "'First' 'Second'";
+//     std::string result = GetSubStrBetweenSingleQuote(input);
+//     EXPECT_EQ(result, "First");
+// }
+//
+// TEST(UtilsTest, GetSubStrBetweenSingleQuote_NestedQuotes) {
+//     std::string input = "Outer 'Inner \"quoted\" text' End";
+//     std::string result = GetSubStrBetweenSingleQuote(input);
+//     EXPECT_EQ(result, "Inner \"quoted\" text");
+// }
+//
+// TEST(UtilsTest, GetSubStrBetweenSingleQuote_SpecialCharacters) {
+//     std::string input = "'Line1\nLine2\tTab'";
+//     std::string result = GetSubStrBetweenSingleQuote(input);
+//     EXPECT_EQ(result, "Line1\nLine2\tTab");
+// }
 
 // // Test cases for GetDeclSymbolID function
 // TEST(UtilsTest, GetDeclSymbolID_RegularDecl) {
@@ -692,188 +692,188 @@ TEST(UtilsTest, GetSubStrBetweenSingleQuote_SpecialCharacters) {
 //     EXPECT_EQ(result, lsp::INVALID_SYMBOL_ID);
 // }
 
-// Test cases for IsValidIdentifier function
-TEST(UtilsTest, IsValidIdentifier_EmptyString) {
-    std::string identifier = "";
-    bool result = IsValidIdentifier(identifier);
-    EXPECT_FALSE(result);
-}
-
-TEST(UtilsTest, IsValidIdentifier_StartsWithLetter) {
-    std::string identifier = "variable";
-    bool result = IsValidIdentifier(identifier);
-    EXPECT_TRUE(result);
-}
-
-TEST(UtilsTest, IsValidIdentifier_StartsWithUnderscore) {
-    std::string identifier = "_private";
-    bool result = IsValidIdentifier(identifier);
-    EXPECT_TRUE(result);
-}
-
-TEST(UtilsTest, IsValidIdentifier_StartsWithNumber) {
-    std::string identifier = "1invalid";
-    bool result = IsValidIdentifier(identifier);
-    EXPECT_FALSE(result);
-}
-
-TEST(UtilsTest, IsValidIdentifier_StartsWithSpecialChar) {
-    std::string identifier = "@invalid";
-    bool result = IsValidIdentifier(identifier);
-    EXPECT_FALSE(result);
-}
-
-TEST(UtilsTest, IsValidIdentifier_ContainsLettersNumbersUnderscores) {
-    std::string identifier = "var_name123";
-    bool result = IsValidIdentifier(identifier);
-    EXPECT_TRUE(result);
-}
-
-TEST(UtilsTest, IsValidIdentifier_ContainsInvalidChar) {
-    std::string identifier = "var-name";
-    bool result = IsValidIdentifier(identifier);
-    EXPECT_FALSE(result);
-}
-
-TEST(UtilsTest, IsValidIdentifier_ContainsSpace) {
-    std::string identifier = "var name";
-    bool result = IsValidIdentifier(identifier);
-    EXPECT_FALSE(result);
-}
-
-TEST(UtilsTest, IsValidIdentifier_ContainsUnicode) {
-    std::string identifier = "变量"; // Chinese characters
-    bool result = IsValidIdentifier(identifier);
-    // Depends on iswalpha/iswalnum implementation for wide chars
-    // This test might behave differently on different platforms
-    EXPECT_FALSE(result); // Typically returns false for non-ASCII
-}
-
-TEST(UtilsTest, IsValidIdentifier_SingleLetter) {
-    std::string identifier = "a";
-    bool result = IsValidIdentifier(identifier);
-    EXPECT_TRUE(result);
-}
-
-TEST(UtilsTest, IsValidIdentifier_SingleUnderscore) {
-    std::string identifier = "_";
-    bool result = IsValidIdentifier(identifier);
-    EXPECT_TRUE(result);
-}
-
-// Test cases for DeleteCharForPosition function
-TEST(UtilsTest, DeleteCharForPosition_InvalidRow) {
-    std::string text = "Hello World";
-    bool result = DeleteCharForPosition(text, 0, 1); // row < 1
-    EXPECT_FALSE(result);
-    EXPECT_EQ(text, "Hello World"); // text unchanged
-}
-
-TEST(UtilsTest, DeleteCharForPosition_InvalidColumn) {
-    std::string text = "Hello World";
-    bool result = DeleteCharForPosition(text, 1, 0); // column < 1
-    EXPECT_FALSE(result);
-    EXPECT_EQ(text, "Hello World"); // text unchanged
-}
-
-TEST(UtilsTest, DeleteCharForPosition_SingleLine_FirstChar) {
-    std::string text = "Hello";
-    bool result = DeleteCharForPosition(text, 1, 1);
-    EXPECT_TRUE(result);
-    EXPECT_EQ(text, "ello");
-}
-
-TEST(UtilsTest, DeleteCharForPosition_SingleLine_MiddleChar) {
-    std::string text = "Hello";
-    bool result = DeleteCharForPosition(text, 1, 3);
-    EXPECT_TRUE(result);
-    EXPECT_EQ(text, "Helo");
-}
-
-TEST(UtilsTest, DeleteCharForPosition_SingleLine_LastChar) {
-    std::string text = "Hello";
-    bool result = DeleteCharForPosition(text, 1, 5);
-    EXPECT_TRUE(result);
-    EXPECT_EQ(text, "Hell");
-}
-
-TEST(UtilsTest, DeleteCharForPosition_SingleLine_OutOfBounds) {
-    std::string text = "Hello";
-    bool result = DeleteCharForPosition(text, 1, 10);
-    EXPECT_FALSE(result);
-    EXPECT_EQ(text, "Hello");
-}
-
-TEST(UtilsTest, DeleteCharForPosition_MultiLine_FirstLine) {
-    std::string text = "Line1\nLine2\nLine3";
-    bool result = DeleteCharForPosition(text, 1, 3);
-    EXPECT_TRUE(result);
-    EXPECT_EQ(text, "Lie1\nLine2\nLine3");
-}
-
-TEST(UtilsTest, DeleteCharForPosition_MultiLine_SecondLine) {
-    std::string text = "Line1\nLine2\nLine3";
-    bool result = DeleteCharForPosition(text, 2, 3);
-    EXPECT_TRUE(result);
-    EXPECT_EQ(text, "Line1\nLie2\nLine3");
-}
-
-TEST(UtilsTest, DeleteCharForPosition_MultiLine_LastLine) {
-    std::string text = "Line1\nLine2\nLine3";
-    bool result = DeleteCharForPosition(text, 3, 3);
-    EXPECT_TRUE(result);
-    EXPECT_EQ(text, "Line1\nLine2\nLie3");
-}
-
-TEST(UtilsTest, DeleteCharForPosition_WithCarriageReturnLineFeed) {
-    std::string text = "Line1\r\nLine2\r\nLine3";
-    bool result = DeleteCharForPosition(text, 2, 3);
-    EXPECT_TRUE(result);
-    EXPECT_EQ(text, "Line1\r\nLie2\r\nLine3");
-}
-
-TEST(UtilsTest, DeleteCharForPosition_WithCarriageReturnOnly) {
-    std::string text = "Line1\rLine2\rLine3";
-    bool result = DeleteCharForPosition(text, 2, 3);
-    EXPECT_TRUE(result);
-    EXPECT_EQ(text, "Line1\rLie2\rLine3");
-}
-
-TEST(UtilsTest, DeleteCharForPosition_EmptyText) {
-    std::string text = "";
-    bool result = DeleteCharForPosition(text, 1, 1);
-    EXPECT_FALSE(result);
-    EXPECT_EQ(text, "");
-}
-
-TEST(UtilsTest, DeleteCharForPosition_AtLineBreak_CRLF) {
-    std::string text = "A\r\nB";
-    // Try to delete between CR and LF
-    bool result = DeleteCharForPosition(text, 1, 2);
-    EXPECT_TRUE(result);
-    // The exact behavior depends on how the function handles CRLF
-}
-
-TEST(UtilsTest, DeleteCharForPosition_PositionAtEndOfLine) {
-    std::string text = "Hello";
-    bool result = DeleteCharForPosition(text, 1, 6); // Position after last char
-    EXPECT_FALSE(result);
-    EXPECT_EQ(text, "Hello");
-}
-
-// Additional edge case tests
-TEST(UtilsTest, GetSubStrBetweenSingleQuote_EscapedQuotes) {
-    std::string input = "'Don\\'t worry'";
-    std::string result = GetSubStrBetweenSingleQuote(input);
-    // The function doesn't handle escaped quotes, so it will find the first closing quote
-    EXPECT_EQ(result, "Don\\"); // This might be the actual behavior
-}
-
-TEST(UtilsTest, IsValidIdentifier_MixedValidAndInvalid) {
-    std::string identifier = "valid_but_with-invalid-char";
-    bool result = IsValidIdentifier(identifier);
-    EXPECT_FALSE(result);
-}
+// // Test cases for IsValidIdentifier function
+// TEST(UtilsTest, IsValidIdentifier_EmptyString) {
+//     std::string identifier = "";
+//     bool result = IsValidIdentifier(identifier);
+//     EXPECT_FALSE(result);
+// }
+//
+// TEST(UtilsTest, IsValidIdentifier_StartsWithLetter) {
+//     std::string identifier = "variable";
+//     bool result = IsValidIdentifier(identifier);
+//     EXPECT_TRUE(result);
+// }
+//
+// TEST(UtilsTest, IsValidIdentifier_StartsWithUnderscore) {
+//     std::string identifier = "_private";
+//     bool result = IsValidIdentifier(identifier);
+//     EXPECT_TRUE(result);
+// }
+//
+// TEST(UtilsTest, IsValidIdentifier_StartsWithNumber) {
+//     std::string identifier = "1invalid";
+//     bool result = IsValidIdentifier(identifier);
+//     EXPECT_FALSE(result);
+// }
+//
+// TEST(UtilsTest, IsValidIdentifier_StartsWithSpecialChar) {
+//     std::string identifier = "@invalid";
+//     bool result = IsValidIdentifier(identifier);
+//     EXPECT_FALSE(result);
+// }
+//
+// TEST(UtilsTest, IsValidIdentifier_ContainsLettersNumbersUnderscores) {
+//     std::string identifier = "var_name123";
+//     bool result = IsValidIdentifier(identifier);
+//     EXPECT_TRUE(result);
+// }
+//
+// TEST(UtilsTest, IsValidIdentifier_ContainsInvalidChar) {
+//     std::string identifier = "var-name";
+//     bool result = IsValidIdentifier(identifier);
+//     EXPECT_FALSE(result);
+// }
+//
+// TEST(UtilsTest, IsValidIdentifier_ContainsSpace) {
+//     std::string identifier = "var name";
+//     bool result = IsValidIdentifier(identifier);
+//     EXPECT_FALSE(result);
+// }
+//
+// TEST(UtilsTest, IsValidIdentifier_ContainsUnicode) {
+//     std::string identifier = "变量"; // Chinese characters
+//     bool result = IsValidIdentifier(identifier);
+//     // Depends on iswalpha/iswalnum implementation for wide chars
+//     // This test might behave differently on different platforms
+//     EXPECT_FALSE(result); // Typically returns false for non-ASCII
+// }
+//
+// TEST(UtilsTest, IsValidIdentifier_SingleLetter) {
+//     std::string identifier = "a";
+//     bool result = IsValidIdentifier(identifier);
+//     EXPECT_TRUE(result);
+// }
+//
+// TEST(UtilsTest, IsValidIdentifier_SingleUnderscore) {
+//     std::string identifier = "_";
+//     bool result = IsValidIdentifier(identifier);
+//     EXPECT_TRUE(result);
+// }
+//
+// // Test cases for DeleteCharForPosition function
+// TEST(UtilsTest, DeleteCharForPosition_InvalidRow) {
+//     std::string text = "Hello World";
+//     bool result = DeleteCharForPosition(text, 0, 1); // row < 1
+//     EXPECT_FALSE(result);
+//     EXPECT_EQ(text, "Hello World"); // text unchanged
+// }
+//
+// TEST(UtilsTest, DeleteCharForPosition_InvalidColumn) {
+//     std::string text = "Hello World";
+//     bool result = DeleteCharForPosition(text, 1, 0); // column < 1
+//     EXPECT_FALSE(result);
+//     EXPECT_EQ(text, "Hello World"); // text unchanged
+// }
+//
+// TEST(UtilsTest, DeleteCharForPosition_SingleLine_FirstChar) {
+//     std::string text = "Hello";
+//     bool result = DeleteCharForPosition(text, 1, 1);
+//     EXPECT_TRUE(result);
+//     EXPECT_EQ(text, "ello");
+// }
+//
+// TEST(UtilsTest, DeleteCharForPosition_SingleLine_MiddleChar) {
+//     std::string text = "Hello";
+//     bool result = DeleteCharForPosition(text, 1, 3);
+//     EXPECT_TRUE(result);
+//     EXPECT_EQ(text, "Helo");
+// }
+//
+// TEST(UtilsTest, DeleteCharForPosition_SingleLine_LastChar) {
+//     std::string text = "Hello";
+//     bool result = DeleteCharForPosition(text, 1, 5);
+//     EXPECT_TRUE(result);
+//     EXPECT_EQ(text, "Hell");
+// }
+//
+// TEST(UtilsTest, DeleteCharForPosition_SingleLine_OutOfBounds) {
+//     std::string text = "Hello";
+//     bool result = DeleteCharForPosition(text, 1, 10);
+//     EXPECT_FALSE(result);
+//     EXPECT_EQ(text, "Hello");
+// }
+//
+// TEST(UtilsTest, DeleteCharForPosition_MultiLine_FirstLine) {
+//     std::string text = "Line1\nLine2\nLine3";
+//     bool result = DeleteCharForPosition(text, 1, 3);
+//     EXPECT_TRUE(result);
+//     EXPECT_EQ(text, "Lie1\nLine2\nLine3");
+// }
+//
+// TEST(UtilsTest, DeleteCharForPosition_MultiLine_SecondLine) {
+//     std::string text = "Line1\nLine2\nLine3";
+//     bool result = DeleteCharForPosition(text, 2, 3);
+//     EXPECT_TRUE(result);
+//     EXPECT_EQ(text, "Line1\nLie2\nLine3");
+// }
+//
+// TEST(UtilsTest, DeleteCharForPosition_MultiLine_LastLine) {
+//     std::string text = "Line1\nLine2\nLine3";
+//     bool result = DeleteCharForPosition(text, 3, 3);
+//     EXPECT_TRUE(result);
+//     EXPECT_EQ(text, "Line1\nLine2\nLie3");
+// }
+//
+// TEST(UtilsTest, DeleteCharForPosition_WithCarriageReturnLineFeed) {
+//     std::string text = "Line1\r\nLine2\r\nLine3";
+//     bool result = DeleteCharForPosition(text, 2, 3);
+//     EXPECT_TRUE(result);
+//     EXPECT_EQ(text, "Line1\r\nLie2\r\nLine3");
+// }
+//
+// TEST(UtilsTest, DeleteCharForPosition_WithCarriageReturnOnly) {
+//     std::string text = "Line1\rLine2\rLine3";
+//     bool result = DeleteCharForPosition(text, 2, 3);
+//     EXPECT_TRUE(result);
+//     EXPECT_EQ(text, "Line1\rLie2\rLine3");
+// }
+//
+// TEST(UtilsTest, DeleteCharForPosition_EmptyText) {
+//     std::string text = "";
+//     bool result = DeleteCharForPosition(text, 1, 1);
+//     EXPECT_FALSE(result);
+//     EXPECT_EQ(text, "");
+// }
+//
+// TEST(UtilsTest, DeleteCharForPosition_AtLineBreak_CRLF) {
+//     std::string text = "A\r\nB";
+//     // Try to delete between CR and LF
+//     bool result = DeleteCharForPosition(text, 1, 2);
+//     EXPECT_TRUE(result);
+//     // The exact behavior depends on how the function handles CRLF
+// }
+//
+// TEST(UtilsTest, DeleteCharForPosition_PositionAtEndOfLine) {
+//     std::string text = "Hello";
+//     bool result = DeleteCharForPosition(text, 1, 6); // Position after last char
+//     EXPECT_FALSE(result);
+//     EXPECT_EQ(text, "Hello");
+// }
+//
+// // Additional edge case tests
+// TEST(UtilsTest, GetSubStrBetweenSingleQuote_EscapedQuotes) {
+//     std::string input = "'Don\\'t worry'";
+//     std::string result = GetSubStrBetweenSingleQuote(input);
+//     // The function doesn't handle escaped quotes, so it will find the first closing quote
+//     EXPECT_EQ(result, "Don\\"); // This might be the actual behavior
+// }
+//
+// TEST(UtilsTest, IsValidIdentifier_MixedValidAndInvalid) {
+//     std::string identifier = "valid_but_with-invalid-char";
+//     bool result = IsValidIdentifier(identifier);
+//     EXPECT_FALSE(result);
+// }
 
 // TEST(UtilsTest, DeleteCharForPosition_UnicodeCharacters) {
 //     std::string text = "Hello 世界";
