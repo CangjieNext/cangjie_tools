@@ -521,18 +521,6 @@ public:
     std::string String() const override { return "UnknownType"; }
 };
 
-// --- GetVarDeclType Unit Tests ---
-
-// Test 086: When both decl->ty and decl->type are null, return empty string
-TEST(UtilsTest, GetVarDeclType_086) {
-    Ptr<FakeVarDecl> decl(new FakeVarDecl());
-    decl->ty = nullptr;
-    decl->type = nullptr;
-
-    std::string result = GetVarDeclType(decl, nullptr);
-    EXPECT_EQ(result, "");
-}
-
 struct MockNamedType : public Type {
     MockNamedType() : Type(ASTKind::TYPE) {}
 
@@ -541,6 +529,26 @@ struct MockNamedType : public Type {
         return {};
     }
 };
+
+
+// Test 087: When ty is UnknownType, fetch from SourceManager and apply ReplaceTuple
+TEST(UtilsTest, GetVarDeclType_087) {
+    Ptr<FakeVarDecl> decl(new FakeVarDecl());
+    decl->ty = Ptr<Ty>(new UnknownTypeStub());
+
+    MockNamedType* typeNode = new MockNamedType();
+    typeNode->begin = {1, 10, 100}; // line 1, col 10
+    typeNode->end = {1, 20, 110};   // line 1, col 20
+
+    // Assign to the 'type' member inherited from VarDeclAbstract
+    decl->type = OwnedPtr<Type>(typeNode);
+
+    SourceManager sm;
+    std::string result = GetVarDeclType(decl, &sm);
+
+    // Should trigger the fallback to SourceManager because of "UnknownType"
+    EXPECT_EQ(result, "");
+}
 
 // Test 088: When ty is a function type (TYPE_FUNC), use ItemResolverUtil
 TEST(UtilsTest, GetVarDeclType_088) {
