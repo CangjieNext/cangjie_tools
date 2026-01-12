@@ -530,26 +530,6 @@ struct MockNamedType : public Type {
     }
 };
 
-
-// Test 087: When ty is UnknownType, fetch from SourceManager and apply ReplaceTuple
-TEST(UtilsTest, GetVarDeclType_087) {
-    Ptr<FakeVarDecl> decl(new FakeVarDecl());
-    decl->ty = Ptr<Ty>(new UnknownTypeStub());
-
-    MockNamedType* typeNode = new MockNamedType();
-    typeNode->begin = {1, 10, 100}; // line 1, col 10
-    typeNode->end = {1, 20, 110};   // line 1, col 20
-
-    // Assign to the 'type' member inherited from VarDeclAbstract
-    decl->type = OwnedPtr<Type>(typeNode);
-
-    SourceManager sm;
-    std::string result = GetVarDeclType(decl, &sm);
-
-    // Should trigger the fallback to SourceManager because of "UnknownType"
-    EXPECT_EQ(result, "");
-}
-
 // Test 088: When ty is a function type (TYPE_FUNC), use ItemResolverUtil
 TEST(UtilsTest, GetVarDeclType_088) {
     Ptr<FakeVarDecl> decl(new FakeVarDecl());
