@@ -14,6 +14,7 @@ import std.convert.*
 import std.process.*
 import std.time.*
 import ohos.base.UIThread
+import ohos.business_exception.*
 
 foreign func gettid(): Int64
 

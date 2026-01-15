@@ -141,20 +141,6 @@ public class TDDiagBuilder {
         
     }
     
-    public mut prop platform: Option<String> {
-        get() {
-            checkThreadAndCall < Option<String> >(getMainContext()) {
-                ctx: JSContext => Option < String >.fromJSValue(ctx, arkts_object["platform"])
-            }
-        }
-        set(v) {
-            checkThreadAndCall < Unit >(getMainContext()) {
-                ctx: JSContext => arkts_object["platform"] = v.toJSValue(ctx)
-            }
-        }
-        
-    }
-    
     public mut prop crashListener: Option<JSValue/* FIXME: `ICrashListener` */> {
         get() {
             checkThreadAndCall < Option<JSValue/* FIXME: `ICrashListener` */> >(getMainContext()) {

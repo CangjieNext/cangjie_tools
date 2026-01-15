@@ -7,7 +7,6 @@
 package my_module
 
 public import ohos.business_exception.BusinessException
-public import ohos.callback_invoke.allbackObject
 public import kit.PerformanceAnalysisKit.Hilog
 
 protected type AsyncCallback<T> = (?BusinessException, ?T) -> Unit

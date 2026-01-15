@@ -212,7 +212,7 @@ public open class MyListener {
         arkts_object.toJSValue()
     }
     
-    public open  static func fromJSValue(context: JSContext, input: JSValue): MyListener {
+    public static func fromJSValue(context: JSContext, input: JSValue): MyListener {
         MyListener(input.asObject())
     }
 }
@@ -252,7 +252,7 @@ public open class MyListener2 {
         arkts_object.toJSValue()
     }
     
-    public open  static func fromJSValue(context: JSContext, input: JSValue): MyListener2 {
+    public static func fromJSValue(context: JSContext, input: JSValue): MyListener2 {
         MyListener2(input.asObject())
     }
 }
@@ -292,7 +292,7 @@ public open class MyListener3 {
         arkts_object.toJSValue()
     }
     
-    public open  static func fromJSValue(context: JSContext, input: JSValue): MyListener3 {
+    public static func fromJSValue(context: JSContext, input: JSValue): MyListener3 {
         MyListener3(input.asObject())
     }
 }
@@ -332,7 +332,7 @@ public open class MyListener5 {
         arkts_object.toJSValue()
     }
     
-    public open  static func fromJSValue(context: JSContext, input: JSValue): MyListener5 {
+    public static func fromJSValue(context: JSContext, input: JSValue): MyListener5 {
         MyListener5(input.asObject())
     }
 }

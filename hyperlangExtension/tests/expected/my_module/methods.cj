@@ -180,7 +180,7 @@ public open class Drivable {
         arkts_object.toJSValue()
     }
     
-    public open  static func fromJSValue(context: JSContext, input: JSValue): Drivable {
+    public static func fromJSValue(context: JSContext, input: JSValue): Drivable {
         Drivable(input.asObject())
     }
 }
@@ -225,7 +225,7 @@ public open class IM {
 	 */
     public func f4(e: EMStr): (s: String) -> Unit {
         jsObjApiCall < (s: String) -> Unit >( arkts_object, "f4", { ctx =>[e.get().toJSValue(ctx)] }) {
-            ctx, info => (s: String) -> Unit.fromJSValue(ctx, info)
+            ctx, info => Unit.fromJSValue(ctx, info)
         }
     }
     /**
@@ -265,7 +265,7 @@ public open class IM {
         arkts_object.toJSValue()
     }
     
-    public open  static func fromJSValue(context: JSContext, input: JSValue): IM {
+    public static func fromJSValue(context: JSContext, input: JSValue): IM {
         IM(input.asObject())
     }
 }
@@ -322,7 +322,7 @@ public open class Animal {
         arkts_object.toJSValue()
     }
     
-    public open  static func fromJSValue(context: JSContext, input: JSValue): Animal {
+    public static func fromJSValue(context: JSContext, input: JSValue): Animal {
         Animal(input.asObject())
     }
 }
@@ -552,7 +552,7 @@ public class CM {
 	 */
     public func f4(e: EMStr): (s: String) -> Unit {
         jsObjApiCall < (s: String) -> Unit >( arkts_object, "f4", { ctx =>[e.get().toJSValue(ctx)] }) {
-            ctx, info => (s: String) -> Unit.fromJSValue(ctx, info)
+            ctx, info => Unit.fromJSValue(ctx, info)
         }
     }
     /**
@@ -953,7 +953,7 @@ public open class Shape {
         arkts_object.toJSValue()
     }
     
-    public open  static func fromJSValue(context: JSContext, input: JSValue): Shape {
+    public static func fromJSValue(context: JSContext, input: JSValue): Shape {
         Shape(input.asObject())
     }
 }

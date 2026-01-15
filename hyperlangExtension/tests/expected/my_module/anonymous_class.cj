@@ -9,6 +9,7 @@ package my_module
 import ohos.ark_interop.*
 import ohos.ark_interop_helper.*
 import ohos.base.*
+import ohos.business_exception.*
 
 public enum AutoGenType5 {
     | AUTOGENTYPE3(AutoGenType3)

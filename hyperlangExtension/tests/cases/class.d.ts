@@ -16,7 +16,6 @@ export declare class TDDiagBuilder {
     logUploadListener?: LogUploadListener;
     initiativeUploadWhiteListTags?: Array<string>;
     xgTrafficQuota: number;
-    platform: string | null;
     crashListener: ICrashListener | null;
     constructor();
 }

@@ -125,7 +125,7 @@ public open class B<W, M> where W <: JSInteropType<W>, M <: JSInteropType<M> {
         arkts_object.toJSValue()
     }
     
-    public open  static func fromJSValue(context: JSContext, input: JSValue): B<W, M> {
+    public static func fromJSValue(context: JSContext, input: JSValue): B<W, M> {
         B(input.asObject())
     }
 }

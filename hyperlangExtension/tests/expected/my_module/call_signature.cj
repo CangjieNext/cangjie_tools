@@ -65,7 +65,7 @@ public open class VerificationMode {
         arkts_object.toJSValue()
     }
     
-    public open  static func fromJSValue(context: JSContext, input: JSValue): VerificationMode {
+    public static func fromJSValue(context: JSContext, input: JSValue): VerificationMode {
         VerificationMode(input.asObject())
     }
 }
@@ -118,7 +118,7 @@ public open class when {
         arkts_object.toJSValue()
     }
     
-    public open  static func fromJSValue(context: JSContext, input: JSValue): when {
+    public static func fromJSValue(context: JSContext, input: JSValue): when {
         when(input.asObject())
     }
 }

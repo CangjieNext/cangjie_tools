@@ -69,7 +69,7 @@ public open class Calculator {
         arkts_object.toJSValue()
     }
     
-    public open  static func fromJSValue(context: JSContext, input: JSValue): Calculator {
+    public static func fromJSValue(context: JSContext, input: JSValue): Calculator {
         Calculator(input.asObject())
     }
 }
@@ -88,7 +88,7 @@ public open class Callback1 {
         arkts_object.toJSValue()
     }
     
-    public open  static func fromJSValue(context: JSContext, input: JSValue): Callback1 {
+    public static func fromJSValue(context: JSContext, input: JSValue): Callback1 {
         Callback1(input.asObject())
     }
 }
@@ -130,7 +130,7 @@ public open class Config {
         arkts_object.toJSValue()
     }
     
-    public open  static func fromJSValue(context: JSContext, input: JSValue): Config {
+    public static func fromJSValue(context: JSContext, input: JSValue): Config {
         Config(input.asObject())
     }
 }
@@ -149,7 +149,7 @@ public open class Dictionary {
         arkts_object.toJSValue()
     }
     
-    public open  static func fromJSValue(context: JSContext, input: JSValue): Dictionary {
+    public static func fromJSValue(context: JSContext, input: JSValue): Dictionary {
         Dictionary(input.asObject())
     }
 }
@@ -195,7 +195,7 @@ public open class IWBAPI {
         arkts_object.toJSValue()
     }
     
-    public open  static func fromJSValue(context: JSContext, input: JSValue): IWBAPI {
+    public static func fromJSValue(context: JSContext, input: JSValue): IWBAPI {
         IWBAPI(input.asObject())
     }
 }
@@ -272,7 +272,7 @@ public open class LoggerAdapter {
         arkts_object.toJSValue()
     }
     
-    public open  static func fromJSValue(context: JSContext, input: JSValue): LoggerAdapter {
+    public static func fromJSValue(context: JSContext, input: JSValue): LoggerAdapter {
         LoggerAdapter(input.asObject())
     }
 }
@@ -313,7 +313,7 @@ public open class Person {
         arkts_object.toJSValue()
     }
     
-    public open  static func fromJSValue(context: JSContext, input: JSValue): Person {
+    public static func fromJSValue(context: JSContext, input: JSValue): Person {
         Person(input.asObject())
     }
 }
@@ -349,7 +349,7 @@ public open class PluginContainer {
         arkts_object.toJSValue()
     }
     
-    public open  static func fromJSValue(context: JSContext, input: JSValue): PluginContainer {
+    public static func fromJSValue(context: JSContext, input: JSValue): PluginContainer {
         PluginContainer(input.asObject())
     }
 }
@@ -439,7 +439,7 @@ public open class UnionInterface {
         arkts_object.toJSValue()
     }
     
-    public open  static func fromJSValue(context: JSContext, input: JSValue): UnionInterface {
+    public static func fromJSValue(context: JSContext, input: JSValue): UnionInterface {
         UnionInterface(input.asObject())
     }
 }
@@ -647,7 +647,7 @@ public open class BasePlugin {
         arkts_object.toJSValue()
     }
     
-    public open  static func fromJSValue(context: JSContext, input: JSValue): BasePlugin {
+    public static func fromJSValue(context: JSContext, input: JSValue): BasePlugin {
         BasePlugin(input.asObject())
     }
 }

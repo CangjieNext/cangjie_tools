@@ -50,7 +50,7 @@ public open class I1 {
         obj["e"] = toJSArray < Float32 >(context, e, { ctx: JSContext, val: Float32 => val.toJSValue(ctx) })
         obj["g"] = hashmap2Record<Array<UInt8>>(context, g, { context, i => i.toJSValue(context) })
         obj["h"] = h.get().toJSValue(context)
-        obj["i"] = context.bigint(i).toJSValue(context)
+        obj["i"] = context.bigint(i).toJSValue()
         if(let Some(v) <- b) {
             obj["b"] = v.toJSValue(context)
         }
