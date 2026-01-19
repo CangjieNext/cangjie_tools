@@ -176,12 +176,23 @@ public class TransObject {
         }
     }
 
-    private func processArkMethod(constructorToken: Tokens, methodToken: Tokens, paramToken: Tokens) {
+    private func processArkMethod(constructorToken: Tokens, methodToken: Tokens) {
         var isPublicType = false
         for (i in 0..arkMethods.size) {
             let arkMethod = arkMethods[i]
             if (arkMethod.name == "") {
                 isPublicType = true
+                continue
+            }
+            var hasParentAlreadyTranslate = false
+            for (arkParentsMethod in arkParentsMethods) {
+                if (arkMethod.name == arkParentsMethod.name) {
+                    hasParentAlreadyTranslate = true
+                    break
+                }
+            }
+            if (hasParentAlreadyTranslate) {
+                println("WARNING: ${arkName} parent has already translated ${arkMethod.name} method, skip it")
                 continue
             }
             var params = splitUnionParams(arkMethod.parameters)
@@ -200,33 +211,38 @@ public class TransObject {
         return isPublicType
     }
 
-    func genMethodOfClass(property: Tokens, constructorToken: Tokens, methodToken: Tokens, paramToken: Tokens,
+    func genMethodOfClass(property: Tokens, constructorToken: Tokens, methodToken: Tokens,
         templateClassNameToken: Token) {
         var isPublicType = false
         if (arkMethods.size > 0 || arkParentsMethods.size > 0 || this.arkCategory == "class") {
             let classNameToken = Token(TokenKind.IDENTIFIER, arkName)
-            if (arkParents.size > 0 || this.cjModifiers.contains("open")) {
-                property.append(quote(public var arkts_object: JSObject))
-            } else {
+            if (arkParents.size == 0 ) {
                 property.append(quote(var arkts_object: JSObject))
+            } else {
+                if (arkParentsMethods.size == 0 && !arkParentsCategories.contains("class")) {
+                    property.append(quote(var arkts_object: JSObject))
+                } else {
+                    property.append(quote(arkts_object: JSObject))
+                }
             }
-            isPublicType = processArkMethod(constructorToken, methodToken, paramToken)
-            let modifiers = if (this.cjModifiers.contains("open")) {
-                "public open "
-            } else if (arkParents.size > 0) {
+            isPublicType = processArkMethod(constructorToken, methodToken)
+            let modifiers = if (arkParents.size > 0 || this.cjModifiers.contains("open")) {
                 "public "
             } else {
                 ""
             }
+
             let proMethodTemplate = quote(
                 $(getTokenWithoutNL(modifiers + "func"))toJSValue(context: JSContext): JSValue {
                     arkts_object.toJSValue()
                 }
 
-                $(getTokenWithoutNL(modifiers))static func fromJSValue(context: JSContext, input: JSValue): $(templateClassNameToken) {
+                $(getTokenWithoutNL(modifiers + "static"))func fromJSValue(context: JSContext, input: JSValue): $(templateClassNameToken) {
                     $(classNameToken)\(input.asObject()\)
                 })
-            methodToken.append(proMethodTemplate)
+            if (arkParents.size == 0) {
+                methodToken.append(proMethodTemplate)
+            }
         }
         return isPublicType
     }
@@ -281,8 +297,7 @@ public class TransObject {
         }
         let methodToken = Tokens()
         let constructorToken = Tokens()
-        let paramToken = Tokens()
-        genMethodOfClass(property, constructorToken, methodToken, paramToken, templateClassNameToken)
+        genMethodOfClass(property, constructorToken, methodToken, templateClassNameToken)
 
         let eventManager = if (hasEventAPI(arkMethods)) {
             declareCallbackManager()
@@ -372,23 +387,13 @@ public class TransObject {
             if (fromParent) {
                 property.append(quote($(proName)!: $(typeToken) = $(defToken)))
             } else {
-                if (this.arkCategory == "interface" && !arkName.startsWith("AutoGenType")) {
-                    property.append(quote(private $(prefix) $(proName)!: $(typeToken) = $(defToken)))
-                } else {
-                    property.append(quote(public $(prefix) $(proName)!: $(typeToken) = $(defToken)))
-                }
-                
+                property.append(quote(public $(prefix) $(proName)!: $(typeToken) = $(defToken)))
             }
         } else {
             if (fromParent) {
                 property.append(quote($(proName): $(proType)))
             } else {
-                if (this.arkCategory == "interface" && !arkName.startsWith("AutoGenType")) {
-                    property.append(quote(private $(prefix) $(proName): $(proType)))
-                } else {
-                    property.append(quote(public $(prefix) $(proName): $(proType)))
-                }
-                
+                property.append(quote(public $(prefix) $(proName): $(proType)))
             }
         }
         if (!last) {
@@ -412,6 +417,13 @@ public class TransObject {
 
     func genProp(i: Int64, propertyMethod: Tokens) {
         let arkProp = arkProperties[i]
+        // cj does not support prop declare of same name between parent and child
+        for (arkParentsProperty in this.arkParentsProperties) {
+            if (arkProp.propKey == arkParentsProperty.propKey) {
+                println("WARNING: ${arkName} parent has already translated ${arkProp.propKey} prop, skip it")
+                return
+            }
+        }
         propertyMethod.append(Token(TokenKind.COMMENT, arkProp.comment))
         let propName = Token(TokenKind.IDENTIFIER, arkProp.propKey)
         let propType = arkProp.typeNode.toCJTypeTokens()
