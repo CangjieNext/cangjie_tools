@@ -11,7 +11,7 @@ import ohos.ark_interop_helper.*
 import ohos.base.*
 import std.math.numeric.*
 
-public enum AutoGenType0 {
+public enum AutoGenType27 {
     | BOOLEAN(Bool)
     | STRING(String)
     
@@ -21,7 +21,7 @@ public enum AutoGenType0 {
             case STRING(x) => context.string(x).toJSValue()
         }
     }
-    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType0 {
+    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType27 {
         
         if (input.isBoolean()) {
             return BOOLEAN(Bool.fromJSValue(context, input))
@@ -33,7 +33,7 @@ public enum AutoGenType0 {
     }
 }
 
-public enum AutoGenType1 {
+public enum AutoGenType28 {
     | NUMBER(Float64)
     | STRING(String)
     | BOOLEAN(Bool)
@@ -45,7 +45,7 @@ public enum AutoGenType1 {
             case BOOLEAN(x) => context.boolean(x).toJSValue()
         }
     }
-    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType1 {
+    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType28 {
         
         if(input.isNumber()) {
             return NUMBER(Float64.fromJSValue(context, input))
@@ -60,7 +60,7 @@ public enum AutoGenType1 {
     }
 }
 
-public enum AutoGenType2 {
+public enum AutoGenType29 {
     | NUMBER(Float64)
     | STRING(String)
     | BOOLEAN(Bool)
@@ -76,7 +76,7 @@ public enum AutoGenType2 {
             case UNDEFINED => context.undefined().toJSValue()
         }
     }
-    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType2 {
+    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType29 {
         
         if(input.isNumber()) {
             return NUMBER(Float64.fromJSValue(context, input))
@@ -97,7 +97,7 @@ public enum AutoGenType2 {
     }
 }
 
-public enum AutoGenType3 {
+public enum AutoGenType30 {
     | NUMBER(Float64)
     | STRING(String)
     | BOOLEAN(Bool)
@@ -113,7 +113,7 @@ public enum AutoGenType3 {
             case VOID(x) => x
         }
     }
-    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType3 {
+    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType30 {
         
         if(input.isNumber()) {
             return NUMBER(Float64.fromJSValue(context, input))
@@ -131,7 +131,7 @@ public enum AutoGenType3 {
     }
 }
 
-public enum AutoGenType4 {
+public enum AutoGenType31 {
     | NUMBER(Float64)
     | STRING(String)
     
@@ -141,7 +141,7 @@ public enum AutoGenType4 {
             case STRING(x) => context.string(x).toJSValue()
         }
     }
-    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType4 {
+    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType31 {
         
         if(input.isNumber()) {
             return NUMBER(Float64.fromJSValue(context, input))
@@ -153,7 +153,7 @@ public enum AutoGenType4 {
     }
 }
 
-public enum AutoGenType5 {
+public enum AutoGenType32 {
     | NUMBER(Float64)
     | BOOLEAN(Bool)
     
@@ -163,7 +163,7 @@ public enum AutoGenType5 {
             case BOOLEAN(x) => context.boolean(x).toJSValue()
         }
     }
-    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType5 {
+    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType32 {
         
         if(input.isNumber()) {
             return NUMBER(Float64.fromJSValue(context, input))
@@ -197,12 +197,20 @@ public class UnionTypes {
     public mut prop t_null: Option<Float64> {
         get() {
             checkThreadAndCall < Option<Float64> >(getMainContext()) {
-                ctx: JSContext => Option < Float64 >.fromJSValue(ctx, arkts_object["t_null"])
+                ctx: JSContext =>
+                if(arkts_object["t_null"].isNull()) {
+                    None < Float64 >
+                } else {
+                    Float64.fromJSValue(ctx, arkts_object["t_null"])
+                }
             }
         }
         set(v) {
             checkThreadAndCall < Unit >(getMainContext()) {
-                ctx: JSContext => arkts_object["t_null"] = v.toJSValue(ctx)
+                ctx: JSContext => arkts_object["t_null"] = match(v) {
+                    case None => ctx.undefined().toJSValue()
+                    case _ => v.getOrThrow().toJSValue(ctx)
+                }
             }
         }
         
@@ -211,21 +219,29 @@ public class UnionTypes {
     public mut prop null_t: Option<String> {
         get() {
             checkThreadAndCall < Option<String> >(getMainContext()) {
-                ctx: JSContext => Option < String >.fromJSValue(ctx, arkts_object["null_t"])
+                ctx: JSContext =>
+                if(arkts_object["null_t"].isNull()) {
+                    None < String >
+                } else {
+                    String.fromJSValue(ctx, arkts_object["null_t"])
+                }
             }
         }
         set(v) {
             checkThreadAndCall < Unit >(getMainContext()) {
-                ctx: JSContext => arkts_object["null_t"] = v.toJSValue(ctx)
+                ctx: JSContext => arkts_object["null_t"] = match(v) {
+                    case None => ctx.undefined().toJSValue()
+                    case _ => v.getOrThrow().toJSValue(ctx)
+                }
             }
         }
         
     }
     
-    public mut prop t1_t2: AutoGenType0 {
+    public mut prop t1_t2: AutoGenType27 {
         get() {
-            checkThreadAndCall < AutoGenType0 >(getMainContext()) {
-                ctx: JSContext => AutoGenType0.fromJSValue(ctx, arkts_object["t1_t2"])
+            checkThreadAndCall < AutoGenType27 >(getMainContext()) {
+                ctx: JSContext => AutoGenType27.fromJSValue(ctx, arkts_object["t1_t2"])
             }
         }
         set(v) {
@@ -239,12 +255,20 @@ public class UnionTypes {
     public mut prop t_undefined: Option<Float64> {
         get() {
             checkThreadAndCall < Option<Float64> >(getMainContext()) {
-                ctx: JSContext => Option < Float64 >.fromJSValue(ctx, arkts_object["t_undefined"])
+                ctx: JSContext =>
+                if(arkts_object["t_undefined"].isNull()) {
+                    None < Float64 >
+                } else {
+                    Float64.fromJSValue(ctx, arkts_object["t_undefined"])
+                }
             }
         }
         set(v) {
             checkThreadAndCall < Unit >(getMainContext()) {
-                ctx: JSContext => arkts_object["t_undefined"] = v.toJSValue(ctx)
+                ctx: JSContext => arkts_object["t_undefined"] = match(v) {
+                    case None => ctx.undefined().toJSValue()
+                    case _ => v.getOrThrow().toJSValue(ctx)
+                }
             }
         }
         
@@ -253,21 +277,29 @@ public class UnionTypes {
     public mut prop undefined: Option<String> {
         get() {
             checkThreadAndCall < Option<String> >(getMainContext()) {
-                ctx: JSContext => Option < String >.fromJSValue(ctx, arkts_object["undefined"])
+                ctx: JSContext =>
+                if(arkts_object["undefined"].isNull()) {
+                    None < String >
+                } else {
+                    String.fromJSValue(ctx, arkts_object["undefined"])
+                }
             }
         }
         set(v) {
             checkThreadAndCall < Unit >(getMainContext()) {
-                ctx: JSContext => arkts_object["undefined"] = v.toJSValue(ctx)
+                ctx: JSContext => arkts_object["undefined"] = match(v) {
+                    case None => ctx.undefined().toJSValue()
+                    case _ => v.getOrThrow().toJSValue(ctx)
+                }
             }
         }
         
     }
     
-    public mut prop t3: AutoGenType1 {
+    public mut prop t3: AutoGenType28 {
         get() {
-            checkThreadAndCall < AutoGenType1 >(getMainContext()) {
-                ctx: JSContext => AutoGenType1.fromJSValue(ctx, arkts_object["t3"])
+            checkThreadAndCall < AutoGenType28 >(getMainContext()) {
+                ctx: JSContext => AutoGenType28.fromJSValue(ctx, arkts_object["t3"])
             }
         }
         set(v) {
@@ -278,10 +310,10 @@ public class UnionTypes {
         
     }
     
-    public mut prop t4: AutoGenType2 {
+    public mut prop t4: AutoGenType29 {
         get() {
-            checkThreadAndCall < AutoGenType2 >(getMainContext()) {
-                ctx: JSContext => AutoGenType2.fromJSValue(ctx, arkts_object["t4"])
+            checkThreadAndCall < AutoGenType29 >(getMainContext()) {
+                ctx: JSContext => AutoGenType29.fromJSValue(ctx, arkts_object["t4"])
             }
         }
         set(v) {
@@ -292,10 +324,10 @@ public class UnionTypes {
         
     }
     
-    public mut prop t5: AutoGenType3 {
+    public mut prop t5: AutoGenType30 {
         get() {
-            checkThreadAndCall < AutoGenType3 >(getMainContext()) {
-                ctx: JSContext => AutoGenType3.fromJSValue(ctx, arkts_object["t5"])
+            checkThreadAndCall < AutoGenType30 >(getMainContext()) {
+                ctx: JSContext => AutoGenType30.fromJSValue(ctx, arkts_object["t5"])
             }
         }
         set(v) {
@@ -310,26 +342,22 @@ public class UnionTypes {
 	 * @brief getValueOrError(): number | String
 	 */
 	// Method returning a union type
-    public func getValueOrError(): AutoGenType4 {
-        jsObjApiCall < AutoGenType4 >( arkts_object, "getValueOrError", emptyArg) {
-            ctx, info => AutoGenType4.fromJSValue(ctx, info)
-        }
+    public func getValueOrError(): AutoGenType31 {
+        jsObjApiCall < AutoGenType31 >( arkts_object, "getValueOrError", EMPTY_ARG) { ctx, info => AutoGenType31.fromJSValue(ctx, info) }
     }
     /**
 	 * @brief setValue(value: string): number | boolean
 	 */
 	// Method with union type parameter
-    public func setValue(value: String): AutoGenType5 {
-        jsObjApiCall < AutoGenType5 >( arkts_object, "setValue", { ctx =>[value.toJSValue(ctx)] }) {
-            ctx, info => AutoGenType5.fromJSValue(ctx, info)
-        }
+    public func setValue(value: String): AutoGenType32 {
+        jsObjApiCall < AutoGenType32 >( arkts_object, "setValue", { ctx =>[value.toJSValue(ctx)] }) { ctx, info => AutoGenType32.fromJSValue(ctx, info) }
     }
     
     func toJSValue(context: JSContext): JSValue {
         arkts_object.toJSValue()
     }
     
-     static func fromJSValue(context: JSContext, input: JSValue): UnionTypes {
+    static func fromJSValue(context: JSContext, input: JSValue): UnionTypes {
         UnionTypes(input.asObject())
     }
 }
@@ -338,28 +366,22 @@ public class UnionTypes {
 /**
 	 * @brief testUnion(s: string): boolean | String
 	 */
-public func testUnion(s: String): AutoGenType0 {
-    hmsGlobalApiCall < AutoGenType0 >( "my_module_unionTypes", "testUnion", { ctx =>[s.toJSValue(ctx)] }) {
-        ctx, info => AutoGenType0.fromJSValue(ctx, info)
-    }
+public func testUnion(s: String): AutoGenType27 {
+    hmsGlobalApiCall < AutoGenType27 >( "my_module_unionTypes", "testUnion", { ctx =>[s.toJSValue(ctx)] }) { ctx, info => AutoGenType27.fromJSValue(ctx, info) }
 }
 
 /**
 	 * @brief testUnion1(s: string | number): boolean | String
 	 */
-public func testUnion1(s: String): AutoGenType0 {
-    hmsGlobalApiCall < AutoGenType0 >( "my_module_unionTypes", "testUnion1", { ctx =>[s.toJSValue(ctx)] }) {
-        ctx, info => AutoGenType0.fromJSValue(ctx, info)
-    }
+public func testUnion1(s: String): AutoGenType27 {
+    hmsGlobalApiCall < AutoGenType27 >( "my_module_unionTypes", "testUnion1", { ctx =>[s.toJSValue(ctx)] }) { ctx, info => AutoGenType27.fromJSValue(ctx, info) }
 }
 
 /**
 	 * @brief testUnion1(s: string | number): boolean | String
 	 */
-public func testUnion1(s: Float64): AutoGenType0 {
-    hmsGlobalApiCall < AutoGenType0 >( "my_module_unionTypes", "testUnion1", { ctx =>[s.toJSValue(ctx)] }) {
-        ctx, info => AutoGenType0.fromJSValue(ctx, info)
-    }
+public func testUnion1(s: Float64): AutoGenType27 {
+    hmsGlobalApiCall < AutoGenType27 >( "my_module_unionTypes", "testUnion1", { ctx =>[s.toJSValue(ctx)] }) { ctx, info => AutoGenType27.fromJSValue(ctx, info) }
 }
 
 

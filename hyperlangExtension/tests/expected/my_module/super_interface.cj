@@ -22,7 +22,7 @@ import ohos.base.*
 
 public open class p29 {
     
-    protected p29(public var arkts_object: JSObject) { }
+    protected p29(var arkts_object: JSObject) { }
     
     
     /**
@@ -56,11 +56,11 @@ public open class p29 {
         jsObjApiCall < Unit >( arkts_object, "fatal", { ctx =>[arg.toJSValue(ctx)] })
     }
     
-    public open func toJSValue(context: JSContext): JSValue {
+    public func toJSValue(context: JSContext): JSValue {
         arkts_object.toJSValue()
     }
     
-    public open  static func fromJSValue(context: JSContext, input: JSValue): p29 {
+    public static func fromJSValue(context: JSContext, input: JSValue): p29 {
         p29(input.asObject())
     }
 }
