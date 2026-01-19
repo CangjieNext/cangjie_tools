@@ -11,13 +11,13 @@ import ohos.ark_interop_helper.*
 import ohos.base.*
 
 public enum AutoGenType5 {
-    | AUTOGENTYPE3(AutoGenType3)
-    | AUTOGENTYPE4(AutoGenType4)
+    | AutoGenType5AUTOGENTYPE3(AutoGenType3)
+    | AutoGenType5AUTOGENTYPE4(AutoGenType4)
     
     public func toJSValue(context: JSContext): JSValue {
         match(this) {
-            case AUTOGENTYPE3(x) => x.toJSValue(context)
-            case AUTOGENTYPE4(x) => x.toJSValue(context)
+            case AutoGenType5AUTOGENTYPE3(x) => x.toJSValue(context)
+            case AutoGenType5AUTOGENTYPE4(x) => x.toJSValue(context)
         }
     }
     public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType5 {
@@ -193,17 +193,13 @@ public class AnonymousClass {
 	 * @brief f1(p: {n: number}): {n: number}
 	 */
     public func f1(p: AutoGenType0): AutoGenType1 {
-        jsObjApiCall < AutoGenType1 >( arkts_object, "f1", { ctx =>[p.toJSValue(ctx)] }) {
-            ctx, info => AutoGenType1.fromJSValue(ctx, info)
-        }
+        jsObjApiCall < AutoGenType1 >( arkts_object, "f1", { ctx =>[p.toJSValue(ctx)] }) { ctx, info => AutoGenType1.fromJSValue(ctx, info) }
     }
     /**
 	 * @brief f2(n: number): Promise<String>
 	 */
     public func f2(callback: AsyncCallback < JSValue/* FIXME: `Promise<string>` */ >, n: Float64): Unit {
-        jsObjApiCallPromise < JSValue/* FIXME: `Promise<string>` */ >( arkts_object, "f2", callback, { ctx =>[n.toJSValue(ctx)] }) {
-            ctx, info => info
-        }
+        jsObjApiCallPromise < JSValue/* FIXME: `Promise<string>` */ >( arkts_object, "f2", callback, { ctx =>[n.toJSValue(ctx)] }) { ctx, info => info }
     }
     /**
 	 * @brief f3(n: number): Promise<{
@@ -211,9 +207,7 @@ public class AnonymousClass {
     }>
 	 */
     public func f3(callback: AsyncCallback < JSValue/* FIXME: `Promise<AutoGenType2>` */ >, n: Float64): Unit {
-        jsObjApiCallPromise < JSValue/* FIXME: `Promise<AutoGenType2>` */ >( arkts_object, "f3", callback, { ctx =>[n.toJSValue(ctx)] }) {
-            ctx, info => info
-        }
+        jsObjApiCallPromise < JSValue/* FIXME: `Promise<AutoGenType2>` */ >( arkts_object, "f3", callback, { ctx =>[n.toJSValue(ctx)] }) { ctx, info => info }
     }
     /**
 	 * @brief f4(): Promise<{
@@ -227,16 +221,14 @@ public class AnonymousClass {
     }>
 	 */
     public func f4(callback: AsyncCallback < JSValue/* FIXME: `Promise<AutoGenType5>` */ >): Unit {
-        jsObjApiCallPromise < JSValue/* FIXME: `Promise<AutoGenType5>` */ >( arkts_object, "f4", callback, emptyArg) {
-            ctx, info => info
-        }
+        jsObjApiCallPromise < JSValue/* FIXME: `Promise<AutoGenType5>` */ >( arkts_object, "f4", callback, EMPTY_ARG) { ctx, info => info }
     }
     
-    func toJSValue(context: JSContext): JSValue {
+    public func toJSValue(context: JSContext): JSValue {
         arkts_object.toJSValue()
     }
     
-     static func fromJSValue(context: JSContext, input: JSValue): AnonymousClass {
+    public static func fromJSValue(context: JSContext, input: JSValue): AnonymousClass {
         AnonymousClass(input.asObject())
     }
 }

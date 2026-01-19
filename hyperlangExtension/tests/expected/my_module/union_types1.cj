@@ -10,7 +10,7 @@ import ohos.ark_interop.*
 import ohos.ark_interop_helper.*
 import ohos.base.*
 
-public enum AutoGenType0 {
+public enum AutoGenType33 {
     | BOOLEAN(Bool)
     | STRING(String)
     
@@ -20,7 +20,7 @@ public enum AutoGenType0 {
             case STRING(x) => context.string(x).toJSValue()
         }
     }
-    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType0 {
+    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType33 {
         
         if (input.isBoolean()) {
             return BOOLEAN(Bool.fromJSValue(context, input))
@@ -32,7 +32,7 @@ public enum AutoGenType0 {
     }
 }
 
-public enum AutoGenType1 {
+public enum AutoGenType34 {
     | STRING(String)
     | NUMBER(Float64)
     
@@ -42,7 +42,7 @@ public enum AutoGenType1 {
             case NUMBER(x) => context.number(x).toJSValue()
         }
     }
-    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType1 {
+    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType34 {
         
         if(input.isString()) {
             return STRING(String.fromJSValue(context, input))
@@ -105,10 +105,10 @@ public class A {
         
     }
     // property
-    public mut prop b: AutoGenType0 {
+    public mut prop b: AutoGenType33 {
         get() {
-            checkThreadAndCall < AutoGenType0 >(getMainContext()) {
-                ctx: JSContext => AutoGenType0.fromJSValue(ctx, arkts_object["b"])
+            checkThreadAndCall < AutoGenType33 >(getMainContext()) {
+                ctx: JSContext => AutoGenType33.fromJSValue(ctx, arkts_object["b"])
             }
         }
         set(v) {
@@ -123,10 +123,8 @@ public class A {
 	 * @brief test1(a:a1): String|number
 	 */
 	// member function
-    public func test1(a: a1): AutoGenType1 {
-        jsObjApiCall < AutoGenType1 >( arkts_object, "test1", { ctx =>[a.toJSValue(ctx)] }) {
-            ctx, info => AutoGenType1.fromJSValue(ctx, info)
-        }
+    public func test1(a: a1): AutoGenType34 {
+        jsObjApiCall < AutoGenType34 >( arkts_object, "test1", { ctx =>[a.toJSValue(ctx)] }) { ctx, info => AutoGenType34.fromJSValue(ctx, info) }
     }
     /**
 	 * @brief test2(a: string|number): number
@@ -141,11 +139,11 @@ public class A {
         jsObjApiCall < Float64 >( arkts_object, "test2", { ctx =>[a.toJSValue(ctx)] })
     }
     
-    func toJSValue(context: JSContext): JSValue {
+    public func toJSValue(context: JSContext): JSValue {
         arkts_object.toJSValue()
     }
     
-     static func fromJSValue(context: JSContext, input: JSValue): A {
+    public static func fromJSValue(context: JSContext, input: JSValue): A {
         A(input.asObject())
     }
 }
@@ -155,10 +153,8 @@ public class A {
 	 * @brief test(a:a1): String|number
 	 */
 	// global func
-public func test(a: a1): AutoGenType1 {
-    hmsGlobalApiCall < AutoGenType1 >( "my_module_unionTypes1", "test", { ctx =>[a.toJSValue(ctx)] }) {
-        ctx, info => AutoGenType1.fromJSValue(ctx, info)
-    }
+public func test(a: a1): AutoGenType34 {
+    hmsGlobalApiCall < AutoGenType34 >( "my_module_unionTypes1", "test", { ctx =>[a.toJSValue(ctx)] }) { ctx, info => AutoGenType34.fromJSValue(ctx, info) }
 }
 
 
