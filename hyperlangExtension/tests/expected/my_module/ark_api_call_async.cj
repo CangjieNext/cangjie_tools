@@ -6,7 +6,7 @@
 
 package my_module
 
-import std.collection.concurrent.ConcurrentHashMap
+import std.collection.{concurrent.ConcurrentHashMap, HashMap}
 import ohos.base.UIThread
 import ohos.hilog.Hilog
 import std.sync.Mutex
@@ -124,6 +124,31 @@ protected func asyncCallbackWrapper<T>(ctx: JSContext, callback: (?BusinessExcep
     asyncCallbackWrapper<T>(ctx, callback) {ctx, info => T.fromJSValue(ctx, info)}
 }
 
+protected func asyncCallbackWrapperEx<T>(ctx: JSContext, callback: AsyncCallback<T>,
+    paramParser: (JSContext, JSValue) -> T): JSValue {
+    func call(ctx: JSContext): JSValue {
+        let jscall = ctx.function {
+            ctx, info =>
+            try {
+                var err = None<BusinessException>
+                var data = None<T>
+                if (info[1].isNull() || info[1].isUndefined()) {
+                    err = handleError(ctx, info[0])
+                } else {
+                    data = paramParser(ctx, info[1])
+                }
+                callback(err, data)
+            } catch (e: Exception) {
+                Hilog.error(1, "hle", e.toString())
+                throw e
+            }
+            ctx.undefined().toJSValue()
+        }
+        jscall.toJSValue()
+    }
+    checkThreadAndCall<JSValue>(ctx, call)
+}
+
 protected func getJSModule(ctx: JSContext, name: String, prefix: ?String): JSObject {
     match (MAIN_CONTEXT_MODULE_MAP.get(name)) {
         case Some(v) => v
@@ -173,6 +198,14 @@ protected func hmsGlobalApiCall<T>(moduleName: String, funcName: String, args: (
 
 protected func ohosGlobalApiCall<T>(moduleName: String, funcName: String, args: (JSContext) -> Array<JSValue>): T where T <: JSInteropType<T> {
     ohosGlobalApiCall<T>(moduleName, funcName, args) {ctx, info => T.fromJSValue(ctx, info)}
+}
+
+protected func getClassConstructorObj(moduleName: String, className: String, prefix!: ?String = None): JSObject {
+    checkThreadAndCall<JSObject>(getMainContext()) {
+        ctx =>
+        let module = getJSModule(ctx, moduleName, prefix)
+        module[className].asObject()
+    }
 }
 
 protected struct JsGlobalApiCallInfo<T> {
@@ -338,4 +371,47 @@ protected func fromJSArrayOption<T>(ctx: JSContext, input: JSValue, constructor:
     } else {
         Some(fromJSArray(ctx, input, constructor))
     }
+}
+
+protected func record2Hashmap<V>(context: JSContext, input: JSValue, valueConstructor: (JSContext, JSValue) -> V): HashMap<String, V> {
+    if (input.isUndefined()) {
+        HashMap<String, V>()
+    } else {
+        let record = input.asObject()
+        let hashmap = HashMap<String, V>()
+
+        for(key in record.keys()) {
+            hashmap.add(key, valueConstructor(context, record[key]))
+        }
+        hashmap
+     }
+}
+
+protected func hashmap2Record<V>(context: JSContext, hashmap: ?HashMap<String, V>, valueConstructor: (JSContext, V) -> JSValue): JSValue {
+    if (let Some(map) <- hashmap) {
+        let obj = context.object()
+
+        for((k, v) in map) {
+            obj.setProperty(k, valueConstructor(context, v))
+        }
+
+        obj.toJSValue()
+    } else {
+        context.undefined().toJSValue()
+     }
+}
+
+protected func instanceof(value: JSValue, className: String): Bool {
+    let ctx = getMainContext()
+    let prototype = ctx.global["Object"].asObject().callMethod("getPrototypeOf", [value]).asObject()
+    let constructor = prototype["constructor"].asObject()
+    return constructor["name"].toString() == className
+}
+
+protected func instanceof(value: JSValue, moduleName: String, prefix: ?String, className: String): Bool {
+    func innerInstanceof(ctx: JSContext): Bool {
+        let clazz = getJSModule(ctx, moduleName, prefix)[ctx.string(className)].asClass()
+        value.asObject().instanceOf(clazz)
+    }
+    checkThreadAndCall<Bool>(getMainContext(), innerInstanceof)
 }

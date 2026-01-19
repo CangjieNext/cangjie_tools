@@ -91,11 +91,11 @@ public class BuildProfile {
     }
     
     
-    func toJSValue(context: JSContext): JSValue {
+    public func toJSValue(context: JSContext): JSValue {
         arkts_object.toJSValue()
     }
     
-     static func fromJSValue(context: JSContext, input: JSValue): BuildProfile {
+    public static func fromJSValue(context: JSContext, input: JSValue): BuildProfile {
         BuildProfile(input.asObject())
     }
 }

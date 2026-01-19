@@ -21,27 +21,27 @@ public class Greeter {
     /**
 	 * @brief constructor(greeting : string): void
 	 */
-    public init(greeting : String) {
+    public init(greeting: String) {
         arkts_object = checkThreadAndCall < JSObject >(getMainContext()) {
             __ctx =>
-            let clazz = getClassConstructorObj("cases_valueOfModulename", "Greeter").toJSValue().asClass(__ctx)
+            let clazz = getClassConstructorObj("cases_valueOfModulename", "Greeter").toJSValue().asClass()
             clazz.new(greeting.toJSValue(__ctx)).asObject()
         }
     }
     public init() {
         arkts_object = checkThreadAndCall < JSObject >(getMainContext()) {
             __ctx =>
-            let clazz = getClassConstructorObj("cases_valueOfModulename", "Greeter").toJSValue().asClass(__ctx)
+            let clazz = getClassConstructorObj("cases_valueOfModulename", "Greeter").toJSValue().asClass()
             clazz.new().asObject()
         }
     }
     
     
-    func toJSValue(context: JSContext): JSValue {
+    public func toJSValue(context: JSContext): JSValue {
         arkts_object.toJSValue()
     }
     
-     static func fromJSValue(context: JSContext, input: JSValue): Greeter {
+    public static func fromJSValue(context: JSContext, input: JSValue): Greeter {
         Greeter(input.asObject())
     }
 }

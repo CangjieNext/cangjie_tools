@@ -10,7 +10,7 @@ import ohos.ark_interop.*
 import ohos.ark_interop_helper.*
 import ohos.base.*
 
-public enum AutoGenType0 < T > where T <: JSInteropType<T> {
+public enum AutoGenType13 < T > where T <: JSInteropType<T> {
     | T0(T)
     | STRING(String)
     
@@ -20,7 +20,7 @@ public enum AutoGenType0 < T > where T <: JSInteropType<T> {
             case STRING(x) => context.string(x).toJSValue()
         }
     }
-    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType0 < T > {
+    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType13 < T > {
         
         if(input.isString()) {
             return STRING(String.fromJSValue(context, input))
@@ -29,7 +29,7 @@ public enum AutoGenType0 < T > where T <: JSInteropType<T> {
     }
 }
 
-public enum AutoGenType1 < T, U > where T <: JSInteropType<T>, U <: JSInteropType<U> {
+public enum AutoGenType14 < T, U > where T <: JSInteropType<T>, U <: JSInteropType<U> {
     | T0(T)
     | U0(U)
     | STRING(String)
@@ -41,7 +41,7 @@ public enum AutoGenType1 < T, U > where T <: JSInteropType<T>, U <: JSInteropTyp
             case STRING(x) => context.string(x).toJSValue()
         }
     }
-    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType1 < T, U > {
+    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType14 < T, U > {
         
         if(input.isString()) {
             return STRING(String.fromJSValue(context, input))
@@ -50,7 +50,7 @@ public enum AutoGenType1 < T, U > where T <: JSInteropType<T>, U <: JSInteropTyp
     }
 }
 
-public enum AutoGenType2 < T, W > where T <: JSInteropType<T>, W <: JSInteropType<W> {
+public enum AutoGenType15 < T, W > where T <: JSInteropType<T>, W <: JSInteropType<W> {
     | T0(T)
     | W0(W)
     | STRING(String)
@@ -62,7 +62,7 @@ public enum AutoGenType2 < T, W > where T <: JSInteropType<T>, W <: JSInteropTyp
             case STRING(x) => context.string(x).toJSValue()
         }
     }
-    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType2 < T, W > {
+    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType15 < T, W > {
         
         if(input.isString()) {
             return STRING(String.fromJSValue(context, input))
@@ -71,7 +71,7 @@ public enum AutoGenType2 < T, W > where T <: JSInteropType<T>, W <: JSInteropTyp
     }
 }
 
-public enum AutoGenType3 < T, M > where T <: JSInteropType<T>, M <: JSInteropType<M> {
+public enum AutoGenType16 < T, M > where T <: JSInteropType<T>, M <: JSInteropType<M> {
     | T0(T)
     | M0(M)
     | STRING(String)
@@ -83,7 +83,7 @@ public enum AutoGenType3 < T, M > where T <: JSInteropType<T>, M <: JSInteropTyp
             case STRING(x) => context.string(x).toJSValue()
         }
     }
-    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType3 < T, M > {
+    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType16 < T, M > {
         
         if(input.isString()) {
             return STRING(String.fromJSValue(context, input))
@@ -101,31 +101,27 @@ public enum AutoGenType3 < T, M > where T <: JSInteropType<T>, M <: JSInteropTyp
 
 public open class B<W, M> where W <: JSInteropType<W>, M <: JSInteropType<M> {
     
-    protected B(public var arkts_object: JSObject) { }
+    protected B(var arkts_object: JSObject) { }
     
     
     /**
 	 * @brief f1(t:T): T | W | String
 	 */
-    public func f1 < T >(t: T): AutoGenType2< T, W > where T <: JSInteropType<T> {
-        jsObjApiCall < AutoGenType2< T, W > >( arkts_object, "f1", { ctx =>[t.toJSValue(ctx)] }) {
-            ctx, info => AutoGenType2< T, W >.fromJSValue(ctx, info)
-        }
+    public func f1 < T >(t: T): AutoGenType15< T, W > where T <: JSInteropType<T> {
+        jsObjApiCall < AutoGenType15< T, W > >( arkts_object, "f1", { ctx =>[t.toJSValue(ctx)] }) { ctx, info => AutoGenType15< T, W >.fromJSValue(ctx, info) }
     }
     /**
 	 * @brief f2(t:T): T | M | String
 	 */
-    public func f2 < T >(t: T): AutoGenType3< T, M > where T <: JSInteropType<T> {
-        jsObjApiCall < AutoGenType3< T, M > >( arkts_object, "f2", { ctx =>[t.toJSValue(ctx)] }) {
-            ctx, info => AutoGenType3< T, M >.fromJSValue(ctx, info)
-        }
+    public func f2 < T >(t: T): AutoGenType16< T, M > where T <: JSInteropType<T> {
+        jsObjApiCall < AutoGenType16< T, M > >( arkts_object, "f2", { ctx =>[t.toJSValue(ctx)] }) { ctx, info => AutoGenType16< T, M >.fromJSValue(ctx, info) }
     }
     
     public open func toJSValue(context: JSContext): JSValue {
         arkts_object.toJSValue()
     }
     
-    public open  static func fromJSValue(context: JSContext, input: JSValue): B<W, M> {
+    public static func fromJSValue(context: JSContext, input: JSValue): B<W, M> {
         B(input.asObject())
     }
 }
@@ -143,25 +139,21 @@ public class A<T, U> where T <: JSInteropType<T>, U <: JSInteropType<U> {
     /**
 	 * @brief f1(t:T): T | String
 	 */
-    public func f1(t: T): AutoGenType0< T > {
-        jsObjApiCall < AutoGenType0< T > >( arkts_object, "f1", { ctx =>[t.toJSValue(ctx)] }) {
-            ctx, info => AutoGenType0< T >.fromJSValue(ctx, info)
-        }
+    public func f1(t: T): AutoGenType13< T > {
+        jsObjApiCall < AutoGenType13< T > >( arkts_object, "f1", { ctx =>[t.toJSValue(ctx)] }) { ctx, info => AutoGenType13< T >.fromJSValue(ctx, info) }
     }
     /**
 	 * @brief f2(t:T): T | U | String
 	 */
-    public func f2(t: T): AutoGenType1< T, U > {
-        jsObjApiCall < AutoGenType1< T, U > >( arkts_object, "f2", { ctx =>[t.toJSValue(ctx)] }) {
-            ctx, info => AutoGenType1< T, U >.fromJSValue(ctx, info)
-        }
+    public func f2(t: T): AutoGenType14< T, U > {
+        jsObjApiCall < AutoGenType14< T, U > >( arkts_object, "f2", { ctx =>[t.toJSValue(ctx)] }) { ctx, info => AutoGenType14< T, U >.fromJSValue(ctx, info) }
     }
     
-    func toJSValue(context: JSContext): JSValue {
+    public func toJSValue(context: JSContext): JSValue {
         arkts_object.toJSValue()
     }
     
-     static func fromJSValue(context: JSContext, input: JSValue): A<T, U> {
+    public static func fromJSValue(context: JSContext, input: JSValue): A<T, U> {
         A(input.asObject())
     }
 }
@@ -170,19 +162,15 @@ public class A<T, U> where T <: JSInteropType<T>, U <: JSInteropType<U> {
 /**
 	 * @brief testGeneric(t:T): T | String
 	 */
-public func testGeneric < T >(t: T): AutoGenType0 where T <: JSInteropType<T> {
-    hmsGlobalApiCall < AutoGenType0 >( "my_module_issue9-generic", "testGeneric", { ctx =>[t.toJSValue(ctx)] }) {
-        ctx, info => AutoGenType0.fromJSValue(ctx, info)
-    }
+public func testGeneric < T >(t: T): AutoGenType13< T > where T <: JSInteropType<T> {
+    hmsGlobalApiCall < AutoGenType13< T > >( "my_module_issue9-generic", "testGeneric", { ctx =>[t.toJSValue(ctx)] }) { ctx, info => AutoGenType13< T >.fromJSValue(ctx, info) }
 }
 
 /**
 	 * @brief testGeneric1(t:T): T | U | String
 	 */
-public func testGeneric1 < T, U >(t: T): AutoGenType1 where T <: JSInteropType<T>, U <: JSInteropType<U> {
-    hmsGlobalApiCall < AutoGenType1 >( "my_module_issue9-generic", "testGeneric1", { ctx =>[t.toJSValue(ctx)] }) {
-        ctx, info => AutoGenType1.fromJSValue(ctx, info)
-    }
+public func testGeneric1 < T, U >(t: T): AutoGenType14< T, U > where T <: JSInteropType<T>, U <: JSInteropType<U> {
+    hmsGlobalApiCall < AutoGenType14< T, U > >( "my_module_issue9-generic", "testGeneric1", { ctx =>[t.toJSValue(ctx)] }) { ctx, info => AutoGenType14< T, U >.fromJSValue(ctx, info) }
 }
 
 

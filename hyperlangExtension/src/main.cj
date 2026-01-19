@@ -274,15 +274,13 @@ func parseMultipleFiles(moduleNameTemp: String): Bool {
     // generate cj files
     futureList.clear()
     for (gconfig in gconfigArray) {
-        let future = spawn {
+
             let a2cj = A2CJ(gconfig)
             a2cj.transfer()
-        }
-        futureList.add(future)
+        
+
     }
-    for (f in futureList) {
-        f.get()
-    }
+
 
     return true
 }

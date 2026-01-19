@@ -10,6 +10,8 @@ import std.collection.*
 import std.ast.*
 import std.sync.*
 
+public var count = AtomicInt64(0)
+
 public class GlobalConfig {
     public var module: String = ""
     public var moduleFullName: String = ""
@@ -28,7 +30,7 @@ public class GlobalConfig {
     public var arkTSMoudleName: String = ""
     public var requiredUnionMembers = ArrayList<(String, TsType, ArrayList<String>)>() 
     public var requiredAnonymousInterfaces = ArrayList<ObjectType>() 
-    private var count = AtomicInt64(0)
+
     private var cacheUnions: TreeMap<String, TsType> = TreeMap<String, TsType>()
     private var cacheAnonymousInterfaces: TreeMap<String, TsType> = TreeMap<String, TsType>()
 
@@ -181,7 +183,7 @@ public class GlobalConfig {
                     result.add(item)
                 }
                 for (p in c.properties) {
-                    if (let Some(v) <- scanTypeForAnonymousInterface(p.typeNode)) {
+                    if (let Some(v) <- scanTypeForAnonymousInterface(p.typeNode, genericParameters: result)) {
                         p.typeNode = v
                     }
                     if (let Some(v) <- scanTypeForUnions(p.typeNode, result)) {
@@ -214,7 +216,7 @@ public class GlobalConfig {
                     result.add(item)
                 }
                 for (p in iface.properties) {
-                    if (let Some(v) <- scanTypeForAnonymousInterface(p.typeNode)) {
+                    if (let Some(v) <- scanTypeForAnonymousInterface(p.typeNode, genericParameters: result)) {
                         p.typeNode = v
                     }
                     if (let Some(v) <- scanTypeForUnions(p.typeNode, result)) {
@@ -259,7 +261,7 @@ public class GlobalConfig {
                 m.typeParameters |> map {it => it.name.replace(" ", "")} |> forEach {item => 
                     result.add(item)
                 }
-                if (let Some(v) <- scanTypeForUnions(m.returnTypeNode,  result)) {
+                if (let Some(v) <- scanTypeForUnions(m.returnTypeNode, result)) {
                         m.returnTypeNode = v
                 } 
             }
@@ -299,12 +301,12 @@ public class GlobalConfig {
                         let paramName = "AutoGenType" + count.load().toString()
                         requiredUnionMembers.add((paramName, ty, result))
                         count.fetchAdd(1)
-                        cacheUnions[tempName] = TsTypeRef(paramName)
                         let temp = result |> map {item => 
                             let result = TypeParameter()
                             result.name = item
                             result
                         } |> collectArrayList
+                        cacheUnions[tempName] = TsTypeRef(paramName + getTypeParametersToken(temp).toString())
                         return Some(TsTypeRef(paramName + getTypeParametersToken(temp).toString()))
                     }
                 }
@@ -355,7 +357,7 @@ public class GlobalConfig {
         return None
     }
 
-    private func scanTypeForAnonymousInterface(ty: TsType): Option<TsType> {
+    private func scanTypeForAnonymousInterface(ty: TsType, genericParameters!: HashSet<String> = HashSet<String>()): Option<TsType> {
         match (ty) {
             case TsUnion(elems) =>
                 let elements = elems.map {item => 
@@ -410,6 +412,7 @@ public class GlobalConfig {
             case TsTypeLiteral(members) =>
                 let propertiesNew = ArrayList<Property>()
                 let boxed = Box<ArrayList<Property>>(propertiesNew)
+                let generics = ArrayList<String>()
                 members.map {item:TsMember => 
                     match (item) {
                         case TsProperty(name, ty, optional) => 
@@ -420,12 +423,19 @@ public class GlobalConfig {
                             result.isOptional = optional
                             result.typeNode = ty
                             boxed.value.add(result)
+                            match (ty) {
+                                case TsTypeRef(typeName) =>
+                                    if (genericParameters.contains(typeName)) {
+                                        generics.add(typeName)
+                                    }
+                                case _ => ()
+                            }
                             ()
                         case _ =>
                             ()
                     }
-            
                 }
+
                 let tempName = ty.toString().replace(" ", "")
                 if (cacheAnonymousInterfaces.contains(tempName)) {
                     return Some(cacheUnions[tempName])
@@ -433,9 +443,19 @@ public class GlobalConfig {
                     var objectType = ObjectType()
                     objectType.properties = propertiesNew
                     let paramName = "AutoGenType" + count.load().toString() 
+                    let temp = generics |> map {item => 
+                        let result = TypeParameter()
+                        result.name = item
+                        result
+                    } |> collectArrayList
+                    let arrayGenericTstype = generics |> map {item => TsTypeRef(item)} |> collectArray
                     objectType.name = paramName
+                    objectType.typeParameters = temp
                     requiredAnonymousInterfaces.add(objectType)
                     count.fetchAdd(1)
+                    if (arrayGenericTstype.size > 0) {
+                        return Some(TsTypeRef(paramName, arrayGenericTstype))
+                    }
                     return Some(TsTypeRef(paramName))
                 }
                 
