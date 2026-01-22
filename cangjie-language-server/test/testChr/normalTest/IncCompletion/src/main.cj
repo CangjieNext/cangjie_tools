@@ -13,3 +13,7 @@ func zoo() {
 func test() {
     zo
 }
+
+func xoo() {
+
+}
