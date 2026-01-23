@@ -31,7 +31,7 @@ let EXAMPLE_CJC_VERSION: String = "1.0.0"
 // regexp c library name.
 let REGEXP_C_LIB_NAME: String = "^[A-Za-z0-9\\._\\-#%\\+,=@\\[\\]\\^\\{\\}~]+$"
 // Regexp condition value.
-let REGEXP_CONDITON_VALUE: String = "^_*[a-zA-Z][_a-zA-Z0-9]*$"
+let REGEXP_CONDITON_VALUE: String = "^([a-zA-Z][a-zA-Z0-9_]*|_[a-zA-Z0-9_]+)$"
 let EXAMPLE_CONDITON_VALUE: String = "cfg_1"
 
 // Regexp command injection.
