@@ -66,8 +66,8 @@ func buildCodeCheck(buildConfig: BuildConfig): Bool {
             let cmdStr: String = "cjlint -f ${tomlInfo.pkg.srcDir.value} 2>&1"
             println("check codes in ${tomlInfo.pkg.srcDir.value}: ${cmdStr}")
         }
-
-        let (flag, outInfo, errInfo) = execWithOutput("cjlint", ArrayList<String>(["-f", tomlInfo.pkg.srcDir.value]), spawnForScript: true)
+        let cjlintEnv = exportCjlintDylib()
+        let (flag, outInfo, errInfo) = execWithOutput("cjlint", ArrayList<String>(["-f", tomlInfo.pkg.srcDir.value]), envMap: cjlintEnv, spawnForScript: true)
         let output: String = errInfo + outInfo
         print(output)
         if (!flag) {
