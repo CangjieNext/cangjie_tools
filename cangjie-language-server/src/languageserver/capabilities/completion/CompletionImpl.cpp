@@ -567,16 +567,7 @@ void CompletionImpl::HandleExternalSymAutoImport(CompletionResult &result, const
 void CompletionImpl::NormalParseImpl(
     const ArkAST &input, const Cangjie::Position &pos, CompletionResult &result, int index, std::string &prefix)
 {
-    int firstTokenIndexOnLine = GetFirstTokenOnCurLine(input.tokens, pos.line);
-    TokenKind afterFirstTokenKind = TokenKind::INIT;
     TokenKind beforePrefixKind = TokenKind::INIT;
-    TokenKind firstTokenKind = TokenKind::INIT;
-    if (firstTokenIndexOnLine != -1) {
-        firstTokenKind = input.tokens[firstTokenIndexOnLine].kind;
-        if (static_cast<unsigned int>(firstTokenIndexOnLine + 1) < input.tokens.size()) {
-            afterFirstTokenKind = input.tokens[firstTokenIndexOnLine + 1].kind;
-        }
-    }
     if (index > 0) {
         beforePrefixKind = input.tokens[static_cast<unsigned int>(index - 1)].kind;
     }
