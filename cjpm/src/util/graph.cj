@@ -206,8 +206,6 @@ extend <K, V> DAG<K, V> where K <: Hashable & Equatable<K> {
     }
 }
 
-
-
 extend <K, V> DAG<K, V> where K <: ToString {
     public func incoming(id: K): Array<K> {
         graph[id].indeg
@@ -217,7 +215,6 @@ extend <K, V> DAG<K, V> where K <: ToString {
         graph[id].outdeg
     }
 }
-
 
 extend <V> DAG<String, V> <: Serializable<DAG<String, V>> where V <: Serializable<V> {
     public func serialize(): DataModel {

@@ -785,7 +785,7 @@ func appendImportPaths(compileTask: CompileTask, buildConfig: BuildConfig): Arra
     for (depName in dependencies) {
         if (let Some(suffix) <- bestFitFeatures.get(depName)) {
             let depRootName: String = getRootPkgName(depName)
-            let libPath = Path(compileTask.targetDir).join(swapOrgName(depRootName)).join(suffix).toString()
+            let libPath = getCanonicalPath(Path(compileTask.targetDir).join(swapOrgName(depRootName)).toString())
             CJMPPathSet.add(libPath)
         }
     }
@@ -813,7 +813,8 @@ func appendCommandOptions(compileTask: CompileTask): ArrayList<String> {
     if (compileTask.outputType != Chir && !compileTask.hasSubPkgs && !compileTask.requiredForTests) {
         res.add("--no-sub-pkg")
     }
-    res.add("--output-dir=${compileTask.targetPath}")
+    let path = getCanonicalPath(compileTask.targetPath)
+    res.add("--output-dir=${path}")
     res
 }
 
@@ -1021,7 +1022,7 @@ func getLtoCombineBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig):
             continue
         }
 
-        var libPath = Path(compileTask.targetDir).join(swapOrgName(depRootName)).toString()
+        var libPath = getCanonicalPath(Path(compileTask.targetDir).join(swapOrgName(depRootName)).toString())
 
         let linkArray: ArrayList<String> = linkPackage(depName, libPath, compileTask.isLto)
         if (linkArray.size <= 1) {
@@ -1111,9 +1112,9 @@ func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList
         }
         addStdDeps(depName)
         let libPath: String = if (let Some(suffix) <- buildConfig.packageList.productSuffixes.get(depName)) {
-            Path(compileTask.targetDir).join(swapOrgName(depRootName)).join(suffix).toString()
+            getCanonicalPath(Path(compileTask.targetDir).join(swapOrgName(depRootName)).join(suffix).toString())
         } else {
-            Path(compileTask.targetDir).join(swapOrgName(depRootName)).toString()
+            getCanonicalPath(Path(compileTask.targetDir).join(swapOrgName(depRootName)).toString())
         }
 
         let linkArray: ArrayList<String> = linkPackage(depName, libPath, compileTask.isLto)
