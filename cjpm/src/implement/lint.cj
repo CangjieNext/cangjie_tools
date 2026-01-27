@@ -8,7 +8,6 @@ package cjpm.implement
 
 import std.collection.*
 import cjpm.config.*
-
 import std.env.*
 import std.fs.*
 
@@ -19,6 +18,7 @@ private func exportCjlintDylib(): HashMap<String, String> {
     if (let Some(home) <- getVariable("CANGJIE_HOME") ){
         envMap["DYLD_LIBRARY_PATH"] = "${home}/tools/lib:"
     }
+
     return envMap
 }
 
@@ -26,7 +26,6 @@ private func exportCjlintDylib(): HashMap<String, String> {
 private func exportCjlintDylib(): HashMap<String, String> {
     return HashMap<String, String>()
 }
-
 // Use cjlint to check codes in srcDir
 func buildCodeCheck(buildConfig: BuildConfig): Bool {
     if (!buildConfig.isLint) {
