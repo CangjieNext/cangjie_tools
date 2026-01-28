@@ -30,7 +30,6 @@ func buildCodeCheck(buildConfig: BuildConfig): Bool {
     if (!buildConfig.isLint) {
         return true
     }
-
     var tomlInfo = loadModuleFile(DIR_CURRENT) ?? return false
     return doLint(tomlInfo, buildConfig.isVerbose, targetDir: buildConfig.globalConfig.targetDir)
 }
@@ -80,7 +79,6 @@ func doLint(tomlInfo: TomlInfo, isVerbose: Bool, targetDir!: String = TARGET): B
             deleteDirectory(targetDir)
             return false
         }
-
         return true
     }
 }
