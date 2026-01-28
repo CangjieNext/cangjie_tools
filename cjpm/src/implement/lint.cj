@@ -51,7 +51,6 @@ func doLint(tomlInfo: TomlInfo, isVerbose: Bool, targetDir!: String = TARGET): B
             totalflag &&= flag
             hasErrors ||= output.contains("error:") || output.contains("error\u{1B}[0m:")
         }
-
         if (!totalflag) {
             return false
         }
