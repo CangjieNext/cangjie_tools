@@ -6,7 +6,10 @@
 
 #include "FindOverrideMethodsImpl.h"
 #include "FindOverrideMethodsUtils.h"
+#include "cangjie/AST/AttributePack.h"
+#include "cangjie/AST/Node.h"
 #include "cangjie/Lex/Token.h"
+#include "cangjie/Utils/CastingTemplate.h"
 #include "cangjie/Utils/FileUtil.h"
 #include "cangjie/AST/Symbol.h"
 #include "cangjie/Modules/ModulesUtils.h"
@@ -112,6 +115,27 @@ void ApplyReplace(std::unique_ptr<TypeDetail>& detail, const std::unordered_map<
     for (auto& item: replace) {
         detail->SetIdentifier(item.first, item.second);
     }
+}
+
+bool IsOverrideable(const Ptr<ClassLikeDecl> owner, const Ptr<Decl> member)
+{
+    // make sure member is member of owner before call this function
+    if (auto funcDecl = DynamicCast<FuncDecl>(member)) {
+        if ((funcDecl->TestAttr(Attribute::OPEN) ||
+            (funcDecl->TestAttr(Attribute::ABSTRACT) && owner->TestAttr(Attribute::ABSTRACT)) &&
+            !funcDecl->TestAttr(Attribute::CONSTRUCTOR))) {
+                return true;
+            }
+    }
+
+    if (auto propDecl = DynamicCast<PropDecl>(member)) {
+        if (propDecl->TestAttr(Attribute::OPEN) ||
+            (propDecl->TestAttr(Attribute::ABSTRACT) && owner->TestAttr(Attribute::ABSTRACT))) {
+                return true;
+            }
+    }
+
+    return false;
 }
 
 void FindOverrideMethodsImpl::AddFuncItemsToResult(const Ptr<Decl>& decl, const Ptr<InheritableDecl>& owner,
@@ -379,15 +403,14 @@ void FindOverrideMethodsImpl::GetOverridableMethodsAndPropsMap(Ptr<InheritableDe
         auto& memberDecls = superTy->GetMemberDecls();
         for (auto& memberDecl: memberDecls) {
             if (auto funcDecl = DynamicCast<FuncDecl*>(memberDecl.get())) {
-                if (funcDecl->TestAttr(Attribute::OPEN) &&
-                    !funcDecl->TestAttr(Attribute::CONSTRUCTOR) && !checkRepeatFunc(funcDecl)) {
+                if (IsOverrideable(superTy, funcDecl) && !checkRepeatFunc(funcDecl)) {
                     overrideableMethodsAndPropMap[superTy].first.emplace_back(funcDecl);
                 }
                 cachedFuncResult.emplace_back(funcDecl);
             }
 
             if (auto propDecl = DynamicCast<PropDecl*>(memberDecl.get())) {
-                if (propDecl->TestAttr(Attribute::OPEN) && !checkRepeatProp(propDecl)) {
+                if (IsOverrideable(superTy, propDecl) && !checkRepeatProp(propDecl)) {
                     overrideableMethodsAndPropMap[superTy].second.emplace_back(propDecl);
                 }
                 cachedPropResult.emplace_back(propDecl);
