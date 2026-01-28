@@ -59,6 +59,7 @@ func doLint(tomlInfo: TomlInfo, isVerbose: Bool, targetDir!: String = TARGET): B
             deleteDirectory(targetDir)
             return false
         }
+        
         return true
     } else {
         // Default operation: cjlint -f srcDir
@@ -78,6 +79,7 @@ func doLint(tomlInfo: TomlInfo, isVerbose: Bool, targetDir!: String = TARGET): B
             deleteDirectory(targetDir)
             return false
         }
+
         return true
     }
 }
