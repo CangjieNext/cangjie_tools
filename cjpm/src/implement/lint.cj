@@ -18,7 +18,6 @@ private func exportCjlintDylib(): HashMap<String, String> {
     if (let Some(home) <- getVariable("CANGJIE_HOME") ){
         envMap["DYLD_LIBRARY_PATH"] = "${home}/tools/lib:"
     }
-
     return envMap
 }
 
