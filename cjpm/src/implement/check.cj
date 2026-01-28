@@ -46,7 +46,9 @@ func resolve(globalConfig: GlobalConfig, isScriptDep!: Bool = false): (DepModel,
         }
     }
 
-    dealWithSuperPkg(dm)
+    if (!dealWithSuperPkg(dm)) {
+        return (dm, false, mockUsed)
+    }
 
     // Circular dependency check.
     if (!topoSort(dm)) {
@@ -70,7 +72,7 @@ func resolve(globalConfig: GlobalConfig, isScriptDep!: Bool = false): (DepModel,
     return (dm, true, mockUsed)
 }
 
-func dealWithSuperPkg(dm: DepModel): Unit {
+func dealWithSuperPkg(dm: DepModel): Bool {
     let notSupportSet = HashSet<String>()
     for ((superPkgName, superPkgCfg) in dm.superPkgMap) {
         if (dm.packageDepMap[superPkgName].isMacroPackage) {
@@ -105,7 +107,20 @@ func dealWithSuperPkg(dm: DepModel): Unit {
         dm.superPkgMap.remove(notSupport)
     }
 
+    if (!dm.superPkgMap.isEmpty()) {
+        for ((moduleName, _) in dm.depAnalysisEngine.finalDepMap) {
+            if (!dm.superPkgMap.contains(moduleName) &&
+                !notSupportSet.contains(moduleName) &&
+                dm.packageDepMap.contains(moduleName) &&
+                !dm.packageDepMap[moduleName].isMacroPackage) {
+                eprintln("Error: field 'profile.build.combined' must be configured to combine module '${resolvedModule}'")
+                return false
+            }
+        }
+    }
+
     dm.checkSuperPkgDep()
+    true
 }
 
 public func doCheck(memberModule: String, testCheck: Bool): Bool {
