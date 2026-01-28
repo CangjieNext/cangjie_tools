@@ -46,8 +46,15 @@ public func execWithOutput(exeTool: String, arguments: ArrayList<String>,
         } else {
             let env = HashMap<String, String>(getVariables())
             for ((k, v) in envMap) {
-                if (env.contains(k)) {
-                    env[k] = v + env[k]
+                var foundKey: ?String = None
+                for ((envKey, _) in env) {
+                    if (envKey.toAsciiUpper() == k.toAsciiUpper()) {
+                        foundKey = envKey
+                        break
+                    }
+                }
+                if (let Some(existingKey) <- foundKey) {
+                    env[existingKey] = v + env[existingKey]
                 } else {
                     env[k] = v
                 }

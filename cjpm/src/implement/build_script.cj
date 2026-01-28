@@ -330,10 +330,15 @@ func getScriptDepLink(modulePath: String, buildConfig: BuildConfig): Option<Arra
 }
 
 func getEnvMap(ldPath: HashSet<String>): HashMap<String, String> {
-    let envBuilder = EnvironmentBuilder()
-    envBuilder.prepend(LD_PATH, ldPath)
-    envBuilder.prepend(LD_PATH, getExtraRuntimePaths())
-    return envBuilder.asCliStrings(getVariables())
+    let result = HashMap<String, String>()
+    var pathValue = getNativeLdLibraryConfig(ldPath)
+    let extraPaths: HashSet<String> = HashSet<String>()
+    extraPaths.add(all: getExtraRuntimePaths())
+    pathValue += getNativeLdLibraryConfig(extraPaths)
+    if (!pathValue.isEmpty()) {
+        result[LD_PATH] = pathValue
+    }
+    return result
 }
 
 func getCompileArgs(scriptConfig: ScriptConfig, buildConfig: BuildConfig): Option<(HashMap<String, String>, ArrayList<String>)> {
