@@ -360,7 +360,6 @@ public func getExtraRuntimePaths(): Array<String> {
     Array<String>()
 }
 
-
 // Get LD_LIBRARY_PATH by '.cjpm-history' file.
 public func getLdPathConfig(targetDir: String, nativeDir: String, resolve: ModuleResolve,
     macroDep!: HashSet<String> = HashSet<String>()): HashSet<String> {
