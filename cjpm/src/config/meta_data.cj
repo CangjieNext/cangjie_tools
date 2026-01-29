@@ -245,6 +245,7 @@ public class ArtifactIndex <: Serializable<ArtifactIndex> {
 // Meta-data of artifact
 public class MetaData <: Serializable<MetaData> {
     public MetaData(
+        public let cjcVersion: String,
         public let organization: String,
         public let name: String,
         public let version: String,
@@ -264,6 +265,7 @@ public class MetaData <: Serializable<MetaData> {
 
     public func serialize(): DataModel {
         DataModelStruct()
+            .add(field<String>(INDEX_CJC_VERSION, this.cjcVersion))
             .add(field<String>(META_ORGANIZATION, this.organization))
             .add(field<String>(META_NAME, this.name))
             .add(field<String>(META_VERSION, this.version))
@@ -287,6 +289,7 @@ public class MetaData <: Serializable<MetaData> {
             case _ => throw Exception("Bad meta data")
         }
         MetaData(
+            String.deserialize((dms.get(INDEX_CJC_VERSION) as DataModelString) ?? DataModelString("")),
             String.deserialize((dms.get(META_ORGANIZATION) as DataModelString) ?? DataModelString("")),
             String.deserialize((dms.get(META_NAME) as DataModelString) ?? DataModelString("")),
             String.deserialize((dms.get(META_VERSION) as DataModelString) ?? DataModelString("")),

@@ -40,6 +40,7 @@ public func doBundle(bundleConfig: BundleConfig): Bool {
 
     // make and check meta-data
     let metaData = MetaData(
+        tomlInfo.pkg.cjcVersion,
         tomlInfo.pkg.organization,
         tomlInfo.pkg.name,
         tomlInfo.pkg.version,
@@ -240,6 +241,11 @@ func getBundleFileList(dir: String, fileSet: HashSet<String>, bundleConfig: Bund
             continue
         }
 
+        // hidden check
+        if (fileInfo.isHidden()) {
+            continue
+        }
+
         let fileCanonicalPath = getCanonicalPath(fileInfo.path.toString())
         let fileRelativePath = fileCanonicalPath.
             removePrefix(bundleConfig.currentDir).
@@ -287,6 +293,11 @@ func getBundleFileList(dir: String, fileSet: HashSet<String>, bundleConfig: Bund
 
     // deal with directories
     for (dirInfo in getDirectoryList(dir)) {
+        // hidden check
+        if (dirInfo.isHidden()) {
+            continue
+        }
+
         let dirPath = getCanonicalPath(dirInfo.path.toString())
         if ((dirPath == bundleConfig.targetDir) || (dirPath == bundleConfig.scriptDir)) {
             continue
