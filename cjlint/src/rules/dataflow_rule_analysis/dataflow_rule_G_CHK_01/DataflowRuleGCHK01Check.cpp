@@ -5,6 +5,7 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 #include "DataflowRuleGCHK01Check.h"
+#include <algorithm>
 #include "cangjie/AST/Match.h"
 #include "cangjie/Utils/Utils.h"
 #include "common/CommonFunc.h"
@@ -15,7 +16,7 @@ using namespace Cangjie::CHIR;
 
 using namespace Cangjie::CodeCheck::TaintData;
 
-// Chech whether a exit node exist in a block in focus
+// Check whether an exit node exists in a block in focus.
 static bool IsAnyReturnInBlock(CHIR::Block* block)
 {
     auto exprs = block->GetExpressions();
@@ -45,11 +46,10 @@ static void GetDecontaminatBlockHelper(
 }
 
 // Obtains the block after decontamination.
-static std::set<Cangjie::CHIR::Block*> GetDecontaminatBlock(
-    CHIR::Value* value, std::set<Cangjie::CHIR::Block*>& blockSet, std::set<Cangjie::CHIR::Expression*> visitedExpr)
+static void GetDecontaminatBlock(
+    CHIR::Value* value, std::set<Cangjie::CHIR::Block*>& blockSet, std::set<Cangjie::CHIR::Expression*>& visitedExpr)
 {
-    auto users = value->GetUsers();
-    for (auto user : users) {
+    for (auto user : value->GetUsers()) {
         if (visitedExpr.count(user) != 0) {
             continue;
         }
@@ -71,7 +71,6 @@ static std::set<Cangjie::CHIR::Block*> GetDecontaminatBlock(
             GetDecontaminatBlock(user->GetResult(), blockSet, visitedExpr);
         }
     }
-    return blockSet;
 }
 
 static std::set<Cangjie::CHIR::Block*> GetDecontaminatBlock(CHIR::Value* value)
@@ -80,6 +79,28 @@ static std::set<Cangjie::CHIR::Block*> GetDecontaminatBlock(CHIR::Value* value)
     std::set<Cangjie::CHIR::Expression*> visitedExpr;
     GetDecontaminatBlock(value, blockSet, visitedExpr);
     return blockSet;
+}
+
+// Returns true if the argument is untrusted in the given block (not in decontaminated set).
+static bool IsArgUntrustedInBlock(
+    const std::map<std::string, std::set<CHIR::Block*>>& varInblockWithoutTainted,
+    const std::string& identifier, CHIR::Block* block)
+{
+    auto it = varInblockWithoutTainted.find(identifier);
+    return it == varInblockWithoutTainted.end() || it->second.count(block) == 0;
+}
+
+static std::string OrdinalSuffix(uint32_t n)
+{
+    if (n >= 11 && n <= 13) {
+        return std::to_string(n) + "th";
+    }
+    switch (n % 10) {
+        case 1: return std::to_string(n) + "st";
+        case 2: return std::to_string(n) + "nd";
+        case 3: return std::to_string(n) + "rd";
+        default: return std::to_string(n) + "th";
+    }
 }
 
 static bool IsMemberFunc(CHIR::Value* value)
@@ -114,63 +135,59 @@ static std::string GetArgName(CHIR::Value* value)
     return value->GetSrcCodeIdentifier();
 }
 
-template <typename T> bool DataflowRuleGCHK01Check::IsAlarmNotNeeded(T* apply)
+template <typename T>
+bool DataflowRuleGCHK01Check::IsAlarmNotNeeded(T* apply)
 {
     auto funcName = apply->GetCallee()->GetSrcCodeIdentifier();
-    for (auto taintedFunc : taintPropagate) {
-        if (taintedFunc.first.funcName == funcName) {
-            return true;
-        }
-    }
-    return false;
+    return std::any_of(taintPropagate.begin(), taintPropagate.end(),
+        [&funcName](const auto& taintedFunc) { return taintedFunc.first.funcName == funcName; });
 }
 
-template <typename T> void DataflowRuleGCHK01Check::CheckApplyInUsers(T* apply, CHIR::Value* arg)
+template <typename T>
+void DataflowRuleGCHK01Check::CheckApplyInUsers(T* apply, CHIR::Value* arg)
 {
     if (IsAlarmNotNeeded<T>(apply)) {
         return;
     }
     auto args = apply->GetArgs();
+    auto block = apply->GetParentBlock();
+    auto argIdentifier = GetArgName(arg);
     for (uint32_t i = 0; i < args.size(); ++i) {
-        auto identifier = GetArgName(arg);
-        auto block = apply->GetParentBlock();
-        if (args[i] == arg &&
-            (varInblockWithoutTainted.count(identifier) == 0 ||
-                (varInblockWithoutTainted.count(identifier) > 0 &&
-                    varInblockWithoutTainted[identifier].count(block) == 0))) {
-            auto index = IsMemberFunc(apply->GetCallee()) ? i : i + 1;
-            std::string tips = "the " + std::to_string(index) + "st argument is untrusted, we can't deliver it outter.";
-            std::string identifier;
-            if (auto callee = apply->GetCallee(); callee->IsLocalVar()) {
-                auto lambda = StaticCast<const CHIR::LocalVar*>(callee)->GetExpr();
-                CJC_ASSERT(lambda->GetExprKind() == CHIR::ExprKind::LAMBDA);
-                identifier = StaticCast<const CHIR::Lambda*>(lambda)->GetSrcCodeIdentifier();
-            } else {
-                identifier = callee->GetSrcCodeIdentifier();
-            }
-            auto applyLoc = CommonFunc::GetCodePosition(apply);
-            diagEngine->Diagnose(
-                applyLoc.first, applyLoc.second, CodeCheckDiagKind::G_CHK_01_illegal_func_arg, identifier, tips);
+        if (args[i] != arg || !IsArgUntrustedInBlock(varInblockWithoutTainted, argIdentifier, block)) {
+            continue;
         }
+        auto index = IsMemberFunc(apply->GetCallee()) ? i : i + 1;
+        std::string tips = "the " + OrdinalSuffix(index) + " argument is untrusted, we can't deliver it outer.";
+        std::string calleeName;
+        auto callee = apply->GetCallee();
+        if (callee->IsLocalVar()) {
+            auto lambda = StaticCast<const CHIR::LocalVar*>(callee)->GetExpr();
+            CJC_ASSERT(lambda->GetExprKind() == CHIR::ExprKind::LAMBDA);
+            calleeName = StaticCast<const CHIR::Lambda*>(lambda)->GetSrcCodeIdentifier();
+        } else {
+            calleeName = callee->GetSrcCodeIdentifier();
+        }
+        auto applyLoc = CommonFunc::GetCodePosition(apply);
+        diagEngine->Diagnose(
+            applyLoc.first, applyLoc.second, CodeCheckDiagKind::G_CHK_01_illegal_func_arg, calleeName, tips);
     }
 }
 
-template <typename T> void DataflowRuleGCHK01Check::CheckInvokeInUsers(T* invoke, CHIR::Value* arg)
+template <typename T>
+void DataflowRuleGCHK01Check::CheckInvokeInUsers(T* invoke, CHIR::Value* arg)
 {
     auto args = invoke->GetArgs();
+    auto block = invoke->GetParentBlock();
+    auto argIdentifier = GetArgName(arg);
     for (uint32_t i = 0; i < args.size(); ++i) {
-        auto identifier = GetArgName(arg);
-        auto block = invoke->GetParentBlock();
-        if (args[i] == arg &&
-            (varInblockWithoutTainted.count(identifier) == 0 ||
-                (varInblockWithoutTainted.count(identifier) > 0 &&
-                    varInblockWithoutTainted[identifier].count(block) == 0))) {
-            auto index = IsMemberFunc(invoke->GetOperand(0)) ? i : i + 1;
-            std::string tips = "the " + std::to_string(index) + "st argument is untrusted, we can't deliver it outter.";
-            auto invokeLoc = CommonFunc::GetCodePosition(invoke);
-            diagEngine->Diagnose(invokeLoc.first, invokeLoc.second, CodeCheckDiagKind::G_CHK_01_illegal_func_arg,
-                invoke->GetMethodName(), tips);
+        if (args[i] != arg || !IsArgUntrustedInBlock(varInblockWithoutTainted, argIdentifier, block)) {
+            continue;
         }
+        auto index = IsMemberFunc(invoke->GetOperand(0)) ? i : i + 1;
+        std::string tips = "the " + OrdinalSuffix(index) + " argument is untrusted, we can't deliver it outer.";
+        auto invokeLoc = CommonFunc::GetCodePosition(invoke);
+        diagEngine->Diagnose(invokeLoc.first, invokeLoc.second, CodeCheckDiagKind::G_CHK_01_illegal_func_arg,
+            invoke->GetMethodName(), tips);
     }
 }
 
@@ -184,7 +201,7 @@ static CommonFunc::PositionPair GetCorrectCodeLoc(CHIR::Store* store)
     return pos;
 }
 
-void DataflowRuleGCHK01Check::CheckStoreInUsers(CHIR::Store* store, std::set<std::string>& taintedVars)
+void DataflowRuleGCHK01Check::CheckStoreInUsers(CHIR::Store* store, TaintedVarSet& taintedVars)
 {
     auto localVar = DynamicCast<CHIR::LocalVar*>(store->GetLocation());
     if (localVar && localVar->IsRetValue()) {
@@ -200,34 +217,29 @@ void DataflowRuleGCHK01Check::CheckStoreInUsers(CHIR::Store* store, std::set<std
 
 void DataflowRuleGCHK01Check::CheckApplyUser(CHIR::Expression* user, CHIR::Value* result)
 {
-    if (user->GetExprKind() == CHIR::ExprKind::APPLY) {
-        auto newApply = StaticCast<CHIR::Apply*>(user);
-        CheckApplyInUsers<CHIR::Apply>(newApply, result);
-        return;
-    }
-    if (user->GetExprKind() == CHIR::ExprKind::APPLY_WITH_EXCEPTION) {
-        auto newApply = StaticCast<CHIR::ApplyWithException*>(user);
-        CheckApplyInUsers<CHIR::ApplyWithException>(newApply, result);
-        return;
-    }
-    if (user->GetExprKind() == CHIR::ExprKind::INVOKE) {
-        auto invoke = StaticCast<CHIR::Invoke*>(user);
-        CheckInvokeInUsers<CHIR::Invoke>(invoke, result);
-        return;
-    }
-    if (user->GetExprKind() == CHIR::ExprKind::INVOKESTATIC) {
-        auto invoke = StaticCast<CHIR::InvokeStatic*>(user);
-        CheckInvokeInUsers<CHIR::InvokeStatic>(invoke, result);
-        return;
-    }
-    if (user->GetExprKind() == CHIR::ExprKind::INVOKE_WITH_EXCEPTION) {
-        auto invoke = StaticCast<CHIR::InvokeWithException*>(user);
-        CheckInvokeInUsers<CHIR::InvokeWithException>(invoke, result);
-        return;
+    switch (user->GetExprKind()) {
+        case CHIR::ExprKind::APPLY:
+            CheckApplyInUsers<CHIR::Apply>(StaticCast<CHIR::Apply*>(user), result);
+            break;
+        case CHIR::ExprKind::APPLY_WITH_EXCEPTION:
+            CheckApplyInUsers<CHIR::ApplyWithException>(StaticCast<CHIR::ApplyWithException*>(user), result);
+            break;
+        case CHIR::ExprKind::INVOKE:
+            CheckInvokeInUsers<CHIR::Invoke>(StaticCast<CHIR::Invoke*>(user), result);
+            break;
+        case CHIR::ExprKind::INVOKESTATIC:
+            CheckInvokeInUsers<CHIR::InvokeStatic>(StaticCast<CHIR::InvokeStatic*>(user), result);
+            break;
+        case CHIR::ExprKind::INVOKE_WITH_EXCEPTION:
+            CheckInvokeInUsers<CHIR::InvokeWithException>(StaticCast<CHIR::InvokeWithException*>(user), result);
+            break;
+        default:
+            break;
     }
 }
 
-template <typename T> void DataflowRuleGCHK01Check::CheckApplyUsers(T* apply, std::set<std::string>& taintedVars)
+template <typename T>
+void DataflowRuleGCHK01Check::CheckApplyUsers(T* apply, TaintedVarSet& taintedVars)
 {
     auto users = apply->GetResult()->GetUsers();
     for (auto user : users) {
@@ -241,7 +253,8 @@ template <typename T> void DataflowRuleGCHK01Check::CheckApplyUsers(T* apply, st
     }
 }
 
-template <typename T> void DataflowRuleGCHK01Check::CheckApply(T* apply, std::set<std::string>& taintedVars)
+template <typename T>
+void DataflowRuleGCHK01Check::CheckApply(T* apply, TaintedVarSet& taintedVars)
 {
     for (auto taintedFunc : taintSource) {
         if (CommonFunc::FindCHIRFunction(apply->GetCallee(), taintedFunc.first) && apply->GetResult()) {
@@ -281,7 +294,7 @@ template <typename T> void DataflowRuleGCHK01Check::CheckApply(T* apply, std::se
 }
 
 void DataflowRuleGCHK01Check::CheckExpr(
-    CHIR::Value* value, CHIR::LocalVar* result, std::set<std::string>& taintedVars)
+    CHIR::Value* value, CHIR::LocalVar* result, TaintedVarSet& taintedVars)
 {
     auto identifier = value->GetSrcCodeIdentifier().empty() ? value->GetIdentifier() : value->GetSrcCodeIdentifier();
     if (taintedVars.count(identifier) == 0) {
@@ -312,7 +325,7 @@ void DataflowRuleGCHK01Check::CheckExpr(
     }
 }
 
-void DataflowRuleGCHK01Check::CheckStore(CHIR::Store* store, std::set<std::string>& taintedVars)
+void DataflowRuleGCHK01Check::CheckStore(CHIR::Store* store, TaintedVarSet& taintedVars)
 {
     auto value = store->GetValue();
     auto identifier = GetArgName(value);
@@ -335,7 +348,7 @@ void DataflowRuleGCHK01Check::CheckStore(CHIR::Store* store, std::set<std::strin
  * return a2
  * '''
  */
-void DataflowRuleGCHK01Check::CheckTuple(CHIR::Tuple* tuple, std::set<std::string>& taintedVars)
+void DataflowRuleGCHK01Check::CheckTuple(CHIR::Tuple* tuple, TaintedVarSet& taintedVars)
 {
     auto operands = tuple->GetOperands();
     auto iter = std::find_if(operands.begin(), operands.end(), [&taintedVars](auto& operand) {
@@ -351,8 +364,8 @@ void DataflowRuleGCHK01Check::CheckTuple(CHIR::Tuple* tuple, std::set<std::strin
     }
 }
 
-void DataflowRuleGCHK01Check::CheckStoreElementRef(CHIR::StoreElementRef* storeElementRef,
-    std::set<std::string>& taintedVars)
+void DataflowRuleGCHK01Check::CheckStoreElementRef(
+    CHIR::StoreElementRef* storeElementRef, TaintedVarSet& taintedVars)
 {
     auto base = storeElementRef->GetValue();
     auto identifier = GetArgName(base);
@@ -361,7 +374,7 @@ void DataflowRuleGCHK01Check::CheckStoreElementRef(CHIR::StoreElementRef* storeE
     }
 }
 
-void DataflowRuleGCHK01Check::CheckField(CHIR::Field* field, std::set<std::string>& taintedVars)
+void DataflowRuleGCHK01Check::CheckField(CHIR::Field* field, TaintedVarSet& taintedVars)
 {
     auto identifier = GetArgName(field->GetBase());
     if (taintedVars.count(identifier) > 0) {
@@ -372,71 +385,62 @@ void DataflowRuleGCHK01Check::CheckField(CHIR::Field* field, std::set<std::strin
 void DataflowRuleGCHK01Check::CheckFuncBody(CHIR::Block& entryBlock)
 {
     std::unordered_set<Block*> visited;
-    std::function<void(CHIR::Block*, std::set<std::string>)> visitBlock =
-        [this, &visitBlock, &visited](CHIR::Block* block, std::set<std::string> taintedVars) {
-            if (visited.find(block) != visited.end()) {
+    std::function<void(CHIR::Block*, TaintedVarSet)> visitBlock =
+        [this, &visitBlock, &visited](CHIR::Block* block, TaintedVarSet taintedVars) {
+            if (!visited.emplace(block).second) {
                 return;
             }
-            visited.emplace(block);
             for (auto expr : block->GetExpressions()) {
-                if (expr->GetExprKind() == CHIR::ExprKind::LAMBDA) {
-                    auto lambda = StaticCast<CHIR::Lambda*>(expr);
-                    CheckFuncBody(*lambda->GetEntryBlock());
-                    continue;
-                }
-                if (expr->GetExprKind() == CHIR::ExprKind::APPLY) {
-                    auto apply = StaticCast<CHIR::Apply*>(expr);
-                    CheckApply<CHIR::Apply>(apply, taintedVars);
-                    continue;
-                }
-                if (expr->GetExprKind() == CHIR::ExprKind::LOAD) {
-                    auto load = StaticCast<CHIR::Load*>(expr);
-                    CheckExpr(load->GetLocation(), load->GetResult(), taintedVars);
-                    continue;
-                }
-                if (expr->GetExprKind() == CHIR::ExprKind::STORE) {
-                    auto load = StaticCast<CHIR::Store*>(expr);
-                    CheckStore(load, taintedVars);
-                    continue;
-                }
-                if (expr->GetExprKind() == CHIR::ExprKind::TYPECAST) {
-                    auto typeCast = StaticCast<CHIR::TypeCast*>(expr);
-                    CheckExpr(typeCast->GetSourceValue(), typeCast->GetResult(), taintedVars);
-                    continue;
-                }
-                if (expr->GetExprKind() == CHIR::ExprKind::BOX) {
-                    auto box = StaticCast<CHIR::Box*>(expr);
-                    CheckExpr(box->GetSourceValue(), box->GetResult(), taintedVars);
-                    continue;
-                }
-                if (expr->GetExprKind() == CHIR::ExprKind::TUPLE) {
-                    auto tuple = StaticCast<CHIR::Tuple*>(expr);
-                    CheckTuple(tuple, taintedVars);
-                    continue;
-                }
-                if (expr->GetExprKind() == CHIR::ExprKind::STORE_ELEMENT_REF) {
-                    auto storeElementRef = StaticCast<CHIR::StoreElementRef*>(expr);
-                    CheckStoreElementRef(storeElementRef, taintedVars);
-                    continue;
-                }
-                if (expr->GetExprKind() == CHIR::ExprKind::FIELD) {
-                    auto field = StaticCast<CHIR::Field*>(expr);
-                    CheckField(field, taintedVars);
-                    continue;
-                }
-                if (expr->IsTerminator()) {
-                    auto term = StaticCast<CHIR::Terminator*>(expr);
-                    if (expr->GetExprKind() == CHIR::ExprKind::APPLY_WITH_EXCEPTION) {
-                        auto applyWithException = StaticCast<CHIR::ApplyWithException*>(expr);
-                        CheckApply<CHIR::ApplyWithException>(applyWithException, taintedVars);
+                switch (expr->GetExprKind()) {
+                    case CHIR::ExprKind::LAMBDA:
+                        CheckFuncBody(*StaticCast<CHIR::Lambda*>(expr)->GetEntryBlock());
+                        break;
+                    case CHIR::ExprKind::APPLY:
+                        CheckApply<CHIR::Apply>(StaticCast<CHIR::Apply*>(expr), taintedVars);
+                        break;
+                    case CHIR::ExprKind::LOAD: {
+                        auto load = StaticCast<CHIR::Load*>(expr);
+                        CheckExpr(load->GetLocation(), load->GetResult(), taintedVars);
+                        break;
                     }
-                    for (auto newblock : term->GetSuccessors()) {
-                        visitBlock(newblock, taintedVars);
+                    case CHIR::ExprKind::STORE:
+                        CheckStore(StaticCast<CHIR::Store*>(expr), taintedVars);
+                        break;
+                    case CHIR::ExprKind::TYPECAST: {
+                        auto typeCast = StaticCast<CHIR::TypeCast*>(expr);
+                        CheckExpr(typeCast->GetSourceValue(), typeCast->GetResult(), taintedVars);
+                        break;
                     }
+                    case CHIR::ExprKind::BOX: {
+                        auto box = StaticCast<CHIR::Box*>(expr);
+                        CheckExpr(box->GetSourceValue(), box->GetResult(), taintedVars);
+                        break;
+                    }
+                    case CHIR::ExprKind::TUPLE:
+                        CheckTuple(StaticCast<CHIR::Tuple*>(expr), taintedVars);
+                        break;
+                    case CHIR::ExprKind::STORE_ELEMENT_REF:
+                        CheckStoreElementRef(StaticCast<CHIR::StoreElementRef*>(expr), taintedVars);
+                        break;
+                    case CHIR::ExprKind::FIELD:
+                        CheckField(StaticCast<CHIR::Field*>(expr), taintedVars);
+                        break;
+                    case CHIR::ExprKind::APPLY_WITH_EXCEPTION:
+                        CheckApply<CHIR::ApplyWithException>(
+                            StaticCast<CHIR::ApplyWithException*>(expr), taintedVars);
+                        [[fallthrough]];
+                    default:
+                        if (expr->IsTerminator()) {
+                            auto term = StaticCast<CHIR::Terminator*>(expr);
+                            for (auto newblock : term->GetSuccessors()) {
+                                visitBlock(newblock, taintedVars);
+                            }
+                        }
+                        break;
                 }
             }
         };
-    std::set<std::string> taintedVars = perilousGlobalVars;
+    TaintedVarSet taintedVars = perilousGlobalVars;
     visitBlock(&entryBlock, taintedVars);
 }
 
