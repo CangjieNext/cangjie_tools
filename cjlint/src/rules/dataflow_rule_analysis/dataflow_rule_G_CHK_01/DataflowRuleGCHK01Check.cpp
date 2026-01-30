@@ -8,12 +8,17 @@
 #include "cangjie/AST/Match.h"
 #include "cangjie/Utils/Utils.h"
 #include "common/CommonFunc.h"
+#include <unordered_map>
+#include <functional>
 
 namespace Cangjie::CodeCheck {
 
 using namespace Cangjie::CHIR;
 
 using namespace Cangjie::CodeCheck::TaintData;
+
+// Short alias for the handler function type to keep declarations compact.
+using ExprHandler = std::function<void(DataflowRuleGCHK01Check*, CHIR::Expression*, std::set<std::string>&)>;
 
 // Chech whether a exit node exist in a block in focus
 static bool IsAnyReturnInBlock(CHIR::Block* block)
@@ -351,12 +356,89 @@ void DataflowRuleGCHK01Check::CheckTuple(CHIR::Tuple* tuple, std::set<std::strin
     }
 }
 
+void DataflowRuleGCHK01Check::CheckStoreElementRef(
+    CHIR::StoreElementRef* storeElementRef,
+    std::set<std::string>& taintedVars)
+{
+    auto base = storeElementRef->GetValue();
+    auto identifier = GetArgName(base);
+    if (taintedVars.count(identifier) > 0) {
+        auto location = storeElementRef->GetLocation();
+        taintedVars.insert(GetArgName(location));
+    }
+}
+
 void DataflowRuleGCHK01Check::CheckField(CHIR::Field* field, std::set<std::string>& taintedVars)
 {
     auto identifier = GetArgName(field->GetBase());
     if (taintedVars.count(identifier) > 0) {
         taintedVars.insert(GetArgName(field->GetResult()));
     }
+}
+// Small non-capturing handler functions. Keeping these as separate functions
+// reduces the length of GetExprHandlers and keeps each function concise.
+static void ExprHandler_Lambda(DataflowRuleGCHK01Check* self, CHIR::Expression* e,
+    std::set<std::string>&)
+{
+    auto lambda = StaticCast<CHIR::Lambda*>(e);
+    self->CheckFuncBody(*lambda->GetEntryBlock());
+}
+
+static void ExprHandler_Apply(DataflowRuleGCHK01Check* self, CHIR::Expression* e,
+    std::set<std::string>& t)
+{
+    auto apply = StaticCast<CHIR::Apply*>(e);
+    self->CheckApply<CHIR::Apply>(apply, t);
+}
+
+static void ExprHandler_Load(DataflowRuleGCHK01Check* self, CHIR::Expression* e,
+    std::set<std::string>& t)
+{
+    auto load = StaticCast<CHIR::Load*>(e);
+    self->CheckExpr(load->GetLocation(), load->GetResult(), t);
+}
+
+static void ExprHandler_Store(DataflowRuleGCHK01Check* self, CHIR::Expression* e,
+    std::set<std::string>& t)
+{
+    auto store = StaticCast<CHIR::Store*>(e);
+    self->CheckStore(store, t);
+}
+
+static const std::unordered_map<int, ExprHandler>& GetExprHandlers()
+{
+    static const std::unordered_map<int, ExprHandler> handlers = {
+        {static_cast<int>(CHIR::ExprKind::LAMBDA), ExprHandler_Lambda},
+        {static_cast<int>(CHIR::ExprKind::APPLY), ExprHandler_Apply},
+        {static_cast<int>(CHIR::ExprKind::LOAD), ExprHandler_Load},
+        {static_cast<int>(CHIR::ExprKind::STORE), ExprHandler_Store},
+        {static_cast<int>(CHIR::ExprKind::TYPECAST),
+            [](DataflowRuleGCHK01Check* self, CHIR::Expression* e, std::set<std::string>& t) {
+                auto typeCast = StaticCast<CHIR::TypeCast*>(e);
+                self->CheckExpr(typeCast->GetSourceValue(), typeCast->GetResult(), t);
+            }},
+        {static_cast<int>(CHIR::ExprKind::BOX),
+            [](DataflowRuleGCHK01Check* self, CHIR::Expression* e, std::set<std::string>& t) {
+                auto box = StaticCast<CHIR::Box*>(e);
+                self->CheckExpr(box->GetSourceValue(), box->GetResult(), t);
+            }},
+        {static_cast<int>(CHIR::ExprKind::TUPLE),
+            [](DataflowRuleGCHK01Check* self, CHIR::Expression* e, std::set<std::string>& t) {
+                auto tuple = StaticCast<CHIR::Tuple*>(e);
+                self->CheckTuple(tuple, t);
+            }},
+        {static_cast<int>(CHIR::ExprKind::STORE_ELEMENT_REF),
+            [](DataflowRuleGCHK01Check* self, CHIR::Expression* e, std::set<std::string>& t) {
+                auto storeElementRef = StaticCast<CHIR::StoreElementRef*>(e);
+                self->CheckStoreElementRef(storeElementRef, t);
+            }},
+        {static_cast<int>(CHIR::ExprKind::FIELD),
+            [](DataflowRuleGCHK01Check* self, CHIR::Expression* e, std::set<std::string>& t) {
+                auto field = StaticCast<CHIR::Field*>(e);
+                self->CheckField(field, t);
+            }},
+    };
+    return handlers;
 }
 
 void DataflowRuleGCHK01Check::CheckFuncBody(CHIR::Block& entryBlock)
@@ -368,56 +450,29 @@ void DataflowRuleGCHK01Check::CheckFuncBody(CHIR::Block& entryBlock)
                 return;
             }
             visited.emplace(block);
+            // Use the shared handlers table to avoid rebuilding it for every block.
+            using Handler = std::function<void(DataflowRuleGCHK01Check*, CHIR::Expression*, std::set<std::string>&)>;
+            auto& handlers = GetExprHandlers();
+
             for (auto expr : block->GetExpressions()) {
-                if (expr->GetExprKind() == CHIR::ExprKind::LAMBDA) {
-                    auto lambda = StaticCast<CHIR::Lambda*>(expr);
-                    CheckFuncBody(*lambda->GetEntryBlock());
-                    continue;
-                }
-                if (expr->GetExprKind() == CHIR::ExprKind::APPLY) {
-                    auto apply = StaticCast<CHIR::Apply*>(expr);
-                    CheckApply<CHIR::Apply>(apply, taintedVars);
-                    continue;
-                }
-                if (expr->GetExprKind() == CHIR::ExprKind::LOAD) {
-                    auto load = StaticCast<CHIR::Load*>(expr);
-                    CheckExpr(load->GetLocation(), load->GetResult(), taintedVars);
-                    continue;
-                }
-                if (expr->GetExprKind() == CHIR::ExprKind::STORE) {
-                    auto load = StaticCast<CHIR::Store*>(expr);
-                    CheckStore(load, taintedVars);
-                    continue;
-                }
-                if (expr->GetExprKind() == CHIR::ExprKind::TYPECAST) {
-                    auto typeCast = StaticCast<CHIR::TypeCast*>(expr);
-                    CheckExpr(typeCast->GetSourceValue(), typeCast->GetResult(), taintedVars);
-                    continue;
-                }
-                if (expr->GetExprKind() == CHIR::ExprKind::BOX) {
-                    auto box = StaticCast<CHIR::Box*>(expr);
-                    CheckExpr(box->GetSourceValue(), box->GetResult(), taintedVars);
-                    continue;
-                }
-                if (expr->GetExprKind() == CHIR::ExprKind::TUPLE) {
-                    auto tuple = StaticCast<CHIR::Tuple*>(expr);
-                    CheckTuple(tuple, taintedVars);
-                    continue;
-                }
-                if (expr->GetExprKind() == CHIR::ExprKind::FIELD) {
-                    auto field = StaticCast<CHIR::Field*>(expr);
-                    CheckField(field, taintedVars);
-                    continue;
-                }
-                if (expr->IsTerminator()) {
-                    auto term = StaticCast<CHIR::Terminator*>(expr);
-                    if (expr->GetExprKind() == CHIR::ExprKind::APPLY_WITH_EXCEPTION) {
-                        auto applyWithException = StaticCast<CHIR::ApplyWithException*>(expr);
-                        CheckApply<CHIR::ApplyWithException>(applyWithException, taintedVars);
+                int kind = static_cast<int>(expr->GetExprKind());
+                if (!expr->IsTerminator()) {
+                    auto it = handlers.find(kind);
+                    if (it != handlers.end()) {
+                        it->second(this, expr, taintedVars);
                     }
-                    for (auto newblock : term->GetSuccessors()) {
-                        visitBlock(newblock, taintedVars);
-                    }
+                    continue;
+                }
+
+                // Terminators need successors visited; APPLY_WITH_EXCEPTION is a special-case terminator.
+                if (kind == static_cast<int>(CHIR::ExprKind::APPLY_WITH_EXCEPTION)) {
+                    auto applyWithException = StaticCast<CHIR::ApplyWithException*>(expr);
+                    CheckApply<CHIR::ApplyWithException>(applyWithException, taintedVars);
+                }
+
+                auto term = StaticCast<CHIR::Terminator*>(expr);
+                for (auto newblock : term->GetSuccessors()) {
+                    visitBlock(newblock, taintedVars);
                 }
             }
         };

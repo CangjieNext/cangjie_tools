@@ -58,6 +58,7 @@ private:
     void CheckStore(CHIR::Store *store, std::set<std::string> &taintedVars);
     void CheckTuple(CHIR::Tuple *tuple, std::set<std::string> &taintedVars);
     void CheckField(CHIR::Field* field, std::set<std::string>& taintedVars);
+    void CheckStoreElementRef(CHIR::StoreElementRef* storeElementRef, std::set<std::string>& taintedVars);
     void CheckBlock(CHIR::Block* block);
 };
 } // namespace Cangjie::CodeCheck
