@@ -62,6 +62,7 @@ public class Profile <: Serializable<Profile> {
 
 public class BuildProfile <: Serializable<BuildProfile> {
     public var ltoValue: String = ""
+    public var stdType: String = ""
     public var incremental: Bool = false
     public var analysisCompilePerformance: Bool = false
     public var combined: HashMap<String, OutputType> = HashMap<String, OutputType>()
@@ -83,6 +84,7 @@ public class BuildProfile <: Serializable<BuildProfile> {
         result.cjcJobs = Option<Int64>.deserialize(dms.get("cjc-jobs"))
         result.heuristic = Bool.deserialize((dms.get("enable-heuristic-parallelism") as DataModelBool) ?? DataModelBool(false))
         result.ltoValue = String.deserialize((dms.get("lto") as DataModelString) ?? DataModelString(""))
+        result.stdType = String.deserialize((dms.get("std-type") as DataModelString) ?? DataModelString("dynamic"))
         result.incremental = Bool.deserialize((dms.get("incremental") as DataModelBool) ?? DataModelBool(false))
         result.analysisCompilePerformance = Bool.deserialize((dms.get("performance_analysis") as DataModelBool) ??
             DataModelBool(false))
@@ -121,6 +123,15 @@ public class TestProfile <: Serializable<TestProfile> {
             match (compilationOptionByName("lto")?.asString().getValue()) {
                 case Some(val) => val
                 case None => ""
+            }
+        }
+    }
+
+    public prop stdType: String {
+        get() {
+            match (compilationOptionByName("std-type")?.asString().getValue()) {
+                case Some(val) => val
+                case None => "dynamic"
             }
         }
     }
