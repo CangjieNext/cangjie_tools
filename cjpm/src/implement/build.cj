@@ -266,6 +266,7 @@ func getResolveData(buildConfig: BuildConfig, tomlInfo: TomlInfo, isScriptDep: B
         return Option<ModuleResolve>.None
     }
 
+    buildConfig.stdType = tomlInfo.profile.build.stdType
     if (!tomlInfo.profile.build.ltoValue.isEmpty()) {
         buildConfig.isLto = supportLto()
         buildConfig.ltoValue = tomlInfo.profile.build.ltoValue
@@ -1053,13 +1054,23 @@ func getLtoCombineBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig):
     let compileTarget = compileTask.target
     addForcedLibArgs(res, otherBinOptions, compileTarget)
 
-    // forced-add std dynamic libs
-    if (let Some(stdLinks) <- addStdLibsLink(compileTarget)) {
-        res.add(all: stdLinks)
+    if (buildConfig.stdType == "dynamic") {
+        // forced-add std dynamic libs
+        if (let Some(stdLinks) <- addStdLibsLink(compileTarget)) {
+            res.add(all: stdLinks)
+        } else {
+            println("Warning: cannot find std dynamic libraries for target '${compileTarget}' " +
+                "from $CANGJIE_HOME/runtime/lib while compiling combine package ${compileTask.fullName}, " +
+                "output may be invalid if sub packages import std libraries")
+        }
     } else {
-        println("Warning: cannot find std dynamic libraries for target '${compileTarget}' " +
-            "from $CANGJIE_HOME/runtime/lib while compiling combine package ${compileTask.fullName}, " +
-            "output may be invalid if sub packages import std libraries")
+        if (let Some(stdBcLinks) <- addStdBcLibsLink(compileTarget)) {
+            res.add(all: stdBcLinks)
+        } else {
+            println("Warning: cannot find std bc libraries for target '${compileTarget}' " +
+                "from $CANGJIE_HOME/modules while compiling combine package ${compileTask.fullName}, " +
+                "output may be invalid if sub packages import std libraries")
+        }
     }
 
     let cLibLinkMap = if (compileTask.isCrossCompile) {
@@ -1364,6 +1375,47 @@ public func printSuperPkgWarn(subPkgName: String): Unit {
         eprintln("Warning: binary package '${subPkgName}' may be combined by " +
             "'lib${subPkgName.split(".")[0]}${DYLIB_POSTFIX}', cjpm will use combined package instead")
     }
+}
+
+func addStdBcLibsLink(compileTarget: String): ?ArrayList<String> {
+    let isTargetLinux = compileTarget.contains("linux")
+    let cjHome = getVariable("CANGJIE_HOME") ?? return None
+    let modulesPath = Path(cjHome).join("modules").toString()
+    if (directoryExists(modulesPath)) {
+        let (platform, framework) = getTargetKeywords(compileTarget)
+
+        // get directory of std dylib
+        let modulesDirList = getDirectoryList(modulesPath)
+        var modulesLibPath = ""
+        for (dirInfo in modulesDirList) {
+            if (checkRuntimeLibDir(dirInfo.name, platform, framework)) {
+                modulesLibPath = dirInfo.path.toString()
+                break
+            }
+        }
+        modulesLibPath = Path(modulesLibPath).join("std").toString()
+        if (modulesLibPath.isEmpty()) {
+            return None
+        }
+
+        // get dylibs
+        let libSet = HashSet<String>()
+        for (fileInfo in getFileList(modulesLibPath)) {
+            if (fileInfo.name.endsWith(".bc")) {
+                libSet.add(fileInfo.path.toString())
+            }
+        }
+
+        // add links
+        if (!libSet.isEmpty()) {
+            let res = ArrayList<String>()
+            for (lib in libSet) {
+                res.add("${lib}")
+            }
+            return res
+        }
+    }
+    return None
 }
 
 func addStdLibsLink(compileTarget: String): ?ArrayList<String> {
