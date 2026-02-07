@@ -68,7 +68,7 @@ std::unordered_map<std::string, ark::EdgeType> LSPCompilerInstance::UpdateUpstre
     std::string curModule;
     std::unordered_set<std::string> depends;
     if (!pkgNameForPath.empty()) {
-        curModule = 
+        curModule =
             SplitQualifiedName(ark::CompilerCangjieProject::GetInstance()->GetRealPackageName(pkgNameForPath)).front();
         depends = ark::CompilerCangjieProject::GetInstance()->GetOneModuleDeps(curModule);
     }
@@ -97,7 +97,7 @@ std::unordered_map<std::string, ark::EdgeType> LSPCompilerInstance::UpdateUpstre
             std::string dep = (package.size() > orPackage.size()) ? package : orPackage;
             std::vector<std::string> realDeps;
             if (ark::CompilerCangjieProject::GetInstance()->IsCommonSpecificPkg(dep)) {
-                std::vector<std::string> sourceSetGraph = 
+                std::vector<std::string> sourceSetGraph =
                     ark::CompilerCangjieProject::GetInstance()->GetCommonSpecificSourceSetGraph(dep);
                 for (const auto &sourceSet : sourceSetGraph) {
                     if (sourceSet.empty()) {
@@ -207,7 +207,7 @@ void LSPCompilerInstance::PreCompileProcess()
     AddSourceToMember();
 }
 
-void LSPCompilerInstance::CompilePassForComplete(
+void LSPCompilerInstance:: CompilePassForComplete(
     const std::unique_ptr<ark::CjoManager> &cjoManager,
     const std::unique_ptr<ark::DependencyGraph> &graph, Position pos, const std::string &name)
 {
@@ -219,7 +219,7 @@ void LSPCompilerInstance::CompilePassForComplete(
     const auto filePath = GetSourceManager().GetSource(pos.fileID).path;
     auto file = GetFileByPath(filePath).get();
     // If the position is not in ImportSpec, do not need to ImportPackage.
-    if (file && !ark::InImportSpec(*file, pos) && name != "SignatureHelp") {
+    if (file && !ark::InImportSpec(*file, pos)) {
         return;
     }
     ImportCjoToManager(cjoManager, graph);
@@ -359,7 +359,7 @@ void LSPCompilerInstance::IndexCjoToManager(
  *
  * @param cjoManager Read cjo cache and update cjo cache and state
  * @param graph
- * @param realPkgName Update target package cjo cache, used in common-specific package 
+ * @param realPkgName Update target package cjo cache, used in common-specific package
  * @return true
  * @return false
  */
