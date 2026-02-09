@@ -665,7 +665,6 @@ void ArkServer::FindCompletion(const CompletionParams &params, const std::string
             return;
         }
         CompletionImpl::CodeComplete(*(input.ast), pos, result, prefix);
-        CompilerCangjieProject::GetInstance()->ClearParseCache();
         CompletionList completionList;
         for (auto &iter : result.completions) {
             if (prefix.back() == '.' || IsMatchingCompletion(prefix, iter.name)) {
@@ -683,7 +682,6 @@ void ArkServer::FindCompletion(const CompletionParams &params, const std::string
         }
         ValueOrError val(ValueOrErrorCheck::VALUE, jsonItems);
         reply(val);
-        CompilerCangjieProject::GetInstance()->ClearParseCache();
     };
 
     arkSchedulerOfComplete->RunWithASTCache("Completion", file, pos, action);

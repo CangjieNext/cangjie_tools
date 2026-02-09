@@ -261,10 +261,10 @@ void ArkASTWorker::RunWithASTCache(
         std::vector<TextDocumentContentChangeEvent> contentChanges;
         bool needReParser = this->callback->NeedReParser(file);
         this->callback->UpdateDocNeedReparse(file, inputs.version, needReParser);
-        CompilerCangjieProject::GetInstance()->CompilerOneFile(
-            file, this->callback->GetContentsByFile(file), pos, true, name);
+        CompilerCangjieProject::GetInstance()->ParseOneFile(
+            file, this->callback->GetContentsByFile(file), pos, name);
         Logger::Instance().CleanKernelLog(std::this_thread::get_id());
-        ArkAST *ast = CompilerCangjieProject::GetInstance()->GetParseArkAST(file);
+        ArkAST *ast = CompilerCangjieProject::GetInstance()->GetParseArkAST(name, file);
         if (!ast) { return; }
         {
             std::unique_lock<std::recursive_mutex> lck(CompilerCangjieProject::GetInstance()->fileCacheMtx);
@@ -275,6 +275,7 @@ void ArkASTWorker::RunWithASTCache(
             ast->semaCache = astCache;
             action(InputsAndAST{inputs, ast, "", false});
         }
+        CompilerCangjieProject::GetInstance()->ClearParseCache(name);
         if (Options::GetInstance().IsOptionSet("test")) {
             return;
         }
