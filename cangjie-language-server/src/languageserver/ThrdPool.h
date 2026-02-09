@@ -24,7 +24,6 @@ namespace ark {
  */
 class ThrdPool {
 public:
-    using Task = std::function<void()>;
 #ifdef __APPLE__
     explicit ThrdPool(const size_t threads) : stop(false)
     {
@@ -45,12 +44,17 @@ public:
         }
     }
 #else
+    struct Task {
+        std::function<void()> task;
+        bool running = false;
+    };
+
     explicit ThrdPool(const size_t threads) : stop(false)
     {
         for (size_t i = 0; i < threads; ++i) {
             workers.emplace_back([this] {
                 for (;;) {
-                    std::function<void()> task;
+                    Task task;
                     {
                         std::unique_lock<std::mutex> lock(this->queueMu);
                         this->cv.wait(lock, [this] { return this->stop || !this->readyTasks.empty(); });
@@ -58,9 +62,10 @@ public:
                             return;
                         }
                         task = std::move(this->readyTasks.front());
+                        task.running = true;
                         this->readyTasks.pop();
                     }
-                    task();
+                    task.task();
                 }
             });
         }
@@ -70,16 +75,13 @@ public:
     template <class F, class... Args>
     void AddTask(const uint64_t taskId, const std::unordered_set<uint64_t> &dependencies, F &&func, Args &&...args)
     {
-        {
-            std::unique_lock<std::mutex> lock(queueMu);
-            ++tasksRemaining; // Increment the count of remaining tasks
-        }
-
-        using TaskType = std::function<void()>;
-        TaskType task = std::bind(std::forward<F>(func), std::forward<Args>(args)...);
+        Task task = {.task = std::bind(std::forward<F>(func), std::forward<Args>(args)...)};
 
         {
             std::unique_lock<std::mutex> lock(queueMu);
+            if(taskMap.find(taskId) == taskMap.end()) {
+                 ++tasksRemaining; // Increment the count of remaining tasks
+            }
             taskMap[taskId] = task;
 
             for (uint64_t dep : dependencies) {
@@ -97,6 +99,10 @@ public:
     void TaskCompleted(const uint64_t taskId, bool inPool = true)
     {
         std::unique_lock<std::mutex> lock(queueMu);
+        if (taskMap.find(taskId) == taskMap.end() || !taskMap[taskId].running) {
+            return;
+        }
+
         for (uint64_t dep : dependentTasks[taskId]) {
             taskDependencies[dep].erase(taskId);
             if (taskDependencies[dep].empty()) {
