@@ -63,7 +63,8 @@ public:
     std::unique_ptr<CompilerInvocation> compilerInvocation;
     std::unordered_map<std::string, std::string> bufferCache;
     std::unique_ptr<DiagnosticEngine> diag;
-    std::unique_ptr<DiagnosticEngine> diagTrash;
+    std::unique_ptr<DiagnosticEngine> diagForComplete;
+    std::unique_ptr<DiagnosticEngine> diagForSignatureHelp;
 
     explicit PkgInfo(const std::string &pkgPath, const std::string &curModulePath,
                         const std::string &curModuleName, Callbacks *callback);
@@ -84,7 +85,6 @@ public:
     std::mutex mtx;
     std::mutex indexMtx;
     std::recursive_mutex fileCacheMtx;
-    std::mutex fileMtx;
     std::atomic_bool isIdentical = true;
     static CompilerCangjieProject *GetInstance();
     static bool GetUseDB()
@@ -117,11 +117,14 @@ public:
         return nullptr;
     }
 
-    ArkAST *GetParseArkAST(const std::string &fileName)
+    ArkAST *GetParseArkAST(const std::string& taskName, const std::string &fileName)
     {
-        std::unique_lock<std::mutex> lock(fileMtx);
-        if (fileCacheForParse.find(fileName) != fileCacheForParse.end()) {
-            return fileCacheForParse[fileName].get();
+        if (taskName == "Completion" &&
+            fileCacheForComplete.find(fileName) != fileCacheForComplete.end()) {
+            return fileCacheForComplete[fileName].get();
+        } else if (taskName == "SignatureHelp" &&
+            fileCacheForSignatureHelp.find(fileName) != fileCacheForSignatureHelp.end()) {
+            return fileCacheForSignatureHelp[fileName].get();
         }
         return nullptr;
     }
@@ -325,9 +328,11 @@ public:
         return {};
     };
 
-    void CompilerOneFile(
-        const std::string &file, const std::string &contents, Position pos = {0, 0, 0},
-        bool onlyParse = false, const std::string &name = "");
+    void CompilerOneFile(const std::string &file, const std::string &contents, Position pos = {0, 0, 0},
+        const std::string &name = "");
+
+    void ParseOneFile(const std::string &file, const std::string &contents, Position pos = {0, 0, 0},
+        const std::string &taskName = "");
 
     void IncrementForFileDelete(const std::string &fileName);
 
@@ -346,7 +351,7 @@ public:
 
     std::string GetPathBySource(const Node &node, unsigned int id);
 
-    void ClearParseCache();
+    void ClearParseCache(const std::string &actionName);
 
     Position getPackageNameErrPos(const File &file) const;
 
@@ -480,7 +485,7 @@ public:
     std::unique_ptr<LSPCompilerInstance> GetCIForFileRefactor(const std::string &filePath);
 
     void StoreAllPackagesCache();
-    
+
     void EmitDiagsOfFile(const std::string &filePath);
 
 private:
@@ -489,7 +494,10 @@ private:
     bool InitCache(const std::unique_ptr<LSPCompilerInstance> &lspCI, const std::string &pkgForPath,
                    bool isInModule = true);
 
-    void InitParseCache(const std::unique_ptr<LSPCompilerInstance> &lspCI, const std::string &pkgForPath);
+    void InitParseCacheForComplete(const std::unique_ptr<LSPCompilerInstance> &lspCI, const std::string &pkgForPath);
+
+    void InitParseCacheForSignatureHelp(const std::unique_ptr<LSPCompilerInstance> &lspCI,
+        const std::string &pkgForPath);
 
     void IncrementCompile(const std::string &filePath, const std::string &contents = "", bool isDelete = false);
 
@@ -498,6 +506,10 @@ private:
 
     void IncrementCompileForCompleteNotInSrc(const std::string &name,
         const std::string &filePath, const std::string &contents = "");
+
+    void IncrementCompileForSignatureHelp(const std::string &filePath, const std::string &contents = "");
+
+    void IncrementCompileForSignatureHelpNotInSrc(const std::string &filePath, const std::string &contents = "");
 
     void IncrementCompileForFileNotInSrc(const std::string &filePath, const std::string &contents = "",
                                          bool isDelete = false);
@@ -543,9 +555,11 @@ private:
     std::vector<std::string> passedWhenCfgPaths;
 
     std::unordered_map<std::string, std::unique_ptr<ArkAST>> fileCache;
-    std::unordered_map<std::string, std::unique_ptr<ArkAST>> fileCacheForParse;
+    std::unordered_map<std::string, std::unique_ptr<ArkAST>> fileCacheForComplete;
+    std::unordered_map<std::string, std::unique_ptr<ArkAST>> fileCacheForSignatureHelp;
     std::unordered_map<std::string, std::unique_ptr<PackageInstance>> packageInstanceCache;    // key: packagePath
-    std::unique_ptr<PackageInstance> packageInstanceCacheForParse;
+    std::unique_ptr<PackageInstance> packageInstanceCacheForComplete;
+    std::unique_ptr<PackageInstance> packageInstanceCacheForSignatureHelp;
 
     std::unique_ptr<ModuleManager> moduleManager;
     std::unique_ptr<ThrdPool> thrdPool;
@@ -561,7 +575,8 @@ private:
     std::mutex cimapMtx;
     std::unordered_map<std::string, std::unique_ptr<LSPCompilerInstance>> CIMap;
     std::unordered_map<std::string, std::unique_ptr<LSPCompilerInstance>> CIMapNotInSrc;
-    std::unique_ptr<LSPCompilerInstance> CIForParse;
+    std::unique_ptr<LSPCompilerInstance> CIForComplete;
+    std::unique_ptr<LSPCompilerInstance> CIForSignatureHelp;
     std::unordered_map<std::string, std::unique_ptr<PkgInfo>> pkgInfoMap;         // key: fullPackageName
     std::unordered_map<std::string, std::unique_ptr<PkgInfo>> pkgInfoMapNotInSrc; // key: dirPath for Cangjie file
     // key: fullPackageName, value: PackageSpec's modifier

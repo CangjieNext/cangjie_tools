@@ -198,7 +198,7 @@ void LSPCompilerInstance::CompilePassForComplete(
     const auto filePath = GetSourceManager().GetSource(pos.fileID).path;
     auto file = GetFileByPath(filePath).get();
     // If the position is not in ImportSpec, do not need to ImportPackage.
-    if (file && !ark::InImportSpec(*file, pos) && name != "SignatureHelp") {
+    if (file && !ark::InImportSpec(*file, pos)) {
         return;
     }
     ImportCjoToManager(cjoManager, graph);
