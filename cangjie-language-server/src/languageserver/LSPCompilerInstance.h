@@ -12,6 +12,7 @@
 #include "../json-rpc/StdioTransport.h"
 #include "CjoManager.h"
 #include "DependencyGraph.h"
+#include "cangjie/Basic/DiagnosticEngine.h"
 #include "cangjie/Frontend/CompilerInstance.h"
 #include "cangjie/Macro/MacroExpansion.h"
 #include "capabilities/diagnostic/LSPDiagObserver.h"
@@ -57,7 +58,7 @@ public:
     using CjoCacheMap = std::unordered_map<std::string, std::vector<uint8_t>>;
     LSPCompilerInstance(ark::Callbacks *cb,
                         CompilerInvocation &invocation,
-                        DiagnosticEngine &diag,
+                        std::unique_ptr<DiagnosticEngine> diag,
                         std::string realPkgName,
                         const std::unique_ptr<ark::ModuleManager> &moduleManger);
 
@@ -155,6 +156,7 @@ public:
     bool macroExpandSuccess = false;
     std::set<std::string> upstreamPkgs;
     const std::unique_ptr<ark::ModuleManager> &moduleManger;
+    std::unique_ptr<DiagnosticEngine> diagOwned;
 
     static inline std::shared_mutex mtx;
     static inline PackageMap dependentPackageMap;
