@@ -84,7 +84,7 @@ void ArkServer::FindDocumentHighlights(const std::string &file, const TextDocume
         }
 
         DocumentHighlightImpl::FindDocumentHighlights(*(inputAST.ast), result, pos);
-        
+
         if (inputAST.useASTCache) {
             std::vector<DiagnosticToken> diagnostics = callback->GetDiagsOfCurFile(file);
             UpdateModifierDiag(inputAST, diagnostics, file);
@@ -664,7 +664,7 @@ void ArkServer::ProcessCompletion(const InputsAndAST &input, const Cangjie::Posi
         return;
     }
     CompletionImpl::CodeComplete(*(input.ast), pos, result, prefix);
-    CompilerCangjieProject::GetInstance()->ClearParseCache();
+    CompilerCangjieProject::GetInstance()->ClearParseCache("Completion");
     CompletionList completionList;
     for (auto &iter : result.completions) {
         if (prefix.back() == '.' || IsMatchingCompletion(prefix, iter.name)) {
@@ -682,7 +682,7 @@ void ArkServer::ProcessCompletion(const InputsAndAST &input, const Cangjie::Posi
     }
     ValueOrError val(ValueOrErrorCheck::VALUE, jsonItems);
     reply(val);
-    CompilerCangjieProject::GetInstance()->ClearParseCache();
+    CompilerCangjieProject::GetInstance()->ClearParseCache("Completion");
 }
 
 void ArkServer::FindCompletion(const CompletionParams &params, const std::string &file,
@@ -757,7 +757,7 @@ void ArkServer::FindSignatureHelp(const SignatureHelpParams &params, const std::
         ValueOrError value(ValueOrErrorCheck::VALUE, nullptr);
         reply(value);
     };
- 
+
     std::optional<unsigned int> fileId;
     if (Options::GetInstance().IsOptionSet("test")) {
         fileId = CompilerCangjieProject::GetInstance()->GetFileID(file);
@@ -768,7 +768,7 @@ void ArkServer::FindSignatureHelp(const SignatureHelpParams &params, const std::
         nullValueReply();
         return;
     }
- 
+
     Cangjie::Position pos = {
         fileId.value_or(0),
         params.position.line,
