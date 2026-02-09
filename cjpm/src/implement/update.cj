@@ -59,6 +59,9 @@ func updateDepMap(depMap: HashMap<String, DepInfo>, path: String, preName: Strin
     }
 
     var tomlInfo = loadModuleFile(path) ?? return false
+    if (!tomlInfo.pkg.organization.isEmpty()) {
+        tomlInfo.pkg.name = tomlInfo.pkg.organization + "::" + tomlInfo.pkg.name
+    }
     var curModulePath: String = path
 
     if (let Some(depInfo) <- requires) {
