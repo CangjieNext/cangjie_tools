@@ -15,6 +15,7 @@ import std.regex.*
 import stdx.serialization.serialization.*
 import stdx.encoding.json.*
 import cjpm.config.*
+import stdx.crypto.common.*
 
 // Record modules finally chosen
 public class FinalDepModule {
@@ -261,7 +262,16 @@ public class DepAnalysisEngine {
         try {
             this.currentState.depRecordMap.add(depName,
                 DepRecord(depName, indexDep.require, indexDep.outputType, this.depot, this.indexMap))
-        } catch (_: Exception) {
+        } catch (e: CryptoException) {
+            eprintln("Error: ${e.message}")
+            eprintln("Please ensure that OpenSSL is correctly installed and configured.")
+            return false
+        } catch (e: Exception) {
+            if (e.message.contains("HttpEngine1#connect")) {
+                eprintln("Error: ${e.message}")
+                eprintln("Error: unable to connect to https server.")
+                return false
+            }
             // index is broken
             this.brokenRecord.add("${targetModuleName}-${fixedVersion}", depName)
             this.resetState(targetModuleName, fixedVersion)
@@ -414,9 +424,21 @@ public class DepAnalysisEngine {
                         join(if (org.isEmpty()) { "default" } else { org }).
                         join("${name}-${version}").toString()
                     if (!directoryExists(sourcePath)) {
-                        let (flag, output) = this.depot.download(name, org, version)
-                        if (!flag) {
-                            eprintln("Error: ${output}")
+                        try {
+                            let (flag, output) = this.depot.download(name, org, version)
+                            if (!flag) {
+                                eprintln("Error: ${output}")
+                                return false
+                            }
+                        } catch (e: CryptoException) {
+                            eprintln("Error: ${e.message}")
+                            eprintln("Please ensure that OpenSSL is correctly installed and configured.")
+                            return false
+                        } catch (e: Exception) {
+                            eprintln("Error: ${e.message}")
+                            if (e.message.contains("HttpEngine1#connect")) {
+                                eprintln("Error: unable to connect to https server.")
+                            }
                             return false
                         }
                     }

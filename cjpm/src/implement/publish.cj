@@ -12,6 +12,7 @@ import std.fs.*
 import stdx.serialization.serialization.*
 import stdx.encoding.json.*
 import cjpm.config.*
+import stdx.crypto.common.*
 
 public func doPublish(isVerbose: Bool): Bool {
     let tomlInfo = loadModuleFile(DIR_CURRENT) ?? return false
@@ -44,6 +45,10 @@ public func doPublish(isVerbose: Bool): Bool {
                     "in target directory '${targetDir}' is broken, run 'cjpm bundle' before publish")
                 needBundle = true
             }
+        } catch (e: CryptoException) {
+            eprintln("Error: ${e.message}")
+            eprintln("Please ensure that OpenSSL is correctly installed and configured.")
+            return false 
         } catch (e: Exception) {
             println("Warning: meta-data.json in target directory '${targetDir}' is broken, " +
                 "run 'cjpm bundle' before publish")
@@ -52,8 +57,16 @@ public func doPublish(isVerbose: Bool): Bool {
     }
 
     // rebundle
-    if (needBundle && !doBundle(BundleConfig(isVerbose))) {
-        return false
+    if (needBundle) {
+        try {
+             if (!doBundle(BundleConfig(isVerbose))) {
+                return false
+             }
+        } catch (e: CryptoException) { 
+            eprintln("Error: ${e.message}")
+            eprintln("Please ensure that OpenSSL is correctly installed and configured.")
+            return false
+        }
     }
 
     // prepare data
@@ -74,8 +87,15 @@ public func doPublish(isVerbose: Bool): Bool {
             }
         }
         return false
+    } catch (e: CryptoException) {
+        eprintln("Error: ${e.message}")
+        eprintln("Please ensure that OpenSSL is correctly installed and configured.")
+        return false
     } catch (e: Exception) {
         eprintln(e.message)
+        if (e.message.contains("HttpEngine1#connect")) {
+            eprintln("Error: unable to connect to https server.")
+        }
         return false
     }
 }

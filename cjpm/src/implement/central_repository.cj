@@ -8,6 +8,7 @@ package cjpm.implement
 
 import std.fs.*
 import cjpm.config.*
+import stdx.crypto.common.*
 
 func processRepoDependencyModule(name: String, version: String, modulePath: String): (Bool, String) {
     if (version.isEmpty()) {
@@ -66,8 +67,17 @@ public func setRepoRoot(installConfig: InstallConfig, artifact: String): Bool {
         } else {
             return false
         }
+    } catch (e: CryptoException) {
+        eprintln("Error: ${e.message}")
+        eprintln("Please ensure that OpenSSL is correctly installed and configured.")
+        return false
     } catch (e: Exception) {
-        println("Error: load module failed with network connection error")
+        println(e.message)
+        if (e.message.contains("HttpEngine1#connect")) {
+            println("Error: unable to connect to https server.") 
+        } else {
+            println("Error: load module failed with network connection error") 
+        }
         return false
     }
 }
@@ -99,8 +109,15 @@ func loadModuleFromRepo(fullName: String, version: String, depot: Depot): (Bool,
             return (false, output)
         }
         return (true, dependencyPath)
+    } catch (e: CryptoException) {
+        eprintln("Error: ${e.message}")
+        eprintln("Please ensure that OpenSSL is correctly installed and configured.")
+        return (false, "catch exception while downloading ${name}-${version} from central repository")
     } catch (e: Exception) {
         eprintln(e.message)
+        if (e.message.contains("HttpEngine1#connect")) {
+            eprintln("Error: unable to connect to https server.")
+        }
         return (false, "catch exception while downloading ${name}-${version} from central repository")
     }
 }

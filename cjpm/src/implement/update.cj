@@ -11,6 +11,7 @@ import std.collection.concurrent.*
 import std.fs.*
 import std.sync.*
 import cjpm.config.*
+import stdx.crypto.common.*
 
 let UPDATE_GLOBAL_CONFIG = GlobalConfig()
 let UPDATE_ANALYSIS_ENGINE = DepAnalysisEngine()
@@ -240,12 +241,28 @@ func updateIndex(): Bool {
         downloadTasks.add(
             spawn {
                 =>
-                let (flag, output) = UPDATE_DEPOT.updateIndexWithOutput(name, if (org == DEFAULT_ORGANIZATION) { "" } else { org })
-                if (!flag) {
-                    downloadErrorLogs.add(output)
+                try {
+                    let (flag, output) = UPDATE_DEPOT.updateIndexWithOutput(name, if (org == DEFAULT_ORGANIZATION) { "" } else { org })
+                    if (!flag) {
+                        downloadErrorLogs.add(output)
+                    }
+                    downloadSem.release()
+                    return flag
+                } catch (e: CryptoException) {
+                    eprintln("Error: ${e.message}")
+                    eprintln("Please ensure that OpenSSL is correctly installed and configured.")
+                    downloadSem.release()
+                    return false
+                } catch (e: Exception) {
+                    if (e.message.contains("HttpEngine1#connect")) {
+                        eprintln("Error: ${e.message}")
+                        eprintln("Error: unable to connect to https server.")
+                    } else {
+                        downloadErrorLogs.add(e.message) 
+                    }
+                    downloadSem.release()
+                    return false
                 }
-                downloadSem.release()
-                return flag
             }
         )
     }

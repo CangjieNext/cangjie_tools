@@ -13,6 +13,7 @@ import stdx.serialization.serialization.*
 import stdx.encoding.json.*
 import stdx.compress.*
 import cjpm.config.*
+import stdx.crypto.common.*
 
 let README_FILE = "README.md"
 let README_ZH_FILE = "README_zh.md"
@@ -53,6 +54,7 @@ public func doBundle(bundleConfig: BundleConfig): Bool {
         tomlInfo.pkg.tag,
         tomlInfo.pkg.category,
         tomlInfo.pkg.license,
+        tomlInfo.pkg.cjcVersion,
         ArtifactIndex(
             tomlInfo.pkg.organization,
             tomlInfo.pkg.name,
@@ -216,7 +218,16 @@ func compressCjp(bundleConfig: BundleConfig, tomlInfo: TomlInfo, metaData: MetaD
     }
 
     // generate check sum
-    if (!metaData.index.genFileCheckSum(tarPath)) {
+    try {
+        if (!metaData.index.genFileCheckSum(tarPath)) {
+            eprintln("Error: failed to generate check-sum of artifact package '${tarPath}")
+            return false
+        }
+    } catch (e: CryptoException) { 
+        eprintln("Error: ${e.message}")
+        eprintln("Please ensure that OpenSSL is correctly installed and configured.")
+        return false
+    } catch (e: Exception) {
         eprintln("Error: failed to generate check-sum of artifact package '${tarPath}")
         return false
     }
@@ -235,6 +246,11 @@ func compressCjp(bundleConfig: BundleConfig, tomlInfo: TomlInfo, metaData: MetaD
 func getBundleFileList(dir: String, fileSet: HashSet<String>, bundleConfig: BundleConfig, tomlInfo: TomlInfo): Unit {
     // deal with files
     for (fileInfo in getFileList(dir)) {
+        // hidden check
+        if (fileInfo.isHidden()) {
+            continue
+        }
+
         // binary check
         if (isBinary(fileInfo)) {
             continue
@@ -287,6 +303,10 @@ func getBundleFileList(dir: String, fileSet: HashSet<String>, bundleConfig: Bund
 
     // deal with directories
     for (dirInfo in getDirectoryList(dir)) {
+        if (dirInfo.isHidden()) {
+            continue
+        }
+
         let dirPath = getCanonicalPath(dirInfo.path.toString())
         if ((dirPath == bundleConfig.targetDir) || (dirPath == bundleConfig.scriptDir)) {
             continue
