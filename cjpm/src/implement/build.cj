@@ -1192,6 +1192,12 @@ func getForcedLibArgs(compileTask: CompileTask, buildConfig: BuildConfig): Array
         binDepSet.add(all: getDepSet(depName, buildConfig))
     }
 
+    // If a binary artifact is depended by the main package directly or indirectly, it will be collected by `getBuildArgs`.
+    // But if it's also depended by a child package which is not depended by the main package directly or indirectly,
+    // it will be added into `binDepSet`.
+    // So we should remove it from `binDepSet` because we only need link it once.
+    binDepSet.remove(all: linkSort)
+
     allOptions.add(all: getForcedBinDep(compileTask, buildConfig, binDepSet, cLibNameList))
     addForcedLibArgs(res, allOptions, compileTask.target)
     if (let Some(stdLinks) <- addStdLibsLink(compileTask.target)) {
