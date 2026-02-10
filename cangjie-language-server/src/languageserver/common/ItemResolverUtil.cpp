@@ -5,6 +5,8 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 #include <string>
+#include "cangjie/AST/Node.h"
+#include "cangjie/AST/Types.h"
 #include "cangjie/Basic/Match.h"
 #include "../logger/Logger.h"
 #include "Utils.h"
@@ -1624,7 +1626,8 @@ void ItemResolverUtil::DealTypeDetail(std::string &detail, Ptr<Cangjie::AST::Typ
         return;
     }
     auto typeString = FetchTypeString(*type);
-    if (CheckSourceType(type) || typeString == "UnknownType") {
+    bool getTypeByNodeAndType = type != nullptr && (typeString == "UnknownType" || (sourceManager));
+    if (CheckSourceType(type) || getTypeByNodeAndType) {
         AddTypeByNodeAndType(detail, filePath, type, sourceManager);
         return;
     }
@@ -1703,11 +1706,9 @@ void ItemResolverUtil::DealAliasType(Ptr<Cangjie::AST::Type> type, std::string &
         detail += name;
         return;
     }
-    auto typeName = type->ToString();
-    auto typeName2 = type->aliasTy->name;
 
+    auto typeName = type->ToString();
     detail += typeName;
-    // GetInitializerInfo(detail, decl, sourceManager, true);
     return;
 }
 
