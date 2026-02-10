@@ -99,7 +99,7 @@ public class DAG<K, V> where K <: Hashable & Equatable<K> {
             if (!cond(id, this._data[id])) { 
                 return None<(K, Node<K>)>
             }
-            return (id, state.filterEdges { it => cond(id, this._data[id] )} )
+            return (id, state.filterEdges { it => cond(it, this._data[it] )} )
         } |> collectHashMap
 
         let toposort = toposort.filter { it => cond(it, this._data[it]) } |> collectArray
