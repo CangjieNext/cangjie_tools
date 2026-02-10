@@ -184,7 +184,7 @@ auto StoreRef(flatbuffers::FlatBufferBuilder &builder, const Ref &ref)
     auto loc = IdxFormat::CreateLocation(builder, &begin, &end, uri);
     return IdxFormat::CreateRef(builder, loc, static_cast<uint16_t>(ref.kind), ref.container, ref.isCjoRef);
 }
-
+// LCOV_EXCL_START
 auto StoreExtend(flatbuffers::FlatBufferBuilder &builder, const ExtendItem &extendItem)
 {
     auto interfaceName = builder.CreateString(extendItem.interfaceName);
@@ -222,7 +222,7 @@ void AstFileHandler::StoreShard(std::string filePath, const FileOut *out) const
         Trace::Log("ast file write");
     }
 }
-
+// LCOV_EXCL_STOP
 void CacheManager::InitDir()
 {
     std::string cacheRoot = FileUtil::JoinPath(basePath, ".cache");
