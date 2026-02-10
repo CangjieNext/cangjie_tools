@@ -1082,8 +1082,8 @@ void CompletionEnv::CompleteNode(
         AddCompletionItem(itemSignature, itemSignature, completion);
         return;
     }
-    // skip VArray type
-    if (node->ty->kind == TypeKind::TYPE_VARRAY) {
+    // skip VArray type 
+    if (node->ty->kind == TypeKind::TYPE_VARRAY && signature == "VArray<T>") { 
         return;
     }
     completion.label = signature;
