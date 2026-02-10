@@ -1622,9 +1622,11 @@ void ItemResolverUtil::DealTypeDetail(std::string &detail, Ptr<Cangjie::AST::Typ
     if (!Ty::IsInitialTy(type->aliasTy)) {
         DealAliasType(type, detail);
         return;
-    }
+    }  
     auto typeString = FetchTypeString(*type);
-    if (CheckSourceType(type) || typeString == "UnknownType") {
+    bool getTypeByNodeAndType = type != nullptr &&
+                                (typeString == "UnknownType" || (sourceManager));      
+    if (CheckSourceType(type) || getTypeByNodeAndType) {
         AddTypeByNodeAndType(detail, filePath, type, sourceManager);
         return;
     }
