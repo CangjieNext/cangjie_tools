@@ -71,7 +71,7 @@ def generate_flat_header():
     flatbuffers_build_dir = os.path.join(flatbuffers_dir, "build")
     if not os.path.exists(flatbuffers_build_dir):
         os.makedirs(flatbuffers_build_dir)
-    compile_cmd = ["cmake", flatbuffers_dir, "-G", "Unix Makefiles", "-DFLATBUFFERS_BUILD_TESTS=OFF"]
+    compile_cmd = ["cmake", flatbuffers_dir, "-G", "MinGW Makefiles", "-DFLATBUFFERS_BUILD_TESTS=OFF"]
     subprocess.run(compile_cmd, cwd=flatbuffers_build_dir, check=True)
     build_cmd = ["cmake", "--build", flatbuffers_build_dir, "-j8"]
     subprocess.run(build_cmd, cwd=flatbuffers_build_dir, check=True)
