@@ -1082,10 +1082,6 @@ void CompletionEnv::CompleteNode(
         AddCompletionItem(itemSignature, itemSignature, completion);
         return;
     }
-    // skip VArray type
-    if (node->ty->kind == TypeKind::TYPE_VARRAY) {
-        return;
-    }
     completion.label = signature;
     if (signature == "CFunc<T>") {
         completion.insertText = std::string("CFunc<${1:()} -> ${2:Unit}>");
