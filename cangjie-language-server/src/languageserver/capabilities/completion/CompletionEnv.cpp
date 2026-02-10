@@ -6,6 +6,10 @@
 
 #include "CompletionEnv.h"
 #include <cangjie/Modules/ModulesUtils.h>
+#include "cangjie/AST/Node.h"
+#include "cangjie/Basic/Position.h"
+#include "cangjie/Utils/CastingTemplate.h"
+#include "cangjie/Utils/SafePointer.h"
 
 using namespace Cangjie;
 using namespace Cangjie::AST;
@@ -180,7 +184,7 @@ void CompletionEnv::DealStructDecl(Ptr<Node> node, const Position pos)
         if (!structMember) {
             continue;
         }
-        if (structMember->astKind == ASTKind::MACRO_EXPAND_DECL && 
+        if (structMember->astKind == ASTKind::MACRO_EXPAND_DECL &&
             (structMember->identifier == "APILevel" || structMember->identifier == "Hide")) {
             continue;
         }
@@ -273,7 +277,7 @@ void CompletionEnv::DealEnumDecl(Ptr<Node> node, const Position pos)
     }
     for (auto &memberDecl : pEnumDecl->constructors) {
         CompleteNode(memberDecl.get(), false, false, false, pEnumDecl->identifier.Val());
-        if (memberDecl->GetBegin() <= pos && pos <= memberDecl->GetEnd()) {
+        if (IsInEnumConstructor(memberDecl, pos)) {
             items.clear();
             return;
         }
@@ -1638,5 +1642,17 @@ void CompletionEnv::AddCompletionItem(
 void CompletionEnv::SetSyscap(const std::string &moduleName)
 {
     this->syscap.SetIntersectionSet(moduleName);
+}
+
+bool CompletionEnv::IsInEnumConstructor(OwnedPtr<Decl> &decl, Position pos)
+{
+    if (decl->GetBegin() > pos || decl->GetEnd() <= pos) {
+        return false;
+    }
+
+    if (auto cstor = DynamicCast<FuncDecl>(decl.get())) {
+        return !cstor->funcBody || cstor->funcBody->GetBegin() > pos || cstor->funcBody->GetEnd() <= pos;
+    }
+    return false;
 }
 }
