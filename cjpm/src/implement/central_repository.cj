@@ -8,6 +8,8 @@ package cjpm.implement
 
 import std.fs.*
 import cjpm.config.*
+import stdx.crypto.common.CryptoException
+import stdx.net.tls.common.TlsException
 
 func processRepoDependencyModule(name: String, version: String, modulePath: String): (Bool, String) {
     if (version.isEmpty()) {
@@ -66,8 +68,17 @@ public func setRepoRoot(installConfig: InstallConfig, artifact: String): Bool {
         } else {
             return false
         }
+    } catch (e: CryptoException | TlsException) {
+        eprintln("Error: ${e.message}")
+        eprintln("Error: please ensure that openssl has been correctly installed and configured according to the \"Usage Instruction\" section of the documentation")
+        return false
     } catch (e: Exception) {
-        println("Error: load module failed with network connection error")
+        eprintln("Error: ${e.message}")
+        if (e.message.contains("HttpEngine1#connect")) {
+            eprintln("Error: unable to connect to https server.") 
+        } else {
+            eprintln("Error: load module failed with network connection error") 
+        }
         return false
     }
 }
@@ -99,8 +110,15 @@ func loadModuleFromRepo(fullName: String, version: String, depot: Depot): (Bool,
             return (false, output)
         }
         return (true, dependencyPath)
+    } catch (e: CryptoException | TlsException) {
+        eprintln("Error: ${e.message}")
+        eprintln("Error: please ensure that openssl has been correctly installed and configured according to the \"Usage Instruction\" section of the documentation")
+        return (false, "catch exception while downloading ${name}-${version} from central repository")
     } catch (e: Exception) {
-        eprintln(e.message)
+        eprintln("Error: ${e.message}")
+        if (e.message.contains("HttpEngine1#connect")) {
+            eprintln("Error: unable to connect to https server.")
+        }
         return (false, "catch exception while downloading ${name}-${version} from central repository")
     }
 }
