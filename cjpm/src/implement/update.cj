@@ -243,12 +243,18 @@ func updateIndex(): Bool {
         downloadTasks.add(
             spawn {
                 =>
-                let (flag, output) = UPDATE_DEPOT.updateIndexWithOutput(name, if (org == DEFAULT_ORGANIZATION) { "" } else { org })
-                if (!flag) {
-                    downloadErrorLogs.add(output)
+                try {
+                    let (flag, output) = UPDATE_DEPOT.updateIndexWithOutput(name, if (org == DEFAULT_ORGANIZATION) { "" } else { org })
+                    if (!flag) {
+                        downloadErrorLogs.add(output)
+                    }
+                    downloadSem.release()
+                    return flag
+                } catch (e: Exception) { 
+                    downloadErrorLogs.add(e.message) 
+                    downloadSem.release()
+                    return false
                 }
-                downloadSem.release()
-                return flag
             }
         )
     }
@@ -259,12 +265,38 @@ func updateIndex(): Bool {
     }
 
     if (!downloadFlag) {
-        eprintln("Warning: cannot update some index files due to following reason:")
-        for (output in downloadErrorLogs) {
-            eprintln("Warning: ${output}")
-        }
+        logDownloadErrors(downloadErrorLogs)
     }
     return true
+}
+
+func logDownloadErrors(downloadErrorLogs: ConcurrentLinkedQueue<String>): Unit {
+    let reportedErrors = HashSet<String>()
+    let unknownErrors = HashSet<String>() 
+
+    eprintln("Warning: cannot update some index files due to following reason:")
+
+    for (output in downloadErrorLogs) {
+        if (output.contains("Can not load openssl library") && !hasOpenSSLError) {
+            if (!reportedErrors.contains("openssl")) {
+                eprintln("Warning: ${output}")
+                eprintln("Warning: please ensure that openssl has been correctly installed and configured according to the \"Usage Instruction\" section of the documentation")
+                reportedErrors.add("openssl")
+            }
+        } else if (output.contains("HttpEngine1#connect") && !hasConnectError) {
+            if (!reportedErrors.contains("connect")) {
+                eprintln("Warning: ${output}")
+                eprintln("Warning: unable to connect to https server.")
+                reportedErrors.add("connect")
+            }
+        } else {
+            unknownErrors.add(output)
+        }
+    }
+
+    for (msg in unknownErrors) {
+        eprintln("Warning: ${msg}")
+    }
 }
 
 func updateIndexForOrg(dir: FileInfo, org: String): Unit {
