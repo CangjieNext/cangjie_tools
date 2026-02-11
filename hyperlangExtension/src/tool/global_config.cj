@@ -10,8 +10,6 @@ import std.collection.*
 import std.ast.*
 import std.sync.*
 
-public var count = AtomicInt64(0)
-
 public class GlobalConfig {
     public var module: String = ""
     public var moduleFullName: String = ""
@@ -20,6 +18,7 @@ public class GlobalConfig {
     public var moduleMeta: Transform = Transform()
     public var exceptionLog: ArrayList<String> = ArrayList<String>()
     public var isOhos: Bool = false
+    public var count = AtomicInt64(0)
     public var isHms: Bool = false
     public var requireModuleName: String = ""
     public var requireModulePrefix: ?String = None
@@ -29,7 +28,8 @@ public class GlobalConfig {
     public var gconfigArray: ArrayList<GlobalConfig> = ArrayList<GlobalConfig>()
     public var arkTSMoudleName: String = ""
     public var requiredUnionMembers = ArrayList<(String, TsType, ArrayList<String>)>() 
-    public var requiredAnonymousInterfaces = ArrayList<ObjectType>() 
+    public var requiredAnonymousInterfaces = ArrayList<ObjectType>()
+    public var fileName: String = ""
 
     private var cacheUnions: TreeMap<String, TsType> = TreeMap<String, TsType>()
     private var cacheAnonymousInterfaces: TreeMap<String, TsType> = TreeMap<String, TsType>()
@@ -42,12 +42,13 @@ public class GlobalConfig {
     }
 
     public func load(_moduleMeta: Transform, _moduleName: String, _moduleFullName: String, _arkTSMoudleName: String,
-        _outPath: String): Unit {
+        _outPath: String, fileName: String): Unit {
         this.module = _moduleName
         this.moduleMeta = _moduleMeta
         this.moduleFullName = _moduleFullName
         this.outPath = _outPath
         this.arkTSMoudleName = _arkTSMoudleName
+        this.fileName = fileName
 
         if (moduleFullName.contains("@hms")) {
             isHms = true
@@ -298,7 +299,7 @@ public class GlobalConfig {
                     if (cacheUnions.contains(tempName)) {
                         return Some(cacheUnions[tempName])
                     } else {
-                        let paramName = "AutoGenType" + count.load().toString()
+                        let paramName = "AutoGenType${count.load()}In${fileName}"
                         requiredUnionMembers.add((paramName, ty, result))
                         count.fetchAdd(1)
                         let temp = result |> map {item => 
@@ -442,7 +443,7 @@ public class GlobalConfig {
                 } else {
                     var objectType = ObjectType()
                     objectType.properties = propertiesNew
-                    let paramName = "AutoGenType" + count.load().toString() 
+                    let paramName = "AutoGenType${count.load()}In${fileName}"
                     let temp = generics |> map {item => 
                         let result = TypeParameter()
                         result.name = item

@@ -11,7 +11,7 @@ import ohos.ark_interop_helper.*
 import ohos.base.*
 import std.math.numeric.*
 
-public enum AutoGenType27 {
+public enum AutoGenType0InunionTypes {
     | BOOLEAN(Bool)
     | STRING(String)
     
@@ -21,7 +21,7 @@ public enum AutoGenType27 {
             case STRING(x) => context.string(x).toJSValue()
         }
     }
-    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType27 {
+    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType0InunionTypes {
         
         if (input.isBoolean()) {
             return BOOLEAN(Bool.fromJSValue(context, input))
@@ -33,7 +33,7 @@ public enum AutoGenType27 {
     }
 }
 
-public enum AutoGenType28 {
+public enum AutoGenType1InunionTypes {
     | NUMBER(Float64)
     | STRING(String)
     | BOOLEAN(Bool)
@@ -45,7 +45,7 @@ public enum AutoGenType28 {
             case BOOLEAN(x) => context.boolean(x).toJSValue()
         }
     }
-    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType28 {
+    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType1InunionTypes {
         
         if(input.isNumber()) {
             return NUMBER(Float64.fromJSValue(context, input))
@@ -60,7 +60,7 @@ public enum AutoGenType28 {
     }
 }
 
-public enum AutoGenType29 {
+public enum AutoGenType2InunionTypes {
     | NUMBER(Float64)
     | STRING(String)
     | BOOLEAN(Bool)
@@ -76,7 +76,7 @@ public enum AutoGenType29 {
             case UNDEFINED => context.undefined().toJSValue()
         }
     }
-    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType29 {
+    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType2InunionTypes {
         
         if(input.isNumber()) {
             return NUMBER(Float64.fromJSValue(context, input))
@@ -97,7 +97,7 @@ public enum AutoGenType29 {
     }
 }
 
-public enum AutoGenType30 {
+public enum AutoGenType3InunionTypes {
     | NUMBER(Float64)
     | STRING(String)
     | BOOLEAN(Bool)
@@ -113,7 +113,7 @@ public enum AutoGenType30 {
             case VOID(x) => x
         }
     }
-    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType30 {
+    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType3InunionTypes {
         
         if(input.isNumber()) {
             return NUMBER(Float64.fromJSValue(context, input))
@@ -131,7 +131,7 @@ public enum AutoGenType30 {
     }
 }
 
-public enum AutoGenType31 {
+public enum AutoGenType4InunionTypes {
     | NUMBER(Float64)
     | STRING(String)
     
@@ -141,7 +141,7 @@ public enum AutoGenType31 {
             case STRING(x) => context.string(x).toJSValue()
         }
     }
-    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType31 {
+    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType4InunionTypes {
         
         if(input.isNumber()) {
             return NUMBER(Float64.fromJSValue(context, input))
@@ -153,7 +153,7 @@ public enum AutoGenType31 {
     }
 }
 
-public enum AutoGenType32 {
+public enum AutoGenType5InunionTypes {
     | NUMBER(Float64)
     | BOOLEAN(Bool)
     
@@ -163,7 +163,7 @@ public enum AutoGenType32 {
             case BOOLEAN(x) => context.boolean(x).toJSValue()
         }
     }
-    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType32 {
+    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType5InunionTypes {
         
         if(input.isNumber()) {
             return NUMBER(Float64.fromJSValue(context, input))
@@ -238,10 +238,10 @@ public class UnionTypes {
         
     }
     
-    public mut prop t1_t2: AutoGenType27 {
+    public mut prop t1_t2: AutoGenType0InunionTypes {
         get() {
-            checkThreadAndCall < AutoGenType27 >(getMainContext()) {
-                ctx: JSContext => AutoGenType27.fromJSValue(ctx, arkts_object["t1_t2"])
+            checkThreadAndCall < AutoGenType0InunionTypes >(getMainContext()) {
+                ctx: JSContext => AutoGenType0InunionTypes.fromJSValue(ctx, arkts_object["t1_t2"])
             }
         }
         set(v) {
@@ -296,10 +296,10 @@ public class UnionTypes {
         
     }
     
-    public mut prop t3: AutoGenType28 {
+    public mut prop t3: AutoGenType1InunionTypes {
         get() {
-            checkThreadAndCall < AutoGenType28 >(getMainContext()) {
-                ctx: JSContext => AutoGenType28.fromJSValue(ctx, arkts_object["t3"])
+            checkThreadAndCall < AutoGenType1InunionTypes >(getMainContext()) {
+                ctx: JSContext => AutoGenType1InunionTypes.fromJSValue(ctx, arkts_object["t3"])
             }
         }
         set(v) {
@@ -310,10 +310,10 @@ public class UnionTypes {
         
     }
     
-    public mut prop t4: AutoGenType29 {
+    public mut prop t4: AutoGenType2InunionTypes {
         get() {
-            checkThreadAndCall < AutoGenType29 >(getMainContext()) {
-                ctx: JSContext => AutoGenType29.fromJSValue(ctx, arkts_object["t4"])
+            checkThreadAndCall < AutoGenType2InunionTypes >(getMainContext()) {
+                ctx: JSContext => AutoGenType2InunionTypes.fromJSValue(ctx, arkts_object["t4"])
             }
         }
         set(v) {
@@ -324,10 +324,10 @@ public class UnionTypes {
         
     }
     
-    public mut prop t5: AutoGenType30 {
+    public mut prop t5: AutoGenType3InunionTypes {
         get() {
-            checkThreadAndCall < AutoGenType30 >(getMainContext()) {
-                ctx: JSContext => AutoGenType30.fromJSValue(ctx, arkts_object["t5"])
+            checkThreadAndCall < AutoGenType3InunionTypes >(getMainContext()) {
+                ctx: JSContext => AutoGenType3InunionTypes.fromJSValue(ctx, arkts_object["t5"])
             }
         }
         set(v) {
@@ -342,15 +342,15 @@ public class UnionTypes {
 	 * @brief getValueOrError(): number | String
 	 */
 	// Method returning a union type
-    public func getValueOrError(): AutoGenType31 {
-        jsObjApiCall < AutoGenType31 >( arkts_object, "getValueOrError", EMPTY_ARG) { ctx, info => AutoGenType31.fromJSValue(ctx, info) }
+    public func getValueOrError(): AutoGenType4InunionTypes {
+        jsObjApiCall < AutoGenType4InunionTypes >( arkts_object, "getValueOrError", EMPTY_ARG) { ctx, info => AutoGenType4InunionTypes.fromJSValue(ctx, info) }
     }
     /**
 	 * @brief setValue(value: string): number | boolean
 	 */
 	// Method with union type parameter
-    public func setValue(value: String): AutoGenType32 {
-        jsObjApiCall < AutoGenType32 >( arkts_object, "setValue", { ctx =>[value.toJSValue(ctx)] }) { ctx, info => AutoGenType32.fromJSValue(ctx, info) }
+    public func setValue(value: String): AutoGenType5InunionTypes {
+        jsObjApiCall < AutoGenType5InunionTypes >( arkts_object, "setValue", { ctx =>[value.toJSValue(ctx)] }) { ctx, info => AutoGenType5InunionTypes.fromJSValue(ctx, info) }
     }
     
     public func toJSValue(context: JSContext): JSValue {
@@ -366,22 +366,22 @@ public class UnionTypes {
 /**
 	 * @brief testUnion(s: string): boolean | String
 	 */
-public func testUnion(s: String): AutoGenType27 {
-    hmsGlobalApiCall < AutoGenType27 >( "my_module_unionTypes", "testUnion", { ctx =>[s.toJSValue(ctx)] }) { ctx, info => AutoGenType27.fromJSValue(ctx, info) }
+public func testUnion(s: String): AutoGenType0InunionTypes {
+    hmsGlobalApiCall < AutoGenType0InunionTypes >( "my_module_unionTypes", "testUnion", { ctx =>[s.toJSValue(ctx)] }) { ctx, info => AutoGenType0InunionTypes.fromJSValue(ctx, info) }
 }
 
 /**
 	 * @brief testUnion1(s: string | number): boolean | String
 	 */
-public func testUnion1(s: String): AutoGenType27 {
-    hmsGlobalApiCall < AutoGenType27 >( "my_module_unionTypes", "testUnion1", { ctx =>[s.toJSValue(ctx)] }) { ctx, info => AutoGenType27.fromJSValue(ctx, info) }
+public func testUnion1(s: String): AutoGenType0InunionTypes {
+    hmsGlobalApiCall < AutoGenType0InunionTypes >( "my_module_unionTypes", "testUnion1", { ctx =>[s.toJSValue(ctx)] }) { ctx, info => AutoGenType0InunionTypes.fromJSValue(ctx, info) }
 }
 
 /**
 	 * @brief testUnion1(s: string | number): boolean | String
 	 */
-public func testUnion1(s: Float64): AutoGenType27 {
-    hmsGlobalApiCall < AutoGenType27 >( "my_module_unionTypes", "testUnion1", { ctx =>[s.toJSValue(ctx)] }) { ctx, info => AutoGenType27.fromJSValue(ctx, info) }
+public func testUnion1(s: Float64): AutoGenType0InunionTypes {
+    hmsGlobalApiCall < AutoGenType0InunionTypes >( "my_module_unionTypes", "testUnion1", { ctx =>[s.toJSValue(ctx)] }) { ctx, info => AutoGenType0InunionTypes.fromJSValue(ctx, info) }
 }
 
 

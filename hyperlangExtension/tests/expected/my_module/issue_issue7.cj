@@ -10,7 +10,7 @@ import ohos.ark_interop.*
 import ohos.ark_interop_helper.*
 import ohos.base.*
 
-public enum AutoGenType11 {
+public enum AutoGenType0Inissue_issue7 {
     | STRING(String)
     | NUMBER(Float64)
     | BOOLEAN(Bool)
@@ -24,7 +24,7 @@ public enum AutoGenType11 {
             case UNDEFINED => context.undefined().toJSValue()
         }
     }
-    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType11 {
+    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType0Inissue_issue7 {
         
         if(input.isString()) {
             return STRING(String.fromJSValue(context, input))
@@ -62,8 +62,8 @@ public class AppSettings {
     /**
 	 * @brief getSetting(key: string): String | number | boolean | undefined
 	 */
-    public func getSetting(key: String): AutoGenType11 {
-        jsObjApiCall < AutoGenType11 >( arkts_object, "getSetting", { ctx =>[key.toJSValue(ctx)] }) { ctx, info => AutoGenType11.fromJSValue(ctx, info) }
+    public func getSetting(key: String): AutoGenType0Inissue_issue7 {
+        jsObjApiCall < AutoGenType0Inissue_issue7 >( arkts_object, "getSetting", { ctx =>[key.toJSValue(ctx)] }) { ctx, info => AutoGenType0Inissue_issue7.fromJSValue(ctx, info) }
     }
     
     public func toJSValue(context: JSContext): JSValue {

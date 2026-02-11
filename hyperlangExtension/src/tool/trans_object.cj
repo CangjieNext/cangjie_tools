@@ -185,7 +185,7 @@ public class TransObject {
             }
             var hasParentAlreadyTranslate = false
             for (arkParentsMethod in arkParentsMethods) {
-                if (arkMethod.name == arkParentsMethod.name) {
+                if (arkMethod == arkParentsMethod) {
                     hasParentAlreadyTranslate = true
                     break
                 }

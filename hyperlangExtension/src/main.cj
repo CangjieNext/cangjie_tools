@@ -274,13 +274,15 @@ func parseMultipleFiles(moduleNameTemp: String): Bool {
     // generate cj files
     futureList.clear()
     for (gconfig in gconfigArray) {
-
+        let future = spawn {
             let a2cj = A2CJ(gconfig)
             a2cj.transfer()
-        
-
+        }	 
+        futureList.add(future)
     }
-
+    for (f in futureList) { 
+         f.get() 
+    }
 
     return true
 }
@@ -392,6 +394,15 @@ func parseFile(arkpath: String, outDir: String, jsASTPath: String, gconfig: Glob
         arkJson = jsonDir + prefix + arkFileName.replace("d.ets", "json")
     }
 
+    var fileName = ""
+    if (arkFileName.endsWith(".d.ts")) {
+        fileName = prefix + arkFileName.replace(".d.ts", "")
+    } else if (arkFileName.endsWith(".d.ets")) {
+        fileName = prefix + arkFileName.replace(".d.ets", "")
+    }
+    fileName.replace("/", "_")
+    fileName.replace("-", "_")
+
     if (!exists(arkJson)) {
         println("Warning: ${arkJson} generation failed! ${arkFileName} is skipped.\n")
         return
@@ -438,7 +449,7 @@ func parseFile(arkpath: String, outDir: String, jsASTPath: String, gconfig: Glob
     } else {
         arkTSModuleName
     }
-    gconfig.load(transform, prefix + moduleName, name, arkTSModuleName, outCJPath)
+    gconfig.load(transform, prefix + moduleName, name, arkTSModuleName, outCJPath, fileName)
     gconfig.showConfig()
 }
 

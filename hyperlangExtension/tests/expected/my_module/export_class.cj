@@ -11,12 +11,12 @@ import ohos.ark_interop_helper.*
 import ohos.base.*
 
 
-/*interface AutoGenType7 {
+/*interface AutoGenType0Inexport_class {
     }*/
 
-public open class AutoGenType7 {
+public open class AutoGenType0Inexport_class {
     
-    protected AutoGenType7() { }
+    protected AutoGenType0Inexport_class() { }
     
     
     public open func toJSValue(context: JSContext): JSValue {
@@ -25,9 +25,9 @@ public open class AutoGenType7 {
         obj.toJSValue()
     }
     
-    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType7 {
+    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType0Inexport_class {
         let obj = input.asObject()
-        AutoGenType7(
+        AutoGenType0Inexport_class(
         
         )
     }
@@ -43,14 +43,14 @@ public class UserInfoManager {
     protected UserInfoManager(var arkts_object: JSObject) { }
     
     
-    public mut prop userPreferences: ?AutoGenType7 {
+    public mut prop userPreferences: ?AutoGenType0Inexport_class {
         get() {
-            checkThreadAndCall < ?AutoGenType7 >(getMainContext()) {
+            checkThreadAndCall < ?AutoGenType0Inexport_class >(getMainContext()) {
                 ctx: JSContext =>
                 if(arkts_object["userPreferences"].isNull()) {
-                    None < AutoGenType7 >
+                    None < AutoGenType0Inexport_class >
                 } else {
-                    AutoGenType7.fromJSValue(ctx, arkts_object["userPreferences"])
+                    AutoGenType0Inexport_class.fromJSValue(ctx, arkts_object["userPreferences"])
                 }
             }
         }

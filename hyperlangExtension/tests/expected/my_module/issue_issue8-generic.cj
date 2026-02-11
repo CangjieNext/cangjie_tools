@@ -10,7 +10,7 @@ import ohos.ark_interop.*
 import ohos.ark_interop_helper.*
 import ohos.base.*
 
-public enum AutoGenType12 {
+public enum AutoGenType0Inissue_issue8-generic {
     | NUMBER(Float64)
     | STRING(String)
     
@@ -20,7 +20,7 @@ public enum AutoGenType12 {
             case STRING(x) => context.string(x).toJSValue()
         }
     }
-    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType12 {
+    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType0Inissue_issue8-generic {
         
         if(input.isNumber()) {
             return NUMBER(Float64.fromJSValue(context, input))
@@ -45,8 +45,8 @@ public class C {
     /**
 	 * @brief f(p:T): number | String
 	 */
-    public func f < T >(p: T): AutoGenType12 where T <: JSInteropType<T> {
-        jsObjApiCall < AutoGenType12 >( arkts_object, "f", { ctx =>[p.toJSValue(ctx)] }) { ctx, info => AutoGenType12.fromJSValue(ctx, info) }
+    public func f < T >(p: T): AutoGenType0Inissue_issue8-generic where T <: JSInteropType<T> {
+        jsObjApiCall < AutoGenType0Inissue_issue8-generic >( arkts_object, "f", { ctx =>[p.toJSValue(ctx)] }) { ctx, info => AutoGenType0Inissue_issue8-generic.fromJSValue(ctx, info) }
     }
     
     public func toJSValue(context: JSContext): JSValue {

@@ -12,14 +12,14 @@ import ohos.base.*
 import std.collection.{ HashMap }
 
 
-/*interface AutoGenType9 {
+/*interface AutoGenType0Ininterface {
     city: string;
     zipCode: string;
     }*/
 
-public open class AutoGenType9 {
+public open class AutoGenType0Ininterface {
     
-    protected AutoGenType9(public var city: String,
+    protected AutoGenType0Ininterface(public var city: String,
     public var zipCode: String) { }
     
     
@@ -30,9 +30,9 @@ public open class AutoGenType9 {
         obj.toJSValue()
     }
     
-    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType9 {
+    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType0Ininterface {
         let obj = input.asObject()
-        AutoGenType9(
+        AutoGenType0Ininterface(
         String.fromJSValue(context, obj["city"]),
         String.fromJSValue(context, obj["zipCode"])
         )
@@ -457,7 +457,7 @@ public open class UserProfile {
     
     protected UserProfile(public var id: Float64,
     public var name: String,
-    public var address: AutoGenType9) { }
+    public var address: AutoGenType0Ininterface) { }
     
     
     public open func toJSValue(context: JSContext): JSValue {
@@ -473,7 +473,7 @@ public open class UserProfile {
         UserProfile(
         Float64.fromJSValue(context, obj["id"]),
         String.fromJSValue(context, obj["name"]),
-        AutoGenType9.fromJSValue(context, obj["address"])
+        AutoGenType0Ininterface.fromJSValue(context, obj["address"])
         )
     }
     
@@ -668,6 +668,17 @@ public class DefaultPluginContainer <: PluginContainer {
         }
     }
     
+    /**
+	 * @brief getPluginById(e12: Biz_Type): BasePlugin | undefined
+	 */
+    public func getPluginById(e12: JSValue/* FIXME: `Biz_Type` */): Option<BasePlugin> {
+        jsObjApiCall < Option<BasePlugin> >( arkts_object, "getPluginById", { ctx =>[e12] }) { ctx, info =>
+            if(info.isNull()) {
+                None < BasePlugin >
+            } else {
+                BasePlugin.fromJSValue(ctx, info)
+            } }
+    }
     
     public func toJSValue(context: JSContext): JSValue {
         arkts_object.toJSValue()

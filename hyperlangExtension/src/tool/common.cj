@@ -189,7 +189,7 @@ public class EnumType <: Serializable<EnumType> {
 }
 
 //描述一个函数，可以是全局函数，也可以是成员函数
-public class MethodType <: Serializable<MethodType> {
+public class MethodType <: Serializable<MethodType> & Equatable < MethodType > {
     public var namespace: ?NameSpace = None
     public var obj: ?ObjectType = None
     public var name: String = ""
@@ -260,6 +260,22 @@ public class MethodType <: Serializable<MethodType> {
             result.returnTypeNode = TsVoid  // Fallback to void if parsing fails
         }
         return result
+    }
+
+    public override operator func ==(that: MethodType): Bool {
+        if (name != that.name || parameters.size != that.parameters.size) {
+            return false
+        }
+        for (i in 0..parameters.size) {
+            if (parameters[i].ty.toString() != that.parameters[i].ty.toString()) {
+                return false
+            }
+        }
+        return true
+    }
+    
+    public override operator func !=(that: MethodType): Bool {
+        !(this == that)
     }
 }
 

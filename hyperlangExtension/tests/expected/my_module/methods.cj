@@ -12,7 +12,7 @@ import ohos.base.*
 import std.math.numeric.*
 import std.collection.{ HashMap }
 
-public enum AutoGenType17 {
+public enum AutoGenType0Inmethods {
     | STRING(String)
     | NUMBER(Float64)
     
@@ -22,7 +22,7 @@ public enum AutoGenType17 {
             case NUMBER(x) => context.number(x).toJSValue()
         }
     }
-    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType17 {
+    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType0Inmethods {
         
         if(input.isString()) {
             return STRING(String.fromJSValue(context, input))
@@ -862,15 +862,15 @@ public class RecordTest {
         
     }
     
-    public mut prop recordTest1: HashMap<String, AutoGenType17> {
+    public mut prop recordTest1: HashMap<String, AutoGenType0Inmethods> {
         get() {
-            checkThreadAndCall < HashMap<String, AutoGenType17> >(getMainContext()) {
-                ctx: JSContext => record2Hashmap<AutoGenType17>(ctx, arkts_object["recordTest1"], { context, i => AutoGenType17.fromJSValue(context, i) })
+            checkThreadAndCall < HashMap<String, AutoGenType0Inmethods> >(getMainContext()) {
+                ctx: JSContext => record2Hashmap<AutoGenType0Inmethods>(ctx, arkts_object["recordTest1"], { context, i => AutoGenType0Inmethods.fromJSValue(context, i) })
             }
         }
         set(v) {
             checkThreadAndCall < Unit >(getMainContext()) {
-                ctx: JSContext => arkts_object["recordTest1"] = hashmap2Record<AutoGenType17>(ctx, v, { context, i => i.toJSValue(context) })
+                ctx: JSContext => arkts_object["recordTest1"] = hashmap2Record<AutoGenType0Inmethods>(ctx, v, { context, i => i.toJSValue(context) })
             }
         }
         
@@ -896,21 +896,21 @@ public class RecordTest {
         
     }
     
-    public mut prop recordTest3: Option<HashMap<String, AutoGenType17>> {
+    public mut prop recordTest3: Option<HashMap<String, AutoGenType0Inmethods>> {
         get() {
-            checkThreadAndCall < Option<HashMap<String, AutoGenType17>> >(getMainContext()) {
+            checkThreadAndCall < Option<HashMap<String, AutoGenType0Inmethods>> >(getMainContext()) {
                 ctx: JSContext =>
                 if(arkts_object["recordTest3"].isNull()) {
-                    None < HashMap < String, AutoGenType17 >>
+                    None < HashMap < String, AutoGenType0Inmethods >>
                 } else {
-                    record2Hashmap<AutoGenType17>(ctx, arkts_object["recordTest3"], { context, i => AutoGenType17.fromJSValue(context, i) })
+                    record2Hashmap<AutoGenType0Inmethods>(ctx, arkts_object["recordTest3"], { context, i => AutoGenType0Inmethods.fromJSValue(context, i) })
                 }
                 
             }
         }
         set(v) {
             checkThreadAndCall < Unit >(getMainContext()) {
-                ctx: JSContext => arkts_object["recordTest3"] = hashmap2Record<AutoGenType17>(ctx, v, { context, i => i.toJSValue(context) })
+                ctx: JSContext => arkts_object["recordTest3"] = hashmap2Record<AutoGenType0Inmethods>(ctx, v, { context, i => i.toJSValue(context) })
             }
         }
         

@@ -12,14 +12,14 @@ import ohos.base.*
 import std.math.numeric.*
 
 
-/*interface AutoGenType6 {
+/*interface AutoGenType0InasyncFunction {
     a: number;
     b: string;
     }*/
 
-public open class AutoGenType6 {
+public open class AutoGenType0InasyncFunction {
     
-    protected AutoGenType6(public var a: Float64,
+    protected AutoGenType0InasyncFunction(public var a: Float64,
     public var b: String) { }
     
     
@@ -30,9 +30,9 @@ public open class AutoGenType6 {
         obj.toJSValue()
     }
     
-    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType6 {
+    public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType0InasyncFunction {
         let obj = input.asObject()
-        AutoGenType6(
+        AutoGenType0InasyncFunction(
         Float64.fromJSValue(context, obj["a"]),
         String.fromJSValue(context, obj["b"])
         )
@@ -106,7 +106,7 @@ public class ASC {
     /**
 	 * @brief constructor(param1:string, param2:{a:number,b:string}, param3:number, funcParam:()=>string, callback?:AsyncCallback<string>): void
 	 */
-    public init(param1: String, param2: AutoGenType6, param3: Float64, funcParam: () -> String, callback!: Option < AsyncCallback<String> >= None) {
+    public init(param1: String, param2: AutoGenType0InasyncFunction, param3: Float64, funcParam: () -> String, callback!: Option < AsyncCallback<String> >= None) {
         arkts_object = checkThreadAndCall < JSObject >(getMainContext()) {
             __ctx =>
             let clazz = getClassConstructorObj("cases_asyncFunction", "ASC").toJSValue().asClass()
