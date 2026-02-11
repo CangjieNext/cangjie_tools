@@ -38,7 +38,7 @@ using namespace Cangjie;
 using namespace AST;
 using namespace Meta;
 
-const std::string REGEX = "^[a-z_]+[a-z0-9_]*(\\.[a-z_][a-z0-9_]*)*$";
+const std::string REGEX = "^[a-z]+[a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$";
 
 /*
  * This method is used to check whether the package name complies with the regular expression.
@@ -49,7 +49,13 @@ void StructuralRuleGNAM01::FileDeclHandler(const File &file)
         return;
     }
     const auto& package = *file.package;
+
+    if (package.prefixPaths.empty() && package.packageName.Val() == "<invalid identifier>") {
+        return;
+    }
+
     std::regex reg = std::regex(REGEX);
+    
     if (!(std::regex_match(package.packageName.Val(), reg))) {
         Diagnose(package.packageName.Begin(), package.packageName.Begin(),
             CodeCheckDiagKind::G_NAM_01_Package_Information, GetFullPackageName(package));
