@@ -11,6 +11,7 @@ import std.collection.concurrent.*
 import std.fs.*
 import std.sync.*
 import cjpm.config.*
+import stdx.crypto.common.*
 
 let UPDATE_GLOBAL_CONFIG = GlobalConfig()
 let UPDATE_ANALYSIS_ENGINE = DepAnalysisEngine()
@@ -243,12 +244,18 @@ func updateIndex(): Bool {
         downloadTasks.add(
             spawn {
                 =>
-                let (flag, output) = UPDATE_DEPOT.updateIndexWithOutput(name, if (org == DEFAULT_ORGANIZATION) { "" } else { org })
-                if (!flag) {
-                    downloadErrorLogs.add(output)
+                try {
+                    let (flag, output) = UPDATE_DEPOT.updateIndexWithOutput(name, if (org == DEFAULT_ORGANIZATION) { "" } else { org })
+                    if (!flag) {
+                        downloadErrorLogs.add(output)
+                    }
+                    downloadSem.release()
+                    return flag
+                } catch (e: Exception) { 
+                    downloadErrorLogs.add(e.message) 
+                    downloadSem.release()
+                    return false
                 }
-                downloadSem.release()
-                return flag
             }
         )
     }
@@ -259,9 +266,28 @@ func updateIndex(): Bool {
     }
 
     if (!downloadFlag) {
+        var hasOpenSSLError = false
+        var hasConnectError = false
+        let unknownErrors = HashSet<String>() 
+
         eprintln("Warning: cannot update some index files due to following reason:")
+
         for (output in downloadErrorLogs) {
-            eprintln("Warning: ${output}")
+            if (output.contains("Can not load openssl library") && !hasOpenSSLError) {
+                eprintln("Warning: ${output}")
+                eprintln("Warning: please ensure that openssl has been correctly installed and configured according to the \"Usage Instruction\" section of the documentation")
+                hasOpenSSLError = true
+            } else if (output.contains("HttpEngine1#connect") && !hasConnectError) {
+                eprintln("Warning: ${output}")
+                eprintln("Warning: unable to connect to https server.")
+                hasConnectError = true
+            } else {
+                unknownErrors.add(output)
+            }
+        }
+
+        for (msg in unknownErrors) {
+            eprintln("Warning: ${msg}")
         }
     }
     return true
