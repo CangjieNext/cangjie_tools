@@ -15,6 +15,7 @@ import std.regex.*
 import stdx.serialization.serialization.*
 import stdx.encoding.json.*
 import cjpm.config.*
+import stdx.crypto.common.*
 
 // Record modules finally chosen
 public class FinalDepModule {
@@ -97,6 +98,20 @@ public class DepAnalysisEngine {
                     eprintln("Error: ${ne.message}")
                     eprintln("Error: module '${fullName}' from central repository in field 'replace' does not exist")
                     return false
+                } catch (e: CryptoException) {
+                    eprintln("Error: ${e.message}")
+                    eprintln("Error: please ensure that openssl has been correctly installed and configured according to the \"Usage Instruction\" section of the documentation")
+                    return false
+                } catch (e: Exception) {
+                    eprintln("Error: ${e.message}")
+                    if (e.message.contains("HttpEngine1#connect")) {
+                        eprintln("Error: unable to connect to https server.")
+                        return false
+                    } else if (e.message.contains("Can not load openssl library")) { 
+                        eprintln("Error: please ensure that openssl has been correctly installed and configured according to the \"Usage Instruction\" section of the documentation")
+                        return false
+                    }
+                    throw e
                 }
             }
         }
@@ -136,15 +151,22 @@ public class DepAnalysisEngine {
                     conflictDepMap.add(name, ArrayList<DepInfo>())
                     conflictDepMap[name].add(repoDep)
                 }
-            } catch (ne: NoneValueException) {
-                // cannot find index or no available version for requirement
-                eprintln("Error: ${ne.message}")
+            } catch (e: CryptoException) {
+                eprintln("Error: ${e.message}")
+                eprintln("Error: please ensure that openssl has been correctly installed and configured according to the \"Usage Instruction\" section of the documentation")
                 return false
             } catch (e: Exception) {
-                // other exception
-                eprintln(e.message)
-                eprintln("Error: wrong format with dependency '${name} = \"${versionStr}\"' depended by '${repoDep.importedModuleName}'")
-                return false
+                eprintln("Error: ${e.message}")
+                if (e.message.contains("HttpEngine1#connect")) {
+                    eprintln("Error: unable to connect to https server.")
+                    return false
+                } else if (e.message.contains("Can not load openssl library")) {
+                    eprintln("Error: please ensure that openssl has been correctly installed and configured according to the \"Usage Instruction\" section of the documentation")
+                    return false
+                } else {
+                    eprintln("Error: wrong format with dependency '${name} = \"${versionStr}\"' depended by '${repoDep.importedModuleName}'")
+                    return false
+                }  
             }
         }
 
@@ -261,7 +283,19 @@ public class DepAnalysisEngine {
         try {
             this.currentState.depRecordMap.add(depName,
                 DepRecord(depName, indexDep.require, indexDep.outputType, this.depot, this.indexMap))
-        } catch (_: Exception) {
+        } catch (e: CryptoException) {
+            eprintln("Error: ${e.message}")
+            eprintln("Error: please ensure that openssl has been correctly installed and configured according to the \"Usage Instruction\" section of the documentation")
+            return false
+        } catch (e: Exception) {
+            eprintln("Error: ${e.message}")
+            if (e.message.contains("HttpEngine1#connect")) {
+                eprintln("Error: unable to connect to https server.")
+                return false
+            } else if (e.message.contains("Can not load openssl library")) {
+                eprintln("Error: please ensure that openssl has been correctly installed and configured according to the \"Usage Instruction\" section of the documentation")
+                return false
+            }
             // index is broken
             this.brokenRecord.add("${targetModuleName}-${fixedVersion}", depName)
             this.resetState(targetModuleName, fixedVersion)
@@ -399,6 +433,20 @@ public class DepAnalysisEngine {
                     eprintln("Error: ${ne.message}")
                     eprintln("Error: dependency '${name}' in field 'replace' is not valid")
                     return false
+                } catch (e: CryptoException) {
+                    eprintln("Error: ${e.message}")
+                    eprintln("Error: please ensure that openssl has been correctly installed and configured according to the \"Usage Instruction\" section of the documentation")
+                    return false
+                } catch (e: Exception) {
+                    eprintln("Error: ${e.message}")
+                    if (e.message.contains("HttpEngine1#connect")) {
+                        eprintln("Error: unable to connect to https server.")
+                        return false
+                    } else if (e.message.contains("Can not load openssl library")) {
+                        eprintln("Error: please ensure that openssl has been correctly installed and configured according to the \"Usage Instruction\" section of the documentation")
+                        return false
+                    }
+                    throw e
                 }
             }
         }
@@ -414,9 +462,23 @@ public class DepAnalysisEngine {
                         join(if (org.isEmpty()) { "default" } else { org }).
                         join("${name}-${version}").toString()
                     if (!directoryExists(sourcePath)) {
-                        let (flag, output) = this.depot.download(name, org, version)
-                        if (!flag) {
-                            eprintln("Error: ${output}")
+                        try {
+                            let (flag, output) = this.depot.download(name, org, version)
+                            if (!flag) {
+                                eprintln("Error: ${output}")
+                                return false
+                            }
+                        } catch (e: CryptoException) {
+                            eprintln("Error: ${e.message}")
+                            eprintln("Error: please ensure that openssl has been correctly installed and configured according to the \"Usage Instruction\" section of the documentation")
+                            return false
+                        } catch (e: Exception) {
+                            eprintln("Error: ${e.message}")
+                            if (e.message.contains("HttpEngine1#connect")) {
+                                eprintln("Error: unable to connect to https server.")
+                            } else if (e.message.contains("Can not load openssl library")) {
+                                eprintln("Error: please ensure that openssl has been correctly installed and configured according to the \"Usage Instruction\" section of the documentation")
+                            }
                             return false
                         }
                     }
