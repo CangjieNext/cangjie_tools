@@ -6,7 +6,7 @@
 
 ## 使用说明
 
-使用仓颉语言服务工具需要结合仓颉SDK一起使用，确保SDK的`tools/bin`目录下有仓颉语言服务LSPServer二进制；此外还需要依赖对应的客户端(DevEco Studio)。
+使用仓颉语言服务工具需要结合仓颉 SDK 一起使用，确保SDK的`tools/bin`目录下有仓颉语言服务LSPServer二进制；此外还需要依赖对应的客户端(DevEco Studio)。
 
 `Cangjie Language Server` 启动参数如下：
 
