@@ -245,6 +245,51 @@ func generateResolveData(buildConfig: BuildConfig, tomlInfo: TomlInfo, isScriptD
     return getResolveData(buildConfig, tomlInfo, isScriptDep)
 }
 
+func handleCompilePipelineParallel(buildConfig: BuildConfig, tomlInfo: TomlInfo): Bool {
+    if (tomlInfo.profile.build.compilePipelineParallel) {
+        if (!supportCompilePipelineParallel()) {
+            eprintln("Error: field 'compile-pipeline-parallel' is only supported on Linux/macOS/Windows")
+            return false
+        }
+        if (buildConfig.isLto) {
+            eprintln("Warning: cjpm won't apply pipeline optimization to the build process when field 'profile.build.lto' is 'full' or 'thin'")
+        } else if (!state.isExperimental) {
+            eprintln("Warning: cjpm won't apply pipeline optimization to the build process when field 'profile.experimental' is not true")
+        } else {
+            buildConfig.isCompilePipelineParallel = true
+        }
+    }
+    true
+}
+
+func handleCombineAllDeps(buildConfig: BuildConfig, tomlInfo: TomlInfo): Bool {
+    if (buildConfig.globalConfig.isProjectCombine &&
+        buildConfig.packageList.isMacro(buildConfig.globalConfig.rootName)) {
+        eprintln("Error: field " +
+            "'package.package-configuration.${buildConfig.globalConfig.rootName}.combine-all-deps = true' " +
+            "is not support for macro root package '${buildConfig.globalConfig.rootName}'")
+        return false
+    }
+
+    if (!tomlInfo.profile.build.ltoValue.isEmpty()) {
+        buildConfig.isLto = supportLto()
+        buildConfig.ltoValue = tomlInfo.profile.build.ltoValue
+    }
+
+    if (supportLto() && buildConfig.globalConfig.isProjectCombine && buildConfig.ltoValue.isEmpty()) {
+        eprintln("Error: field " +
+            "'package.package-configuration.${buildConfig.globalConfig.rootName}.combine-all-deps = true' " +
+            "is invalid when field 'profile.build.lto' is empty")
+        return false
+    } else if (!supportLto() && buildConfig.globalConfig.isProjectCombine) {
+        eprintln("Error: field " +
+            "'package.package-configuration.${buildConfig.globalConfig.rootName}.combine-all-deps = true' " +
+            "only supports compilation to Linux/OHOS")
+        return false
+    }
+    true
+}
+
 func getResolveData(buildConfig: BuildConfig, tomlInfo: TomlInfo, isScriptDep: Bool): Option<ModuleResolve> {
     buildConfig.globalConfig.customizedOption = buildConfig.customizedOption
     buildConfig.globalConfig.isForScript = isScriptDep
@@ -258,28 +303,7 @@ func getResolveData(buildConfig: BuildConfig, tomlInfo: TomlInfo, isScriptDep: B
     buildConfig.globalConfig.overrideCompileOption = dm.globalConfig.overrideCompileOption
     buildConfig.globalConfig.nativeOverrideOption = dm.globalConfig.nativeOverrideOption
 
-    if (buildConfig.globalConfig.isProjectCombine &&
-        buildConfig.packageList.isMacro(buildConfig.globalConfig.rootName)) {
-        eprintln("Error: field " +
-            "'package.package-configuration.${buildConfig.globalConfig.rootName}.combine-all-deps = true' " +
-            "is not support for macro root package '${buildConfig.globalConfig.rootName}'")
-        return Option<ModuleResolve>.None
-    }
-
-    if (!tomlInfo.profile.build.ltoValue.isEmpty()) {
-        buildConfig.isLto = supportLto()
-        buildConfig.ltoValue = tomlInfo.profile.build.ltoValue
-    }
-
-    if (supportLto() && buildConfig.globalConfig.isProjectCombine && buildConfig.ltoValue.isEmpty()) {
-        eprintln("Error: field " +
-            "'package.package-configuration.${buildConfig.globalConfig.rootName}.combine-all-deps = true' " +
-            "is invalid when field 'profile.build.lto' is empty")
-        return Option<ModuleResolve>.None
-    } else if (!supportLto() && buildConfig.globalConfig.isProjectCombine) {
-        eprintln("Error: field " +
-            "'package.package-configuration.${buildConfig.globalConfig.rootName}.combine-all-deps = true' " +
-            "only supports compilation to Linux/OHOS")
+    if (!handleCombineAllDeps(buildConfig, tomlInfo)) {
         return Option<ModuleResolve>.None
     }
 
@@ -291,18 +315,8 @@ func getResolveData(buildConfig: BuildConfig, tomlInfo: TomlInfo, isScriptDep: B
         buildConfig.isIncremental = true
     }
 
-    if (tomlInfo.profile.build.compilePipelineParallel) {
-        if (!supportCompilePipelineParallel()) {
-            eprintln("Error: field 'compile-pipeline-parallel' is only supported on Linux/macOS/Windows")
-            return Option<ModuleResolve>.None
-        }
-        if (buildConfig.isLto) {
-            eprintln("Warning: cjpm won't apply pipeline optimization to the build process when field 'profile.build.lto' is 'full' or 'thin'")
-        } else if (!state.isExperimental) {
-            eprintln("Warning: cjpm won't apply pipeline optimization to the build process when field 'profile.experimental' is not true")
-        } else {
-            buildConfig.isCompilePipelineParallel = true
-        }
+    if (!handleCompilePipelineParallel(buildConfig, tomlInfo)) {
+        return Option<ModuleResolve>.None
     }
 
     let resolves = ArrayList<ResolveItem>()
