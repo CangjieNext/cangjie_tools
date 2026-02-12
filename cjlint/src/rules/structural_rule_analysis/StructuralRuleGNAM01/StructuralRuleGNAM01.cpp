@@ -50,6 +50,9 @@ void StructuralRuleGNAM01::FileDeclHandler(const File &file)
     }
     const auto& package = *file.package;
     auto fullPkgName = GetFullPackageName(package);
+    if (package.packageName.Val() == "<invalid identifier>") {
+        return;
+    }
     std::regex reg = std::regex(REGEX);
     if (!(std::regex_match(package.packageName.Val(), reg))) {
         Diagnose(package.packageName.Begin(), package.packageName.Begin(),
