@@ -641,25 +641,60 @@ void ArkServer::UpdateModifierDiag(const InputsAndAST &inputAST,
     }
 }
 
-void ArkServer::FindCompletion(const CompletionParams &params, const std::string &file,
-                               const Callback<ValueOrError> &reply) const
+std::optional<unsigned int> ArkServer::GetFileId(const std::string &file) const
 {
-    Trace::Log("ArkServer::FindCompletion in.");
+    if (Options::GetInstance().IsOptionSet("test")) {
+        return CompilerCangjieProject::GetInstance()->GetFileID(file);
+    }
+    return CompilerCangjieProject::GetInstance()->GetFileIDForCompete(file);
+}
 
+void ArkServer::ProcessCompletion(const InputsAndAST &input, const Cangjie::Position &pos,
+                                  const Callback<ValueOrError> &reply) const
+{
     auto nullValueReply = [reply]() {
         ValueOrError value(ValueOrErrorCheck::VALUE, nullptr);
         reply(value);
     };
 
-    std::optional<unsigned int> fileId;
-    if (Options::GetInstance().IsOptionSet("test")) {
-        fileId = CompilerCangjieProject::GetInstance()->GetFileID(file);
-    } else {
-        fileId = CompilerCangjieProject::GetInstance()->GetFileIDForCompete(file);
+    CompletionResult result;
+    std::string prefix;
+    if (input.ast == nullptr) {
+        nullValueReply();
+        return;
     }
+    CompletionImpl::CodeComplete(*(input.ast), pos, result, prefix);
+    CompilerCangjieProject::GetInstance()->ClearParseCache();
+    CompletionList completionList;
+    for (auto &iter : result.completions) {
+        if (prefix.back() == '.' || IsMatchingCompletion(prefix, iter.name)) {
+            if (iter.name.find(BOX_DECL_PREFIX) != std::string::npos) { continue; }
+            auto score = CompilerCangjieProject::GetInstance()->CalculateScore(iter, prefix, result.cursorDepth);
+            completionList.items.push_back(iter.Render(GetSortText(score), prefix));
+        }
+    }
+
+    nlohmann::json jsonItems;
+    for (auto &iter : completionList.items) {
+        nlohmann::json value;
+        if (!ToJSON(iter, value)) { continue; }
+        (void)jsonItems.push_back(value);
+    }
+    ValueOrError val(ValueOrErrorCheck::VALUE, jsonItems);
+    reply(val);
+    CompilerCangjieProject::GetInstance()->ClearParseCache();
+}
+
+void ArkServer::FindCompletion(const CompletionParams &params, const std::string &file,
+                               const Callback<ValueOrError> &reply) const
+{
+    Trace::Log("ArkServer::FindCompletion in.");
+
+    auto fileId = GetFileId(file);
     if (!fileId) {
         Trace::Log("ArkServer::FindCompletion fileId is null.");
-        nullValueReply();
+        ValueOrError value(ValueOrErrorCheck::VALUE, nullptr);
+        reply(value);
         return;
     }
 
@@ -669,33 +704,8 @@ void ArkServer::FindCompletion(const CompletionParams &params, const std::string
         params.position.column
     };
 
-    auto action = [reply, nullValueReply, params, pos](const InputsAndAST &input) {
-        CompletionResult result;
-        std::string prefix;
-        if (input.ast == nullptr) {
-            nullValueReply();
-            return;
-        }
-        CompletionImpl::CodeComplete(*(input.ast), pos, result, prefix);
-        CompilerCangjieProject::GetInstance()->ClearParseCache();
-        CompletionList completionList;
-        for (auto &iter : result.completions) {
-            if (prefix.back() == '.' || IsMatchingCompletion(prefix, iter.name)) {
-                if (iter.name.find(BOX_DECL_PREFIX) != std::string::npos) { continue; }
-                auto score = CompilerCangjieProject::GetInstance()->CalculateScore(iter, prefix, result.cursorDepth);
-                completionList.items.push_back(iter.Render(GetSortText(score), prefix));
-            }
-        }
-
-        nlohmann::json jsonItems;
-        for (auto &iter : completionList.items) {
-            nlohmann::json value;
-            if (!ToJSON(iter, value)) { continue; }
-            (void)jsonItems.push_back(value);
-        }
-        ValueOrError val(ValueOrErrorCheck::VALUE, jsonItems);
-        reply(val);
-        CompilerCangjieProject::GetInstance()->ClearParseCache();
+    auto action = [reply, pos, this](const InputsAndAST &input) {
+        ProcessCompletion(input, pos, reply);
     };
 
     arkSchedulerOfComplete->RunWithASTCache("Completion", file, pos, action);
