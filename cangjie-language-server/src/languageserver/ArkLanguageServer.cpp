@@ -1160,6 +1160,13 @@ void ArkLanguageServer::RemoveDiagOfCurPkg(const std::string& dirName)
     }
 }
 
+void ArkLanguageServer::RemoveDiagOfCurFile(const std::string& filePath)
+{
+    std::lock_guard<std::mutex> lock(fixItsMutex);
+    std::string normalizeFilePath = NormalizePath(filePath);
+    (void)fixItsMap.erase(normalizeFilePath);
+}
+
 void ArkLanguageServer::UpdateDiagnostic(std::string file, DiagnosticToken diagToken)
 {
     std::lock_guard<std::mutex> lock(fixItsMutex);
@@ -1648,20 +1655,20 @@ void ArkLanguageServer::OnCodeAction(const CodeActionParams &params, nlohmann::j
         return;
     }
     std::string uri = params.textDocument.uri.file;
-    int fileId = CompilerCangjieProject::GetInstance()->GetFileID(file);
-    if (fileId < 0) {
+    auto fileId = CompilerCangjieProject::GetInstance()->GetFileID(file);
+    if (!fileId) {
         ValueOrError value(ValueOrErrorCheck::VALUE, nullptr);
         reply(value);
         return;
     }
     Range range;
     range.start = Cangjie::Position{
-        static_cast<unsigned int>(fileId),
+        fileId.value_or(0),
         params.range.start.line,
         params.range.start.column
     };
     range.end = Cangjie::Position{
-        static_cast<unsigned int>(fileId),
+        fileId.value_or(0),
         params.range.end.line,
         params.range.end.column
     };
@@ -1729,20 +1736,20 @@ void ArkLanguageServer::OnCommandApplyTweak(const TweakArgs &args, nlohmann::jso
         return;
     }
 
-    int fileId = CompilerCangjieProject::GetInstance()->GetFileID(args.file.file);
-    if (fileId < 0) {
+    auto fileId = CompilerCangjieProject::GetInstance()->GetFileID(args.file.file);
+    if (!fileId) {
         ValueOrError value(ValueOrErrorCheck::VALUE, nullptr);
         reply(value);
         return;
     }
     Range range;
     range.start = Cangjie::Position{
-        static_cast<unsigned int>(fileId),
+        fileId.value_or(0),
         args.selection.start.line,
         args.selection.start.column
     };
     range.end = Cangjie::Position{
-        static_cast<unsigned int>(fileId),
+        fileId.value_or(0),
         args.selection.end.line,
         args.selection.end.column
     };
