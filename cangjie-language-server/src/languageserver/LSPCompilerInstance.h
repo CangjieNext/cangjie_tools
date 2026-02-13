@@ -181,6 +181,21 @@ public:
     static inline std::unordered_set<std::string> cjoPathSet;
 
 private:
+    void UpdateDepPkgsEdges(const std::vector<std::string> &realDeps,
+                            TokenKind modifier,
+                            std::set<std::string> &depPkgs,
+                            std::unordered_map<std::string, ark::EdgeType> &depPkgsEdges,
+                            const std::unordered_map<TokenKind, ark::EdgeType> &edgeKindMap);
+
+    std::vector<std::string> ResolveRealDeps(const std::string &dep);
+
+    void ProcessImport(const ark::ImportSpec *import,
+                       const std::string &curModule,
+                       const std::unordered_set<std::string> &depends,
+                       std::set<std::string> &depPkgs,
+                       std::unordered_map<std::string, ark::EdgeType> &depPkgsEdges,
+                       const std::unordered_map<TokenKind, ark::EdgeType> &edgeKindMap);
+
     static void MarkBrokenDecls(AST::Package &pkg);
 };
 } // namespace Cangjie
