@@ -75,7 +75,7 @@ public:
     std::unique_ptr<DiagnosticEngine> diagTrash;
 
     explicit PkgInfo(const std::string &pkgPath, const std::string &curModulePath,
-        const std::string &curModuleName, Callbacks *callback, PkgType pkgType = PkgType::NORMAL);
+        const std::string &curModuleName, Callbacks *callback, PkgType packageType = PkgType::NORMAL);
 
     ~PkgInfo() = default;
 };
@@ -349,6 +349,18 @@ public:
         const std::string &file, const std::string &contents, Position pos = {0, 0, 0},
         bool onlyParse = false, const std::string &name = "");
 
+private:
+    void HandleOnlyParse(const std::string &name, const std::string &absName, const std::string &contents,
+                         Position pos, CangjieFileKind fileKind);
+
+    void HandleFileNotInSource(const std::string &absName, const std::string &contents, const std::string &dirPath);
+
+    void HandleNewPackage(const std::string &absName, const std::string &contents, const std::string &dirPath,
+                          const std::string &modulePath);
+
+    void ProcessInvalidPackage(const std::string &fullPkgName, const std::string &sourcePath);
+
+public:
     void IncrementForFileDelete(const std::string &fileName);
 
     // after workspace init, can use it. pair::second = ModulePath
@@ -510,7 +522,7 @@ public:
 
     std::vector<std::string> GetCommonSpecificSourceSetGraph(const std::string &pkgName);
     
-    PkgType GetPkgType(const std::string &moduelPath, const std::string &path);
+    PkgType GetPkgType(const std::string &modulePath, const std::string &path);
 
     std::string GetSourceSetNameByPath(const std::string &path);
 
@@ -532,11 +544,50 @@ private:
 
     void IncrementCompile(const std::string &filePath, const std::string &contents = "", bool isDelete = false);
 
+    struct NewPackageInfo {
+        std::string fullPkgName;
+        PkgType pkgType;
+        bool isDefaultPkg;
+    };
+
+    NewPackageInfo DeterminePkgNameAndType(const std::string &modulePath, const std::string &dirPath,
+                                           const std::string &absName);
+
+    void UpdateRelatedPackageStatus(const std::string &fullPkgName);
+
+    void InitPkgInfoBuffer(const std::string &fullPkgName, const std::string &absName, const std::string &contents,
+                           bool isDefaultPkg);
+
+    void UpdatePkgMaps(const std::string &fullPkgName, const std::string &dirPath);
+
+    void HandleUpstreamSourceSet(const std::string &fullPkgName, const std::unique_ptr<LSPCompilerInstance> &ci);
+
+    void UpdateBufferCache(const std::string &fullPkgName, const std::string &filePath,
+                           const std::string &contents, bool isDelete);
+
+    void CompileAndCheckDownstream(const std::string &fullPkgName, const std::unique_ptr<LSPCompilerInstance> &ci);
+
+    void PostCompileProcess(const std::string &fullPkgName, const std::string &filePath,
+                            const std::unique_ptr<LSPCompilerInstance> &ci,
+                            const std::pair<std::vector<std::vector<std::string>>, bool> &cycles,
+                            bool isDelete);
+
     void IncrementCompileForComplete(const std::string &name, const std::string &filePath,
         Position pos, const std::string &contents = "");
 
+    void UpdateCIForParse(const std::unique_ptr<LSPCompilerInstance> &ci,
+                          const std::string &fullPkgName,
+                          const std::string &filePath,
+                          const std::string &contents);
+
     void IncrementCompileForCompleteNotInSrc(const std::string &name,
         const std::string &filePath, const std::string &contents = "");
+
+    bool InitPackage(const std::string &packagePath, const std::string &fullPackageName,
+                     const ModuleInfo &moduleInfo, PkgType pkgType);
+
+    void InitSubPackages(const std::string &sourcePath, const std::string &rootPackageName,
+                         const ModuleInfo &moduleInfo, PkgType pkgType);
 
     void IncrementCompileForFileNotInSrc(const std::string &filePath, const std::string &contents = "",
                                          bool isDelete = false);

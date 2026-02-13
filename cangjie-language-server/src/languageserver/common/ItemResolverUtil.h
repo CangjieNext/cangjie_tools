@@ -83,10 +83,40 @@ public:
 
     static int AddGenericInsertByDecl(std::string &detail, Ptr<Cangjie::AST::Generic> genericDecl);
 
-    static int ResolveFuncParamInsert(std::string &detail, const std::string myFilePath,
-        Ptr<Cangjie::AST::FuncParam> param, int numParm, Cangjie::SourceManager *sourceManager, bool isEnumConstruct);
+    struct ResolveFuncParamInsertOptions {
+        std::string &detail;
+        const std::string &myFilePath;
+        Ptr<Cangjie::AST::FuncParam> param;
+        int numParm;
+        Cangjie::SourceManager *sourceManager;
+        bool isEnumConstruct;
+    };
+
+    static int ResolveFuncParamInsert(ResolveFuncParamInsertOptions &options);
 
 private:
+
+    static std::string GetParamName(const Ptr<Cangjie::AST::FuncParam> &param);
+
+    static void AppendParamType(std::string &detail, const Ptr<Cangjie::AST::FuncParam> &param,
+                                Cangjie::SourceManager *sourceManager, const std::string &filePath);
+
+    struct ResolveFuncTypeParamContext {
+        Cangjie::SourceManager *sourceManager;
+        const std::string &filePath;
+    };
+
+    struct ResolveFuncTypeParamState {
+        std::string &detail;
+        int &numParm;
+        std::unordered_set<std::string> &parameterNameSet;
+        size_t &parameterNum;
+    };
+
+    static void ResolveSingleFuncTypeParam(const OwnedPtr<Cangjie::AST::Type> &paramType,
+                                           const ResolveFuncTypeParamContext &ctx,
+                                           ResolveFuncTypeParamState &state,
+                                           bool needDefaultParamName);
 
     template <typename T>
     static std::string GetGenericString(const T &t);
@@ -96,9 +126,17 @@ private:
 
     static void ResolveVarDeclDetail(std::string &detail, const Cangjie::AST::VarDecl &decl,
                                      Cangjie::SourceManager *sourceManager = nullptr);
-    
+
     static void ResolveFuncDeclQuickLook(std::string &detail, const Cangjie::AST::FuncDecl &decl,
-                                         Cangjie::SourceManager *sourceManager = nullptr);
+                                        Cangjie::SourceManager *sourceManager = nullptr);
+
+    static std::string GetParamName(Ptr<Cangjie::AST::FuncParam> param, bool isEnumConstruct);
+
+    static void AppendParamType(std::string &detail, const std::string &myFilePath,
+                                Ptr<Cangjie::AST::FuncParam> param, Cangjie::SourceManager *sourceManager);
+
+    static void AppendDefaultValue(std::string &detail, const std::string &myFilePath,
+                                   Ptr<Cangjie::AST::FuncParam> param, Cangjie::SourceManager *sourceManager);
 
     static void ResolveFuncDeclDetail(std::string &detail, const Cangjie::AST::FuncDecl &decl,
                                       Cangjie::SourceManager *sourceManager = nullptr);
@@ -150,7 +188,7 @@ private:
                                        Cangjie::SourceManager *sourceManager = nullptr);
 
     static void ResolveBuiltInDeclDetail(std::string &detail, const Cangjie::AST::BuiltInDecl &decl);
- 
+
     static void ResolveMacroParamsInsert(std::string &detail,
                                          const std::vector<OwnedPtr<Cangjie::AST::FuncParamList>> &paramLists);
 
@@ -179,6 +217,10 @@ private:
         const std::string &myFilePath);
 
     static void DealAliasType(Ptr<Cangjie::AST::Type> type, std::string &detail);
+
+    static void AppendTupleTypeDetail(std::string &detail, const Cangjie::AST::Type &type);
+
+    static void AppendFuncTypeDetail(std::string &detail, const Cangjie::AST::Ty &aliasTy);
 
     static std::string GetTypeString(const Cangjie::AST::Type &type);
 };
