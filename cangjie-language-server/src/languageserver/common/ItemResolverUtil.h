@@ -41,11 +41,16 @@ public:
 
     static std::string GetGenericInsertByDecl(Ptr<Cangjie::AST::Generic> genericDecl);
 
+    struct ResolveFuncParamsContext {
+        Cangjie::SourceManager *sourceManager;
+        const std::string &filePath;
+        bool needLastParam;
+    };
+
     static void ResolveFuncParams(std::string &detail,
                                   const std::vector<OwnedPtr<Cangjie::AST::FuncParamList>> &paramLists,
-                                  bool isEnumConstruct = false, Cangjie::SourceManager *sourceManager = nullptr,
-                                  const std::string &filePath = "",
-                                  bool needLastParam = true);
+                                  bool isEnumConstruct,
+                                  const ResolveFuncParamsContext &ctx);
 
     static void ResolveMacroParams(std::string &detail,
         const std::vector<OwnedPtr<Cangjie::AST::FuncParamList>> &paramLists);
@@ -96,7 +101,7 @@ private:
 
     static void ResolveVarDeclDetail(std::string &detail, const Cangjie::AST::VarDecl &decl,
                                      Cangjie::SourceManager *sourceManager = nullptr);
-    
+
     static void ResolveFuncDeclQuickLook(std::string &detail, const Cangjie::AST::FuncDecl &decl,
                                          Cangjie::SourceManager *sourceManager = nullptr);
 
@@ -115,6 +120,12 @@ private:
 
     static void ResolvePatternDetail(std::string &detail, Ptr<Cangjie::AST::Pattern> pattern,
                                      Cangjie::SourceManager *sourceManager = nullptr);
+
+    static void ProcessSingleParam(std::string &detail,
+        const OwnedPtr<FuncParam> &param,
+        bool isEnumConstruct,
+        Cangjie::SourceManager *sourceManager,
+        const std::string &filePath);
 
     static void ResolveMacroDeclDetail(std::string &detail, const Cangjie::AST::MacroDecl &decl,
                                        Cangjie::SourceManager *sourceManager = nullptr);
@@ -150,7 +161,7 @@ private:
                                        Cangjie::SourceManager *sourceManager = nullptr);
 
     static void ResolveBuiltInDeclDetail(std::string &detail, const Cangjie::AST::BuiltInDecl &decl);
- 
+
     static void ResolveMacroParamsInsert(std::string &detail,
                                          const std::vector<OwnedPtr<Cangjie::AST::FuncParamList>> &paramLists);
 
@@ -179,6 +190,10 @@ private:
         const std::string &myFilePath);
 
     static void DealAliasType(Ptr<Cangjie::AST::Type> type, std::string &detail);
+
+    static std::string GetTupleTypeString(Ptr<Cangjie::AST::Type> type);
+
+    static std::string GetFuncTypeString(Ptr<Cangjie::AST::Type> type);
 
     static std::string GetTypeString(const Cangjie::AST::Type &type);
 };
