@@ -830,41 +830,57 @@ void ItemResolverUtil::ResolveFuncParams(std::string &detail,
         if (param == nullptr) {
             continue;
         }
-        std::string paramName = param->identifier.GetRawText();
-        if (keyMap.find(paramName)!= keyMap.end()) {
-            paramName = "`" + paramName + "`";
+        std::string paramName = GetParamName(param);
+        if (param->TestAttr(Cangjie::AST::Attribute::COMPILER_ADD) && paramName == "macroCallPtr") {
+            return;
         }
-        if ((param->TestAttr(Cangjie::AST::Attribute::COMPILER_ADD) &&
-                paramName == "macroCallPtr")) { return; }
+
         if (!firstParams) {
             detail += ", ";
         }
         firstParams = false;
+
         if (!paramName.empty() && !isEnumConstruct) {
             detail += paramName;
             detail += param->isNamedParam ? "!: " : ": ";
         }
-        if (param->ty == nullptr) {
-            continue;
-        }
-        auto tyName = GetString(*param->ty);
-        bool getTypeByNodeAndType = param->type != nullptr &&
-                                    (tyName == "UnknownType" ||
-                                        (sourceManager && param->type->astKind == Cangjie::AST::ASTKind::FUNC_TYPE));
-        if (param->type && !Ty::IsInitialTy(param->type->aliasTy)) {
-            DealAliasType(param->type.get(), detail);
-        } else if (getTypeByNodeAndType) {
-            std::string typeName{};
-            AddTypeByNodeAndType(typeName, filePath, param->type.get(), sourceManager);
-            detail += typeName.empty() ? tyName : typeName;
-        } else {
-            detail += tyName;
+
+        if (param->ty != nullptr) {
+            AppendParamType(detail, param, sourceManager, filePath);
         }
         GetFuncNamedParam(detail, sourceManager, filePath, param);
     }
-    size_t variadicIndex = paramList->variadicArgIndex;
-    if (variadicIndex > 0) {
+
+    if (paramList->variadicArgIndex > 0) {
         detail += ", ...";
+    }
+}
+
+std::string ItemResolverUtil::GetParamName(const Ptr<Cangjie::AST::FuncParam> &param)
+{
+    std::string paramName = param->identifier.GetRawText();
+    if (keyMap.find(paramName) != keyMap.end()) {
+        paramName = "`" + paramName + "`";
+    }
+    return paramName;
+}
+
+void ItemResolverUtil::AppendParamType(std::string &detail, const Ptr<Cangjie::AST::FuncParam> &param,
+                                       Cangjie::SourceManager *sourceManager, const std::string &filePath)
+{
+    auto tyName = GetString(*param->ty);
+    bool getTypeByNodeAndType = param->type != nullptr &&
+                                (tyName == "UnknownType" ||
+                                 (sourceManager && param->type->astKind == Cangjie::AST::ASTKind::FUNC_TYPE));
+
+    if (param->type && !Ty::IsInitialTy(param->type->aliasTy)) {
+        DealAliasType(param->type.get(), detail);
+    } else if (getTypeByNodeAndType) {
+        std::string typeName{};
+        AddTypeByNodeAndType(typeName, filePath, param->type.get(), sourceManager);
+        detail += typeName.empty() ? tyName : typeName;
+    } else {
+        detail += tyName;
     }
 }
 
@@ -1027,7 +1043,6 @@ void ItemResolverUtil::ResolveFuncTypeParamInsert(std::string &detail,
     }
     std::unordered_set<std::string> parameterNameSet;
     size_t parameterNum = 1;
-    std::string paramInsert;
     for (size_t i = 0; i < paramCount; i++) {
         auto &paramType = paramTypes[i];
         if (!paramType) {
@@ -1036,93 +1051,128 @@ void ItemResolverUtil::ResolveFuncTypeParamInsert(std::string &detail,
         if (!firstParams) {
             detail += ", ";
         }
-        if (numParm >= 0) {
-            detail += "${" + std::to_string(numParm) + ":";
-            numParm++;
-        }
-        if (paramType->typeParameterName.empty() && needDefaultParamName) {
-            std::string defaultName = "arg" + std::to_string(parameterNum);
-            while (parameterNameSet.find(defaultName) != parameterNameSet.end()) {
-                parameterNum++;
-                defaultName = "arg" + std::to_string(parameterNum);
-            }
-            detail += defaultName + ": ";
-            parameterNameSet.insert(defaultName);
-        }
-        bool getTypeByNodeAndType = GetString(*paramType->ty) == "UnknownType" ||
-                                    (sourceManager && (paramType->astKind == Cangjie::AST::ASTKind::FUNC_TYPE ||
-                                                          paramType->astKind == Cangjie::AST::ASTKind::TUPLE_TYPE));
-        if (getTypeByNodeAndType) {
-            ItemResolverUtil::AddTypeByNodeAndType(detail, filePath, paramType.get(), sourceManager);
-        } else {
-            if (!paramType->typeParameterName.empty()) {
-                detail += paramType->typeParameterName + ": ";
-                parameterNameSet.insert(paramType->typeParameterName);
-            }
-            detail += GetString(*paramType->ty);
-        }
+        ResolveSingleFuncTypeParam(detail, paramType, sourceManager, filePath, numParm, needDefaultParamName,
+                                   parameterNameSet, parameterNum);
         firstParams = false;
-        if (numParm >= 0) {
-            detail += "}";
+    }
+}
+
+void ItemResolverUtil::ResolveSingleFuncTypeParam(std::string &detail,
+                                                  const OwnedPtr<Cangjie::AST::Type> &paramType,
+                                                  Cangjie::SourceManager *sourceManager,
+                                                  const std::string &filePath,
+                                                  int &numParm,
+                                                  bool needDefaultParamName,
+                                                  std::unordered_set<std::string> &parameterNameSet,
+                                                  size_t &parameterNum)
+{
+    if (numParm >= 0) {
+        detail += "${" + std::to_string(numParm) + ":";
+        numParm++;
+    }
+
+    if (paramType->typeParameterName.empty() && needDefaultParamName) {
+        std::string defaultName = "arg" + std::to_string(parameterNum);
+        while (parameterNameSet.find(defaultName) != parameterNameSet.end()) {
+            parameterNum++;
+            defaultName = "arg" + std::to_string(parameterNum);
         }
+        detail += defaultName + ": ";
+        parameterNameSet.insert(defaultName);
+    }
+
+    bool getTypeByNodeAndType =
+        GetString(*paramType->ty) == "UnknownType" ||
+        (sourceManager &&
+         (paramType->astKind == Cangjie::AST::ASTKind::FUNC_TYPE || paramType->astKind == Cangjie::AST::ASTKind::TUPLE_TYPE));
+
+    if (getTypeByNodeAndType) {
+        ItemResolverUtil::AddTypeByNodeAndType(detail, filePath, paramType.get(), sourceManager);
+    } else {
+        if (!paramType->typeParameterName.empty()) {
+            detail += paramType->typeParameterName + ": ";
+            parameterNameSet.insert(paramType->typeParameterName);
+        }
+        detail += GetString(*paramType->ty);
+    }
+
+    if (numParm > 0) {
+        detail += "}";
     }
 }
 
 int ItemResolverUtil::ResolveFuncParamInsert(std::string &detail, const std::string myFilePath,
     Ptr<Cangjie::AST::FuncParam> param, int numParm, Cangjie::SourceManager *sourceManager, bool isEnumConstruct)
 {
-    std::string paramName = isEnumConstruct ? "": param->identifier.GetRawText();
-    if (keyMap.find(paramName)!= keyMap.end()) {
-        paramName = "`" + paramName + "`";
-    }
+    std::string paramName = GetParamName(param, isEnumConstruct);
+
     if (param->isNamedParam) {
         detail += (paramName.empty() ? "" : (paramName + ": "));
         detail += "${" + std::to_string(numParm) + ":";
         numParm++;
-        auto assignExpr = param->assignment.get();
-        if (assignExpr && assignExpr->desugarExpr) {
-            assignExpr = assignExpr->desugarExpr;
-        }
-        bool flag = param->ty && assignExpr && !assignExpr->ToString().empty();
-        auto tyName = GetString(*param->ty);
-        bool getTypeByNodeAndType =
-            param->type != nullptr &&
-            (GetString(*param->ty) == "UnknownType" ||
-                (sourceManager && (param->type->astKind == Cangjie::AST::ASTKind::FUNC_TYPE ||
-                                      param->type->astKind == Cangjie::AST::ASTKind::TUPLE_TYPE)));
-        if (param->type && !Ty::IsInitialTy(param->type->aliasTy)) {
-            DealAliasType(param->type.get(), detail);
-            detail += flag ? " = " : "";
-            ItemResolverUtil::AddTypeByNodeAndType(detail, myFilePath, assignExpr, sourceManager);
-        } else if (getTypeByNodeAndType) {
-            std::string typeName{};
-            ItemResolverUtil::AddTypeByNodeAndType(typeName, myFilePath, param->type.get(), sourceManager);
-            detail += typeName.empty() ? tyName : typeName;
-            detail += flag ? " = " : "";
-            ItemResolverUtil::AddTypeByNodeAndType(detail, myFilePath, assignExpr, sourceManager);
-        } else {
-            detail += param->ty ? tyName : "";
-            detail += flag ? (" = " + assignExpr->ToString()) : "";
-        }
+        AppendParamType(detail, myFilePath, param, sourceManager);
+        AppendDefaultValue(detail, myFilePath, param, sourceManager);
     } else {
         detail += "${" + std::to_string(numParm) + ":";
         numParm++;
         detail += (paramName.empty() ? "" : (paramName + ": "));
-        auto tyName = GetString(*param->ty);
-        bool getTypeByNodeAndType = param->type != nullptr &&
-                                    (tyName == "UnknownType" ||
-                                    (sourceManager && param->type->astKind == Cangjie::AST::ASTKind::FUNC_TYPE));
-        if (param->type && !Ty::IsInitialTy(param->type->aliasTy)) {
-            DealAliasType(param->type.get(), detail);
-        } else if (getTypeByNodeAndType) {
-            std::string typeName{};
-            ItemResolverUtil::AddTypeByNodeAndType(typeName, myFilePath, param->type.get(), sourceManager);
-            detail += typeName.empty() ? tyName : typeName;
-        } else {
-            detail += (param->ty ? tyName : "");
-        }
+        AppendParamType(detail, myFilePath, param, sourceManager);
     }
     return numParm;
+}
+std::string ItemResolverUtil::GetParamName(Ptr<Cangjie::AST::FuncParam> param, bool isEnumConstruct)
+{
+    std::string paramName = isEnumConstruct ? "" : param->identifier.GetRawText();
+    if (keyMap.find(paramName) != keyMap.end()) {
+        paramName = "`" + paramName + "`";
+    }
+    return paramName;
+}
+
+void ItemResolverUtil::AppendParamType(std::string &detail, const std::string &myFilePath,
+                                       Ptr<Cangjie::AST::FuncParam> param, Cangjie::SourceManager *sourceManager)
+{
+    auto tyName = GetString(*param->ty);
+    bool getTypeByNodeAndType =
+        param->type != nullptr &&
+        (tyName == "UnknownType" || (sourceManager && (param->type->astKind == Cangjie::AST::ASTKind::FUNC_TYPE ||
+                                                          param->type->astKind == Cangjie::AST::ASTKind::TUPLE_TYPE)));
+
+    if (param->type && !Ty::IsInitialTy(param->type->aliasTy)) {
+        DealAliasType(param->type.get(), detail);
+    } else if (getTypeByNodeAndType) {
+        std::string typeName{};
+        ItemResolverUtil::AddTypeByNodeAndType(typeName, myFilePath, param->type.get(), sourceManager);
+        detail += typeName.empty() ? tyName : typeName;
+    } else {
+        detail += (param->ty ? tyName : "");
+    }
+}
+
+void ItemResolverUtil::AppendDefaultValue(std::string &detail, const std::string &myFilePath,
+                                          Ptr<Cangjie::AST::FuncParam> param, Cangjie::SourceManager *sourceManager)
+{
+    auto assignExpr = param->assignment.get();
+    if (assignExpr && assignExpr->desugarExpr) {
+        assignExpr = assignExpr->desugarExpr;
+    }
+
+    if (!(param->ty && assignExpr && !assignExpr->ToString().empty())) {
+        return;
+    }
+
+    detail += " = ";
+    bool useAddType =
+        (param->type && !Ty::IsInitialTy(param->type->aliasTy)) ||
+        (param->type != nullptr &&
+         (GetString(*param->ty) == "UnknownType" ||
+          (sourceManager && (param->type->astKind == Cangjie::AST::ASTKind::FUNC_TYPE ||
+                                param->type->astKind == Cangjie::AST::ASTKind::TUPLE_TYPE))));
+    if (useAddType) {
+        ItemResolverUtil::AddTypeByNodeAndType(detail, myFilePath, assignExpr, sourceManager);
+    } else {
+        detail += assignExpr->ToString();
+    }
 }
 
 std::string ItemResolverUtil::ResolveFollowLambdaSignature(const Cangjie::AST::Node &node,
