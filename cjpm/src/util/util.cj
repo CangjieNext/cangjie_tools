@@ -177,7 +177,6 @@ public func unorderedHash<T>(iter: Iterable<T>): Hash where T <: Hashable {
 private func unorderedHashHelper(hashes: Array<Hash>): Hash {
     sort(hashes)
     var hasher = DefaultHasher()
-    hasher.write(hashes.size)
     for (hash in hashes) {
         hasher.write(hash)
     }

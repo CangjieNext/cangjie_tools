@@ -498,6 +498,8 @@ public enum TaskId <: Serializable<TaskId> & ToString {
     // fullName, target, debug, mock, outputType, compilePhase, sourceSetDir
     | Compile(String, String, Bool, Bool, OutputType, CompilePhase, String)
     | BuildScriptCompile
+    // TODO: remove
+    | Generated(UInt64)
     | Unknown(String)
 
     public func toString(): String {
@@ -506,12 +508,17 @@ public enum TaskId <: Serializable<TaskId> & ToString {
             case ReadCompilerOptions(fullName, target, debug, mock, sourceSetDir) => "options~${fullName}:${target}:${debug}:${mock}:${sourceSetDir}"
             case Compile(fullName, target, debug, mock, outputType, compilePhase, sourceSetDir) => "compile~${fullName}:${target}:${debug}:${mock}:${outputType}:${compilePhase}:${sourceSetDir}"
             case BuildScriptCompile => "build-script~"
+            // TODO: remove
+            case Generated(i) => "${i}~"
             case Unknown(s) => s
         }
     }
 
     public func serialize(): DataModel {
-        DataModelString(this.toString())
+        match (this) {
+            case Generated(_) => throw Exception("TODO: remove")
+            case _ => DataModelString(this.toString())
+        }
     }
 
     static func fromString(value: String): TaskId {
@@ -551,13 +558,37 @@ public enum TaskId <: Serializable<TaskId> & ToString {
 }
 
 // TASKS
+private class TaskIdGenerator {
+    private static let instance = TaskIdGenerator()
+
+    private TaskIdGenerator(
+        private var current!: UInt64 = 0
+    ) { }
+
+    static func fresh(): TaskId {
+        let result = TaskId.Generated(instance.current)
+        instance.current += 1
+        return result
+    }
+}
+
 sealed abstract class ErasedTask {
     var _value: Option<IncData> = None
     var logFiles: ?(String, String) = None
 
     ErasedTask(
-        let id: TaskId
-    ) { }
+        let id: TaskId,
+        let cache: ?IncrementalCache
+    ) { 
+        cache?.registerPersistent(id)
+    }
+
+    // TODO: description
+    public prop isPersistent: Bool {
+        get() {
+            cache.isSome()
+        }
+    }
 
     protected func compute(): Unit
     protected func cleanCompute(): Unit
@@ -569,13 +600,17 @@ sealed abstract class ErasedTask {
 
 class Task<T> <: ErasedTask where T <: SerializableIncData<T> {
     private let computation: Option<() -> T>
-    private let cache: IncrementalCache
 
     init(id: TaskId, cache: IncrementalCache, comp: () -> T) {
-        super(id)
+        super(id, cache)
         this._value = None
         this.computation = comp
-        this.cache = cache
+    }
+
+    private init(comp: () -> T) {
+        super(TaskIdGenerator.fresh(), None)
+        this._value = None
+        this.computation = comp
     }
 
     mut prop value: Option<T> {
@@ -631,16 +666,22 @@ class Task<T> <: ErasedTask where T <: SerializableIncData<T> {
     }
 
     protected func readValidCachedValue(): Bool {
-        if (let Some(dm) <- cache.readValue(id)) {
-            try {
-                let result = T.deserialize(dm)
-                if (let Some(storedHash) <- cache.readOutputHash(id) && result.incHash() == storedHash) {
-                    this.value = result
-                    return true
-                }
-            } catch(e: Exception) { }
+        if (let Some(cache) <- cache) {
+            if (let Some(dm) <- cache.readValue(id)) {
+                try {
+                    let result = T.deserialize(dm)
+                    if (let Some(storedHash) <- cache.readOutputHash(id) && result.incHash() == storedHash) {
+                        this.value = result
+                        return true
+                    }
+                } catch(e: Exception) { }
+            }
         }
         return false
+    }
+
+    public func map<U>(transform: (T) -> U): Task<U> where U <: SerializableIncData<U> {
+        Task { transform(value ?? throw NotComputedInputException(id)) }
     }
 }
 
@@ -656,6 +697,7 @@ class IncrementalEngine {
 
     IncrementalEngine(
         cacheLocation!: Path,
+        private let cutoff!: Bool = true,
     ) {
         this.cacheLocation = cacheLocation
         this.cache = IncrementalCache(cacheLocation)
@@ -716,33 +758,14 @@ class IncrementalEngine {
     private func executeSubgraph(dirtyGraph: DAG<TaskId, Unit>, graph: DAG<TaskId, Unit>): TaskResult {
         checkFinalized()
 
-        // println("---------------------------------------")
-        // println("WHOLE GRAPH:")
-        // graph.toposort.forEach { it => println(it)
-
-        //     println("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
-        //     println("DEPENDENCIES OF TASK: ${it}")
-        //     graph.incoming(it).forEach { it => 
-        //         println(it)
-        //     }
-        //     println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-        // }
-        // println("---------------------------------------")
-        // println("DIRTY GRAPH:")
-        // dirtyGraph.toposort.forEach { it => println(it)
-        //     println("DEPENDENCIES OF TASK: ${it}")
-        //     println("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
-        //     dirtyGraph.incoming(it).forEach { it => 
-        //         println(it)
-        //     }
-        //     println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-        // }
-
         let rebuilder = Rebuilder(
             taskStorage: taskStorage,
             dirtyGraph: dirtyGraph,
             taskGraph: graph,
-            cache: cache)
+            cache: cache,
+            cutoff: cutoff
+        )
+
         let result = rebuilder.rebuild()
 
         cache.storeCache()
@@ -1105,6 +1128,7 @@ class Rebuilder {
         private let dirtyGraph!: DAG<TaskId, Unit>,
         private let taskGraph!: DAG<TaskId, Unit>,
         private let cache!: IncrementalCache,
+        private let cutoff!: Bool
     ) {
         let tasksCount = dirtyGraph.toposort.size
         this.futureMap = HashMap<TaskId, Future<TaskResult>>(tasksCount)
@@ -1156,21 +1180,24 @@ class Rebuilder {
 
         try {
             // Early cutoff
-            if (dependenciesResult.cached) {
+            if (cutoff && dependenciesResult.cached) {
                 if (canCutoffEarly(id, dependencies)) {
                     return Cached
                 }
             }
 
             task.cleanCompute()
+
+            // Safeguard: if a task succeeds but its output artifact differs from expected,
+            // we fail caching instead of incorrectly marking the task as failed.
             let computedHash = if (let Some(computedHash) <- task.tryComputedHash()) {
                 computedHash
             } else {
                 return Rebuild
             }
-            let newInputCache = dependencies |> filterMap { it: TaskId => cache.readOutputHash(it) } |> unorderedHash
 
-            if (let Some(hash) <- cache.readOutputHash(id) && computedHash == hash) {
+            let newInputCache = dependencies |> filterMap { it: TaskId => cache.readOutputHash(it) } |> unorderedHash
+            if (cutoff && let Some(hash) <- cache.readOutputHash(id) && computedHash == hash) {
                 // Early cutoff
                 cache.update(id, newInputCache, computedHash, task.asDataModel())
                 return Cached
@@ -1197,6 +1224,7 @@ class Rebuilder {
         if (!taskStorage[id].readValidCachedValue()) {
             return false
         }
+        // `readValidCachedValue` deserializes the result and stores it
         return true
     }
 }
@@ -1248,28 +1276,52 @@ private class CacheItem <: Serializable<CacheItem> {
 }
 
 class IncrementalCache {
-    private let cache: ConcurrentHashMap<TaskId, CacheItem>
+    private let persistentCache: ConcurrentHashMap<TaskId, CacheItem>
+    private let inMemoryOutputHash: ConcurrentHashMap<TaskId, Hash>
+    // TODO: at the moment of execution it should be read only
+    private let persistent: HashSet<TaskId> = HashSet()
 
     IncrementalCache(
         private let cacheLocation: Path
     ) {
-        this.cache = readCacheFromJson(cacheLocation)
+        this.persistentCache = readCacheFromJson(cacheLocation)
+        this.inMemoryOutputHash = ConcurrentHashMap()
+    }
+
+    func registerPersistent(id: TaskId) {
+        persistent.add(id)
     }
 
     func update(id: TaskId, inputHash: Hash, outputHash: Hash, dm: DataModel): Unit {
-        cache.add(id, CacheItem(dm, inputHash, outputHash))
+        if (persistent.contains(id)) {
+            persistentCache.add(id, CacheItem(dm, inputHash, outputHash))
+        } else {
+            inMemoryOutputHash.add(id, outputHash)
+        }
     }
 
     func readValue(id: TaskId): ?DataModel {
-        cache.get(id)?.value
+        if (persistent.contains(id)) {
+            persistentCache.get(id)?.value
+        } else {
+            None
+        }
     }
 
     func readInputHash(id: TaskId): ?Hash {
-        cache.get(id)?.inputHash
+        if (persistent.contains(id)) {
+            persistentCache.get(id)?.inputHash
+        } else {
+            None
+        }
     }
 
     func readOutputHash(id: TaskId): ?Hash {
-        cache.get(id)?.outputHash
+        if (persistent.contains(id)) {
+            persistentCache.get(id)?.outputHash
+        } else {
+            inMemoryOutputHash.get(id)
+        }
     }
 
     private static func readCacheFromJson(cacheLocation: Path): ConcurrentHashMap<TaskId, CacheItem> {
@@ -1286,7 +1338,7 @@ class IncrementalCache {
     }
 
     func storeCache(): Unit {
-        writeJsonToFile(cacheLocation, cache)
+        writeJsonToFile(cacheLocation, persistentCache)
     }
 }
 
