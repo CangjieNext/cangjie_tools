@@ -847,8 +847,13 @@ func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList
     let libPathSet = HashSet<String>()
     let stdDeps = StdDeps()
 
+    let isLinkTask = match (compileTask.id) {
+        case Link(_, _, _, _, _, _) => true
+        case _ => false
+    }
+
     let addStdDeps = { depName =>
-        if (compileTask.compilePhase != LinkOnly) {
+        if (!isLinkTask) {
             return
         }
         if (let Some(resolveItem) <- buildConfig.resolveItemMap.get(depName)) {
@@ -899,7 +904,7 @@ func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList
     res.add(all: binOptions)
     res.add(all: getMinimizedCLibLinkStr(cLibLinkMap, cLibNameList))
 
-    if (compileTask.compilePhase == LinkOnly) {
+    if (isLinkTask) {
         stdDeps.add(all: binStdDeps)
         stdDeps.add(all: crossbinStdDeps)
         res.add(all: topoSort(stdDeps).map { std => "-lcangjie-std-${std.removePrefix("std.")}" })
