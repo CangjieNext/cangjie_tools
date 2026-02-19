@@ -68,12 +68,6 @@ public func doBuild(tomlInfo: TomlInfo, buildConfig: BuildConfig, isScriptDep!: 
         return false
     }
 
-    // TODO: disable engine
-    // if (buildConfig.isIncremental) {
-    //     analyseIncrementalCache(buildConfig, curResolveData)
-    //     collectRebuildMacros(buildConfig)
-    // }
-
     if (!startBuild(buildConfig, curResolveData)) {
         return false
     }
@@ -441,6 +435,9 @@ func startBuild(buildConfig: BuildConfig, res: ModuleResolve): Bool {
     try {
         flag = parallelBuild(res, buildConfig)
     } catch (e: Exception) {
+        if (e is AssertionError) {
+            throw e
+        }
         eprintln(e.toString())
         return false
     }
@@ -847,8 +844,13 @@ func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList
     let libPathSet = HashSet<String>()
     let stdDeps = StdDeps()
 
+    let isLinkTask = match (compileTask.id) {
+        case Link(_, _, _, _, _, _) => true
+        case _ => false
+    }
+
     let addStdDeps = { depName =>
-        if (compileTask.compilePhase != LinkOnly) {
+        if (!isLinkTask) {
             return
         }
         if (let Some(resolveItem) <- buildConfig.resolveItemMap.get(depName)) {
@@ -899,7 +901,7 @@ func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList
     res.add(all: binOptions)
     res.add(all: getMinimizedCLibLinkStr(cLibLinkMap, cLibNameList))
 
-    if (compileTask.compilePhase == LinkOnly) {
+    if (isLinkTask) {
         stdDeps.add(all: binStdDeps)
         stdDeps.add(all: crossbinStdDeps)
         res.add(all: topoSort(stdDeps).map { std => "-lcangjie-std-${std.removePrefix("std.")}" })
