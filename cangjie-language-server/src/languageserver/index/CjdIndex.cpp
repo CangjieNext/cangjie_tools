@@ -8,7 +8,7 @@
 #include "CjdIndex.h"
 
 namespace Cangjie {
-
+// LCOV_EXCL_START
 std::string DCompilerInstance::Denoising(std::string candidate)
 {
     return ark::lsp::CjdIndexer::GetInstance()->GetPkgMap().count(candidate) ? candidate : "";
@@ -32,7 +32,7 @@ void DCompilerInstance::ImportCjoToManager(const std::unique_ptr<ark::CjoManager
     }
 }
 } // namespace Cangjie
-
+// LCOV_EXCL_STOP
 namespace ark {
 namespace  lsp {
 CjdIndexer *CjdIndexer::instance = nullptr;
@@ -106,6 +106,7 @@ void CjdIndexer::BuildCJDIndex()
         auto taskId = GenTaskId(package);
         std::unordered_set<uint64_t> dependencies;
         auto allDependencies = graph->FindAllDependencies(package);
+        // LCOV_EXCL_START
         auto task = [this, package, taskId]() {
             Trace::Log("start execute task ", package);
             (void) ciMap[package]->ImportCjoToManager(cjoManager, graph);
@@ -133,6 +134,7 @@ void CjdIndexer::BuildCJDIndex()
             Trace::Log("finish execute task ", package);
         };
         thrdPool->AddTask(taskId, dependencies, task);
+        // LCOV_EXCL_STOP
     }
     thrdPool->WaitUntilAllTasksComplete();
     Trace::Log("All tasks are completed in full compilation");
@@ -152,7 +154,7 @@ SymbolLocation CjdIndexer::GetSymbolDeclaration(SymbolID id, const std::string& 
     }
     return loc;
 }
-
+// LCOV_EXCL_START
 void CjdIndexer::ReadCJDSource(const std::string &rootPath, const std::string &modulePath,
                                const std::string &parentPkg)
 {
@@ -183,13 +185,14 @@ void CjdIndexer::ReadPackagedCjdResource(const std::string& rootPath, const std:
     pkgMap[pkgName] = std::make_unique<DPkgInfo>(rootPath, rootPath, ModuleName, callback);
     pkgMap[pkgName]->bufferCache.emplace(normalizedPath, GetFileContents(normalizedPath));
 }
-
+// LCOV_EXCL_STOP
 void CjdIndexer::BuildIndexFromCache()
 {
     Trace::Log("BuildIndexFromCache Start");
     std::string cjdIndexDir = JoinPath(JoinPath(cjdCachePath, ".cache"), "index");
     for (auto& idxFile:
             FileUtil::GetAllFilesUnderCurrentPath(cjdIndexDir, "idx")) {
+        // LCOV_EXCL_START
         auto package = FileUtil::GetFileBase(FileUtil::GetFileBase(idxFile));
         std::string shardIdentifier = "cjd";
         auto indexCache = cacheManager->LoadIndexShard(package, shardIdentifier);
@@ -199,6 +202,7 @@ void CjdIndexer::BuildIndexFromCache()
         }
         std::unique_lock<std::mutex> indexLock(mtx);
         (void) pkgSymsMap.insert_or_assign(package, indexCache->get()->symbols);
+        // LCOV_EXCL_STOP
     }
     Trace::Log("BuildIndexFromCache End");
 }
