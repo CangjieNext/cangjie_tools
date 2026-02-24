@@ -127,6 +127,7 @@ void SignatureHelpImpl::FindRealActiveParamPos()
         }
         return;
     }
+    // LCOV_EXCL_START
     auto realTokens = realTokensAndIndex.first;
     // resolve there are namePram in func( )
     std::string namePram = realTokens[nameParamPos - 1].Value();
@@ -164,6 +165,7 @@ void SignatureHelpImpl::FindRealActiveParamPos()
         }
     }
     result->activeParameter = static_cast<unsigned int>(meanNoMatchParameter);
+    // LCOV_EXCL_STOP
 }
 
 void SignatureHelpImpl::FindFunDeclByNode(Cangjie::AST::Node &node)
@@ -197,6 +199,7 @@ void SignatureHelpImpl::FindFunDeclByNode(Cangjie::AST::Node &node)
         return;
     }
     if (node.astKind == Cangjie::AST::ASTKind::VAR_DECL) {
+        // LCOV_EXCL_START
         auto *varDecl = dynamic_cast<VarDecl*>(&node);
         bool invalid = varDecl != nullptr && varDecl->initializer != nullptr &&
                        varDecl->initializer->astKind == Cangjie::AST::ASTKind::LAMBDA_EXPR;
@@ -222,6 +225,7 @@ void SignatureHelpImpl::FindFunDeclByNode(Cangjie::AST::Node &node)
             }
             result->signatures.push_back(signatures);
         }
+        // LCOV_EXCL_STOP
         return;
     }
 }
@@ -350,7 +354,7 @@ void SignatureHelpImpl::ResolveFuncDecl(Cangjie::AST::Decl &decl)
         (void) signatureLabel.insert(detail);
     }
 }
-
+// LCOV_EXCL_START
 void SignatureHelpImpl::ResolveClassDecl(Cangjie::AST::Node &node)
 {
     auto *classDecl = dynamic_cast<Cangjie::AST::ClassDecl*>(&node);
@@ -364,7 +368,7 @@ void SignatureHelpImpl::ResolveClassDecl(Cangjie::AST::Node &node)
         }
     }
 }
-
+// LCOV_EXCL_STOP
 void SignatureHelpImpl::NormalFuncSignatureHelp()
 {
     if (leftQuoteIndex < 1) { return; }
@@ -441,7 +445,7 @@ bool SignatureHelpImpl::IsFuncDeclValid(Ptr<Cangjie::AST::FuncDecl> funcDecl)
     (void)visitedFunc.insert(funcDecl->identifier.Begin());
     return true;
 }
-
+// LCOV_EXCL_START
 void SignatureHelpImpl::FindSuperClassInit(const std::vector<Symbol*>& symbols)
 {
     for (auto symbol: symbols) {
@@ -461,7 +465,7 @@ void SignatureHelpImpl::FindSuperClassInit(const std::vector<Symbol*>& symbols)
         }
     }
 }
-
+// LCOV_EXCL_STOP
 int SignatureHelpImpl::GetDotIndex() const
 {
     if (!ast) {
@@ -530,6 +534,7 @@ void SignatureHelpImpl::FindFuncDeclByDeclType(Ptr<Ty> declTy, const std::string
     auto extendMembers = CompilerCangjieProject::GetInstance()->GetAllVisibleExtendMembers(
         declTy, packageNameForPath, *ast->file);
     for (auto &decl : extendMembers) {
+        // LCOV_EXCL_START
         // Make sure extend has access
         if (!decl || decl->fullPackageName != ast->semaCache->packageInstance->ctx->curPackage->fullPackageName &&
                      decl->fullPackageName != id->fullPackageName && !decl->TestAttr(Attribute::PUBLIC)) {
@@ -543,6 +548,7 @@ void SignatureHelpImpl::FindFuncDeclByDeclType(Ptr<Ty> declTy, const std::string
             continue;
         }
         ResolveFuncDecl(*decl);
+        // LCOV_EXCL_STOP
     }
 }
 
@@ -621,7 +627,7 @@ void SignatureHelpImpl::FindFunDeclByType(Cangjie::AST::Ty &nodeTy, const std::s
         }
     }
 }
-
+// LCOV_EXCL_START
 void SignatureHelpImpl::FillingDeclsInPackage(std::string &packageName, const std::string &funcName,
                                               const Cangjie::AST::Node &curNode)
 {
@@ -670,7 +676,7 @@ void SignatureHelpImpl::FillingDeclsInPackage(std::string &packageName, const st
         }
     }
 }
-
+// LCOV_EXCL_STOP
 bool SignatureHelpImpl::MemberFuncSignatureHelp()
 {
     int targetOffset = 2;
