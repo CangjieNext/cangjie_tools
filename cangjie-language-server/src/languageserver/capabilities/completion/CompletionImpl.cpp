@@ -173,7 +173,8 @@ void CompletionImpl::CodeComplete(const ArkAST &input,
     prefix = tok.Value().substr(0, static_cast<unsigned int>(pos.column - tok.Begin().column));
     // For STRING_LITERAL, caculate accurate completino prefix.
     // If cursor isn't in interpolation, no code completion support.
-    if (tok.kind == TokenKind::STRING_LITERAL || tok.kind == TokenKind::MULTILINE_STRING) {
+    if (tok.kind == TokenKind::STRING_LITERAL || tok.kind == TokenKind::MULTILINE_STRING
+        || tok.kind == TokenKind::MULTILINE_RAW_STRING) {
         Lexer lexer = Lexer(input.tokens, input.packageInstance->diag, *input.sourceManager);
         auto stringParts = lexer.GetStrParts(tok);
         bool isInExpr = false;
