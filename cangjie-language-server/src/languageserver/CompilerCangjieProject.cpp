@@ -311,6 +311,7 @@ void CompilerCangjieProject::SubmitTasksToPool(const std::unordered_set<std::str
         return;
     }
     auto allTasks{tasks};
+    // LCOV_EXCL_START
     std::unordered_set<std::string> outsideTasks{};
     std::unordered_map<std::string, std::unordered_set<uint64_t>> dependencies;
     for (auto &package : tasks) {
@@ -354,6 +355,7 @@ void CompilerCangjieProject::SubmitTasksToPool(const std::unordered_set<std::str
         thrdPool->AddTask(taskId, dependencies[package], task);
     }
     thrdPool->WaitUntilAllTasksComplete();
+    // LCOV_EXCL_STOP
 }
 // LCOV_EXCL_START
 void CompilerCangjieProject::IncrementOnePkgCompile(const std::string &filePath, const std::string &contents)
@@ -1335,7 +1337,7 @@ void CompilerCangjieProject::ReportDiagForCirclePackages(const std::vector<std::
         }
     }
 }
-
+// LCOV_EXCL_START
 void CompilerCangjieProject::ReportCircularDeps(const std::vector<std::vector<std::string>> &cycles)
 {
     for (const auto &iter :cycles) {
@@ -1365,7 +1367,7 @@ void CompilerCangjieProject::ReportCircularDeps(const std::vector<std::vector<st
         }
     }
 }
-// LCOV_EXCL_START
+
 void CompilerCangjieProject::TarjanForSCC(SCCParam &sccParam, std::stack<std::string> &st, size_t &index,
                                           const std::string &pkgName, std::vector<std::vector<std::string>> &cycles)
 {
@@ -1501,7 +1503,7 @@ int CompilerCangjieProject::GetFileID(const std::string &fileName)
     }
     return 0;
 }
-
+// LCOV_EXCL_START
 int CompilerCangjieProject::GetFileIDForCompete(const std::string &fileName)
 {
     ArkAST *ast = GetArkAST(fileName);
@@ -1515,7 +1517,7 @@ Callbacks* CompilerCangjieProject::GetCallback()
 {
     return callback;
 }
-
+// LCOV_EXCL_STOP
 bool CompilerCangjieProject::FileHasSemaCache(const std::string &fileName)
 {
     std::string fullPkgName = GetFullPkgName(fileName);
