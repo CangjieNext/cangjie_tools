@@ -230,7 +230,7 @@ public:
         }
         return ciMap;
     };
-    // LCOV_EXCL_STOP
+
     Ptr<Decl> GetDeclInPkgByNode(Ptr<InheritableDecl> curDecl, const std::string& aheadPath = "")
     {
         if (!curDecl) { return curDecl; }
@@ -265,7 +265,7 @@ public:
         }
         return curDecl;
     };
-
+    // LCOV_EXCL_STOP
     std::set<Ptr<Cangjie::AST::ExtendDecl> >
     GetExtendDecls(const std::variant<Ptr<Cangjie::AST::Ty>, Ptr<Cangjie::AST::InheritableDecl> > &type,
                    const std::string& packageName)
