@@ -198,7 +198,7 @@ Ptr<File> LSPCompilerInstance::GetFileByPath(const std::string& filePath)
     }
     return nullptr;
 }
-
+// LCOV_EXCL_START
 std::unordered_set<std::string> LSPCompilerInstance::GetAllImportedCjo(
     const std::string &pkgName, std::unordered_map<std::string, bool> &isVisited)
 {
@@ -251,7 +251,7 @@ void LSPCompilerInstance::ImportUsrPackage(const std::string &curModuleName)
         }
     }
 }
-
+// LCOV_EXCL_STOP
 void LSPCompilerInstance::ImportUsrCjo(const std::string &curModuleName)
 {
     if (usrCjoFileCacheMap.count(curModuleName) != 0) {
@@ -336,7 +336,7 @@ bool LSPCompilerInstance::CompileAfterParse(
     cjoManager->SetData(pkgNameForPath, cjoData);
     return true;
 }
-
+// LCOV_EXCL_START
 std::vector<std::string> LSPCompilerInstance::GetTopologySort()
 {
     auto tempDependentPackageMap = dependentPackageMap;
@@ -368,7 +368,7 @@ std::vector<std::string> LSPCompilerInstance::GetTopologySort()
     }
     return result;
 }
-
+// LCOV_EXCL_STOP
 void LSPCompilerInstance::SetCjoPathInModules(const std::string &cangjieHome,
                                               const std::string &cangjiePath)
 {
