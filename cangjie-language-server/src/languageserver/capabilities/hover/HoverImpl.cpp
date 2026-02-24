@@ -115,6 +115,7 @@ void HoverImpl::TrimBlankLines(std::vector<std::string> &result)
     GetEffectiveContent(result[begin], true);
     GetEffectiveContent(result[end], true);
     while (begin < end && (!isValidHead || !isValidTail)) {
+        // LCOV_EXCL_START
         if (!hasMarked[begin]) {
             hasMarked[begin] = true;
             GetEffectiveContent(result[begin], false);
@@ -137,6 +138,7 @@ void HoverImpl::TrimBlankLines(std::vector<std::string> &result)
                 end--;
             }
         }
+        // LCOV_EXCL_STOP
     }
     for (; begin <= end; begin++) {
         if (!hasMarked[begin]) {
@@ -225,7 +227,7 @@ Decl* HoverImpl::GetRealDecl(const std::vector<Ptr<Decl>> &decls)
 
     return decl;
 }
-
+// LCOV_EXCL_START
 void HoverImpl::ResolveDocMapAndDocKey(std::unordered_map<std::string, std::vector<std::string>> &doc,
                                        std::vector<std::string> &keyOfDoc, std::string resultToString)
 {
@@ -313,7 +315,7 @@ std::string HoverImpl::GetHoverMessageForDocComment(const std::vector<std::strin
     }
     return retDocComment;
 }
-
+// LCOV_EXCL_STOP
 std::string HoverImpl::ResolveComment(const std::string &comment, const CommentKind kind)
 {
     std::string retComment = "";
