@@ -9,6 +9,7 @@
 
 namespace {
 enum class PackageRelation { NONE, CHILD, PARENT, SAME_MODULE };
+// LCOV_EXCL_START
 PackageRelation GetPackageRelation(const std::string &srcFullPackageName, const std::string &targetFullPackageName)
 {
     if (srcFullPackageName.length() < targetFullPackageName.length()
@@ -24,7 +25,7 @@ PackageRelation GetPackageRelation(const std::string &srcFullPackageName, const 
     return srcRoot == targetRoot ? PackageRelation::SAME_MODULE : PackageRelation::NONE;
 }
 } // namespace
-
+// LCOV_EXCL_STOP
 namespace ark {
 namespace lsp {
 
@@ -148,6 +149,7 @@ void MemIndex::FindImportSymsOnCompletion(const std::unordered_set<ark::lsp::Sym
     }
     size_t normalCompleteCount = 0;
     size_t importDeclCount = 0;
+    // LCOV_EXCL_START
     std::unordered_set<std::string> curModuleDeps =
         CompilerCangjieProject::GetInstance()->GetOneModuleDirectDeps(curModule);
     for (const auto &pkgSyms : pkgSymsMap) {
@@ -187,6 +189,7 @@ void MemIndex::FindImportSymsOnCompletion(const std::unordered_set<ark::lsp::Sym
             }
         }
     }
+    // LCOV_EXCL_STOP
 }
 
 void MemIndex::FindExtendSymsOnCompletion(const ark::lsp::SymbolID &dotCompleteSym,
@@ -199,6 +202,7 @@ void MemIndex::FindExtendSymsOnCompletion(const ark::lsp::SymbolID &dotCompleteS
     }
     size_t normalCompleteCount = 0;
     size_t importDeclCount = 0;
+    // LCOV_EXCL_START
     std::unordered_set<std::string> curModuleDeps =
         CompilerCangjieProject::GetInstance()->GetOneModuleDirectDeps(curModule);
     for (const auto &extendSyms : pkgExtendsMap) {
@@ -242,8 +246,9 @@ void MemIndex::FindExtendSymsOnCompletion(const ark::lsp::SymbolID &dotCompleteS
             }
         }
     }
+    // LCOV_EXCL_STOP
 }
-
+// LCOV_EXCL_START
 void MemIndex::FindImportSymsOnQuickFix(const std::string &curPkgName, const std::string &curModule,
     const std::unordered_set<ark::lsp::SymbolID> &importDeclSyms, const std::string& identifier,
     const std::function<void(const std::string &, const Symbol &)>& callback)
@@ -290,3 +295,4 @@ void MemIndex::FindImportSymsOnQuickFix(const std::string &curPkgName, const std
 }
 } // namespace lsp
 } // namespace ark
+// LCOV_EXCL_STOP

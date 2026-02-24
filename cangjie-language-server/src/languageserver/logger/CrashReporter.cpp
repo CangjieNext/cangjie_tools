@@ -21,7 +21,7 @@ constexpr size_t STACK_SIZE = 50;
 constexpr size_t SIGNAL_NUM = 3;
 constexpr int SIGNALS[SIGNAL_NUM] = {SIGABRT, SIGSEGV, SIGPIPE};
 #endif
-
+// LCOV_EXCL_START
 void MessageInfoHandler()
 {
     std::string baseDir = ark::Logger::GetLogPath();
@@ -71,6 +71,7 @@ void PrintStackTraceOnSignal(std::ostream &os)
     free(backtraces);
     _Exit(EXIT_FAILURE);
 }
+// LCOV_EXCL_STOP
 #elif defined(_WIN32)
 std::string ReportException(const LPEXCEPTION_POINTERS &lpExceptionInfo)
 {

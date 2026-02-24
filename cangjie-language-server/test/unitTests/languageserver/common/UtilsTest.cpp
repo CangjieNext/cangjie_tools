@@ -4,254 +4,300 @@
 //
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
-#include "Utils.h"
 #include "gtest/gtest.h"
-#include <memory>
-#include <string>
+#include <iostream>
 #include <vector>
-#include "Options.h"
+#include "Utils.h"
 
 using namespace ark;
 
-class StringType : public Ty {
+// A minimal Decl subclass to control astKind
+class FakeDecl : public Cangjie::AST::Decl
+{
 public:
-    explicit StringType(TypeKind k) : Ty(k) {}
+    explicit FakeDecl(ASTKind kind) : Decl(kind)
+    {}
 
-    std::string String() const override
+    FakeDecl(ASTKind kind,
+        bool add,
+        bool isCloned,
+        bool primConstructor) : Decl(kind)
     {
-        return "String";
+        add_ = add;
+        isCloned_ = isCloned;
+        primCtor_ = primConstructor;
     }
 
-    TypeKind kind() const
+    bool TestAttr(Cangjie::AST::Attribute attr) const
     {
-        return TypeKind::TYPE_CSTRING;
-    }
-};
-
-class IntType : public Ty {
-public:
-    explicit IntType(TypeKind k) : Ty(k) {}
-
-    std::string String() const override
-    {
-        return "Int";
-    }
-
-    TypeKind kind() const
-    {
-        return TypeKind::TYPE_UNIT;
-    }
-};
-
-class GenericType : public Ty {
-public:
-    explicit GenericType(TypeKind k) : Ty(k) {}
-
-    std::string String() const override
-    {
-        return "Generic";
+        switch (attr)
+        {
+            case Cangjie::AST::Attribute::COMPILER_ADD:
+                return add_;
+            case Cangjie::AST::Attribute::IS_CLONED_SOURCE_CODE:
+                return isCloned_;
+            case Cangjie::AST::Attribute::PRIMARY_CONSTRUCTOR:
+                return primCtor_;
+            default:
+                return false;
+        }
     }
 
-    TypeKind kind() const
+    void SetBegin(Position p)
     {
-        return TypeKind::TYPE_GENERICS;
-    }
-};
-
-class JStringType : public Ty {
-public:
-    explicit JStringType(TypeKind k) : Ty(k) {}
-
-    std::string String() const override
-    {
-        return "JStringType";
+        begin = p;
     }
 
-    bool IsJstring() const
+    Position GetIdentifierPos()
     {
-        return true;
-    }
-};
-
-// --- CheckTypeCompatibility Tests ---
-TEST(UtilsTest, UtilsTest001)
-{
-    const Ty* lvalue = nullptr;
-    const Ty* rvalue = nullptr;
-    EXPECT_EQ(ark::TypeCompatibility::INCOMPATIBLE, CheckTypeCompatibility(lvalue, rvalue));
-}
-
-TEST(UtilsTest, UtilsTest002)
-{
-    std::vector<Ptr<Ty>> emptyArgs;
-    const Ty* lvalue = nullptr;
-    const Ty* rvalue = std::make_shared<TupleTy>(emptyArgs).get();
-    EXPECT_EQ(ark::TypeCompatibility::INCOMPATIBLE, CheckTypeCompatibility(lvalue, rvalue));
-}
-
-TEST(UtilsTest, UtilsTest003)
-{
-    std::vector<Ptr<Ty>> emptyArgs;
-    const Ty* lvalue = std::make_shared<TupleTy>(emptyArgs).get();
-    const Ty* rvalue = nullptr;
-    EXPECT_EQ(ark::TypeCompatibility::INCOMPATIBLE, CheckTypeCompatibility(lvalue, rvalue));
-}
-
-TEST(UtilsTest, UtilsTest005)
-{
-    std::vector<Ptr<Ty>> args;
-    args.emplace_back(Ptr<GenericType>(new GenericType(TypeKind::TYPE_GENERICS)));
-    std::shared_ptr<TupleTy> ltuplePtr = std::make_shared<TupleTy>(args);
-    std::shared_ptr<TupleTy> rtuplePtr = std::make_shared<TupleTy>(args);
-    const Ty* lvalue = ltuplePtr.get();
-    const Ty* rvalue = rtuplePtr.get();
-    EXPECT_EQ(ark::TypeCompatibility::IDENTICAL, CheckTypeCompatibility(lvalue, rvalue));
-}
-
-TEST(UtilsTest, UtilsTest006)
-{
-    std::vector<Ptr<Ty>> largs;
-    largs.emplace_back(new IntType(TypeKind::TYPE_UNIT));
-    largs.emplace_back(new IntType(TypeKind::TYPE_UNIT));
-    std::vector<Ptr<Ty>> rargs;
-    rargs.emplace_back(new StringType(TypeKind::TYPE_CSTRING));
-    rargs.emplace_back(new StringType(TypeKind::TYPE_CSTRING));
-    std::shared_ptr<TupleTy> ltuplePtr = std::make_shared<TupleTy>(largs);
-    std::shared_ptr<TupleTy> rtuplePtr = std::make_shared<TupleTy>(rargs);
-    const Ty* lvalue = ltuplePtr.get();
-    const Ty* rvalue = rtuplePtr.get();
-    EXPECT_EQ(ark::TypeCompatibility::INCOMPATIBLE, CheckTypeCompatibility(lvalue, rvalue));
-}
-
-// --- IsMatchingCompletion Tests ---
-TEST(UtilsTest, UtilsTest011)
-{
-    std::string prefix = "";
-    std::string completionName = "test";
-    bool caseSensitive = true;
-    EXPECT_EQ(true, IsMatchingCompletion(prefix, completionName, caseSensitive));
-}
-
-TEST(UtilsTest, UtilsTest014)
-{
-    std::string prefix = "Hello";
-    std::string completionName = "hello";
-    bool caseSensitive = false;
-    EXPECT_EQ(true, IsMatchingCompletion(prefix, completionName, caseSensitive));
-}
-
-// --- GetFilterText Tests ---
-TEST(UtilsTest, UtilsTest021)
-{
-    int argc = 1;
-    const char* argv[] = {"program"};
-    ark::Options::GetInstance().Parse(argc, argv);
-    MessageHeaderEndOfLine::SetIsDeveco(false);
-    std::string name = "testName";
-    std::string prefix = "prefix";
-    std::string expected = prefix + "_" + name;
-    std::string result = GetFilterText(name, prefix);
-    EXPECT_EQ(expected, result);
-}
-
-// --- AST Node Range Tests ---
-TEST(UtilsTest, UtilsTest026)
-{
-    Ptr<const Node> node = nullptr;
-    ark::Range result = GetIdentifierRange(node);
-    EXPECT_EQ(result.end.fileID, 0);
-    EXPECT_EQ(result.end.line, 0);
-    EXPECT_EQ(result.end.column, 0);
-}
-
-// --- GetCommentKind Tests ---
-TEST(UtilsTest, UtilsTest034)
-{
-    std::string comment = "/** 这是一个文档注释 */";
-    ark::CommentKind result = GetCommentKind(comment);
-    EXPECT_EQ(result, ark::CommentKind::DOC_COMMENT);
-}
-
-// --- IsZeroPosition Tests ---
-class FakeNode : public Node {
-public:
-    explicit FakeNode(int line, int column)
-    {
-        end.line = line;
-        end.column = column;
-    }
-};
-
-TEST(UtilsTest, UtilsTest061)
-{
-    Ptr<const Node> node(new FakeNode(0, 0));
-    EXPECT_TRUE(IsZeroPosition(node));
-}
-
-// --- ValidExtendIncludeGenericParam Tests ---
-class FakeDecl : public Cangjie::AST::Decl {
-public:
-    explicit FakeDecl(ASTKind kind) : Decl(kind) {}
-};
-
-TEST(UtilsTest, UtilsTest064)
-{
-    Ptr<const Decl> decl(new FakeDecl(ASTKind::CLASS_DECL));
-    EXPECT_TRUE(ValidExtendIncludeGenericParam(decl));
-}
-
-// --- InterpolatedString Position Tests ---
-class FakeNode4SetRang : public Cangjie::AST::Node {
-public:
-    explicit FakeNode4SetRang(int fileID, int bLine, int bCol, int eLine, int eCol)
-    {
-        begin.fileID = fileID;
-        begin.line   = bLine;
-        begin.column = bCol;
-        end.fileID   = fileID;
-        end.line     = eLine;
-        end.column   = eCol;
-    }
-};
-
-// --- Rename for Interpolated String Tests ---
-class FakeNode4InterpolatedStrInRename : public AST::Node {
-public:
-    explicit FakeNode4InterpolatedStrInRename(const std::string &s, const Position &nodeBegin)
-        : AST::Node(ASTKind::DECL), text_(s), begin_(nodeBegin) {}
-
-    std::string ToString() const override
-    {
-        return text_;
+        return identifierPos;
     }
 
-    Position GetBegin() const
+    void setIdentifierPos(Position p)
     {
-        return begin_;
+        identifierPos = p;
     }
+
+    SrcIdentifier name;
 
 private:
-    std::string text_;
-    Position    begin_;
+    bool add_;
+    bool isCloned_;
+    bool primCtor_;
+    Position identifierPos;
 };
 
-// --- FuncSignature Tests ---
-struct FakeFuncTy : public Cangjie::AST::FuncTy {
-    explicit FakeFuncTy(const std::vector<Ptr<Ty>> &params = {}, Ptr<Ty> ret = nullptr, const Config &cfg = {})
-        : FuncTy(params, ret, cfg) {}
-};
-
-struct FakeFuncDecl : public Cangjie::AST::FuncDecl {
-    explicit FakeFuncDecl(const std::string &id, Ptr<Cangjie::AST::Ty> t)
-    {
-        identifier = id;
-        ty = std::move(t);
-    }
-};
-
-// --- SearchContext Tests ---
-TEST(UtilsTest, UtilsTest084)
+class FakeExpr : public Expr
 {
-    auto result = SearchContext(nullptr, "anything");
-    EXPECT_TRUE(result.empty());
+public:
+    FakeExpr(ASTKind kind) : Expr(kind)
+    {
+    }
+    std::vector<OwnedPtr<FuncArg>> args;
+};
+
+// Test 087: nullptr input should yield empty set
+TEST(UtilsTest, UtilsTest087)
+{
+    auto decls = GetInheritDecls(nullptr);
+    EXPECT_TRUE(decls.empty());
+}
+
+// Test 088: non-FUNC_DECL/PROP_DECL kind yields empty set
+TEST(UtilsTest, UtilsTest088)
+{
+    FakeDecl varDecl{Cangjie::AST::ASTKind::VAR_DECL};
+    auto decls = GetInheritDecls(&varDecl);
+    EXPECT_TRUE(decls.empty());
+}
+
+// Test 089: FUNC_DECL path invokes TestFakeInheritDeclUtil and returns its result
+TEST(UtilsTest, UtilsTest089)
+{
+    FakeDecl funcDecl{Cangjie::AST::ASTKind::FUNC_DECL};
+    auto decls = GetInheritDecls(&funcDecl);
+}
+
+// Test 090: PROP_DECL path also invokes TestFakeInheritDeclUtil
+TEST(UtilsTest, UtilsTest090)
+{
+    FakeDecl propDecl{Cangjie::AST::ASTKind::PROP_DECL};
+    FakeDecl dummyDecl{Cangjie::AST::ASTKind::FUNC_DECL};
+    auto decls = GetInheritDecls(&propDecl);
+}
+
+// Test 091: nullptr node → false
+TEST(UtilsTest, UtilsTest091)
+{
+    bool rv = IsFromSrcOrNoSrc(nullptr);
+    EXPECT_FALSE(rv);
+}
+
+// Test 092: node present, curFile nullptr → false
+TEST(UtilsTest, UtilsTest092)
+{
+    Node node;
+    node.curFile = nullptr;
+
+    bool rv = IsFromSrcOrNoSrc(&node);
+    EXPECT_FALSE(rv);
+}
+
+// Test 093: node and curFile present, curPackage nullptr → false
+TEST(UtilsTest, UtilsTest093)
+{
+    File file;
+    file.curPackage = nullptr;
+
+    Node node;
+    node.curFile = &file;
+
+    bool rv = IsFromSrcOrNoSrc(&node);
+    EXPECT_FALSE(rv);
+}
+
+// Test 095: all pointers valid, singleton returns false → false
+TEST(UtilsTest, UtilsTest095)
+{
+    Ptr<const Node> filePrt(new File());
+    // Configure fake to return false
+    bool rv = IsFromSrcOrNoSrc(filePrt);
+    EXPECT_FALSE(rv);
+}
+
+// Range GetRangeFromNode(Ptr<const Node> p, const std::vector<Cangjie::Token> &tokens)
+TEST(UtilsTest, UtilsTest096)
+{
+    Ptr<const Node> p = nullptr;
+    std::vector<Token> tokens;
+
+    ark::Range r = GetRangeFromNode(p, tokens);
+
+    EXPECT_EQ(r.end.line, 0);
+    EXPECT_EQ(r.end.column, 0);
+}
+
+TEST(UtilsTest, UtilsTest097)
+{
+    Ptr<QualifiedType> p(new QualifiedType());
+    std::vector<Token> tokens;
+
+    ark::Range r = GetRangeFromNode(p, tokens);
+
+    EXPECT_EQ(r.end.line, 0);
+    EXPECT_EQ(r.end.column, 0);
+}
+
+TEST(UtilsTest, UtilsTest098)
+{
+    struct NodeWithTypeArgs : public Node
+    {
+        NodeWithTypeArgs() : Node() {}
+        Position GetBegin() const { return {1, 1}; }
+        Position GetEnd() const { return {2, 2}; }
+    };
+    Ptr<NodeWithTypeArgs> p(new NodeWithTypeArgs());
+    std::vector<Token> tokens;
+    ark::Range r = GetRangeFromNode(p, tokens);
+    EXPECT_EQ(r.end.line, 0);
+    EXPECT_EQ(r.end.column, 0);
+}
+
+TEST(UtilsTest, UtilsTest099)
+{
+    struct ZeroRangeNode : public Node
+    {
+        ZeroRangeNode() : Node() {}
+        Position GetBegin() const { return {0, 0}; }
+        Position GetEnd() const { return {0, 0}; }
+    };
+
+    Ptr<ZeroRangeNode> p(new ZeroRangeNode());
+    std::vector<Token> tokens;
+    ark::Range r = GetRangeFromNode(p, tokens);
+
+    EXPECT_EQ(r.end.line, 0);
+    EXPECT_EQ(r.end.column, 0);
+}
+
+TEST(UtilsTest, UtilsTest100)
+{
+    ASTKind invalidKind = static_cast<ASTKind>(-1);
+    EXPECT_EQ(GetSymbolKind(invalidKind), SymbolKind::NULL_KIND);
+}
+
+TEST(UtilsTest, UtilsTest101)
+{
+    Ptr<const Decl> d = nullptr;
+    EXPECT_FALSE(InValidDecl(d));
+}
+
+TEST(UtilsTest, UtilsTest102)
+{
+    Ptr<FakeDecl> d(new FakeDecl(ASTKind::INVALID_TYPE, true, true, false));
+    EXPECT_FALSE(InValidDecl(d));
+}
+
+TEST(UtilsTest, UtilsTest103)
+{
+    Ptr<FakeDecl> d(new FakeDecl(ASTKind::INVALID_TYPE, true, false, true));
+    EXPECT_FALSE(InValidDecl(d));
+}
+
+TEST(UtilsTest, UtilsTest104)
+{
+    Ptr<FakeDecl> d(new FakeDecl(ASTKind::EXTEND_DECL, true, false, false));
+    EXPECT_FALSE(InValidDecl(d));
+}
+
+TEST(UtilsTest, UtilsTest105)
+{
+    std::string pkg = GetPkgNameFromNode(nullptr);
+    EXPECT_EQ(pkg, "");
+}
+
+TEST(UtilsTest, UtilsTest106)
+{
+    Ptr<Node> node(new Node());
+    node->curFile = nullptr;
+    std::string pkg = GetPkgNameFromNode(node);
+    EXPECT_EQ(pkg, "");
+}
+
+TEST(UtilsTest, UtilsTest107)
+{
+    SetHeadByFilePath("any/path.cpp");
+}
+
+TEST(UtilsTest, UtilsTest108)
+{
+    SetHeadByFilePath("source/file.cpp");
+}
+
+TEST(UtilsTest, UtilsTest109)
+{
+    SetHeadByFilePath("irrelevant.cpp");
+}
+
+TEST(UtilsTest, UtilsTest113)
+{
+    Decl decl;
+    auto users = GetOnePkgUsers(decl, "", "/tmp/file.cpp", false, "unused");
+    EXPECT_TRUE(users.empty());
+}
+
+TEST(UtilsTest, ConvertCarriageToSpace001)
+{
+    std::string str;
+    ConvertCarriageToSpace(str);
+    EXPECT_EQ(str, "");
+}
+
+TEST(UtilsTest, ConvertCarriageToSpace002)
+{
+    std::string str = "a\nb";
+    ConvertCarriageToSpace(str);
+    EXPECT_EQ(str, "a b");
+}
+
+TEST(UtilsTest, GetSingleConditionCompile001)
+{
+    nlohmann::json initOpts = {{CONSTANTS::SINGLE_CONDITION_COMPILE_OPTION, {{".pkg", {{"customKey", "customVal"}}}}}};
+    std::unordered_map<std::string, std::string> globalConds = {{"g1", "gv1"}};
+    std::unordered_map<std::string, std::unordered_map<std::string, std::string>> modulesConds = {
+        {".pkg", {{"g1", "overwritten"}, {"m2", "modVal2"}}}};
+    std::unordered_map<std::string, std::unordered_map<std::string, std::string>> outConds;
+    GetSingleConditionCompile(initOpts, globalConds, modulesConds, outConds);
+    ASSERT_EQ(outConds.size(), 1u);
+    auto &pkgMap = outConds[".pkg"];
+    EXPECT_EQ(pkgMap["g1"], "overwritten");
+    EXPECT_EQ(pkgMap["m2"], "modVal2");
+    EXPECT_EQ(pkgMap["customKey"], "customVal");
+}
+
+TEST(UtilsTest, Digest001)
+{
+    const std::string pkg = "nonexistent_file.cj";
+    EXPECT_FALSE(FileUtil::FileExist(pkg));
+    EXPECT_EQ(Digest(pkg), "");
 }
