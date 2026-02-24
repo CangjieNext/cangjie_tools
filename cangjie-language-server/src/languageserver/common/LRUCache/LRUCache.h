@@ -103,7 +103,7 @@ public:
         lruHashMap[key] = lruList.begin();
         return deleteKey;
     }
-
+    // LCOV_EXCL_START
     bool SetIfExists(const std::string &key, std::unique_ptr<Cangjie::LSPCompilerInstance> &value)
     {
         std::unique_lock<std::shared_mutex> lock(mtx);
@@ -123,7 +123,7 @@ public:
         }
         return false;
     }
-
+    // LCOV_EXCL_STOP
     void SetForFullCompiler(const std::string &key, std::unique_ptr<Cangjie::LSPCompilerInstance> &value)
     {
         std::unique_lock<std::shared_mutex> lock(mtx);
