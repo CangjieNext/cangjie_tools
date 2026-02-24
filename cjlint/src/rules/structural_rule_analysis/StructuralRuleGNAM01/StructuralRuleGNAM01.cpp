@@ -38,7 +38,7 @@ using namespace Cangjie;
 using namespace AST;
 using namespace Meta;
 
-const std::string REGEX = "^[a-z]+[a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$";
+const std::string REGEX = "^_?[a-z][a-z0-9_]*(\\._?[a-z][a-z0-9_]*)*$";
 
 /*
  * This method is used to check whether the package name complies with the regular expression.
@@ -49,22 +49,30 @@ void StructuralRuleGNAM01::FileDeclHandler(const File &file)
         return;
     }
     const auto& package = *file.package;
+    if (package.packageName.Val() == "<invalid identifier>") {
+        return;
+    }
+    auto fullPkgName = GetFullPackageName(package);
     std::regex reg = std::regex(REGEX);
     if (!(std::regex_match(package.packageName.Val(), reg))) {
         Diagnose(package.packageName.Begin(), package.packageName.Begin(),
-            CodeCheckDiagKind::G_NAM_01_Package_Information, GetFullPackageName(package));
+            CodeCheckDiagKind::G_NAM_01_Package_Information, fullPkgName);
     }
     // Root packages can have any valid package name.
     if (package.prefixPaths.empty() || (package.hasDoubleColon && package.prefixPaths.size() == 1)) {
         return;
     }
 
+    // Verify that package name hierarchy matches the directory structure
+    auto pkgNameWithoutOrg = package.hasDoubleColon ? fullPkgName.substr(fullPkgName.find("::") + 2) : fullPkgName;
+    auto pkgsSegs = FileUtil::SplitStr(pkgNameWithoutOrg, '.');
     auto filePath = FileUtil::GetDirPath(file.filePath);
-    auto lastSlashPos = filePath.rfind(PATH_SEPARATOR);
-    auto curDir = lastSlashPos != std::string::npos ? filePath.substr(lastSlashPos + 1) : "";
-    if (RemoveBackticks(package.packageName) != curDir) {
+    auto pathSegs = FileUtil::SplitStr(filePath, PATH_SEPARATOR.at(0));
+    auto pkgMatchPath = std::search(pathSegs.rbegin(), pathSegs.rend(), pkgsSegs.rbegin(), pkgsSegs.rend());
+    if (pkgMatchPath == pathSegs.rend()) {
         Diagnose(package.packageName.Begin(), package.packageName.End(),
-            CodeCheckDiagKind::G_NAM_01_Package_name_should_match_path, GetFullPackageName(package));
+            CodeCheckDiagKind::G_NAM_01_Package_name_should_match_path, fullPkgName);
+        return;
     }
 }
 

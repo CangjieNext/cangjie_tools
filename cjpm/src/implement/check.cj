@@ -72,11 +72,35 @@ func resolve(globalConfig: GlobalConfig, isScriptDep!: Bool = false): (DepModel,
     return (dm, true, mockUsed)
 }
 
+func checkCombinedConfiguration(dm: DepModel, isProjectCombine: Bool, notSupportSet: HashSet<String>): Bool {
+    if (!dm.superPkgMap.isEmpty() && !isProjectCombine) {
+        var flag = true
+        for ((moduleName, _) in dm.depAnalysisEngine.finalDepMap) {
+            if (!dm.superPkgMap.contains(moduleName) &&
+                !notSupportSet.contains(moduleName) &&
+                dm.packageDepMap.contains(moduleName) &&
+                !dm.packageDepMap[moduleName].isMacroPackage) {
+                eprintln("Error: field 'profile.build.combined' must be configured to combine module '${moduleName}'")
+                flag = false
+            }
+        }
+        return flag
+    }
+    true
+}
+
 func dealWithSuperPkg(dm: DepModel, isProjectCombine: Bool): Bool {
     let notSupportSet = HashSet<String>()
+    var superPkgInValidFlag = false;
     for ((superPkgName, superPkgCfg) in dm.superPkgMap) {
+        if (!dm.packageDepMap.contains(superPkgName)) {
+            superPkgInValidFlag = true;
+            eprintln("Error: field 'profile.build.combined' is not supported for root package '${superPkgName}' " +
+                "which contain no source code for compilation")
+            continue
+        }
         if (dm.packageDepMap[superPkgName].isMacroPackage) {
-            println("Warning: field 'profile.build.combined' is not supported for macro root package ${superPkgName}")
+            println("Warning: field 'profile.build.combined' is not supported for macro root package '${superPkgName}'")
             notSupportSet.add(superPkgName)
             continue
         }
@@ -103,24 +127,14 @@ func dealWithSuperPkg(dm: DepModel, isProjectCombine: Bool): Bool {
             dm.packageDepMap[superPkgName].outputType = Dynamic
         }
     }
-    for (notSupport in notSupportSet) {
-        dm.superPkgMap.remove(notSupport)
+    if (superPkgInValidFlag) {
+        return false
     }
 
-    if (!dm.superPkgMap.isEmpty() && !isProjectCombine) {
-        var flag = true
-        for ((moduleName, _) in dm.depAnalysisEngine.finalDepMap) {
-            if (!dm.superPkgMap.contains(moduleName) &&
-                !notSupportSet.contains(moduleName) &&
-                dm.packageDepMap.contains(moduleName) &&
-                !dm.packageDepMap[moduleName].isMacroPackage) {
-                eprintln("Error: field 'profile.build.combined' must be configured to combine module '${moduleName}'")
-                flag = false
-            }
-        }
-        if (!flag) {
-            return flag
-        }
+    dm.superPkgMap.remove(all: notSupportSet)
+    
+    if (!checkCombinedConfiguration(dm, isProjectCombine, notSupportSet)) {
+        return false
     }
 
     dm.checkSuperPkgDep()

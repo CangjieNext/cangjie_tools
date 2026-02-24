@@ -245,6 +245,54 @@ func generateResolveData(buildConfig: BuildConfig, tomlInfo: TomlInfo, isScriptD
     return getResolveData(buildConfig, tomlInfo, isScriptDep)
 }
 
+func handleCompilePipelineParallel(buildConfig: BuildConfig, tomlInfo: TomlInfo): Bool {
+    if (tomlInfo.profile.build.compilePipelineParallel) {
+        if (!supportCompilePipelineParallel()) {
+            eprintln("Error: field 'compile-pipeline-parallel' is only supported on Linux/macOS/Windows")
+            return false
+        }
+        if (buildConfig.isLto) {
+            eprintln("Warning: cjpm won't apply pipeline optimization to the build process when field 'profile.build.lto' is 'full' or 'thin'")
+        } else if (!state.isExperimental) {
+            eprintln("Warning: cjpm won't apply pipeline optimization to the build process when field 'profile.experimental' is not true")
+        } else {
+            buildConfig.isCompilePipelineParallel = true
+        }
+    }
+    true
+}
+
+func handleCombineAllDeps(buildConfig: BuildConfig, tomlInfo: TomlInfo): Bool {
+    if (buildConfig.globalConfig.isProjectCombine &&
+        buildConfig.packageList.isMacro(buildConfig.globalConfig.rootName)) {
+        eprintln("Error: field " +
+            "'package.package-configuration.${buildConfig.globalConfig.rootName}.combine-all-deps = true' " +
+            "is not support for macro root package '${buildConfig.globalConfig.rootName}'")
+        return false
+    }
+
+    if (!tomlInfo.profile.build.ltoValue.isEmpty()) {
+        buildConfig.isLto = supportLto()
+        if (!buildConfig.isLto) {
+            println("Warning: configuration failed, field 'profile.build.lto' settings only support compilation for Linux/OHOS")
+        }
+        buildConfig.ltoValue = tomlInfo.profile.build.ltoValue
+    }
+
+    if (supportLto() && buildConfig.globalConfig.isProjectCombine && buildConfig.ltoValue.isEmpty()) {
+        eprintln("Error: field " +
+            "'package.package-configuration.${buildConfig.globalConfig.rootName}.combine-all-deps = true' " +
+            "is invalid when field 'profile.build.lto' is empty")
+        return false
+    } else if (!supportLto() && buildConfig.globalConfig.isProjectCombine) {
+        eprintln("Error: field " +
+            "'package.package-configuration.${buildConfig.globalConfig.rootName}.combine-all-deps = true' " +
+            "only supports compilation to Linux/OHOS")
+        return false
+    }
+    true
+}
+
 func getResolveData(buildConfig: BuildConfig, tomlInfo: TomlInfo, isScriptDep: Bool): Option<ModuleResolve> {
     buildConfig.globalConfig.customizedOption = buildConfig.customizedOption
     buildConfig.globalConfig.isForScript = isScriptDep
@@ -258,29 +306,7 @@ func getResolveData(buildConfig: BuildConfig, tomlInfo: TomlInfo, isScriptDep: B
     buildConfig.globalConfig.overrideCompileOption = dm.globalConfig.overrideCompileOption
     buildConfig.globalConfig.nativeOverrideOption = dm.globalConfig.nativeOverrideOption
 
-    if (buildConfig.globalConfig.isProjectCombine &&
-        buildConfig.packageList.isMacro(buildConfig.globalConfig.rootName)) {
-        eprintln("Error: field " +
-            "'package.package-configuration.${buildConfig.globalConfig.rootName}.combine-all-deps = true' " +
-            "is not support for macro root package '${buildConfig.globalConfig.rootName}'")
-        return Option<ModuleResolve>.None
-    }
-
-    buildConfig.stdType = tomlInfo.profile.build.stdType
-    if (!tomlInfo.profile.build.ltoValue.isEmpty()) {
-        buildConfig.isLto = supportLto()
-        buildConfig.ltoValue = tomlInfo.profile.build.ltoValue
-    }
-
-    if (supportLto() && buildConfig.globalConfig.isProjectCombine && buildConfig.ltoValue.isEmpty()) {
-        eprintln("Error: field " +
-            "'package.package-configuration.${buildConfig.globalConfig.rootName}.combine-all-deps = true' " +
-            "is invalid when field 'profile.build.lto' is empty")
-        return Option<ModuleResolve>.None
-    } else if (!supportLto() && buildConfig.globalConfig.isProjectCombine) {
-        eprintln("Error: field " +
-            "'package.package-configuration.${buildConfig.globalConfig.rootName}.combine-all-deps = true' " +
-            "only supports compilation to Linux/OHOS")
+    if (!handleCombineAllDeps(buildConfig, tomlInfo)) {
         return Option<ModuleResolve>.None
     }
 
@@ -292,18 +318,8 @@ func getResolveData(buildConfig: BuildConfig, tomlInfo: TomlInfo, isScriptDep: B
         buildConfig.isIncremental = true
     }
 
-    if (tomlInfo.profile.build.compilePipelineParallel) {
-        if (!supportCompilePipelineParallel()) {
-            eprintln("Error: field 'compile-pipeline-parallel' is only supported on Linux/macOS/Windows")
-            return Option<ModuleResolve>.None
-        }
-        if (buildConfig.isLto) {
-            eprintln("Warning: cjpm won't apply pipeline optimization to the build process when field 'profile.build.lto' is 'full' or 'thin'")
-        } else if (!state.isExperimental) {
-            eprintln("Warning: cjpm won't apply pipeline optimization to the build process when field 'profile.experimental' is not true")
-        } else {
-            buildConfig.isCompilePipelineParallel = true
-        }
+    if (!handleCompilePipelineParallel(buildConfig, tomlInfo)) {
+        return Option<ModuleResolve>.None
     }
 
     let resolves = ArrayList<ResolveItem>()
@@ -1170,10 +1186,7 @@ func getForcedLibArgs(compileTask: CompileTask, buildConfig: BuildConfig): Array
     for (forcedLib in compileTask.subPkgSet) {
         forcedLibSet.add(all: getDepSet(forcedLib, buildConfig))
     }
-    for (depName in forcedLibSet) {
-        if (linkSort.contains(depName)) {
-            continue
-        }
+    for (depName in forcedLibSet where !linkSort.contains(depName)) {
         if (buildConfig.superPkgMap.contains(compileTask.fullName) &&
             buildConfig.superPkgMap.contains(depName.split(".")[0]) &&
             compileTask.fullName != depName.split(".")[0]) {
@@ -1188,21 +1201,19 @@ func getForcedLibArgs(compileTask: CompileTask, buildConfig: BuildConfig): Array
         }
         let libPath = Path(compileTask.targetDir).join(depRootName).toString()
         let linkArray: ArrayList<String> = forcedLinkPackage(depName, libPath, compileTask.isLto)
-        if (linkArray.size <= 1) {
+        if (linkArray.size <= 1 || libPathSet.add(libPath)) {
             allOptions.add(all: linkArray)
-            binDepSet.add(all: getDepSet(depName, buildConfig))
-            continue
-        }
-        if (libPathSet.contains(libPath)) {
-            allOptions.add(linkArray[linkArray.size - 1])
         } else {
-            allOptions.add(all: linkArray)
-            libPathSet.add(libPath)
+            allOptions.add(linkArray[linkArray.size - 1])
         }
-
         binDepSet.add(all: getDepSet(depName, buildConfig))
     }
 
+    // If a binary artifact is depended by the main package directly or indirectly, it will be collected by `getBuildArgs`.
+    // But if it's also depended by a child package which is not depended by the main package directly or indirectly,
+    // it will be added into `binDepSet`.
+    // So we should remove it from `binDepSet` because we only need link it once.
+    binDepSet.remove(all: linkSort)
     allOptions.add(all: getForcedBinDep(compileTask, buildConfig, binDepSet, cLibNameList))
     addForcedLibArgs(res, allOptions, compileTask.target)
     if (let Some(stdLinks) <- addStdLibsLink(compileTask.target)) {

@@ -94,6 +94,9 @@ func updateDepMap(path: String, preName: String, prePath: String, requires: ?Dep
     }
 
     var tomlInfo = loadModuleFile(path) ?? return false
+    if (!tomlInfo.pkg.organization.isEmpty()) {
+        tomlInfo.pkg.name = tomlInfo.pkg.organization + "::" + tomlInfo.pkg.name
+    }
     var curModulePath: String = path
 
     if (let Some(depInfo) <- requires) {
@@ -240,12 +243,18 @@ func updateIndex(): Bool {
         downloadTasks.add(
             spawn {
                 =>
-                let (flag, output) = UPDATE_DEPOT.updateIndexWithOutput(name, if (org == DEFAULT_ORGANIZATION) { "" } else { org })
-                if (!flag) {
-                    downloadErrorLogs.add(output)
+                try {
+                    let (flag, output) = UPDATE_DEPOT.updateIndexWithOutput(name, if (org == DEFAULT_ORGANIZATION) { "" } else { org })
+                    if (!flag) {
+                        downloadErrorLogs.add(output)
+                    }
+                    downloadSem.release()
+                    return flag
+                } catch (e: Exception) { 
+                    downloadErrorLogs.add(e.message) 
+                    downloadSem.release()
+                    return false
                 }
-                downloadSem.release()
-                return flag
             }
         )
     }
@@ -256,12 +265,35 @@ func updateIndex(): Bool {
     }
 
     if (!downloadFlag) {
-        eprintln("Warning: cannot update some index files due to following reason:")
-        for (output in downloadErrorLogs) {
-            eprintln("Warning: ${output}")
-        }
+        logDownloadErrors(downloadErrorLogs)
     }
     return true
+}
+
+func logDownloadErrors(downloadErrorLogs: ConcurrentLinkedQueue<String>): Unit {
+    var hasOpenSSLError = false
+    var hasConnectError = false
+    let unknownErrors = HashSet<String>() 
+
+    eprintln("Warning: cannot update some index files due to following reason:")
+
+    for (output in downloadErrorLogs) {
+        if (output.contains("Can not load openssl library") && !hasOpenSSLError) {
+            eprintln("Warning: ${output}")
+            eprintln("Warning: please ensure that openssl has been correctly installed and configured according to the \"Usage Instruction\" section of the documentation")
+            hasOpenSSLError = true
+        } else if (output.contains("HttpEngine1#connect") && !hasConnectError) {
+            eprintln("Warning: ${output}")
+            eprintln("Warning: unable to connect to https server.")
+            hasConnectError = true
+        } else {
+            unknownErrors.add(output)
+        }
+    }
+
+    for (msg in unknownErrors) {
+        eprintln("Warning: ${msg}")
+    }
 }
 
 func updateIndexForOrg(dir: FileInfo, org: String): Unit {

@@ -4,10 +4,11 @@
 //
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
-package my_module
+package ImportAs
 
-public import ohos.business_exception.BusinessException
-public import ohos.callback_invoke.allbackObject
-public import kit.PerformanceAnalysisKit.Hilog
+import ImportAs.pkgA.ZZ as ZZZ
 
-protected type AsyncCallback<T> = (?BusinessException, ?T) -> Unit
+main(): Int64 {
+    Z
+    return 0
+}

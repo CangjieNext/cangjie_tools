@@ -84,7 +84,7 @@ public class BoundedFileLogger {
         this.messageQueue.add(Print(outLogFile, errLogFile))
     }
 
-    public func start(): Unit {
+    public func start(): This {
         if (logFuture.isNone()) {
             this.logFuture = spawn { =>
                 var count = this.messageBound
@@ -100,6 +100,7 @@ public class BoundedFileLogger {
                 return success
             }
         }
+        this
     }
 
     // If number of `log` and `release` calls is below the `messageBound`, deadlock occurs
@@ -170,23 +171,15 @@ class ParallelBuilder {
     }
 
     func shouldNotify(downstreamTask: TaskIdentifier, task: TaskIdentifier, notification: Notification): Bool {
-        let res = match (notification) {
-            case CjoReady =>
-                if (taskMap.get(task)?.isMacro ?? true) {
-                    false
-                } else {
-                    match (downstreamTask.compilePhase) {
-                        case LinkOnly => false
-                        case ObjOnly => true
-                        case Default =>
-                            if (let Some(compileTask) <- taskMap.get(downstreamTask)) {
-                                !compileTask.isLto &&
-                                !compileTask.isMultiplatform &&
-                                compileTask.outputType == OutputType.Static
-                            } else { false }
-                    }
-                }
-            case _ => true
+        let res = match ((notification, downstreamTask.compilePhase)) {
+            case (CjoReady, LinkOnly) => false
+            case (CjoReady, ObjOnly) => !taskMap[task].isMacro
+            case (CjoReady, Default) =>
+                !taskMap[task].isMacro &&
+                !taskMap[downstreamTask].isLto &&
+                !taskMap[downstreamTask].isMultiplatform &&
+                taskMap[downstreamTask].outputType == OutputType.Static
+            case (_, _) => true
         }
         if (res) {
             synchronized (notifyMutex) {
@@ -228,19 +221,70 @@ class ParallelBuilder {
         (cjo2Task, listenDirs)
     }
 
-    func build(): (Bool, HashSet<String>) {
-        let logger = BoundedFileLogger(taskMap.size)
-        logger.start()
-
-        let cjoFlagFiles = HashSet<String>()
-        let collectCjoFlagFiles = { file => cjoFlagFiles.add(file) }
-
-        let (cjo2Task, listenDirs) = getCjo2TaskAndListenDirs()
-	    let watchFSFuture = spawn { =>
-            if (buildConfig.isCompilePipelineParallel) {
-                watchFS(cjo2Task, listenDirs, notify, collectCjoFlagFiles, buildConfig.isVerbose)
+    func action(task: CompileTask, taskId: TaskIdentifier, logger: BoundedFileLogger): Bool {
+        synchronized(buildMutex) {
+            if (shouldFail.contains(taskId)) {
+                logger.release()
+                return false
             }
         }
+
+        if (task.checkDepCjo) {
+            var nochange: Bool = true
+            for (depPkg in task.requireTasks) {
+                if (!checkNoChange(depPkg.fullName)) {
+                    nochange = false
+                    break
+                }
+            }
+
+            for (subPkg in task.subPkgSet) {
+                if (!checkNoChange(subPkg)) {
+                    nochange = false
+                    break
+                }
+            }
+
+            if (nochange) {
+                logger.release()
+                return true
+            }
+        }
+
+        if (!deleteLog(task)) {
+            logger.release()
+            return false
+        }
+
+        let cjcCall = constructCjcInvocation(task, this.buildConfig)
+        let envBuilder = EnvironmentBuilder()
+        envBuilder.prepend(LD_PATH, this.buildConfig.globalConfig.ldPath)
+        specifyCjcJobs(cjcCall, this.buildConfig.cjcJobs)
+        let res = runTask(task, cjcCall, envBuilder) 
+        logger.log(task.outLogFile, task.errLogFile)
+        res
+    }
+
+    func createWatchFSFuture(cjo2Task: HashMap<String, TaskIdentifier>, listenDirs: HashSet<String>): Future<Unit> {
+        spawn { =>
+            if (buildConfig.isCompilePipelineParallel) {
+                watchFS(cjo2Task, listenDirs, notify, buildConfig.isVerbose)
+            }
+        }
+    }
+
+    func waitWatchFSFuture(watchFSFuture: Future<Unit>): Unit {
+        if (buildConfig.isCompilePipelineParallel) {
+            stopWatchFS(buildConfig.isVerbose)
+        }
+        watchFSFuture.get()
+    }
+
+    func build(): (Bool, HashSet<String>) {
+        let logger = BoundedFileLogger(taskMap.size).start()
+
+        let (cjo2Task, listenDirs) = getCjo2TaskAndListenDirs()
+	    let watchFSFuture = createWatchFSFuture(cjo2Task, listenDirs)
 
         let sem = Semaphore(maxParallelSize)
         let futTasks = HashMap<TaskIdentifier, Future<Bool>>()
@@ -248,50 +292,6 @@ class ParallelBuilder {
         for (taskId in orderedTasks) {
             sem.acquire()
             let task = taskMap[taskId]
-            let action = { =>
-                synchronized(buildMutex) {
-                    if (shouldFail.contains(taskId)) {
-                        logger.release()
-                        return false
-                    }
-                }
-
-                if (task.checkDepCjo) {
-                    var nochange: Bool = true
-                    for (depPkg in task.requireTasks) {
-                        if (!checkNoChange(depPkg.fullName)) {
-                            nochange = false
-                            break
-                        }
-                    }
-
-                    for (subPkg in task.subPkgSet) {
-                        if (!checkNoChange(subPkg)) {
-                            nochange = false
-                            break
-                        }
-                    }
-
-                    if (nochange) {
-                        logger.release()
-                        return true
-                    }
-                }
-
-                if (!deleteLog(task)) {
-                    logger.release()
-                    return false
-                }
-
-                let cjcCall = constructCjcInvocation(task, this.buildConfig)
-                let envBuilder = EnvironmentBuilder()
-                envBuilder.prepend(LD_PATH, this.buildConfig.globalConfig.ldPath)
-                specifyCjcJobs(cjcCall, this.buildConfig.cjcJobs)
-                let res = runTask(task, cjcCall, envBuilder) 
-                logger.log(task.outLogFile, task.errLogFile)
-                res
-            }
-
             let future = spawn { =>
                 scs[taskId].waitUntilZero()
                 if (buildConfig.isVerbose) {
@@ -300,7 +300,7 @@ class ParallelBuilder {
                 if (buildConfig.isVerbose && buildConfig.isCompilePipelineParallel) {
                     writeFile(task.outLogFile, "Task `${taskId2String(taskId)}` starts", Append)
                 }
-                let res = action()
+                let res = action(task, taskId, logger)
                 sem.release()
                 let notification = if (res) {
                     OUTPUTTYPE2NOTIFICATION.get(task.outputType.toString()).getOrThrow()
@@ -330,13 +330,10 @@ class ParallelBuilder {
             buildResult = false
         }
 
-        if (buildConfig.isCompilePipelineParallel) {
-            stopWatchFS(buildConfig.isVerbose)
-        }
-        watchFSFuture.get()
+        waitWatchFSFuture(watchFSFuture)
 
-        for (file in cjoFlagFiles) {
-            if (!deleteFile(file)) {
+        for ((cjoFlagFile, _) in cjo2Task) {
+            if (!deleteFile(cjoFlagFile)) {
                 buildResult = false
             }
         }
@@ -639,69 +636,69 @@ func createCompileTasks(r: ResolveItem, buildConfig: BuildConfig): ?ArrayList<Co
             )
 
             let compileTasks = ArrayList<CompileTask>([task])
- 	 
-            if (isSplittable) {
-                let taskId = TaskIdentifier(
-                    fullName,
-                    target,
-                    if (!product) { sourceSetDir } else { "" },
-                    compilePhase: LinkOnly
-                )
-                let prevStageObj = Path(task.targetPath).join(getOutput(task).getOrThrow()).toString()
-                let requireTasks = getDepSet(fullName, buildConfig).iterator().filterMap { name =>
-                        if(!buildConfig.packageList.isMacro(name) && !buildConfig.packageList.isTest(name)) {
-                            let isSplittable = buildConfig.packageList.isDyLib(name) || buildConfig.packageList.isExe(name)
-                            let compilePhase = if (isSplittable) { LinkOnly } else { CompilePhase.Default }
-                            TaskIdentifier(name, target, "", compilePhase: compilePhase)
-                        } else {
-                            None
-                        }
-                    } |> collectHashSet
-                requireTasks.add(task.id)
-                let (outLogFile, errLogFile) = getLogFile(logPath, taskId)
-                let linkTask = CompileTask(
-                    id: taskId,
-                    targetDir: targetDir,
-                    targetPath: targetPath,
-                    packagePath: packagePath,
-                    product: product,
-                    sourceSetDir: sourceSetDir,
-                    sourceSetFeatures: sourceSetFeatures,
-                    rootPkgName: rootPkgName,
-                    fullName: fullName,
-                    filename: filename,
-                    outputType: outputType,
-                    target: target,
-                    isCrossCompile: isCrossCompile,
-                    compileOption: compileOption,
-                    overrideOption: overrideOption,
-                    linkOption: linkOption,
-                    customizedOption: customizedOption,
-                    subPkgSet: subPkgSet,
-                    isCombined: isCombined,
-                    isProjectCombined: isProjectCombined,
-                    requiredForTests: requiredForTests,
-                    exportForTests: exportForTests,
-                    requireTasks: requireTasks,
-                    allEnabledFeatures: allEnabledFeatures,
-                    featureMapping: featureMapping,
-                    isAnalysisCompilePerformance: isAnalysisCompilePerformance,
-                    hasSubPkgs: hasSubPkgs,
-                    isDebug: isDebug,
-                    isCov: isCov,
-                    mockSupported: mockSupported,
-                    isMacro: isMacro,
-                    isLto: isLto,
-                    ltoValue: ltoValue,
-                    isMultiplatform: isMultiplatform,
-                    checkDepCjo: checkDepCjo,
-                    supressed: supressed,
-                    outLogFile: outLogFile,
-                    errLogFile: errLogFile,
-                    prevStageObj: prevStageObj
-                )
-                compileTasks.add(linkTask)
+            if (!isSplittable) {
+                return compileTasks
             }
+            let linkTaskId = TaskIdentifier(
+                fullName,
+                target,
+                if (!product) { sourceSetDir } else { "" },
+                compilePhase: LinkOnly
+            )
+            let prevStageObj = Path(task.targetPath).join(getOutput(task).getOrThrow()).toString()
+            let linkRequireTasks = getDepSet(fullName, buildConfig).iterator().filterMap { name =>
+                    if(!buildConfig.packageList.isMacro(name) && !buildConfig.packageList.isTest(name)) {
+                        let isSplittable = buildConfig.packageList.isDyLib(name) || buildConfig.packageList.isExe(name)
+                        let compilePhase = if (isSplittable) { LinkOnly } else { CompilePhase.Default }
+                        TaskIdentifier(name, target, "", compilePhase: compilePhase)
+                    } else {
+                        None
+                    }
+                } |> collectHashSet
+            linkRequireTasks.add(task.id)
+            let (linkOutLogFile, linkErrLogFile) = getLogFile(logPath, linkTaskId)
+            let linkTask = CompileTask(
+                id: linkTaskId,
+                targetDir: targetDir,
+                targetPath: targetPath,
+                packagePath: packagePath,
+                product: product,
+                sourceSetDir: sourceSetDir,
+                sourceSetFeatures: sourceSetFeatures,
+                rootPkgName: rootPkgName,
+                fullName: fullName,
+                filename: filename,
+                outputType: outputType,
+                target: target,
+                isCrossCompile: isCrossCompile,
+                compileOption: compileOption,
+                overrideOption: overrideOption,
+                linkOption: linkOption,
+                customizedOption: customizedOption,
+                subPkgSet: subPkgSet,
+                isCombined: isCombined,
+                isProjectCombined: isProjectCombined,
+                requiredForTests: requiredForTests,
+                exportForTests: exportForTests,
+                requireTasks: linkRequireTasks,
+                allEnabledFeatures: allEnabledFeatures,
+                featureMapping: featureMapping,
+                isAnalysisCompilePerformance: isAnalysisCompilePerformance,
+                hasSubPkgs: hasSubPkgs,
+                isDebug: isDebug,
+                isCov: isCov,
+                mockSupported: mockSupported,
+                isMacro: isMacro,
+                isLto: isLto,
+                ltoValue: ltoValue,
+                isMultiplatform: isMultiplatform,
+                checkDepCjo: checkDepCjo,
+                supressed: supressed,
+                outLogFile: linkOutLogFile,
+                errLogFile: linkErrLogFile,
+                prevStageObj: prevStageObj
+            )
+            compileTasks.add(linkTask)
             compileTasks
         }
 
@@ -765,11 +762,7 @@ func getDownstreamTasksAndSynCounters(buildConfig: BuildConfig, taskMap: TaskMap
                 printDependency(taskId, dep, buildConfig.isVerbose && buildConfig.isCompilePipelineParallel)
             }
 
-            for (dep in task.subPkgSet) {
-                let depId = TaskIdentifier(dep, task.target, "")
-                if (!taskMap.contains(depId)) {
-                    continue
-                }
+            for (depId in task.subPkgSet.iterator().map { dep => TaskIdentifier(dep, task.target, "") } where taskMap.contains(depId)) {
                 depTasks.add(depId)
                 downstreamTasks.addIfAbsent(depId, HashSet<TaskIdentifier>())
                 downstreamTasks[depId].add(taskId)
@@ -872,7 +865,7 @@ var watcherCb: (String) -> Unit = { _ => }
 
 @When[(os != "iOS") && (env != "ohos") && (env != "android")]
 func watchFS(cjo2task: HashMap<String, TaskIdentifier>, listenDirs: HashSet<String>,
-    notify: (TaskIdentifier, Notification) -> Unit, collectCjoFlagFiles: (String) -> Bool, verbose: Bool): Unit {
+    notify: (TaskIdentifier, Notification) -> Unit, verbose: Bool): Unit {
     let dirs = StringBuilder()
     for (dir in listenDirs) {
         if (!exists(dir)) {
@@ -880,10 +873,7 @@ func watchFS(cjo2task: HashMap<String, TaskIdentifier>, listenDirs: HashSet<Stri
         }
         dirs.append("${dir},")
     }
-    watcherCb = { cjo =>
-        collectCjoFlagFiles(cjo)
-        notify(cjo2task[cjo], CjoReady) 
-    }
+    watcherCb = { cjo => notify(cjo2task[cjo], CjoReady) }
     unsafe {
         let cs = LibC.mallocCString(dirs.toString())
         let res = initFSWatcher(cs, { cjo => watcherCb(cjo.toString()) }, verbose)
@@ -897,7 +887,7 @@ func watchFS(cjo2task: HashMap<String, TaskIdentifier>, listenDirs: HashSet<Stri
 
 @When[(os == "iOS") || (env == "ohos") || (env == "android")]
 func watchFS(_: HashMap<String, TaskIdentifier>, _: HashSet<String>,
-    _: (TaskIdentifier, Notification) -> Unit, _: (String) -> Bool, verbose: Bool): Unit {}
+    _: (TaskIdentifier, Notification) -> Unit, verbose: Bool): Unit {}
 
 @When[(os != "iOS") && (env != "ohos") && (env != "android")]
 func stopWatchFS(isVerbose: Bool): Unit {
