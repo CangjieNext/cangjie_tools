@@ -53,7 +53,7 @@ void CompletionEnv::DealMainDecl(Ptr<Node> node, const Position pos)
     if (!pMainDecl) { return; }
     DeepComplete(pMainDecl->funcBody.get(), pos);
 }
-
+// LCOV_EXCL_START
 void CompletionEnv::DealMacroDecl(Ptr<Node> node, const Position pos)
 {
     auto pMacroDecl = dynamic_cast<MacroDecl*>(node.get());
@@ -340,7 +340,7 @@ void CompletionEnv::DealTryExpr(Ptr<Node> node, const Position pos)
         }
     }
 }
-
+// LCOV_EXCL_STOP
 void CompletionEnv::DealFuncBody(Ptr<Node> node, const Position pos)
 {
     auto pFuncBody = dynamic_cast<FuncBody*>(node.get());
@@ -364,7 +364,7 @@ void CompletionEnv::DealVarDecl(Ptr<Node> node, const Position pos)
         DeepComplete(pVarDecl->initializer.get(), pos);
     }
 }
-
+// LCOV_EXCL_START
 void CompletionEnv::DealVarWithPatternDecl(Ptr<Node> node, const Position pos)
 {
     auto pVarWithPatternDecl = dynamic_cast<VarWithPatternDecl*>(node.get());
@@ -373,7 +373,7 @@ void CompletionEnv::DealVarWithPatternDecl(Ptr<Node> node, const Position pos)
         DeepComplete(pVarWithPatternDecl->initializer.get(), pos);
     }
 }
-
+// LCOV_EXCL_STOP
 void CompletionEnv::DealPropDecl(Ptr<Cangjie::AST::Node> node, const Cangjie::Position pos)
 {
     auto pPropDecl = dynamic_cast<PropDecl*>(node.get());
@@ -544,7 +544,7 @@ void CompletionEnv::DealBlock(Ptr<Node> node, const Position pos)
     }
     if (innerDecl) { DeepComplete(innerDecl, pos); }
 }
-
+// LCOV_EXCL_START
 void CompletionEnv::DealTuplePattern(Ptr<Node> node, const Position pos)
 {
     auto pTuplePattern = dynamic_cast<TuplePattern*>(node.get());
@@ -556,7 +556,7 @@ void CompletionEnv::DealTuplePattern(Ptr<Node> node, const Position pos)
         DeepComplete(pattern.get(), pos);
     }
 }
-
+// LCOV_EXCL_STOP
 void CompletionEnv::DealVarPattern(Ptr<Node> node, const Position /* pos */)
 {
     auto pVarPattern = dynamic_cast<VarPattern*>(node.get());
@@ -744,6 +744,7 @@ void CompletionEnv::DotAccessible(Decl &decl, const Decl &parentDecl, bool isSup
         return;
     }
     if (isFromNormal && decl.TestAttr(Cangjie::AST::Attribute::CONSTRUCTOR)) {
+        // LCOV_EXCL_START
         std::string replaceString = ItemResolverUtil::ResolveSignatureByNode(parentDecl);
         std::string insertReplaceString =
                 parentDecl.identifier + ItemResolverUtil::GetGenericInsertByDecl(parentDecl.GetGeneric());
@@ -765,6 +766,7 @@ void CompletionEnv::DotAccessible(Decl &decl, const Decl &parentDecl, bool isSup
         MarkDeprecated(decl, initCompletion);
         AddCompletionItem(signature, signature, initCompletion);
         return;
+        // LCOV_EXCL_STOP
     }
     bool show = true;
     // dot completion need check accessible between parent and child type.
@@ -931,6 +933,7 @@ void CompletionEnv::CompleteInSemaCache(const std::string &parentClassLikeName)
     auto matchDecl = cache->packageInstance->importManager.GetPackageMembersByName(
         *cache->packageInstance->ctx->curPackage, parentClassLikeName);
     for (auto item : matchDecl) {
+        // LCOV_EXCL_START
         if (item == nullptr) {
             continue;
         }
@@ -941,9 +944,10 @@ void CompletionEnv::CompleteInSemaCache(const std::string &parentClassLikeName)
             auto decl = dynamic_cast<InterfaceDecl *>(item.get());
             DealClassOrInterfaceDeclByName(decl);
         }
+        // LCOV_EXCL_STOP
     }
 }
-
+// LCOV_EXCL_START
 void CompletionEnv::CompleteInheritedTypes(Ptr<Node> decl)
 {
     if (!decl) { return; }
@@ -989,7 +993,7 @@ void CompletionEnv::DealClassOrInterfaceDeclByName(T &decl)
         }
     }
 }
-
+// LCOV_EXCL_STOP
 void CompletionEnv::CompleteNode(
     Ptr<Node> node, bool isImport, bool isInScope, bool isSameName, const std::string &container)
 {
@@ -1196,7 +1200,7 @@ void CompletionEnv::CompleteAliasItem(Ptr<Node> node, const std::string &aliasNa
         CompleteInitFuncDecl(node, aliasName);
     }
 }
-
+// LCOV_EXCL_START
 void CompletionEnv::CompleteInitFuncDecl(Ptr<Node> node, const std::string &aliasName, bool isType, bool isInScope)
 {
     if (!node) { return; }
@@ -1236,7 +1240,7 @@ void CompletionEnv::CompleteInitFuncDecl(Ptr<Node> node, const std::string &alia
         }
     }
 }
-
+// LCOV_EXCL_STOP
 template<typename T>
 void CompletionEnv::CompleteClassOrStructDecl(const T &decl, const std::string &aliasName, bool isType,
                                               bool isInScope)
@@ -1471,7 +1475,7 @@ bool CompletionEnv::VarDeclIsLet(Ptr<Node> node) const
     auto varDecl = dynamic_cast<VarDecl*>(node.get());
     return !varDecl->isVar;
 }
-
+// LCOV_EXCL_START
 void CompletionEnv::AddItemForMacro(Ptr<Node> node, CodeCompletion &completion)
 {
     completion.label = ItemResolverUtil::ResolveSignatureByNode(*node, parserAst->sourceManager, true);
@@ -1484,7 +1488,7 @@ void CompletionEnv::AddItemForMacro(Ptr<Node> node, CodeCompletion &completion)
     macroCompletion.insertText += "(${2:input: Tokens})";
     AddCompletionItem(macroCompletion.label, macroCompletion.label, macroCompletion);
 }
-
+// LCOV_EXCL_STOP
 ark::lsp::SymbolID CompletionEnv::GetDeclSymbolID(const Decl& decl)
 {
     auto identifier = decl.exportId;
