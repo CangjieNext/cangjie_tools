@@ -13,6 +13,7 @@ set(UNIT_TESTS_SRC
         languageserver/common/UtilsTest.cpp
         languageserver/common/UtilsTest2.cpp
         languageserver/index/MemIndexTest.cpp
+        languageserver/index/IndexStorageTest.cpp
         languageserver/logger/LoggerTest.cpp
         languageserver/logger/CrashReporterTest.cpp
         languageserver/ArkASTTest.cpp

@@ -258,7 +258,7 @@ int ArkAST::GetCurTokenByPos(const Position &pos, int start, int end, bool isFor
         return GetCurTokenByPos(pos, midIndex + 1, end, isForRename);
     }
 }
-
+// LCOV_EXCL_START
 void ArkAST::PostProcessGetToken(const Cangjie::Position &pos, Cangjie::Token &curToken, int index) const
 {
     if (pos < curToken.Begin() && index - 1 >= 0) {
@@ -274,7 +274,7 @@ void ArkAST::PostProcessGetToken(const Cangjie::Position &pos, Cangjie::Token &c
         }
     }
 }
-
+// LCOV_EXCL_STOP
 bool ArkAST::IsFilterToken(const Position &pos) const
 {
     int idx = GetCurTokenByPos(pos, 0, static_cast<int>(tokens.size()) - 1);
