@@ -367,6 +367,36 @@ void CompilerCangjieProject::PostCompileProcess(const std::string &fullPkgName, 
     BuildIndex(ci);
 }
 
+void CompilerCangjieProject::CleanupOldPackageMapping(std::string &fullPkgName, std::string oldRealPkgName)
+{
+    if (this->realPkgToFullPkgName.find(oldRealPkgName) != this->realPkgToFullPkgName.end()) {
+        this->realPkgToFullPkgName[oldRealPkgName].erase(fullPkgName);
+        if (this->realPkgToFullPkgName[oldRealPkgName].empty()) {
+            this->realPkgToFullPkgName.erase(oldRealPkgName);
+        }
+    }
+}
+
+void CompilerCangjieProject::ExecutePackageRename(std::string &fullPkgName,
+    const std::unique_ptr<LSPCompilerInstance> &ci,
+    std::string pkgName,
+    std::string newFullPkgName)
+{
+    pathToFullPkgName[pkgInfoMap[fullPkgName]->packagePath] = newFullPkgName;
+    std::string realPkgName = GetRealPackageName(newFullPkgName);
+    realPkgToFullPkgName[realPkgName].insert(newFullPkgName);
+    pkgInfoMap[fullPkgName]->packageName = SplitFullPackage(pkgName).second;
+    pkgInfoMap[newFullPkgName] = std::move(pkgInfoMap[fullPkgName]);
+    pkgInfoMap.erase(fullPkgName);
+    std::string oldRealPkgName = GetRealPackageName(fullPkgName);
+    CleanupOldPackageMapping(fullPkgName, oldRealPkgName);
+    pLRUCache->EraseCache(fullPkgName);
+    CIMap.erase(fullPkgName);
+    LSPCompilerInstance::astDataMap.erase(fullPkgName);
+    ci->pkgNameForPath = newFullPkgName;
+    fullPkgName = newFullPkgName;
+}
+
 bool CompilerCangjieProject::UpdateDependencies(
     std::string &fullPkgName, const std::unique_ptr<LSPCompilerInstance> &ci)
 {
@@ -396,24 +426,7 @@ bool CompilerCangjieProject::UpdateDependencies(
         if (pkgInfoMap.find(newFullPkgName) != pkgInfoMap.end()) {
             redefined = true;
         } else {
-            pathToFullPkgName[pkgInfoMap[fullPkgName]->packagePath] = newFullPkgName;
-            std::string realPkgName = GetRealPackageName(newFullPkgName);
-            realPkgToFullPkgName[realPkgName].insert(newFullPkgName);
-            pkgInfoMap[fullPkgName]->packageName = SplitFullPackage(pkgName).second;
-            pkgInfoMap[newFullPkgName] = std::move(pkgInfoMap[fullPkgName]);
-            pkgInfoMap.erase(fullPkgName);
-            std::string oldRealPkgName = GetRealPackageName(fullPkgName);
-            if (this->realPkgToFullPkgName.find(oldRealPkgName) != this->realPkgToFullPkgName.end()) {
-                this->realPkgToFullPkgName[oldRealPkgName].erase(fullPkgName);
-                if (this->realPkgToFullPkgName[oldRealPkgName].empty()) {
-                    this->realPkgToFullPkgName.erase(oldRealPkgName);
-                }
-            }
-            pLRUCache->EraseCache(fullPkgName);
-            CIMap.erase(fullPkgName);
-            LSPCompilerInstance::astDataMap.erase(fullPkgName);
-            ci->pkgNameForPath = newFullPkgName;
-            fullPkgName = newFullPkgName;
+            ExecutePackageRename(fullPkgName, ci, pkgName, newFullPkgName);
         }
     }
     ci->UpdateDepGraph(graph, fullPkgName);
