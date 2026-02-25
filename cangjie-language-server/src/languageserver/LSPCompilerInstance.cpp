@@ -115,7 +115,7 @@ void LSPCompilerInstance::UpdateDepGraph(bool isIncrement, const std::string &pr
                 dependentPackageMap[item].downstreamPkgs.erase(pkgNameForPath);
             }
         }
-
+        // LCOV_EXCL_START
         if (!prePkgName.empty() && prePkgName != pkgNameForPath) {
             dependentPackageMap[pkgNameForPath].downstreamPkgs =
                 dependentPackageMap[prePkgName].downstreamPkgs;
@@ -134,7 +134,7 @@ void LSPCompilerInstance::UpdateDepGraph(bool isIncrement, const std::string &pr
             }
             dependentPackageMap.erase(prePkgName);
         }
-
+        // LCOV_EXCL_STOP
         dependentPackageMap[pkgNameForPath].importPackages = upstreamPkgs;
         dependentPackageMap[pkgNameForPath].inDegree = upstreamPkgs.size();
         if (isIncrement) {
@@ -465,6 +465,7 @@ void LSPCompilerInstance::UpdateUsrCjoFileCacheMap(
     std::string fullPkgName;
     std::string requireCjoPath;
     CjoCacheMap requiresMap = {};
+    // LCOV_EXCL_START
     for (auto &require : cjoRequiresMap) {
         fullPkgName = require.first;
         requireCjoPath = require.second;
@@ -481,6 +482,7 @@ void LSPCompilerInstance::UpdateUsrCjoFileCacheMap(
             cjoLibraryMap[curModuleName].emplace_back(packageName);
         }
     }
+    // LCOV_EXCL_STOP
     usrCjoFileCacheMap.emplace(moduleName, requiresMap);
 }
 

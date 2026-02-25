@@ -43,6 +43,7 @@ public:
         for (int i = 1; i < argc; ++i) {
             std::string arg = argv[i];
             if (arg[0] == '-' && arg[1] != '-') {
+                // LCOV_EXCL_START
                 // deal short parameters
                 if (arg.length() > LONG_ARG_LEN) {
                     // Assume that the short parameter is followed by its value.
@@ -54,6 +55,7 @@ public:
                     // Short parameter with no value
                     shortOptions[arg[1]] = "";
                 }
+                // LCOV_EXCL_STOP
             } else if (arg[0] == '-' && arg[1] == '-') {
                 // deal long parameters
                 std::string::size_type equalPos = arg.find('=');

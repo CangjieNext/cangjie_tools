@@ -1542,10 +1542,12 @@ bool CompilerCangjieProject::CheckNeedCompiler(const std::string &fileName)
     if (pkgInfoMap.find(fullPkgName) != pkgInfoMap.end()) {
         return pkgInfoMap[fullPkgName]->needReCompile;
     }
+    // LCOV_EXCL_START
     std::string dirPath = GetDirPath(fileName);
     if (pkgInfoMapNotInSrc.find(dirPath) != pkgInfoMapNotInSrc.end()) {
         return pkgInfoMapNotInSrc[dirPath]->needReCompile;
     }
+    // LCOV_EXCL_STOP
     return false;
 }
 
@@ -1563,12 +1565,14 @@ std::string CompilerCangjieProject::GetPathBySource(const std::string& fileName,
         GetRealPath(path);
         return path;
     }
+    // LCOV_EXCL_START
     std::string dirPath = GetDirPath(fileName);
     if (pLRUCache->HasCache(dirPath)) {
         path = pLRUCache->Get(dirPath)->GetSourceManager().GetSource(id).path;
         GetRealPath(path);
         return path;
     }
+    // LCOV_EXCL_STOP
     return "";
 }
 

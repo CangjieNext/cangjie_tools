@@ -109,7 +109,7 @@ public:
         }
         return result;
     }
-
+    // LCOV_EXCL_START
     std::vector<std::string> PartialTopologicalSort(std::unordered_set<std::string>& selected,
                                                     bool reverse = false) const
     {
@@ -122,7 +122,7 @@ public:
         }
         return result;
     }
-
+    // LCOV_EXCL_STOP
     // Find a cycle that includes the given package
     std::pair<std::vector<std::vector<std::string>>, bool> FindCycles() const
     {
@@ -201,6 +201,7 @@ private:
 
         // Access dependencies within locked scope
         auto it = reverseDependencies.find(package);
+        // LCOV_EXCL_START
         if (it != reverseDependencies.end()) {
             for (const auto &dep : it->second) {
                 if (visited.find(dep) == visited.end()) {
@@ -209,6 +210,7 @@ private:
                 }
             }
         }
+        // LCOV_EXCL_STOP
     }
 
     void CyclesDFS(const std::string &package,

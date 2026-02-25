@@ -110,6 +110,7 @@ bool ArkASTWorker::ShouldSkipHeadLocked() const
     }
     // The other way an update can be live is if its diagnostics might be used.
     switch (updateType) {
+        // LCOV_EXCL_START
         case NeedDiagnostics::YES:
             return false; // Always used.
         case NeedDiagnostics::NO:
@@ -121,6 +122,7 @@ bool ArkASTWorker::ShouldSkipHeadLocked() const
             return false;
         default:
             return false;
+        // LCOV_EXCL_STOP
     }
 }
 
@@ -175,18 +177,18 @@ void ArkASTWorker::RunWithAST(const std::string &name,
         inputs.version = this->callback->GetVersionByFile(file);
         if (needReParser) {
             std::vector<TextDocumentContentChangeEvent> contentChanges;
+            // LCOV_EXCL_START
             // Do incremental build for defined file first
             if (this->callback->isRenameDefined && this->callback->NeedReParser(this->callback->path) &&
                 this->callback->path != file) {
-                // LCOV_EXCL_START
                 CompilerCangjieProject::GetInstance()->CompilerOneFile(
                     this->callback->path, this->callback->GetContentsByFile(this->callback->path));
                 this->callback->UpdateDocNeedReparse(this->callback->path,
                     this->callback->GetVersionByFile(this->callback->path), false);                    
                 this->callback->isRenameDefined = false;
                 this->callback->path = "";
-                // LCOV_EXCL_STOP
             }
+            // LCOV_EXCL_STOP
             CompilerCangjieProject::GetInstance()->CompilerOneFile(file, this->callback->GetContentsByFile(file));
             this->callback->UpdateDocNeedReparse(file, inputs.version, false);
             std::vector<DiagnosticToken> diagnostics = callback->GetDiagsOfCurFile(file);

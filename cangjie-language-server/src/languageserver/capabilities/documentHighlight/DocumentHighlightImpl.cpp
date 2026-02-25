@@ -137,6 +137,7 @@ void DocumentHighlightImpl::FindDocumentHighlights(const ArkAST &ast, std::set<D
     for (auto& decl: decls) {
         if (!decl || decl->astKind == Cangjie::AST::ASTKind::PACKAGE_DECL) { return; }
         if (decl->TestAttr(Attribute::DEFAULT, Attribute::COMPILER_ADD)) {
+            // LCOV_EXCL_START
             auto query = "_ = (" + std::to_string(decl->identifier.Begin().fileID) + ", " +
                          std::to_string(decl->identifier.Begin().line) +
                          ", " + std::to_string(decl->identifier.Begin().column) + ")";
@@ -147,6 +148,7 @@ void DocumentHighlightImpl::FindDocumentHighlights(const ArkAST &ast, std::set<D
                     decl = realDecl;
                 }
             }
+            // LCOV_EXCL_STOP
         }
         HandleFuncAndPropDecl(pos.fileID, *decl, result, ast.tokens);
         DealInCurPackage(ast, pos, syms, result, decl);

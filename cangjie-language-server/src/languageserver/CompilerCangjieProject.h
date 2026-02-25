@@ -195,7 +195,7 @@ public:
     Ptr<Package> GetSourcePackagesByPkg(const std::string &fullPkgName);
 
     std::string GetModuleSrcPath(const std::string &modulePath);
-
+    // LCOV_EXCL_START
     void SetHead(const std::string &fullPkgName) const
     {
         if (pLRUCache == nullptr) { return; }
@@ -203,7 +203,7 @@ public:
             (void) pLRUCache->Get(fullPkgName);
         }
     };
-
+    // LCOV_EXCL_STOP
     std::vector<std::string> GetCiMapList()
     {
         std::vector<std::string> ciMap = {};

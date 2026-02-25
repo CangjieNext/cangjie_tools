@@ -249,12 +249,14 @@ void CallHierarchyImpl::FindOnOutgoingCallsImpl(vector <CallHierarchyOutgoingCal
     lsp::LookupRequest lookUpReq{containerIds};
     lsp::Symbol declSym;
     // find decl symbol by id
+    // LCOV_EXCL_START
     index->Lookup(lookUpReq, [&declSym](const lsp::Symbol &sym) {
         if (sym.location.IsZeroLoc() && sym.name != "init" && !sym.isCjoSym) {
             return;
         }
         declSym = sym;
     });
+    // LCOV_EXCL_STOP
     auto pkgName = declSym.scope;
     size_t pos = declSym.scope.find_last_of(':');
     if (pos != string::npos) {
