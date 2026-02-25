@@ -289,7 +289,7 @@ bool SymbolCollector::ShouldPassInCjdIndexing(Ptr<Node> node)
     return CjdIndexer::GetInstance() && CjdIndexer::GetInstance()->GetRunningState() && DynamicCast<FuncDecl *>(node);
 }
 
-void SymbolCollector::Build(const Package &package)
+void SymbolCollector::Build(const Package &package, const std::string &packagePath)
 {
     Preamble(package);
     std::unordered_set<Ptr<InheritableDecl>> inheritableDecls;
@@ -297,6 +297,10 @@ void SymbolCollector::Build(const Package &package)
     AccessLevel pkgAccess = package.accessible;
     for (auto &file : package.files) {
         auto filePath = file->curFile->filePath;
+        bool inValidPkg = !packagePath.empty() && !IsUnderPath(packagePath, filePath);
+        if (inValidPkg) {
+            continue;
+        }
         auto collectPre = [this, &inheritableDecls, &filePath, &pkgAccess](auto node) {
             if (auto invocation = node->GetConstInvocation()) {
                 CreateMacroRef(*node, *invocation);
@@ -355,7 +359,8 @@ void SymbolCollector::Build(const Package &package)
                 return VisitAction::WALK_CHILDREN;
             }).Walk();
         }
-        if (!CjdIndexer::GetInstance() || !CjdIndexer::GetInstance()->GetRunningState()) {
+        bool shouldCreateImportRef = !CjdIndexer::GetInstance() || !CjdIndexer::GetInstance()->GetRunningState();
+        if (shouldCreateImportRef) {
            CreateImportRef(*file); 
         }
     }
