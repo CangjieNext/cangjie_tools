@@ -406,10 +406,14 @@ func hasExeFile(buildConfig: BuildConfig, fullName: String): Bool {
 func refreshIncreInfo(buildConfig: BuildConfig, curResolveData: ModuleResolve): Unit {
     collectCjoTime(buildConfig)
     collectLastTime(buildConfig)
-    var incrementalFlag: Bool = buildConfig.isIncremental
-    while (incrementalFlag) {
-        incrementalFlag = analyseRebuild(buildConfig)
-    }
+    // var incrementalFlag: Bool = buildConfig.isIncremental
+    // while (incrementalFlag) {
+    //     incrementalFlag = analyseRebuild(buildConfig)
+    // }
+    let t1 = DateTime.now()
+    optimizeIncrementalRebuild(buildConfig)
+    let t2 = DateTime.now()
+    println("naigo optimizeIncrementalRebuild: " + (t2-t1).toString())
 
     for (r in curResolveData.resolves) {
         if (!buildConfig.rebuildList.contains(r.fullName)) {
@@ -513,6 +517,78 @@ func collectLastTime(buildConfig: BuildConfig): Unit {
         } catch (_: Exception) {}
     }
     return
+}
+
+// 核心优化：线性复杂度的增量重建分析
+func optimizeIncrementalRebuild(buildConfig: BuildConfig) {
+    // ========== 步骤1：构建反向索引（线性时间O(M+N)） ==========
+    // 反向依赖映射：key=被依赖的包，value=所有依赖该包的pkgName列表（从requiresMap构建）
+    let dependentsMap = HashMap<String, ArrayList<String>>()
+    for ((pkgName, requires) in buildConfig.requiresMap) {
+        for (r in requires) {
+            dependentsMap.addIfAbsent(r, ArrayList<String>())
+            dependentsMap[r].add(pkgName)
+        }
+    }
+
+    // 子包→超级包映射：key=子包名，value=包含该子包的超级包名列表（从superPkgMap构建）
+    let subToSuperMap = HashMap<String, ArrayList<String>>()
+    for ((superPkgName, superPkgCfg) in buildConfig.superPkgMap) {
+        for (subPkg in superPkgCfg.subPkgSet) {
+            subToSuperMap.addIfAbsent(subPkg, ArrayList<String>())
+            subToSuperMap[subPkg].add(superPkgName)
+        }
+    }
+
+    // ========== 步骤2：BFS批量处理所有需要重建的包（线性时间O(M+N)） ==========
+    // 初始化队列：放入初始需要重建的包（原rebuildList）
+    let queue = ArrayDeque<String>()
+    for (pkg in buildConfig.rebuildList) {
+        queue.addLast(pkg)
+    }
+
+    // BFS遍历：每个包仅处理一次，确保线性复杂度
+    while (let Some(currentPkg) <- queue.removeFirst()) { // 取出当前触发重建的包
+
+        // 处理依赖当前包的普通包（对应原requiresMap逻辑）
+        if (dependentsMap.contains(currentPkg)) {
+            for (dependentPkg in dependentsMap[currentPkg]) {
+                // 已在重建列表则跳过
+                if (buildConfig.rebuildList.contains(dependentPkg)) {
+                    continue
+                }
+
+                // 检查test列表：若依赖在test列表，跳过当前依赖包的检查
+                let requires = buildConfig.requiresMap[dependentPkg]
+                if (requires.contains(currentPkg) && buildConfig.packageList.test.contains(currentPkg)) {
+                    continue
+                }
+
+                // 检查CJO时间条件 或 依赖在重建列表中（核心触发条件）
+                var needRebuild = buildConfig.cjoTimeMap.contains(currentPkg) && buildConfig.lastEndTime < buildConfig.cjoTimeMap[currentPkg]
+                needRebuild = needRebuild || buildConfig.rebuildList.contains(currentPkg)
+
+                if (needRebuild) {
+                    buildConfig.rebuildList.add(dependentPkg)
+                    // 仅当是依赖触发的重建，标记为间接重建
+                    if (buildConfig.rebuildList.contains(currentPkg)) {
+                        buildConfig.indirectRebuilds.add(dependentPkg)
+                    }
+                    queue.addLast(dependentPkg) // 加入队列，继续处理依赖该包的其他包
+                }
+            }
+        }
+
+        // 处理包含当前包的超级包（对应原superPkgMap逻辑）
+        if (subToSuperMap.contains(currentPkg)) {
+            for (superPkgName in subToSuperMap[currentPkg]) {
+                if (!buildConfig.rebuildList.contains(superPkgName)) {
+                    buildConfig.rebuildList.add(superPkgName)
+                    queue.addLast(superPkgName) // 加入队列，处理依赖该超级包的其他包
+                }
+            }
+        }
+    }
 }
 
 // Analyzing indirectly affected packages in incremental.
