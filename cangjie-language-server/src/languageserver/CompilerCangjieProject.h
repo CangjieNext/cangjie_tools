@@ -572,6 +572,8 @@ private:
                             const std::pair<std::vector<std::vector<std::string>>, bool> &cycles,
                             bool isDelete);
 
+    void CleanupOldPackageMapping(std::string &fullPkgName, std::string oldRealPkgName);
+
     void IncrementCompileForComplete(const std::string &name, const std::string &filePath,
         Position pos, const std::string &contents = "");
 

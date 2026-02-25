@@ -367,6 +367,16 @@ void CompilerCangjieProject::PostCompileProcess(const std::string &fullPkgName, 
     BuildIndex(ci);
 }
 
+void CompilerCangjieProject::CleanupOldPackageMapping(std::string &fullPkgName, std::string oldRealPkgName)
+{
+    if (this->realPkgToFullPkgName.find(oldRealPkgName) != this->realPkgToFullPkgName.end()) {
+        this->realPkgToFullPkgName[oldRealPkgName].erase(fullPkgName);
+        if (this->realPkgToFullPkgName[oldRealPkgName].empty()) {
+            this->realPkgToFullPkgName.erase(oldRealPkgName);
+        }
+    }
+}
+
 bool CompilerCangjieProject::UpdateDependencies(
     std::string &fullPkgName, const std::unique_ptr<LSPCompilerInstance> &ci)
 {
@@ -403,12 +413,7 @@ bool CompilerCangjieProject::UpdateDependencies(
             pkgInfoMap[newFullPkgName] = std::move(pkgInfoMap[fullPkgName]);
             pkgInfoMap.erase(fullPkgName);
             std::string oldRealPkgName = GetRealPackageName(fullPkgName);
-            if (this->realPkgToFullPkgName.find(oldRealPkgName) != this->realPkgToFullPkgName.end()) {
-                this->realPkgToFullPkgName[oldRealPkgName].erase(fullPkgName);
-                if (this->realPkgToFullPkgName[oldRealPkgName].empty()) {
-                    this->realPkgToFullPkgName.erase(oldRealPkgName);
-                }
-            }
+            CleanupOldPackageMapping(fullPkgName, oldRealPkgName);
             pLRUCache->EraseCache(fullPkgName);
             CIMap.erase(fullPkgName);
             LSPCompilerInstance::astDataMap.erase(fullPkgName);
