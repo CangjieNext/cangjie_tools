@@ -95,6 +95,10 @@ public:
     {
         useDB = flag;
     }
+    static void SetIncrementalOptimize(const bool flag)
+    {
+        incrementalOptimize = flag;
+    }
     static void InitInstance(Callbacks *cb, lsp::IndexDatabase *arkIndexDB);
     void UpdateBuffCache(const std::string &file, bool isContentChange = false);
     void GetRealPath(std::string &path);
@@ -161,7 +165,7 @@ public:
     {
         std::vector<std::string> ret;
         auto it = packageInstanceCache.find(pkgPath);
-        if (it == packageInstanceCache.end() || !it->second ||!it->second->package) {
+        if (it == packageInstanceCache.end() || !it->second || !it->second->package) {
             return ret;
         }
         for (auto &file: it->second->package->files) {
@@ -483,6 +487,9 @@ public:
     
     void EmitDiagsOfFile(const std::string &filePath);
 
+    void UpdateFileStatusInCI(const std::string& pkgName, const std::string& file,
+        CompilerInstance::SrcCodeChangeState state);
+
 private:
     CompilerCangjieProject(Callbacks *cb, lsp::IndexDatabase *arkIndexDB);
 
@@ -567,6 +574,7 @@ private:
     // key: fullPackageName, value: PackageSpec's modifier
     std::unordered_map<std::string, Modifier> pkgToModMap;
     static bool useDB;
+    static bool incrementalOptimize;
 };
 } // namespace ark
 
