@@ -1080,7 +1080,8 @@ void CompletionEnv::CompleteNode(
         return;
     }
     // skip VArray type
-    if (node->ty->kind == TypeKind::TYPE_VARRAY) {
+    bool skipVAaary = node->ty->kind == TypeKind::TYPE_VARRAY && signature == "VArray<T>";
+    if (skipVAaary) {
         return;
     }
     completion.label = signature;
@@ -1304,7 +1305,7 @@ void CompletionEnv::CompleteInitFuncDecl(Ptr<Node> node, const std::string &alia
         if (isInvalid) { return; }
         auto targetDecl = decl->type->GetTarget();
         if (targetDecl->IsStructOrClassDecl()) {
-            CompleteInitFuncDecl(targetDecl, aliasName, true);
+            CompleteInitFuncDecl(targetDecl, aliasName.empty() ? decl->identifier : aliasName, true);
         }
     }
 }

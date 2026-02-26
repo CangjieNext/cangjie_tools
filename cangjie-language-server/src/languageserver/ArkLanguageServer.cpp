@@ -4,12 +4,13 @@
 //
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
-#include "ArkLanguageServer.h"
 #include <iostream>
 #include <map>
 #include <set>
 #include <mutex>
 #include <utility>
+#include "ArkLanguageServer.h"
+#include "cangjie/Frontend/CompilerInstance.h"
 #include "capabilities/semanticHighlight/SemanticTokensAdaptor.h"
 #include "capabilities/shutdown/Shutdown.h"
 
@@ -447,6 +448,11 @@ void ArkLanguageServer::OnDocumentDidOpen(const DidOpenTextDocumentParams &param
                 reBuild = true;
             }
         }
+    }
+    if (reBuild) {
+        auto pkgName = CompilerCangjieProject::GetInstance()->GetFullPkgName(file);
+        CompilerCangjieProject::GetInstance()->
+            UpdateFileStatusInCI(pkgName, file, CompilerInstance::SrcCodeChangeState::CHANGED);
     }
     int64_t version = DocMgr.AddDoc(file, params.textDocument.version, contents);
     Server->AddDoc(file, contents, version, ark::NeedDiagnostics::YES, reBuild);
@@ -1150,6 +1156,13 @@ void ArkLanguageServer::RemoveDiagOfCurPkg(const std::string& dirName)
     }
 }
 
+void ArkLanguageServer::RemoveDiagOfCurFile(const std::string& filePath)
+{
+    std::lock_guard<std::mutex> lock(fixItsMutex);
+    std::string normalizeFilePath = NormalizePath(filePath);
+    (void)fixItsMap.erase(normalizeFilePath);
+}
+
 void ArkLanguageServer::UpdateDiagnostic(std::string file, DiagnosticToken diagToken)
 {
     std::lock_guard<std::mutex> lock(fixItsMutex);
@@ -1636,20 +1649,14 @@ void ArkLanguageServer::OnCodeAction(const CodeActionParams &params, nlohmann::j
         return;
     }
     std::string uri = params.textDocument.uri.file;
-    int fileId = CompilerCangjieProject::GetInstance()->GetFileID(file);
-    if (fileId < 0) {
-        ValueOrError value(ValueOrErrorCheck::VALUE, nullptr);
-        reply(value);
-        return;
-    }
     Range range;
     range.start = Cangjie::Position{
-        static_cast<unsigned int>(fileId),
+        static_cast<unsigned int>(0),
         params.range.start.line,
         params.range.start.column
     };
     range.end = Cangjie::Position{
-        static_cast<unsigned int>(fileId),
+        static_cast<unsigned int>(0),
         params.range.end.line,
         params.range.end.column
     };
@@ -1758,7 +1765,7 @@ void ArkLanguageServer::OnCommandApplyTweak(const TweakArgs &args, nlohmann::jso
 
 int ArkLanguageServer::GetUnusedImportCount(std::vector<DiagnosticToken> &diagnostics)
 {
-    int unusedImportCount = 0;    
+    int unusedImportCount = 0;
     for (auto &diagnostic : diagnostics) {
         if (!diagnostic.diaFix.has_value() || !diagnostic.diaFix->removeImport || !diagnostic.codeActions.has_value()) {
             continue;
