@@ -28,25 +28,38 @@ public func runScript(scriptConfig: ScriptConfig, step: BuildScriptStep, command
 
 public func makeScriptConfigByToml(rootPath: String, modulePath: String, tomlInfo: TomlInfo, debug: Bool,
     verbose: Bool, cross: Bool): Option<ScriptConfig> {
-    let (flag, errlog) = tomlInfo.isCompatible()
-    if (!flag) {
-        eprintln("Error: ${errlog} at ${Path(modulePath).join(CONFIG_FILE_NAME).toString()}")
-        return Option.None
-    }
-    var moduleName: String = WORKSPACE_NAME
-    if (tomlInfo.isPkgConfig) {
-        if (!nameCheck(tomlInfo.pkg.name, Path(modulePath).join(CONFIG_FILE_NAME).toString())) {
-            return Option.None
-        }
-        moduleName = tomlInfo.pkg.name
-    }
-
     var scriptConfig: ScriptConfig = ScriptConfig()
     if (!fileExists(Path(modulePath).join(BUILD_SCRIPT_NAME))) {
         if (fileExists(Path(modulePath).join(BUILD_SCRIPT_NAME).toString() + ".bak")) {
             scriptConfig.isRelocated = true
         } else {
             return scriptConfig
+        }
+    }
+
+    let (flag, errlog) = tomlInfo.isCompatible()
+    if (!flag) {
+        eprintln("Error: ${errlog} at ${Path(modulePath).join(CONFIG_FILE_NAME).toString()}")
+        return Option.None
+    }
+    var moduleName: String = WORKSPACE_NAME
+    if (!tomlInfo.pkg.organization.isEmpty() && !tomlInfo.pkg.name.contains("::")) {
+        tomlInfo.pkg.name = tomlInfo.pkg.organization + "::" + tomlInfo.pkg.name
+    }
+
+    if (tomlInfo.isPkgConfig) {
+        if (tomlInfo.pkg.name.contains("::")) {
+            if (!organizationCheck(tomlInfo.pkg.organization, Path(modulePath).join(CONFIG_FILE_NAME).toString()) &&
+                !nameCheck(tomlInfo.pkg.name.removePrefix(tomlInfo.pkg.organization + "::"),
+                    Path(modulePath).join(CONFIG_FILE_NAME).toString())) {
+                return Option.None
+            }
+            moduleName = tomlInfo.pkg.name.split("::")[1]
+        } else {
+            if (!nameCheck(tomlInfo.pkg.name, Path(modulePath).join(CONFIG_FILE_NAME).toString())) {
+                return Option.None
+            }
+            moduleName = tomlInfo.pkg.name
         }
     }
 
@@ -72,7 +85,11 @@ public func makeScriptConfigByToml(rootPath: String, modulePath: String, tomlInf
         targetPath = targetPath.join("release")
     }
     scriptConfig.scriptDep = tomlInfo.getBuildDependencies(modulePath, targetName, debug) ?? return Option.None
-    scriptConfig.scriptTargetDir = targetPath.join(moduleName).toString()
+    if (!tomlInfo.isPkgConfig) {
+        scriptConfig.scriptTargetDir = targetPath.join(moduleName).toString()
+    } else {
+        scriptConfig.scriptTargetDir = targetPath.join(swapOrgName(tomlInfo.pkg.name)).toString()
+    }
 
     scriptConfig.scriptExe = Path(scriptConfig.scriptTargetDir).join("bin").join(BUILD_SCRIPT_OUTPUT).toString()
     scriptConfig.scriptHash = Path(scriptConfig.scriptTargetDir).join("bin").join(BUILD_SCRIPT_CACHE).toString()
@@ -115,7 +132,7 @@ func runScriptExe(scriptConfig: ScriptConfig, commandArg: String): Bool {
         let originalEnv = getVariables()
         if (scriptConfig.isVerbose) {
             cmd = "Run build script: ${getCmdStr(envBuilder.asCliStrings(originalEnv), exePath, ArrayList<String>([commandArg]))}"
-            println(cmd)
+ 	        println(cmd)
         }
         env = envBuilder.finish(HashMap<String, String>())
         for ((name,value) in env) {
@@ -155,8 +172,17 @@ public func runMultiScriptPost(globalConfig: GlobalConfig): Bool {
 func getDepPath(modulePath: String, depName: String, depInfo: DepInfo): Option<String> {
     if (let Some(depPath) <- depInfo.path) {
         return getPath(modulePath, depPath)
+    } else if (let Some(version) <- depInfo.version) {
+        return "${modulePath}${SCRIPT_DEPENDENCIES_MARK}${depName}-${version}"
+    } else {
+        return if (let Some((path, commit, _)) <- downloadGitDep(depName, depInfo)) {
+            depInfo.commitId = commit
+            getCanonicalPath(path)
+        } else {
+            eprintln("Error: failed to retrieve git dependency ${depName}")
+            Option.None
+        }
     }
-    return getOnlineDepPath(modulePath, depName, depInfo)
 }
 
 func getScriptDeps(scriptConfig: ScriptConfig): HashMap<String, DepInfo> {
@@ -273,7 +299,7 @@ func getScriptDepLink(modulePath: String, buildConfig: BuildConfig): Option<Arra
 
     var allPackageSet: HashSet<String> = HashSet<String>(buildConfig.packageList.all)
     var requires: HashSet<String> = HashSet<String>()
-    for (fullName in res.dependencies) {
+    for (fullName in res.dependencies where !fullName.isStdlibPackage) {
         for (importInfo in fullName.importsList) {
             if (!importInfo.fileImported.endsWith(PATH_SPLIT_CHAR + BUILD_SCRIPT_NAME)) {
                 continue
@@ -289,20 +315,23 @@ func getScriptDepLink(modulePath: String, buildConfig: BuildConfig): Option<Arra
         }
     }
 
-    var stdRequires: HashSet<String> = HashSet<String>()
-    for (fullName in res.stdDependencies) {
-        for (importInfo in fullName.importsList) {
-            stdRequires.add(fullName.packageName)
-        }
-    }
-
-    var resolveConfig: ResolveConfig = ResolveConfig()
-    resolveConfig.fullName = "build-script"
-    resolveConfig.outputType = Exe
-    resolveConfig.requirePkgs = requires
-    resolveConfig.stdRequirePkgs = stdRequires
-    buildConfig.requiresMap.add(resolveConfig.fullName, requires)
-    return getDepLinkCommand(resolveConfig, buildConfig, false)
+    let target = if (buildConfig.isCrossCompile) { targetConfigName } else { crossCompileTarget }
+    let requireTasks = requires.iterator().map { it => TaskIdentifier(it, target, "") } |> collectHashSet
+    let taskId = TaskIdentifier("build-script", target, "")
+    let compileTask: CompileTask = CompileTask(
+        id: taskId,
+        fullName: "build-script",
+        targetDir: buildConfig.globalConfig.targetDir,
+        isCrossCompile: buildConfig.isCrossCompile,
+        target: target,
+        outputType: Exe,
+        requireTasks: requireTasks,
+        isDebug: buildConfig.isDebug,
+        isCov: buildConfig.isCov,
+        mockSupported: buildConfig.mockSupported,
+    )
+    buildConfig.requiresMap.add(compileTask.fullName, requires)
+    return getDepLinkCommand(compileTask, buildConfig)
 }
 
 func getEnvBuilder(ldPath: HashSet<String>): EnvironmentBuilder {

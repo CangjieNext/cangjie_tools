@@ -23,29 +23,30 @@ func resolve(globalConfig: GlobalConfig, isScriptDep!: Bool = false): (DepModel,
         return (dm, false, false)
     }
 
-    let (checkSuccessful, mockUsed) = dm.resolve(globalConfig.rootPath, lockFile.requires)
+    let (checkSuccessful, mockUsed) = dm.resolve(globalConfig.rootPath, lockFile.requires, isScriptDep)
     if (!checkSuccessful) {
         return (dm, false, mockUsed)
     }
 
+    let depMap = dm.depAnalysisEngine.getDepMap()
     // Don't lock path dependencies since it would only cause problems for transitive path dependencies
-    dm.depMap.removeIf {_, v => v.path.isSome()}
+    depMap.removeIf {_, v => v.path.isSome()}
 
     if (!isScriptDep) {
         var lockFilePath: String = Path(globalConfig.rootPath).join(LOCK_FILE_NAME).toString()
         // Overwrite file only if we have meaningful changes in case field serialization order got changed
-        if (lockFile.requires != dm.depMap || !fileExists(lockFilePath)) {
+        if (lockFile.requires != depMap || !fileExists(lockFilePath)) {
             if (!lockFile.requires.isEmpty() && !deleteFile(lockFilePath)) {
                 return (dm, false, mockUsed)
             }
 
-            if (!creatLockFile(globalConfig.rootPath, ModuleLock(dm.depMap, lockFile.scripts))) {
+            if (!creatLockFile(globalConfig.rootPath, ModuleLock(depMap, lockFile.scripts))) {
                 return (dm, false, mockUsed)
             }
         }
     }
 
-    if (!dealWithSuperPkg(dm)) {
+    if (!dealWithSuperPkg(dm, globalConfig.isProjectCombine)) {
         return (dm, false, mockUsed)
     }
 
@@ -71,7 +72,24 @@ func resolve(globalConfig: GlobalConfig, isScriptDep!: Bool = false): (DepModel,
     return (dm, true, mockUsed)
 }
 
-func dealWithSuperPkg(dm: DepModel): Bool {
+func checkCombinedConfiguration(dm: DepModel, isProjectCombine: Bool, notSupportSet: HashSet<String>): Bool {
+    if (!dm.superPkgMap.isEmpty() && !isProjectCombine) {
+        var flag = true
+        for ((moduleName, _) in dm.depAnalysisEngine.finalDepMap) {
+            if (!dm.superPkgMap.contains(moduleName) &&
+                !notSupportSet.contains(moduleName) &&
+                dm.packageDepMap.contains(moduleName) &&
+                !dm.packageDepMap[moduleName].isMacroPackage) {
+                eprintln("Error: field 'profile.build.combined' must be configured to combine module '${moduleName}'")
+                flag = false
+            }
+        }
+        return flag
+    }
+    true
+}
+
+func dealWithSuperPkg(dm: DepModel, isProjectCombine: Bool): Bool {
     let notSupportSet = HashSet<String>()
     var superPkgInValidFlag = false;
     for ((superPkgName, superPkgCfg) in dm.superPkgMap) {
@@ -112,34 +130,15 @@ func dealWithSuperPkg(dm: DepModel): Bool {
     if (superPkgInValidFlag) {
         return false
     }
-    for (notSupport in notSupportSet) {
-        dm.superPkgMap.remove(notSupport)
-    }
 
-    if (!checkAllModuleCombined(dm, notSupportSet)) {
+    dm.superPkgMap.remove(all: notSupportSet)
+    
+    if (!checkCombinedConfiguration(dm, isProjectCombine, notSupportSet)) {
         return false
     }
 
     dm.checkSuperPkgDep()
     true
-}
-
-func checkAllModuleCombined(dm: DepModel, notSupportSet: HashSet<String>): Bool {
-    if (!dm.superPkgMap.isEmpty() && !dm.globalConfig.isProjectCombine) {
-        var flag = true
-        for ((moduleName, _) in dm.depRootMap) {
-            if (!dm.superPkgMap.contains(moduleName) &&
-                !notSupportSet.contains(moduleName) &&
-                dm.packageDepMap.contains(moduleName) &&
-                !dm.packageDepMap[moduleName].isMacroPackage) {
-                eprintln("Error: field 'profile.build.combined' must be configured to combine module '${moduleName}'")
-                flag = false
-            }
-        }
-        return flag
-    }
-
-    return true
 }
 
 public func doCheck(memberModule: String, testCheck: Bool): Bool {

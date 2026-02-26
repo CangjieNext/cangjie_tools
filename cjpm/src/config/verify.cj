@@ -13,14 +13,20 @@ import cjpm.util.Result
 
 // Regexp root package name.
 let EXAMPLE_ROOT_PACKAGE_NAME: String = "cjDemo"
+let EXAMPLE_ORG_NAME: String = "cjOrg"
+let EXAMPLE_NAME_WITH_ORG: String = "cjOrg::cjDemo"
 let EXAMPLE_ENV_NAME: String = "CJ_ENV_NAME"
+// Basic string for version.
+let FORMAT_OF_VERSION: String = "(([1-9][0-9]+)|[0-9])\\.(([1-9][0-9]+)|[0-9])\\.(([1-9][0-9]+)|[0-9])"
 // Regexp version.
-public let REGEXP_VERTION: String = "^(([1-9][0-9]+)|[0-9])\\.(([1-9][0-9]+)|[0-9])\\.(([1-9][0-9]+)|[0-9])$"
+public let REGEXP_VERSION: String = "^${FORMAT_OF_VERSION}$"
 let EXAMPLE_MODULE_VERSION: String = "1.0.0"
-// used for central repository
-let REGEXP_NAME_VERSION: String = "^(_*[a-zA-Z][_a-zA-Z0-9]*):(([1-9][0-9]+)|[0-9])\\.(([1-9][0-9]+)|[0-9])\\.(([1-9][0-9]+)|[0-9])$"
-// used for central repository
-public let EXAMPLE_NAME_VERSION: String = "cjModDemo:1.0.0"
+// Regexp repo-dependency require.
+let REGEXP_REQUIRE_UNIT: String = "((${FORMAT_OF_VERSION})|((\\(|([\\(\\[]\\s*${FORMAT_OF_VERSION}))\\s*,\\s*(\\)|(${FORMAT_OF_VERSION}\\s*[\\)\\]]))))"
+let REGEXP_DEP_REQUIRE: String = "^(\\s*${REGEXP_REQUIRE_UNIT}\\s*(,\\s*${REGEXP_REQUIRE_UNIT}\\s*)*)$"
+// Regexp version.
+let REGEXP_NAME_VERSION: String = "^(_*[a-zA-Z][_a-zA-Z0-9]*::)?(_*[a-zA-Z][_a-zA-Z0-9]*)-(([1-9][0-9]+)|[0-9])\\.(([1-9][0-9]+)|[0-9])\\.(([1-9][0-9]+)|[0-9])$"
+public let EXAMPLE_NAME_VERSION: String = "cjModDemo-1.0.0"
 let EXAMPLE_CJC_VERSION: String = "1.0.0"
 // regexp c library name.
 let REGEXP_C_LIB_NAME: String = "^[A-Za-z0-9\\._\\-#%\\+,=@\\[\\]\\^\\{\\}~]+$"
@@ -49,13 +55,53 @@ public func nameCheck(text: String, path: String): Bool {
     return false
 }
 
+// Check root package organization in cjpm.toml.
+public func organizationCheck(text: String, path: String): Bool {
+    if (text.size == 0) {
+        return true
+    }
+    let matched = Regex(REGEXP_CONDITON_VALUE)
+    match (matched.find(text)) {
+        case Some(_) => return true
+        case None => eprintln("Error: the 'organization' field '${text}' in ${path} is wrong, " +
+            "the example is '${EXAMPLE_ORG_NAME}'")
+    }
+    return false
+}
+
+// Analyse the package name, split org and name
+public func analyzingPackageName(pkgName: String): (String, String) {
+    if (pkgName.contains("::")) {
+        let tomlNameArr= pkgName.split("::", 2)
+        return (tomlNameArr[0], tomlNameArr[tomlNameArr.size - 1])
+    }
+    return ("", pkgName)
+}
+
+public func dependenciesNameCheck(text: String, path: String): Bool {
+    let (org, name) = analyzingPackageName(text)
+    if (name.size == 0) {
+        eprintln("Error: the name of dependency in ${path} can't be empty")
+        return false
+    }
+
+    let matched = Regex(REGEXP_CONDITON_VALUE)
+    if ((org.isEmpty() || matched.find(org).isSome()) && matched.find(name).isSome()) {
+        return true
+    }
+
+    eprintln("Error: the name of dependency '${text}' in ${path} is wrong, " +
+        "the example is '${EXAMPLE_ROOT_PACKAGE_NAME}' or '${EXAMPLE_NAME_WITH_ORG}'")
+    return false
+}
+
 // Check initial root package name.
 public func nameCheck(text: String): Bool {
     if (text.size == 0) {
         eprintln("Error: the 'name' field can't be empty")
         return false
     }
-    let matched = Regex(REGEXP_CONDITON_VALUE)
+    var matched = Regex(REGEXP_CONDITON_VALUE)
     match (matched.find(text)) {
         case Some(_) => return true
         case None => eprintln("Error: the 'name' field '${text}' is wrong, " +
@@ -84,7 +130,7 @@ func versionCheck(text: String, path: String): Bool {
         eprintln("Error: the 'version' field in ${path} can't be empty")
         return false
     }
-    let matched = Regex(REGEXP_VERTION)
+    let matched = Regex(REGEXP_VERSION)
     match (matched.find(text)) {
         case Some(_) => return true
         case None => eprintln("Error: the 'version' field '${text}' in ${path} is wrong, " +
@@ -93,7 +139,6 @@ func versionCheck(text: String, path: String): Bool {
     return false
 }
 
-// used for central repository
 // Check name:version args
 public func nameVersionCheck(text: String): Bool {
     let matched = Regex(REGEXP_NAME_VERSION)
@@ -103,18 +148,17 @@ public func nameVersionCheck(text: String): Bool {
     }
 }
 
-// used for central repository
 // Check central dependencies version in cjpm.toml.
 func centralVersionCheck(name: String, text: String, path: String): Bool {
-    if (text.isEmpty()) {
+    if (name.isEmpty()) {
         eprintln("Error: name of dependency from central repository in ${path} can't be empty")
         return false
     }
-    let matched = Regex(REGEXP_VERTION)
+    let matched = Regex(REGEXP_DEP_REQUIRE)
     match (matched.find(text)) {
         case Some(_) => return true
         case None => eprintln("Error: version '${text}' for central repository dependency '${name}' in ${path} " +
-            "is wrong, the example is '${EXAMPLE_MODULE_VERSION}'")
+            "is wrong, the example is '1.2.3', '[1.2.3, 1.4.5)' or '(, 1.0.0), [2.0.0, )'")
     }
     return false
 }
@@ -125,7 +169,7 @@ func cjcVersionCheck(text: String, path: String): Bool {
         eprintln("Error: the '${FILE_VERSION}' field in ${path} can't be empty")
         return false
     }
-    let matched = Regex(REGEXP_VERTION)
+    let matched = Regex(REGEXP_VERSION)
     match (matched.find(text)) {
         case Some(_) => return true
         case None => eprintln("Error: the '${FILE_VERSION}' field '${text}' in ${path} is wrong, " +
@@ -136,7 +180,7 @@ func cjcVersionCheck(text: String, path: String): Bool {
 
 // Check output_type in cjpm.toml.
 func outputTypeCheck(text: String, path: String): Bool {
-    if (let Unknown(_) <- OutputType.fromString(text)) {
+    if (!OutputType.fromString(text).isValid) {
         eprintln("Error: the 'output-type' field in ${path} is wrong, optional value are '${Static}/${Dynamic}/${Exe}'.")
         return false
     }
@@ -196,7 +240,7 @@ public func customizedOptionCheck(option: String, path: String): Bool {
         eprintln(errorString)
         return false
     }
-    let matched = Regex(REGEXP_CONDITON_VALUE)
+    var matched = Regex(REGEXP_CONDITON_VALUE)
     match (matched.find(option)) {
         case Some(_) => return true
         case None =>
@@ -243,7 +287,7 @@ public func srcDirCheck(text: String, path: String, configPath: String): Bool {
 }
 
 public func envNameCheck(envName: String, cmd: String, configFilePath: String): Bool {
-    let matched = Regex(REGEXP_CONDITON_VALUE)
+    var matched = Regex(REGEXP_CONDITON_VALUE)
     match (matched.find(envName)) {
         case Some(_) => return true
         case None => eprintln("Error: environment name '${envName}' in profile '${cmd}' in ${configFilePath} " +

@@ -25,11 +25,10 @@ class DepModel {
     // Dep model config
     public var globalConfig: GlobalConfig = GlobalConfig()
 
+    // Engine for dep-analysis
+    public let depAnalysisEngine = DepAnalysisEngine()
+
     // All module dependency information for the current project.
-    public var depMap: HashMap<String, DepInfo> = HashMap<String, DepInfo>()
-    public var depRootMap: HashMap<String, String> = HashMap<String, String>()
-    public var depPathMap: HashMap<String, String> = HashMap<String, String>()
-    public var depTomlMap: HashMap<String, TomlInfo> = HashMap<String, TomlInfo>()
     public let resolvedModuleMap: ResolveMap = ResolveMap()
     public let verifiedModuleMap: VerifiedMap = VerifiedMap()
     public let propagatedFeatures: HashMap<String, HashSet<Feature>> = HashMap<String, HashSet<Feature>>()
@@ -98,7 +97,15 @@ class DepModel {
         return
     }
 
-    public func resolve(path: String, locked: HashMap<String, DepInfo>): BuildCheckResult {
+    public func resolve(path: String, locked: HashMap<String, DepInfo>, isScriptDep: Bool): BuildCheckResult {
+        // initialize dep-analysis engine
+        this.depAnalysisEngine.isTest = this.globalConfig.isTest
+        this.depAnalysisEngine.isDebug = this.globalConfig.isDebug
+        this.depAnalysisEngine.rootModulePath = this.globalConfig.modulePath
+
+        // move repo-deps from cjpm.lock into engine
+        this.depAnalysisEngine.recordLock(locked)
+
         // first process locked dependencies as if they are directly required.
         this.globalConfig.scriptList = ArrayList<ScriptConfig>()
 
@@ -110,7 +117,7 @@ class DepModel {
             }
         } else {
             this.replaceMap = COMMON_INFO.replaceDeps
-            let (flag, _) = this.processDependencyModule(locked, "", true)
+            let (flag, _) = this.processDependencyModule(locked, "", "", true)
             if (!flag) {
                 return FAILED_BUILD_CHECK_RESULT
             }
@@ -129,6 +136,18 @@ class DepModel {
         var mockUsed: Bool = false
         var checkFlag: Bool = true
         for (member in COMMON_INFO.currentMembers) {
+            // repo-dep from script-dependencies
+            if (isScriptDep && member.contains(SCRIPT_DEPENDENCIES_MARK)) {
+                let repoDepArr = member.split(SCRIPT_DEPENDENCIES_MARK)
+                let nameVersionArr = repoDepArr[1].split("-")
+                let depInfo = DepInfo()
+                depInfo.importedModuleName = BUILD_SCRIPT_NAME
+                depInfo.importedPath = repoDepArr[0]
+                depInfo.version = nameVersionArr[1]
+                this.depAnalysisEngine.repoDepList.add((nameVersionArr[0], depInfo))
+                continue
+            }
+
             this.globalConfig.modulePath = member
             let (checkStatus, mockFlag) = this.depCheck(member, "", "", None)
             checkFlag = checkFlag && checkStatus
@@ -138,25 +157,51 @@ class DepModel {
             return (checkFlag, mockUsed)
         }
 
+        // get all dependencies from central repository
+        this.depAnalysisEngine.replaceMap = this.replaceMap
+        if (!this.depAnalysisEngine.analyseRepoDeps()) {
+            return FAILED_BUILD_CHECK_RESULT
+        }
+
+        // deal with replaced module
+        let replacedRequire = HashMap<String, DepInfo>()
+        for (name in this.depAnalysisEngine.replacedModuleSet) {
+            replacedRequire.add(name, this.replaceMap[name])
+        }
+        let (flag, _) = this.processDependencyModule(replacedRequire, this.globalConfig.rootPath, this.globalConfig.rootName, true)
+        if (!flag) {
+            return FAILED_BUILD_CHECK_RESULT
+        }
+
+        // deal with all dependencies from central repository
+        for ((_, finalDep) in this.depAnalysisEngine.finalDepMap) {
+            if (finalDep.sourceInfo.isCenterRepoDep() && !this.repoDepCheck(finalDep)) {
+                return FAILED_BUILD_CHECK_RESULT
+            }
+        }
+
         this.globalConfig.verifiedEnabledFeatures = verifyCliEnabledFeatures(this.globalConfig.enabledFeatures, this.resolvedModuleMap)
             .inspectErr { errs => for (err in errs) { eprintln("Error: ${err}") } }
             .ok ?? return FAILED_BUILD_CHECK_RESULT
 
         loadDepIncrementalCache()
 
-        for (name in this.depMap.keys()) {
-            verifyMultiplatformPost(this.depPathMap[name], name, resolvedModuleMap)
+        for (name in this.depAnalysisEngine.finalDepMap.keys()) {
+            verifyMultiplatformPost(this.depAnalysisEngine.finalDepMap[name].sourcePath, name, resolvedModuleMap)
                 .inspect { v => verifiedModuleMap[name] = v }
-                .inspectErr { errs => 
-                    for (err in errs) { eprintln(err) } 
+                .inspectErr { errs =>
+                    for (err in errs) { eprintln(err) }
                 }.ok ?? return FAILED_BUILD_CHECK_RESULT
         }
 
         propagateFeatures()
 
-        for (name in this.depMap.keys()) {
-            this.globalConfig.modulePath = this.depRootMap[name]
-            let (checkStatus, mockFlag) = this.moduleCheck(this.depPathMap[name], this.depTomlMap[name])
+        for (name in this.depAnalysisEngine.finalDepMap.keys()) {
+            this.globalConfig.modulePath = this.depAnalysisEngine.finalDepMap[name].rootModulePath
+            let (checkStatus, mockFlag) = this.moduleCheck(
+                this.depAnalysisEngine.finalDepMap[name].sourcePath,
+                this.depAnalysisEngine.finalDepMap[name].tomlInfo
+            )
             checkFlag = checkFlag && checkStatus
             mockUsed = mockUsed || mockFlag
             if (!checkFlag) {
@@ -170,7 +215,7 @@ class DepModel {
             this.globalConfig.rootName = WORKSPACE_NAME
         } else {
             this.globalConfig.overrideCompileOption =
-                this.depTomlMap[this.globalConfig.rootName].pkg.overrideCompileOption
+                this.depAnalysisEngine.finalDepMap[this.globalConfig.rootName].tomlInfo.pkg.overrideCompileOption
         }
 
         // check env vars in override compile option
@@ -190,7 +235,7 @@ class DepModel {
         return (this.replaceRealPkg(), mockUsed)
     }
 
-    func verifyToml(tomlInfo: TomlInfo, path: String, curModulePath: String): BuildCheckResult {
+    func verifyToml(tomlInfo: TomlInfo, path: String, curModulePath: String): Bool {
         var targetName: String = targetConfigName
         if (!crossCompileTarget.isEmpty()) {
             targetName = crossCompileTarget
@@ -200,23 +245,23 @@ class DepModel {
             }
         }
         if (!tomlInfo.replaceTargetConfig(path, targetName, this.globalConfig.isDebug, this.globalConfig.isTest)) {
-            return FAILED_BUILD_CHECK_RESULT
+            return false
         }
         if (COMMON_INFO.inWorkspace && COMMON_INFO.currentMembers.contains(getCanonicalPath(path)) &&
             !tomlInfo.replaceCommonInfo(this.globalConfig.rootPath, targetName)) {
-            return FAILED_BUILD_CHECK_RESULT
+            return false
         }
 
         if (this.globalConfig.isTest && !combineDevDependencies(tomlInfo)) {
-            return FAILED_BUILD_CHECK_RESULT
+            return false
         }
 
         if (!verifyModuleConfigPre(tomlInfo, curModulePath, this.globalConfig.rootPath,
             isTest: this.globalConfig.isTest, resolveMap: resolvedModuleMap)) {
-            return FAILED_BUILD_CHECK_RESULT
+            return false
         }
 
-        return (true, false)
+        return true
     }
 
     func isProjectCombineCheck(tomlInfo: TomlInfo): Bool {
@@ -250,16 +295,30 @@ class DepModel {
 
         let (tomlInfo, curModulePath) = this.getTomlAndPath(path, preName, requires) ??
             return FAILED_BUILD_CHECK_RESULT
-        let (flag, _) = this.verifyToml(tomlInfo, path, curModulePath)
-        if (!flag) {
+        if (!tomlInfo.pkg.organization.isEmpty()) {
+            tomlInfo.pkg.name = tomlInfo.pkg.organization + "::" + tomlInfo.pkg.name
+        }
+        if (!this.verifyToml(tomlInfo, path, curModulePath)) {
             return FAILED_BUILD_CHECK_RESULT
         }
         if (!COMMON_INFO.inWorkspace && (this.globalConfig.rootName == tomlInfo.pkg.name)) {
             this.replaceMap = tomlInfo.replaceDeps
+
+            // check central-repository replacement
+            for ((name, replaceModule) in this.replaceMap) {
+                if (let Some(version) <- replaceModule.version) {
+                    let versionReq = RequireVersion(name, version)
+                    if (!versionReq.isSingleVersion()) {
+                        eprintln("Error: dependencies in 'replace' from central repository should be a single version, not a version range")
+                        return FAILED_BUILD_CHECK_RESULT
+                    }
+                }
+            }
+
             if (!isProjectCombineCheck(tomlInfo)) {
                 return FAILED_BUILD_CHECK_RESULT
             }
-            let (flag, _) = this.processDependencyModule(this.lockedMap, "", true)
+            let (flag, _) = this.processDependencyModule(this.lockedMap, "", "", true)
             if (!flag) {
                 return FAILED_BUILD_CHECK_RESULT
             }
@@ -282,8 +341,7 @@ class DepModel {
             }
             if (let Exe <- tomlInfo.pkg.outputType) {
                 let pathLoc = Path(curModulePath).join(CONFIG_FILE_NAME).toString()
-                eprintln("Error: the 'output-type' field of dependent module can't be '${Exe}' in ${pathLoc}")
-                return FAILED_BUILD_CHECK_RESULT
+                tomlInfo.pkg.outputType = Static
             }
             // verify that `requires` block that added this module is compatible with its medatada
             if (preName != tomlInfo.pkg.name) {
@@ -295,8 +353,8 @@ class DepModel {
         } else {
             let curDepInfo = DepInfo(getCanonicalPath(curModulePath))
             curDepInfo.outputType = tomlInfo.pkg.outputType
-            if (this.depMap.contains(tomlInfo.pkg.name)) {
-                let (isAlternative, errInfo) = this.depMap[tomlInfo.pkg.name].isAlternative(curDepInfo)
+            if (this.depAnalysisEngine.finalDepMap.contains(tomlInfo.pkg.name)) {
+                let (isAlternative, errInfo) = this.depAnalysisEngine.finalDepMap[tomlInfo.pkg.name].sourceInfo.isAlternative(curDepInfo)
                 if (!errInfo.isEmpty()) {
                     eprintln("Error: modules with name '${tomlInfo.pkg.name}' in dependency tree are conflicted. " +
                         "If existing dependency was updated in cjpm.toml then do `cjpm update`")
@@ -307,13 +365,57 @@ class DepModel {
                     return (true, false)
                 }
             }
-            this.depMap[tomlInfo.pkg.name] = curDepInfo
+            this.depAnalysisEngine.addDepInfo(tomlInfo.pkg.name, curDepInfo)
         }
-        this.depPathMap[tomlInfo.pkg.name] = curModulePath
-        this.depTomlMap[tomlInfo.pkg.name] = tomlInfo
-        this.depRootMap[tomlInfo.pkg.name] = this.globalConfig.modulePath
+        this.depAnalysisEngine.addDepPath(tomlInfo.pkg.name, curModulePath)
+        this.depAnalysisEngine.addDepToml(tomlInfo.pkg.name, tomlInfo)
+        this.depAnalysisEngine.addDepRoot(tomlInfo.pkg.name, this.globalConfig.modulePath)
 
-        return this.processDependencyModule(tomlInfo.dependencies, curModulePath, false)
+        return this.processDependencyModule(tomlInfo.dependencies, curModulePath, tomlInfo.pkg.name, false)
+    }
+
+    // verify dependencies from central repository
+    func repoDepCheck(finalDep: FinalDepModule): Bool {
+        // lock is changed, print warning
+        let finalVersion = finalDep.sourceInfo.version ?? return false
+        if (let Some(lockedVersion) <- this.depAnalysisEngine.lockRepoDepMap.get(finalDep.name) &&
+            (lockedVersion != finalVersion)) {
+            eprintln("Warning: locked version '${lockedVersion}' of module '${finalDep.name}' " +
+                "caused conflictions during dependency-analysis, use version '${finalVersion}' instead")
+        }
+
+        let tomlInfo = loadModuleFile(finalDep.sourcePath) ?? return false
+        if (tomlInfo.isWorkSpaceConfig) { // always not
+            eprintln("Error: dependency '${finalDep.name}' from central repository cannot be a workspace")
+            return false
+        }
+        if (!tomlInfo.pkg.organization.isEmpty()) {
+            tomlInfo.pkg.name = tomlInfo.pkg.organization + "::" + tomlInfo.pkg.name
+        }
+
+        if ((let Some(outputType) <- finalDep.sourceInfo.outputType) && outputType.isValid) {
+            tomlInfo.pkg.outputType = outputType
+        }
+
+        // verify tomlInfo
+        if (!this.verifyToml(tomlInfo, finalDep.sourcePath, finalDep.sourcePath)) {
+            return false
+        }
+
+        // configuration of project-level combine
+        if (!tomlInfo.profile.build.combined.isEmpty() && !this.globalConfig.isProjectCombine) {
+            if (this.globalConfig.isForScript) {
+                println("Warning: module '${tomlInfo.pkg.name}' will not be compiled as " +
+                    "combined module when depended by build.cj")
+            } else {
+                for ((pkgName, outputType) in tomlInfo.profile.build.combined) {
+                    this.superPkgMap[pkgName] = SuperPackageConfig(pkgName, outputType)
+                }
+            }
+        }
+
+        finalDep.tomlInfo = tomlInfo
+        return true
     }
 
     func getTomlAndPath(path: String, preName: String, requires: ?DepInfo): Option<(TomlInfo, String)> {
@@ -338,7 +440,11 @@ class DepModel {
                 return Option.None
             }
             COMMON_INFO.moduleVersionMap.add(tomlInfo.pkg.name, tomlInfo.pkg.version)
-            this.globalConfig.rootName = tomlInfo.pkg.name
+            if (tomlInfo.pkg.organization.isEmpty()) {
+                this.globalConfig.rootName = tomlInfo.pkg.name
+            } else {
+                this.globalConfig.rootName = tomlInfo.pkg.organization + "::" + tomlInfo.pkg.name
+            }
         }
         return (tomlInfo, curModulePath)
     }
@@ -630,12 +736,10 @@ class DepModel {
             }
             pkgInfo.isDyLib = isDyLibExist(pkgInfo.libName, libPath, this.isCrossBin)
         }
-        for (k in cjoInfo.dependencies) {
+        for (k in cjoInfo.dependencies where !k.isStdlibPackage) {
             pkgInfo.requires.add(k.packageName)
         }
-        for (k in cjoInfo.stdDependencies) {
-            pkgInfo.stdRequires.add(k.packageName)
-        }
+        pkgInfo.stdRequires = cjoInfo.stdDependencies
         synchronized(this.packageMtx) {
             if (pkgMap.contains(cjoInfo.packageName)) {
                 eprintln("Warning: the package '${cjoInfo.packageName}' is imported multiple times, " +
@@ -677,7 +781,7 @@ class DepModel {
         }
 
         // CANGJIE_PATH check.
-        let rootPkgName: String = getRootPkgName(p.packageName)
+        let rootPkgName: String = swapOrgName(getRootPkgName(p.packageName))
         let (_, rootPath) = makePackagePath(cjoPath)
         if (!Path(rootPath).normalize().toString().endsWith(Path(rootPkgName).normalize().toString())) {
             eprintln("Error: the file '${cjoPath}' must be placed in the '${rootPkgName}' folder")
@@ -696,9 +800,9 @@ class DepModel {
     func scanPkgInfo(pkgSource: CJMPSource, isTest!: Bool = false, compileOptions!: String = ""): Result<RequiresPackages, Array<ScanDependencyError>> {
         if (pkgSource.allPaths.size > 1) {
             let paths = pkgSource.allPaths
-            return paths.iterator().allResult { it => 
+            return paths.iterator().allResult { it =>
                 scanDependency(it, isTest: isTest, compileOptions: compileOptions).mapErr { e => [ e ] }
-            }.flatMap { scans: Array<RequiresPackages> => 
+            }.flatMap { scans: Array<RequiresPackages> =>
                 let name = scans[0].packageName
                 let isMacro = scans[0].isMacroPackage
                 let errors = ArrayList<String>()
@@ -745,8 +849,8 @@ class DepModel {
                     result.isMacroPackage = isMacro
                     result.mockUsed = scans |> any { it => it.mockUsed }
                     result.testUsed = scans |> any { it => it.testUsed }
-                    result.dependencies = scans |> flatMap { it => it.dependencies.iterator() } |> collectHashSet |> collectArrayList
-                    result.stdDependencies = scans |> flatMap { it => it.stdDependencies.iterator() } |> collectHashSet |> collectArrayList
+                    result.dependencies = scans.iterator().flatMap { it => it.dependencies.iterator() }  |> collectArrayList
+                    result.stdDependencies = scans.iterator().flatMap { it => it.stdDependencies.iterator() } |> collectArrayList
                     result.features = HashSet() // Isn't necessary further
                     result.timeStamp = (scans.map { it => it.timeStamp } |> max) ?? 0
                     return Ok<RequiresPackages, Array<ScanDependencyError>>(result)
@@ -776,12 +880,12 @@ class DepModel {
     }
 
     private func propagateFeatures(): Unit {
-        for (name in this.depMap.keys()) {
+        for (name in this.depAnalysisEngine.finalDepMap.keys()) {
             propagatedFeatures[name] = HashSet()
         }
 
         let target = if (crossCompileTarget.isEmpty()) { targetConfigName } else { crossCompileTarget }
-        for (name in this.depMap.keys()) {
+        for (name in this.depAnalysisEngine.finalDepMap.keys()) {
             let alwaysEnabledFeatures = verifiedModuleMap[name].alwaysEnabledFeatures
             let mapping = verifiedModuleMap[name].mapping
             let features = FeatureDeducer(enabled: !this.globalConfig.noFeatureDeduce)
@@ -790,11 +894,11 @@ class DepModel {
                 .deduceTargetFeatures(Triple.fromString(target).getOrThrow())
                 .setFeatureMapping(mapping)
                 .collect()
-            
+
             propagatedFeatures[name].add(all: features)
             for (feature in features) {
                 if (
-                    let Some(fname) <- feature.depName && 
+                    let Some(fname) <- feature.depName &&
                     let Some(featureset) <- propagatedFeatures.get(fname)
                 ) { featureset.add(feature) }
             }
@@ -846,8 +950,8 @@ class DepModel {
                 continue
             }
 
-            if(let Unknown(str) <- v.outputType) {
-                if (!str.isEmpty()) {
+            if(!v.outputType.isValid) {
+                if (let str <- v.outputType.toString() && !str.isEmpty()) {
                     eprintln("Error: the output-type '${str}' is invalid which is listed" +
                         " in 'package-configuration' field at ${getPath(pkg.path, CONFIG_FILE_NAME)}")
                     checkFlag = false
@@ -910,7 +1014,7 @@ class DepModel {
     }
 
     // Processing dependency module.
-    func processDependencyModule(requires: HashMap<String, DepInfo>, prePath: String, isLocked: Bool): BuildCheckResult {
+    func processDependencyModule(requires: HashMap<String, DepInfo>, prePath: String, preName: String, isLocked: Bool): BuildCheckResult {
         var buildCheckFlag = true
         var mockUsed = false
         for ((name, v) in requires) {
@@ -920,18 +1024,35 @@ class DepModel {
             }
 
             if (isLocked) {
-                v.importedPath = "cjpm.lock"
+                v.importedPath = LOCK_FILE_NAME
+                v.importedModuleName = LOCK_FILE_NAME
             } else {
                 v.importedPath = Path(getCanonicalPath(prePath)).join(CONFIG_FILE_NAME).toString()
+                v.importedModuleName = preName
             }
 
             var finalDepInfo: DepInfo = v
-            if (let Some(current) <- this.depMap.get(name)) {
+            if (let Some(version) <- finalDepInfo.version) {
+                // continue if replaced
+                if (this.replaceMap.contains(name)) {
+                    finalDepInfo = this.replaceMap[name]
+                    if (let Some(newVersion) <- finalDepInfo.version) {
+                        this.depAnalysisEngine.repoDepList.add((name, finalDepInfo))
+                        continue
+                    }
+                } else {
+                    this.depAnalysisEngine.repoDepList.add((name, finalDepInfo))
+                    continue
+                }
+            }
+
+            if (let Some(currentFinal) <- this.depAnalysisEngine.finalDepMap.get(name)) {
+                let current = currentFinal.sourceInfo
                 if (this.replaceMap.contains(name)) {
                     continue
                 }
                 let (isAlternative, errInfo) = current.isAlternative(v)
-                let isGitLocalDep = checkGitLocalDep(name, current, v, this.depPathMap)
+                let isGitLocalDep = this.checkGitLocalDep(name, current, v)
                 if (!errInfo.isEmpty() && !isGitLocalDep) {
                     eprintln("Error: modules with name '${name}' in dependency tree are conflicted. " +
                         "If existing dependency was updated in cjpm.toml then do `cjpm update`")
@@ -948,11 +1069,16 @@ class DepModel {
                 }
             } else if (let Some(replaceDepInfo) <- this.replaceMap.get(name)) {
                 finalDepInfo = replaceDepInfo
+                if (let Some(version) <- finalDepInfo.version) {
+                    // replace with a central-repository dependence
+                    this.depAnalysisEngine.repoDepList.add((name, finalDepInfo))
+                    continue
+                }
             }
 
-            this.depMap.add(name, finalDepInfo)
+            this.depAnalysisEngine.addDepInfo(name, finalDepInfo)
 
-            let depInfo: DepInfo = this.depMap[name]
+            let depInfo: DepInfo = this.depAnalysisEngine.finalDepMap[name].sourceInfo
             let (flag, isOnlineDep, depPath) = getDepPath(name, depInfo, prePath, this.globalConfig)
             if (!flag) {
                 buildCheckFlag = false
@@ -1043,7 +1169,7 @@ class DepModel {
     func runPackageTask(pkgInfo: ResolveItem, fileNameHash: String, timeStamp: Int64,
         directDeps: HashSet<String>): BuildCheckResult {
 
-        let info = getPackageInfo(pkgInfo.packagePath, pkgInfo.compileOption, pkgInfo.customizedOption) ?? 
+        let info = getPackageInfo(pkgInfo.packagePath, pkgInfo.compileOption, pkgInfo.customizedOption) ??
             return FAILED_BUILD_CHECK_RESULT
 
         pkgInfo.fullName = info.packageName
@@ -1063,7 +1189,7 @@ class DepModel {
             return FAILED_BUILD_CHECK_RESULT
         }
 
-        for (d in info.dependencies) {
+        for (d in info.dependencies where !d.isStdlibPackage) {
             let depRootPkgName: String = getRootPkgName(d.packageName)
             if (!directDeps.contains(depRootPkgName)) {
                 synchronized(this.errPrintMtx) {
@@ -1075,9 +1201,7 @@ class DepModel {
             pkgInfo.requireDoublePkgs.add((d.packageName, d.orPkgName))
         }
 
-        for (sd in info.stdDependencies) {
-            pkgInfo.stdRequires.add(sd.packageName)
-        }
+        pkgInfo.stdRequires = info.stdDependencies
 
         // The output type of current module is executable, but other package should be static in this module.
         if (pkgInfo.modulePath == this.globalConfig.modulePath && isSubpackage(pkgInfo.fullName)) {
@@ -1102,11 +1226,11 @@ class DepModel {
     // check if dep-package is executable
     func checkExePackage(src: String, dep: String): Bool {
         let rootPkgName: String = dep.split(".")[0]
-        if (!this.depTomlMap.contains(rootPkgName)) {
+        if (!this.depAnalysisEngine.finalDepMap.contains(rootPkgName)) {
             // bin-dependencies
             return false
         }
-        let tomlInfo: TomlInfo = this.depTomlMap[rootPkgName]
+        let tomlInfo: TomlInfo = this.depAnalysisEngine.finalDepMap[rootPkgName].tomlInfo
         var flag: Bool = false
         if (dep == rootPkgName) {
             flag = (tomlInfo.pkg.outputType == Exe)
@@ -1181,7 +1305,7 @@ class DepModel {
         }
 
         scanPkgInfo(pkgSource, isTest: this.globalConfig.isTest, compileOptions: options)
-            .inspectErr { errs => synchronized (this.errPrintMtx) { 
+            .inspectErr { errs => synchronized (this.errPrintMtx) {
                 for (e in errs) { eprintln(e) }
             } }.ok
     }
@@ -1304,6 +1428,13 @@ class DepModel {
             getDepBetweenSuperPkg(dep, extraSuperPkgDep, checkedPkgSet)
         }
     }
+
+    func checkGitLocalDep(name: String, curInfo: DepInfo, newInfo: DepInfo): Bool {
+        if (!(curInfo.isGitDep() && newInfo.isPathDep()) || !this.depAnalysisEngine.finalDepMap.contains(name)) {
+            return false
+        }
+        return this.depAnalysisEngine.finalDepMap[name].sourcePath == newInfo.path.getOrDefault({=> ""})
+    }
 }
 
 func getActualName(pkgPath: String, rootPkgName: String): String {
@@ -1340,7 +1471,7 @@ func constructSource(modulePath: String, srcDir: String, sourceSets: SourceLocat
     assertion { globalFeatures.contains(all: localFeatures) }
     if (sourceSets.isEmpty) {
         return Ok((CJMPSource(modulePath, srcDir), localFeatures))
-    } else { 
+    } else {
         return sourceSets.selectSourceSets(modulePath, localFeatures, globalFeatures).map { it => (it, localFeatures) }
     }
 }
@@ -1397,14 +1528,6 @@ func initPackageInfo(pkgDir: CJMPSource): Result<PackageInfo, String> {
     } else {
         return Err("Warning: there is no '.cj' file in source-set directories '${pkgDir.allPaths}', and its subdirectories will not be scanned as source code")
     }
-}
-
-public func checkGitLocalDep(name: String, curInfo: DepInfo, newInfo: DepInfo,
-    depPathMap: HashMap<String, String>): Bool {
-    if (!(curInfo.isGitDep() && newInfo.isPathDep()) || !depPathMap.contains(name)) {
-        return false
-    }
-    return depPathMap[name] == newInfo.path.getOrDefault({=> ""})
 }
 
 enum ScanDependencyError <: ToString {

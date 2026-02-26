@@ -7,9 +7,12 @@
 package cjpm.config
 
 import std.fs.*
+import std.sync.*
 import std.fs.remove as fsRemove
 import std.posix.*
 import std.env.*
+
+let createDirectoryMtx: Mutex = Mutex()
 
 @When[os == "Windows"]
 public func deleteDirectory(dirPath: String): Bool {
@@ -49,13 +52,15 @@ public func deleteDirectory(dirPath: String): Bool {
 }
 
 public func createDirectory(dirPath: String): Bool {
-    if (!directoryExists(dirPath)) {
-        try {
-            Directory.create(dirPath, recursive: true)
-        } catch (e: Exception) {
-            eprintln(e.message)
-            eprintln("Error: failed to create the '${dirPath}' directory")
-            return false
+    synchronized (createDirectoryMtx) {
+        if (!directoryExists(dirPath)) {
+            try {
+                Directory.create(dirPath, recursive: true)
+            } catch (e: Exception) {
+                eprintln(e.message)
+                eprintln("Error: failed to create the '${dirPath}' directory")
+                return false
+            }
         }
     }
     return true

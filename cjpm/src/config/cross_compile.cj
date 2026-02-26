@@ -13,18 +13,19 @@ public func replaceNativeInfo(oriInfo: TargetInfo, newInfo: TargetInfo): Unit {
     return
 }
 
-public func makeTargetDylibName(fileName: String): String {
-    if (crossCompileTarget.contains("mingw32") || crossCompileTarget.contains("windows-gnu")) {
-        return "lib${fileName}.dll"
-    } else if (crossCompileTarget.contains("apple-ios") || crossCompileTarget.contains("darwin")) {
-        return "lib${fileName}.dylib"
+public func makeTargetDylibName(fileName: String, target: String): String {
+    let processedFileName = swapOrgName(fileName)
+    if (target.contains("mingw32") || target.contains("windows-gnu")) {
+        return "lib${processedFileName}.dll"
+    } else if (target.contains("apple-ios") || target.contains("darwin")) {
+        return "lib${processedFileName}.dylib"
     } else {
-        return "lib${fileName}.so"
+        return "lib${processedFileName}.so"
     }
 }
 
-public func makeTargetExeName(exeName: String): String {
-    if (crossCompileTarget.contains("mingw32") || crossCompileTarget.contains("windows-gnu")) {
+public func makeTargetExeName(exeName: String, target: String): String {
+    if (target.contains("mingw32") || target.contains("windows-gnu")) {
         if (!exeName.endsWith(".exe")) {
             return "${exeName}.exe"
         }

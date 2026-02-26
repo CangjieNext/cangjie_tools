@@ -7,13 +7,11 @@
 package cjpm.config
 
 import std.collection.*
-import std.fs.*
 import stdx.serialization.serialization.*
 
 const TYPE_ERR_INFO: String = "  - incompatible import type, only one of 'path' or 'git' is allowed"
 
 public class DepInfo <: Serializable<DepInfo> & Equatable<DepInfo> {
-    // used for central repository
     public var version: ?String = None
     public var path: ?String = None
     public var git: ?String = None
@@ -23,9 +21,9 @@ public class DepInfo <: Serializable<DepInfo> & Equatable<DepInfo> {
     public var outputType: ?OutputType = None
     public var pathInWorkspace: ?String = None
     public var pathDepInGit: Bool = false
-    // used for central repository
     public var isSimpleConfig: Bool = false
     public var importedPath: String = ""
+    public var importedModuleName: String = ""
 
     public init() {}
 
@@ -35,6 +33,7 @@ public class DepInfo <: Serializable<DepInfo> & Equatable<DepInfo> {
 
     public func serialize(): DataModel {
         DataModelStruct()
+            .addFieldIfSome("version", version)
             .addFieldIfSome("path", path)
             .addFieldIfSome("git", git)
             .addFieldIfSome("commitId", commitId)
@@ -47,18 +46,21 @@ public class DepInfo <: Serializable<DepInfo> & Equatable<DepInfo> {
         let result = DepInfo()
         match (dm) {
             case data: DataModelStruct =>
+                result.version = Option<String>.deserialize(data.get("version"))
                 result.path = Option<String>.deserialize(data.get("path"))
                 result.git = Option<String>.deserialize(data.get("git"))
                 result.commitId = Option<String>.deserialize(data.get("commitId"))
                 result.branch = Option<String>.deserialize(data.get("branch"))
                 result.tag = Option<String>.deserialize(data.get("tag"))
                 result.outputType = Option<OutputType>.deserialize(data.get(OUTPUT_TYPE))
+            case str: DataModelString =>
+                result.version = str.getValue()
+                result.isSimpleConfig = true
             case _ => throw Exception("this data is not DataModelStruct")
         }
         return result
     }
 
-    // used for central repository
     public func isCenterRepoDep(): Bool {
         return this.version.isSome() && this.path.isNone() && this.git.isNone()
     }
@@ -83,7 +85,7 @@ public class DepInfo <: Serializable<DepInfo> & Equatable<DepInfo> {
                 return ""
             }
             return "  - ${this.path.getOrThrow()}\n  - ${other.path.getOrThrow()}"
-        } else {
+        } else if (this.isGitDep()) {
             let sameBranchSpecified = this.branch == other.branch
             let sameTagSpecified = this.tag == other.tag
             // for commitId it is ok to have one of them unspecified because it can be saved only in lock file
@@ -93,6 +95,11 @@ public class DepInfo <: Serializable<DepInfo> & Equatable<DepInfo> {
                 sameBranchSpecified && sameTagSpecified
             if (this.isGitDep() && !sameGitSpecified) {
                 return "  - incompatible git dependency"
+            }
+            return ""
+        } else {
+            if (this.version != other.version) {
+                return "  - incompatible central repository dependency"
             }
             return ""
         }
@@ -107,11 +114,9 @@ public class DepInfo <: Serializable<DepInfo> & Equatable<DepInfo> {
     }
 
     // If dependencies a and b with the same name are compatible, a and b must satisfy:
-    // 1. both are repository dependencies
-    // 2. one of them is repository dependency, and another is local/git dependency
-    // 3. both are local or git dependency, and with the same content
+    // 1. one of them is repository dependency, and another is local/git dependency
+    // 2. both are local, git or repository dependency, and with the same content
     // Arguments: (isReplaced, errInfo)
-    // used for central repository
     public func isAlternative(other: DepInfo): (Bool, String) {
         if (this.outputType.isSome() && other.outputType.isSome() && this.outputType != other.outputType) {
             return (false, "  - incompatible output type")
@@ -137,11 +142,10 @@ public class DepInfo <: Serializable<DepInfo> & Equatable<DepInfo> {
             }
         } else {
             // Current dependency is a repository dependency
-            // used for central repository
             if (other.isPathDep() || other.isGitDep()) {
                 return (true, "")
             } else {
-                return (versionCompare(this.version.getOrThrow(), other.version.getOrThrow()), "")
+                return (false, this.isSameDep(other))
             }
         }
     }
@@ -190,16 +194,11 @@ extend<T> Option<T> {
 public func verifyDependencyConfig(requires: HashMap<String, DepInfo>, errLoc: String, modulePath: String): Bool {
     var checkFlag: Bool = true
     for ((name, v) in requires) {
-        // used for central repository
-        if (let Some(val) <- v.version) {
-            if (v.isSimpleConfig && !centralVersionCheck(name, val, errLoc)) {
-                checkFlag = false
-            } else if (!v.isSimpleConfig && !versionCheck(val, errLoc)) {
-                checkFlag = false
-            }
+        if (let Some(val) <- v.version && !centralVersionCheck(name, val, errLoc)) {
+            checkFlag = false
         }
 
-        let checkList: Array<((String, String) -> Bool, ?String)> = [(safeCheck, v.commitId), (nameCheck, name)]
+        let checkList: Array<((String, String) -> Bool, ?String)> = [(safeCheck, v.commitId), (dependenciesNameCheck, name)]
 
         if (!verifyAll(errLoc, checkList)) {
             checkFlag = false
@@ -211,7 +210,7 @@ public func verifyDependencyConfig(requires: HashMap<String, DepInfo>, errLoc: S
             }
         }
 
-        if (!verifyDependencyField(v, errLoc)) {
+        if (!verifyDependencyField(v, name, modulePath)) {
             checkFlag = false
         }
 
@@ -224,34 +223,4 @@ public func verifyDependencyConfig(requires: HashMap<String, DepInfo>, errLoc: S
         }
     }
     return checkFlag
-}
-
-public func verifyDependencyField(dep: DepInfo, errLoc: String): Bool {
-    if (dep.path.isNone() && dep.git.isNone()) {
-        eprintln("Error: one of 'git' or 'path' fields must exist in ${errLoc}")
-        return false
-    }
-    if (dep.path.isSome() && dep.git.isSome()) {
-        eprintln("Error: only one of 'git' or 'path' fields can exist in ${errLoc}")
-        return false
-    }
-    return true
-}
-
-func verifyDependencyField(dep: DepInfo, name: String, path: String): Bool {
-    if (dep.path.isNone() && dep.git.isNone()) {
-        eprintln("Error: one of 'git' or 'path' fields must exist " +
-            "in dependency ${name} in ${Path(path).join(CONFIG_FILE_NAME).toString()}")
-        return false
-    }
-    if (dep.path.isSome() && dep.git.isSome()) {
-        eprintln("Error: only one of 'git' or 'path' fields can exist " +
-            "in dependency ${name} in ${Path(path).join(CONFIG_FILE_NAME).toString()}")
-        return false
-    }
-    // used for central repository
-    if (let Some(version) <- dep.version) {
-        return centralVersionCheck(name, version, Path(path).join(CONFIG_FILE_NAME).toString())
-    }
-    return true
 }

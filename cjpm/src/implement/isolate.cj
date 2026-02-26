@@ -5,6 +5,7 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 package cjpm.implement
+import cjpm.config.*
 
 import cjpm.config.*
 

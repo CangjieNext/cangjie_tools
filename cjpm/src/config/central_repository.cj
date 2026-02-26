@@ -18,7 +18,6 @@ public let REPO_CONFIG_FILE_NAME = "cangjie-repo.toml"
 public let REPO_CACHE_NAME = "cache"
 public let REPO_HOME_NAME = "home"
 
-// used for central repository
 public class RepositoryInfo <: Serializable<RepositoryInfo> {
     public RepositoryInfo(
         public var path!: String = "",
@@ -47,7 +46,6 @@ public class RepositoryInfo <: Serializable<RepositoryInfo> {
     }
 }
 
-// used for central repository
 public class SettingsConfig <: Serializable<SettingsConfig> {
     public var repository: HashMap<String, RepositoryInfo> = HashMap<String, RepositoryInfo>()
     public var isValid: Bool = true
@@ -85,11 +83,10 @@ public class SettingsConfig <: Serializable<SettingsConfig> {
     }
 }
 
-// used for central repository
 public func readConfigToml(file: Path): SettingsConfig {
     var res = SettingsConfig()
     try {
-        let fileInfo = File(file, ReadWrite)
+        let fileInfo = File(file, Read)
         let de = DecoderToml(fileInfo)
         let to = de.decode()
         res = SettingsConfig.deserialize(DataModel.fromToml(to))
@@ -104,17 +101,17 @@ public func readConfigToml(file: Path): SettingsConfig {
     if (res.repository.contains(REPO_CACHE_NAME) && !res.repository[REPO_CACHE_NAME].path.isEmpty()) {
         // Replace env vars and convert the path to an absolute path when path is relative path
         res.repository[REPO_CACHE_NAME].path = getPath(file.parent.toString(), replaceEnvVars(res.repository[REPO_CACHE_NAME].path))
+
     }
 
     if (res.repository.contains(REPO_CACHE_NAME) && res.repository[REPO_CACHE_NAME].path.isEmpty()) {
-        // when path of [repository.local] is empty, set $HOME/.cjpm or %USERPROFILE%/.cjpm as repository local path
+        // when path of [repository.cache] is empty, set $HOME/.cjpm or %USERPROFILE%/.cjpm as repository cache path
         res.repository[REPO_CACHE_NAME].path = Path(DEFAULT_CONFIG_LOCATION).join(".cjpm").toString()
     }
 
     return res
 }
 
-// used for central repository
 public func loadConfigInfo(): SettingsConfig {
     // Read the configuration file based on priority.
     if (fileExists(Path(DIR_CURRENT).join(REPO_CONFIG_FILE_NAME))) {
@@ -131,20 +128,19 @@ public func loadConfigInfo(): SettingsConfig {
         res = readConfigToml(Path(cj_home).join("tools").join("config").join(REPO_CONFIG_FILE_NAME))
         let globalCjpmConfig = getVariable("CJPM_CONFIG") ?? return res
         println("Warning: the functionality of 'CJPM_CONFIG' will be deprecated, " +
-            "please unset 'CJPM_CONFIG' and use ${REPO_CONFIG_FILE_NAME} to set the repository cache path")
+            "please unset 'CJPM_CONFIG' and use cangjie-repo.toml to set the repository cache path")
         res.repository[REPO_CACHE_NAME].path = globalCjpmConfig
         return res
     }
 
     let globalCjpmConfig = getVariable("CJPM_CONFIG") ?? return res
     println("Warning: the functionality of 'CJPM_CONFIG' will be deprecated, " +
-            "please unset 'CJPM_CONFIG' and use ${REPO_CONFIG_FILE_NAME} to set the repository cache path")
+            "please unset 'CJPM_CONFIG' and use cangjie-repo.toml to set the repository cache path")
     res.repository[REPO_CACHE_NAME].path = globalCjpmConfig
 
     return res
 }
 
-// used for central repository, Compare two verified version
 func versionCompare(v1: String, v2: String): Bool {
     let vArr1: Array<String> = v1.split(".")
     let vArr2: Array<String> = v2.split(".")
@@ -154,9 +150,32 @@ func versionCompare(v1: String, v2: String): Bool {
         vArrList1.add(Int64.parse(vArr1[index]))
         vArrList2.add(Int64.parse(vArr2[index]))
     }
-    if (vArrList2[0] > vArrList1[0] || (vArrList2[0] == vArrList1[0] && vArrList2[1] > vArrList1[1]) || (vArrList2[0] ==
-        vArrList1[0] && vArrList2[1] == vArrList1[1] && vArrList2[2] > vArrList1[2])) {
+    if (vArrList2[0] > vArrList1[0] || (vArrList2[0] == vArrList1[0] && vArrList2[1] > vArrList1[1]) ||
+        (vArrList2[0] == vArrList1[0] && vArrList2[1] == vArrList1[1] && vArrList2[2] > vArrList1[2])) {
         return true
     }
     return false
+}
+
+public func verifyDependencyField(dep: DepInfo, name: String, path: String): Bool {
+    let isPathDep = dep.path.isSome()
+    let isGitDep = dep.git.isSome()
+    let isRepoDep = dep.version.isSome()
+
+    if (!isPathDep && !isGitDep && !isRepoDep) {
+        eprintln("Error: one of 'git' or 'path' or 'version' fields must exist " +
+            "in dependency ${name} in ${Path(path).join(CONFIG_FILE_NAME).toString()}")
+        return false
+    }
+    if ((isPathDep && isGitDep) || (isPathDep && isRepoDep) || (isGitDep && isRepoDep)) {
+        eprintln("Error: only one of 'git' or 'path' or 'version' fields can exist " +
+            "in dependency ${name} in ${Path(path).join(CONFIG_FILE_NAME).toString()}")
+        return false
+    }
+
+    if (let Some(version) <- dep.version) {
+        return centralVersionCheck(name, version, Path(path).join(CONFIG_FILE_NAME).toString())
+    }
+
+    return true
 }

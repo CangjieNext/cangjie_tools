@@ -231,7 +231,12 @@ public func verifyMembers(rootPath: String, members: ArrayList<String>, buildMem
         return false
     }
     let currentPath = getCanonicalPath(rootPath)
+    let repoForScriptSet = HashSet<String>()
     for (mem in members) {
+        if (!checkWorkspaceDir && mem.contains(SCRIPT_DEPENDENCIES_MARK)) {
+            repoForScriptSet.add(mem)
+            continue
+        }
         let realPath = getPath(rootPath, mem)
         if (!directoryExists(realPath)) {
             eprintln("Error: the path '${mem}' of members field does not exist at ${tomlDir}")
@@ -274,6 +279,11 @@ public func verifyMembers(rootPath: String, members: ArrayList<String>, buildMem
             return false
         }
     }
+
+    if (!checkWorkspaceDir) {
+        COMMON_INFO.buildMembers.add(all: repoForScriptSet)
+    }
+
     return true
 }
 
@@ -355,7 +365,12 @@ public func searchModuleFromWorkspace(tomlInfo: TomlInfo, rootPkgName: String, p
             continue
         }
         let eachTomlInfo = loadModuleFile(eachModulePath) ?? return ""
-        if (eachTomlInfo.pkg.name == rootPkgName) {
+        let eachTomlName = if (eachTomlInfo.pkg.organization.isEmpty()) {
+            eachTomlInfo.pkg.name
+        } else {
+            eachTomlInfo.pkg.organization + "::" + eachTomlInfo.pkg.name
+        }
+        if (eachTomlName == rootPkgName) {
             return getCanonicalPath(eachModulePath)
         }
     }
