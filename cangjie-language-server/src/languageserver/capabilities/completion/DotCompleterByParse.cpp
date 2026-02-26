@@ -8,6 +8,7 @@
 #include <unordered_set>
 #include <vector>
 #include "cangjie/AST/Node.h"
+#include "cangjie/AST/Walker.h"
 #include "cangjie/Utils/CastingTemplate.h"
 
 using namespace Cangjie;
@@ -151,7 +152,8 @@ void DotCompleterByParse::FuzzyDotComplete(const ArkAST &input, const Position &
     size_t prevResSize = result.completions.size();
     CompleteCandidate(pos, prefix, env, declOrTy);
     // complete the node that depend on macro-expand
-    if (result.completions.size() == prevResSize && declOrTy.tys.empty()) {
+    if (result.completions.size() == prevResSize && declOrTy.tys.empty() &&
+            CheckLastestMacroExpandSucc(topDecl, input, pos)) {
         NestedMacroComplete(input, pos, prefix, env, expr.get());
     }
 }
@@ -1464,6 +1466,33 @@ void DotCompleterByParse::WalkForIfAvailable(Ptr<Decl> topDecl, Ptr<Expr>& expr,
         }
         return VisitAction::WALK_CHILDREN;
     }).Walk();
+}
+
+bool DotCompleterByParse::CheckLastestMacroExpandSucc(Ptr<Decl> topDecl, const ArkAST &input, const Position &pos)
+{
+    if (!input.semaCache || !input.semaCache->file ||
+                    input.semaCache->file->originalMacroCallNodes.empty()) {
+                        return false;
+    }
+
+    bool found = false;
+    Walker(topDecl, [&](auto node) {
+        if (auto me = DynamicCast<MacroExpandDecl *>(node.get())) {
+            if (me->begin <= pos && me->end > pos) {
+                for (auto& ma: input.semaCache->file->originalMacroCallNodes) {
+                    if (auto med = DynamicCast<MacroExpandDecl *>(ma.get())) {
+                        if (med->begin == med->begin) {
+                            found = true;
+                            return VisitAction::STOP_NOW;
+                        }
+                    }
+                }
+            }
+        }
+        return VisitAction::WALK_CHILDREN;
+    }).Walk();
+
+    return found;
 }
 // LCOV_EXCL_STOP
 
