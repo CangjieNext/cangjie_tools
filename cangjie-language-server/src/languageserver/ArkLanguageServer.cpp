@@ -1642,20 +1642,14 @@ void ArkLanguageServer::OnCodeAction(const CodeActionParams &params, nlohmann::j
         return;
     }
     std::string uri = params.textDocument.uri.file;
-    int fileId = CompilerCangjieProject::GetInstance()->GetFileID(file);
-    if (fileId < 0) {
-        ValueOrError value(ValueOrErrorCheck::VALUE, nullptr);
-        reply(value);
-        return;
-    }
     Range range;
     range.start = Cangjie::Position{
-        static_cast<unsigned int>(fileId),
+        static_cast<unsigned int>(0),
         params.range.start.line,
         params.range.start.column
     };
     range.end = Cangjie::Position{
-        static_cast<unsigned int>(fileId),
+        static_cast<unsigned int>(0),
         params.range.end.line,
         params.range.end.column
     };
@@ -1764,7 +1758,7 @@ void ArkLanguageServer::OnCommandApplyTweak(const TweakArgs &args, nlohmann::jso
 
 int ArkLanguageServer::GetUnusedImportCount(std::vector<DiagnosticToken> &diagnostics)
 {
-    int unusedImportCount = 0;    
+    int unusedImportCount = 0;
     for (auto &diagnostic : diagnostics) {
         if (!diagnostic.diaFix.has_value() || !diagnostic.diaFix->removeImport || !diagnostic.codeActions.has_value()) {
             continue;
