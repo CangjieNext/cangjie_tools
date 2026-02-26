@@ -1080,7 +1080,8 @@ void CompletionEnv::CompleteNode(
         return;
     }
     // skip VArray type
-    if (node->ty->kind == TypeKind::TYPE_VARRAY) {
+    bool skipVAaary = node->ty->kind == TypeKind::TYPE_VARRAY && signature == "VArray<T>";
+    if (skipVAaary) {
         return;
     }
     completion.label = signature;
