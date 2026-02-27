@@ -24,7 +24,7 @@ protected:
 private:
     void FindExtendDecl(Ptr<Cangjie::AST::Node> node);
     void CheckExtendMemberDecls(const Cangjie::AST::ExtendDecl &extendDecl);
-    void CheckExtendMemberDeclsHelper(Ptr<Cangjie::AST::InterfaceDecl> interface, Ptr<Cangjie::AST::Decl> member,
+    void CheckExtendMemberDeclsHelper(Ptr<Cangjie::AST::InterfaceDecl> interfaceDecl, Ptr<Cangjie::AST::Decl> member,
         bool &label);
 };
 } // namespace Cangjie::CodeCheck
