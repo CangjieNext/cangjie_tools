@@ -8,6 +8,15 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <unordered_set>
+#ifdef _WIN32
+#include <windows.h>
+#include <io.h>
+#include <fcntl.h>
+#else
+#include <sys/wait.h>
+#include <unistd.h>
+#endif
 #include "common/CommonFunc.h"
 #include "common/ConfigContext.h"
 #include "rules/dataflow_rule_analysis/dataflow_rule_G_CHK_01/DataflowRuleGCHK01Check.h"
@@ -226,7 +235,357 @@ static void RemoveExtensionFileAndDir(std::set<std::string>& macroPath)
     }
 }
 
+void Checker::ExecuteStage(const nlohmann::json& jsonInfo, 
+    const std::unique_ptr<CJLintCompilerInstance>& compilerInstance,
+    CompileStage stage, int& readJsonCode, bool& isSuccess)
+{
+#ifndef CANGJIE_ENABLE_GCOV
+    try {
+#endif
+        if (stage == CompileStage::PARSE) {
+            isSuccess = compilerInstance->Compile(stage);
+        } else {
+            isSuccess = isSuccess && compilerInstance->Compile(stage);
+        }
+        CreateRuleThreads(jsonInfo, compilerInstance, stage, readJsonCode);
+#ifndef CANGJIE_ENABLE_GCOV
+    } catch (const std::out_of_range& e) {
+        Errorln("Out of range exception caught: ", e.what());
+    } catch (const std::exception& e) {
+        Errorln("Exception caught: ", e.what());
+    } catch (...) {
+        Errorln("Unknown exception caught.");
+    }
+#endif
+}
+
+#ifndef _WIN32
+static bool WritePipeMessage(int fd, const std::string& data)
+{
+    uint32_t len = static_cast<uint32_t>(data.size());
+    if (write(fd, &len, sizeof(len)) != static_cast<ssize_t>(sizeof(len))) {
+        return false;
+    }
+    size_t totalWritten = 0;
+    while (totalWritten < data.size()) {
+        ssize_t n = write(fd, data.c_str() + totalWritten, data.size() - totalWritten);
+        if (n <= 0) {
+            return false;
+        }
+        totalWritten += static_cast<size_t>(n);
+    }
+    return true;
+}
+
+static bool ReadPipeMessage(int fd, std::string& data)
+{
+    uint32_t len = 0;
+    ssize_t bytesRead = read(fd, &len, sizeof(len));
+    if (bytesRead != static_cast<ssize_t>(sizeof(len)) || len == 0) {
+        return false;
+    }
+    data.resize(len);
+    size_t totalRead = 0;
+    while (totalRead < len) {
+        ssize_t n = read(fd, &data[totalRead], len - totalRead);
+        if (n <= 0) {
+            return false;
+        }
+        totalRead += static_cast<size_t>(n);
+    }
+    return true;
+}
+
+static std::string GetStageName(CompileStage stage)
+{
+    switch (stage) {
+        case CompileStage::PARSE:
+            return "PARSE";
+        case CompileStage::SEMA:
+            return "SEMA";
+        case CompileStage::CHIR:
+            return "CHIR";
+        default:
+            return "UNKNOWN";
+    }
+}
+void Checker::SendStageResult(int writeFd, CompileStage stage, int readJsonCode, 
+    std::unordered_set<std::string>& sentDiagnostics)
+{
+    nlohmann::ordered_json msg;
+    msg["stage"] = GetStageName(stage);
+    msg["readJsonCode"] = readJsonCode;
+    msg["errorCount"] = CodeCheckDiagnosticEngine::GetStaticErrorCount();
+    msg["warningCount"] = CodeCheckDiagnosticEngine::GetStaticWarningCount();
+
+    nlohmann::ordered_json allDiagnostics = diagEngine->SerializeDiagnostics();
+    nlohmann::ordered_json stageDiagnostics = nlohmann::ordered_json::array();
+    for (const auto& diagItem : allDiagnostics) {
+        auto serialized = diagItem.dump();
+        if (sentDiagnostics.insert(serialized).second) {
+            stageDiagnostics.push_back(diagItem);
+        }
+    }
+    msg["diagnostics"] = stageDiagnostics;
+    WritePipeMessage(writeFd, msg.dump());
+}
+
+ 
+void Checker::RunWorker(int writeFd)
+{
+    DiagnosticEngine diag;
+#ifdef NDEBUG
+    diag.SetIsEmitter(false);
+    diag.SetIsDumpErrCnt(false);
+#endif
+    Json jsonInfo;
+    int readJsonCode = OK;
+    bool isSuccess = true;
+
+    if (CommonFunc::ReadJsonFileToJsonInfo(CJLINT_RULE_LIST, ConfigContext::GetInstance(), jsonInfo) == ERR) {
+        CJLintCompilerInvocation::GetInstance().DesInitRuntime();
+        close(writeFd);
+        _exit(1);
+    }
+
+    auto compilerInstance = CJLintCompilerInvocation::GetInstance().PrePareCompilerInstance(diag);
+    diagEngine->SetSourceManager(&compilerInstance->GetSourceManager());
+
+    std::unordered_set<std::string> sentDiagnostics;
+    static constexpr CompileStage STAGES[] = {CompileStage::PARSE, CompileStage::SEMA, CompileStage::CHIR};
+    for (auto stage : STAGES) {
+        ExecuteStage(jsonInfo, compilerInstance, stage, readJsonCode, isSuccess);
+        SendStageResult(writeFd, stage, readJsonCode, sentDiagnostics);
+    }
+
+    CJLintCompilerInvocation::GetInstance().DesInitRuntime();
+    RemoveExtensionFileAndDir(compilerInstance->macroPath);
+    close(writeFd);
+    _exit(0);
+}
+ 
+int Checker::ReadStageResults(int readFd)
+{
+    int readJsonCode = OK;
+    int stagesReceived = 0;
+    static const char* STAGE_NAMES[] = {"PARSE", "SEMA", "CHIR"};
+    constexpr int TOTAL_STAGES = 3;
+
+    for (int i = 0; i < TOTAL_STAGES; ++i) {
+        std::string stageData;
+        if (!ReadPipeMessage(readFd, stageData)) {
+            Errorln("Process isolation: child process crashed during ", STAGE_NAMES[i],
+                " stage, recovered diagnostics from ", stagesReceived, " completed stage(s)");
+            break;
+        }
+        auto msg = nlohmann::ordered_json::parse(stageData);
+        readJsonCode = msg["readJsonCode"].get<int>();
+        diagEngine->ImportSerializedDiagnostics(msg["diagnostics"]);
+        ++stagesReceived;
+    }
+    return readJsonCode;
+}
+ 
+ 
 int Checker::CheckCode()
+{
+    int pipeFd[2];
+    if (pipe(pipeFd) == -1) {
+        Errorln("Failed to create pipe");
+        return ERR;
+    }
+ 
+    pid_t pid = fork();
+    if (pid == -1) {
+        close(pipeFd[0]);
+        close(pipeFd[1]);
+        Errorln("Failed to fork child process");
+        return ERR;
+    }
+ 
+    if (pid == 0) {
+        close(pipeFd[0]);
+        RunWorker(pipeFd[1]);
+    }
+ 
+    close(pipeFd[1]);
+    int readJsonCode = ReadStageResults(pipeFd[0]);
+    close(pipeFd[0]);
+ 
+    int status = 0;
+    waitpid(pid, &status, 0);
+    return readJsonCode;
+}
+
+#else // _WIN32
+static std::string AnsiToUtf8(const std::string& ansi)
+{
+    if (ansi.empty()) {
+        return ansi;
+    }
+    int wideLen = MultiByteToWideChar(CP_ACP, 0, ansi.c_str(), -1, NULL, 0);
+    if (wideLen <= 0) {
+        return ansi;
+    }
+    std::wstring wide(wideLen, 0);
+    MultiByteToWideChar(CP_ACP, 0, ansi.c_str(), -1, &wide[0], wideLen);
+
+    int utf8Len = WideCharToMultiByte(CP_UTF8, 0, wide.c_str(), -1, NULL, 0, NULL, NULL);
+    if (utf8Len <= 0) {
+        return ansi;
+    }
+    std::string utf8(utf8Len, 0);
+    WideCharToMultiByte(CP_UTF8, 0, wide.c_str(), -1, &utf8[0], utf8Len, NULL, NULL);
+    if (!utf8.empty() && utf8.back() == '\0') {
+        utf8.pop_back();
+    }
+    return utf8;
+}
+
+static std::string Utf8ToAnsi(const std::string& utf8)
+{
+    if (utf8.empty()) {
+        return utf8;
+    }
+    int wideLen = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, NULL, 0);
+    if (wideLen <= 0) {
+        return utf8;
+    }
+    std::wstring wide(wideLen, 0);
+    MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, &wide[0], wideLen);
+
+    int ansiLen = WideCharToMultiByte(CP_ACP, 0, wide.c_str(), -1, NULL, 0, NULL, NULL);
+    if (ansiLen <= 0) {
+        return utf8;
+    }
+    std::string ansi(ansiLen, 0);
+    WideCharToMultiByte(CP_ACP, 0, wide.c_str(), -1, &ansi[0], ansiLen, NULL, NULL);
+    if (!ansi.empty() && ansi.back() == '\0') {
+        ansi.pop_back();
+    }
+    return ansi;
+}
+
+static bool WritePipeMessage(HANDLE hPipe, const std::string& data)
+{
+    uint32_t len = static_cast<uint32_t>(data.size());
+    DWORD bytesWritten = 0;
+    if (!WriteFile(hPipe, &len, sizeof(len), &bytesWritten, NULL) ||
+        bytesWritten != sizeof(len)) {
+        return false;
+    }
+    size_t totalWritten = 0;
+    while (totalWritten < data.size()) {
+        DWORD n = 0;
+        if (!WriteFile(hPipe, data.c_str() + totalWritten,
+                       static_cast<DWORD>(data.size() - totalWritten), &n, NULL) || n == 0) {
+            return false;
+        }
+        totalWritten += n;
+    }
+    return true;
+}
+
+static bool ReadPipeMessage(HANDLE hPipe, std::string& data)
+{
+    uint32_t len = 0;
+    DWORD bytesRead = 0;
+    if (!ReadFile(hPipe, &len, sizeof(len), &bytesRead, NULL) ||
+        bytesRead != sizeof(len) || len == 0) {
+        return false;
+    }
+    data.resize(len);
+    size_t totalRead = 0;
+    while (totalRead < len) {
+        DWORD n = 0;
+        if (!ReadFile(hPipe, &data[totalRead], static_cast<DWORD>(len - totalRead), &n, NULL) || n == 0) {
+            return false;
+        }
+        totalRead += n;
+    }
+    return true;
+}
+
+static const char* GetStageName(CompileStage stage)
+{
+    switch (stage) {
+        case CompileStage::PARSE:
+            return "PARSE";
+        case CompileStage::SEMA:
+            return "SEMA";
+        case CompileStage::CHIR:
+            return "CHIR";
+        default:
+            return "UNKNOWN";
+    }
+}
+
+static bool ReadWorkerConfig(HANDLE configReadPipe, nlohmann::ordered_json& configJson)
+{
+    std::string configData;
+    if (!ReadPipeMessage(configReadPipe, configData)) {
+        return false;
+    }
+    configJson = nlohmann::ordered_json::parse(configData, nullptr, false);
+    return !configJson.is_discarded();
+}
+
+static void ApplyWorkerConfig(const nlohmann::ordered_json& configJson)
+{
+    ConfigContext& configContext = ConfigContext::GetInstance();
+    if (configJson.contains("cangjieHome")) {
+        configContext.SetCangjieHome(Utf8ToAnsi(configJson["cangjieHome"].get<std::string>()));
+    }
+    if (configJson.contains("srcFileDirs")) {
+        for (const auto& dir : configJson["srcFileDirs"]) {
+            configContext.AddSrcFileDir(Utf8ToAnsi(dir.get<std::string>()));
+        }
+    }
+    if (configJson.contains("srcFileList")) {
+        std::vector<std::string> srcFiles;
+        for (const auto& file : configJson["srcFileList"]) {
+            srcFiles.push_back(Utf8ToAnsi(file.get<std::string>()));
+        }
+        configContext.SetSrcFileList(srcFiles);
+    }
+    if (configJson.contains("modulesDir")) {
+        configContext.SetModulesDir(Utf8ToAnsi(configJson["modulesDir"].get<std::string>()));
+    }
+    if (configJson.contains("configFileDir")) {
+        configContext.SetConfigFileDir(Utf8ToAnsi(configJson["configFileDir"].get<std::string>()));
+    }
+    if (configJson.contains("cjoPath")) {
+        configContext.SetCjoPath(Utf8ToAnsi(configJson["cjoPath"].get<std::string>()));
+    }
+    if (configJson.contains("reportFile")) {
+        configContext.SetReportFile(Utf8ToAnsi(configJson["reportFile"].get<std::string>()));
+    }
+    if (configJson.contains("reportFormat")) {
+        configContext.SetReportFormat(Utf8ToAnsi(configJson["reportFormat"].get<std::string>()));
+    }
+}
+
+void Checker::SendStageResult(HANDLE writePipe, CompileStage stage, int readJsonCode,
+    std::unordered_set<std::string>& sentDiagnostics)
+{
+    nlohmann::ordered_json msg;
+    msg["stage"] = GetStageName(stage);
+    msg["readJsonCode"] = readJsonCode;
+    msg["errorCount"] = CodeCheckDiagnosticEngine::GetStaticErrorCount();
+    msg["warningCount"] = CodeCheckDiagnosticEngine::GetStaticWarningCount();
+    nlohmann::ordered_json allDiagnostics = diagEngine->SerializeDiagnostics();
+    nlohmann::ordered_json stageDiagnostics = nlohmann::ordered_json::array();
+    for (const auto& diagItem : allDiagnostics) {
+        auto serialized = diagItem.dump();
+        if (sentDiagnostics.insert(serialized).second) {
+            stageDiagnostics.push_back(diagItem);
+        }
+    }
+    msg["diagnostics"] = stageDiagnostics;
+    WritePipeMessage(writePipe, msg.dump());
+}
+
+void Checker::RunWorker(HANDLE writePipe)
 {
     DiagnosticEngine diag;
 #ifdef NDEBUG
@@ -238,35 +597,152 @@ int Checker::CheckCode()
     bool isSuccess = true;
     if (CommonFunc::ReadJsonFileToJsonInfo(CJLINT_RULE_LIST, ConfigContext::GetInstance(), jsonInfo) == ERR) {
         CJLintCompilerInvocation::GetInstance().DesInitRuntime();
-        return ERR;
+        CloseHandle(writePipe);
+        _exit(1);
     }
     auto compilerInstance = CJLintCompilerInvocation::GetInstance().PrePareCompilerInstance(diag);
     diagEngine->SetSourceManager(&compilerInstance->GetSourceManager());
-
-#ifndef CANGJIE_ENABLE_GCOV
-    try {
-#endif
-        isSuccess = compilerInstance->Compile(CompileStage::PARSE);
-        CreateRuleThreads(jsonInfo, compilerInstance, CompileStage::PARSE, readJsonCode);
-
-        isSuccess = isSuccess && compilerInstance->Compile(CompileStage::SEMA);
-        CreateRuleThreads(jsonInfo, compilerInstance, CompileStage::SEMA, readJsonCode);
-
-        isSuccess = isSuccess && compilerInstance->Compile(CompileStage::CHIR);
-        if (compilerInstance->diag.GetErrorCount() == 0) {
-            CreateRuleThreads(jsonInfo, compilerInstance, CompileStage::CHIR, readJsonCode);
-        }
-#ifndef CANGJIE_ENABLE_GCOV
-    } catch (const std::out_of_range& e) {
-        Errorln("Out of range exception caught: ", e.what());
-    } catch (const std::exception& e) {
-        Errorln("Exception caught: ", e.what());
-    } catch (...) {
-        Errorln("Unknown exception caught.");
+    std::unordered_set<std::string> sentDiagnostics;
+    static constexpr CompileStage STAGES[] = {CompileStage::PARSE, CompileStage::SEMA, CompileStage::CHIR};
+    for (auto stage : STAGES) {
+        ExecuteStage(jsonInfo, compilerInstance, stage, readJsonCode, isSuccess);
+        SendStageResult(writePipe, stage, readJsonCode, sentDiagnostics);
     }
-#endif
-
     CJLintCompilerInvocation::GetInstance().DesInitRuntime();
     RemoveExtensionFileAndDir(compilerInstance->macroPath);
+    CloseHandle(writePipe);
+    _exit(0);
+}
+
+static nlohmann::ordered_json BuildWorkerConfigJson(const ConfigContext& configContext)
+{
+    nlohmann::ordered_json configJson;
+    nlohmann::json srcFileDirsUtf8 = nlohmann::json::array();
+    for (const auto& dir : configContext.GetSrcFileDir()) {
+        srcFileDirsUtf8.push_back(AnsiToUtf8(dir));
+    }
+    configJson["srcFileDirs"] = srcFileDirsUtf8;
+    nlohmann::json srcFileListUtf8 = nlohmann::json::array();
+    for (const auto& file : configContext.GetSrcFileList()) {
+        srcFileListUtf8.push_back(AnsiToUtf8(file));
+    }
+    configJson["srcFileList"] = srcFileListUtf8;
+    configJson["modulesDir"] = AnsiToUtf8(configContext.GetModulesDir());
+    configJson["configFileDir"] = AnsiToUtf8(configContext.GetConfigFileDir());
+    configJson["cangjieHome"] = AnsiToUtf8(configContext.GetCangjieHome());
+    configJson["cjoPath"] = AnsiToUtf8(configContext.GetCjoPath());
+    configJson["reportFile"] = AnsiToUtf8(configContext.GetReportFile());
+    configJson["reportFormat"] = AnsiToUtf8(configContext.GetReportFormat());
+    return configJson;
+}
+
+int Checker::ReadStageResults(HANDLE readPipe)
+{
+    int readJsonCode = OK;
+    int stagesReceived = 0;
+    static const char* STAGE_NAMES[] = {"PARSE", "SEMA", "CHIR"};
+    constexpr int TOTAL_STAGES = 3;
+    for (int i = 0; i < TOTAL_STAGES; ++i) {
+        std::string stageData;
+        if (!ReadPipeMessage(readPipe, stageData)) {
+            Errorln("Process isolation: child process crashed during ", STAGE_NAMES[i],
+                " stage, recovered diagnostics from ", stagesReceived, " completed stage(s)");
+            break;
+        }
+        auto msg = nlohmann::ordered_json::parse(stageData);
+        readJsonCode = msg["readJsonCode"].get<int>();
+        diagEngine->ImportSerializedDiagnostics(msg["diagnostics"]);
+        ++stagesReceived;
+    }
     return readJsonCode;
 }
+
+int Checker::WorkerMain(void* configReadHandle, void* resultWriteHandle)
+{
+    HANDLE configReadPipe = static_cast<HANDLE>(configReadHandle);
+    HANDLE resultWritePipe = static_cast<HANDLE>(resultWriteHandle);
+
+    nlohmann::ordered_json configJson;
+    if (!ReadWorkerConfig(configReadPipe, configJson)) {
+        CloseHandle(configReadPipe);
+        CloseHandle(resultWritePipe);
+        return ERR;
+    }
+    CloseHandle(configReadPipe);
+    ApplyWorkerConfig(configJson);
+
+    SourceManager sm;
+    CodeCheckDiagnosticEngine localDiagEngine;
+    localDiagEngine.SetSourceManager(&sm);
+    Checker checker(&localDiagEngine);
+    
+    checker.RunWorker(resultWritePipe);
+    return 0;
+}
+
+int Checker::CheckCode()
+{
+    HANDLE hConfigReadPipe = NULL;
+    HANDLE hConfigWritePipe = NULL;
+    HANDLE hResultReadPipe = NULL;
+    HANDLE hResultWritePipe = NULL;
+    SECURITY_ATTRIBUTES sa;
+    sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+    sa.bInheritHandle = TRUE;
+    sa.lpSecurityDescriptor = NULL;
+
+    if (!CreatePipe(&hConfigReadPipe, &hConfigWritePipe, &sa, 0) ||
+        !CreatePipe(&hResultReadPipe, &hResultWritePipe, &sa, 0)) {
+        if (hConfigReadPipe) CloseHandle(hConfigReadPipe);
+        if (hConfigWritePipe) CloseHandle(hConfigWritePipe);
+        if (hResultReadPipe) CloseHandle(hResultReadPipe);
+        if (hResultWritePipe) CloseHandle(hResultWritePipe);
+        return ERR;
+    }
+
+    SetHandleInformation(hConfigWritePipe, HANDLE_FLAG_INHERIT, 0);
+    
+    char exePath[MAX_PATH];
+    if (GetModuleFileNameA(NULL, exePath, MAX_PATH) == 0) {
+        CloseHandle(hConfigReadPipe);
+        CloseHandle(hConfigWritePipe);
+        CloseHandle(hResultReadPipe);
+        CloseHandle(hResultWritePipe);
+        return ERR;
+    }
+
+    std::string cmdLine = std::string("\"") + exePath + "\" --cjlint-worker " +
+                          std::to_string(reinterpret_cast<uintptr_t>(hConfigReadPipe)) + " " +
+                          std::to_string(reinterpret_cast<uintptr_t>(hResultWritePipe));
+
+    STARTUPINFOA si;
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&si, sizeof(si));
+    si.cb = sizeof(si);
+    ZeroMemory(&pi, sizeof(pi));
+
+    if (!CreateProcessA(NULL, &cmdLine[0], NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi)) {
+        CloseHandle(hConfigReadPipe);
+        CloseHandle(hConfigWritePipe);
+        CloseHandle(hResultReadPipe);
+        CloseHandle(hResultWritePipe);
+        return ERR;
+    }
+
+    CloseHandle(hConfigReadPipe);
+    CloseHandle(hResultWritePipe);
+
+    ConfigContext& configContext = ConfigContext::GetInstance();
+    nlohmann::ordered_json configJson = BuildWorkerConfigJson(configContext);
+    WritePipeMessage(hConfigWritePipe, configJson.dump());
+    CloseHandle(hConfigWritePipe);
+    int readJsonCode = CollectWindowsWorkerResults(hResultReadPipe, diagEngine);
+
+    CloseHandle(hResultReadPipe);
+    WaitForSingleObject(pi.hProcess, INFINITE);
+
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+    return readJsonCode;
+}
+#endif // _WIN32
