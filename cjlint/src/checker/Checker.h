@@ -8,6 +8,7 @@
 #define CHECKER_H
 
 #include <map>
+#include <unordered_set>
 #include <memory>
 #include <string>
 #include <tuple>
@@ -23,7 +24,9 @@ public:
     explicit Checker(CodeCheckDiagnosticEngine* diagEngine);
     ~Checker() = default;
     int CheckCode();
-
+#ifdef _WIN32
+    static int WorkerMain(void* configReadHandle, void* resultWriteHandle);
+#endif
 private:
     template <typename T> void RegisterRule(const std::string& name, CompileStage stage)
     {
@@ -31,7 +34,14 @@ private:
     }
 
     static void DoAnalysis(Rule* rule, CJLintCompilerInstance* instance) { rule->DoAnalysis(instance); }
-
+    #ifndef _WIN32
+    void SendStageResult(int writeFd, CompileStage stage, int readJsonCode, 
+        std::unordered_set<std::string>& sentDiagnostics);
+    void ExecuteStage(const nlohmann::json& jsonInfo, const std::unique_ptr<CJLintCompilerInstance>& compilerInstance,
+        CompileStage stage, int& readJsonCode, bool& isSuccess);
+    void RunWorker(int writeFd);
+    int ReadStageResults(int readFd);
+#endif
     std::string fileDir;
     std::string modulesDir;
     CodeCheckDiagnosticEngine* diagEngine;
