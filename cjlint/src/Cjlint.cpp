@@ -9,6 +9,11 @@
 #include <regex>
 #include <string>
 #include <vector>
+#ifdef _WIN32
+#include <io.h>
+#define access _access
+#define R_OK 4
+#endif
 #include "cangjie/Lex/Lexer.h"
 #include "checker/Checker.h"
 
