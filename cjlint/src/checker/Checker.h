@@ -23,7 +23,9 @@ public:
     explicit Checker(CodeCheckDiagnosticEngine* diagEngine);
     ~Checker() = default;
     int CheckCode();
-
+#ifdef _WIN32
+    static int WorkerMain(void* configReadHandle, void* resultWriteHandle);
+#endif
 private:
     template <typename T> void RegisterRule(const std::string& name, CompileStage stage)
     {
