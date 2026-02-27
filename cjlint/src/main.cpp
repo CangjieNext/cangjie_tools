@@ -9,6 +9,10 @@
 #include <string>
 #include <vector>
 #include "Cjlint.h"
+#ifdef _WIN32
+#include "checker/Checker.h"
+#include <cstdlib>
+#endif
 
 using namespace Cangjie;
 using namespace Cangjie::CodeCheck;
@@ -29,6 +33,21 @@ int main(int argc, char **argv, const char **envp)
         PrintHelp();
         return OK;
     }
+
+#ifdef _WIN32
+    constexpr int TOTAL_PARAMS = 4;
+    if (argc >= TOTAL_PARAMS && std::string(argv[1]) == "--cjlint-worker") {
+        uintptr_t configReadHandle = std::strtoull(argv[2], nullptr, 10);
+        uintptr_t resultWriteHandle = std::strtoull(argv[3], nullptr, 10);
+
+        int result = Checker::WorkerMain(
+            reinterpret_cast<void*>(configReadHandle),
+            reinterpret_cast<void*>(resultWriteHandle));
+        _exit(result);
+        return result;
+    }
+#endif
+
     ParamsInCJLint params;
     int i = 1;
     while (i < argc) {
