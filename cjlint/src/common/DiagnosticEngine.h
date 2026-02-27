@@ -132,6 +132,39 @@ public:
     nlohmann::ordered_json ToJsonValue() const;
     std::string ToCsvValue() const;
     static CodeCheckDiagCategory GetDiagnoseCategory(CodeCheckDiagKind diagKind);
+    nlohmann::ordered_json Serialize() const
+    {
+        nlohmann::ordered_json j;
+        j["startFileID"] = start.fileID;
+        j["startLine"] = start.line;
+        j["startColumn"] = start.column;
+        j["endFileID"] = end.fileID;
+        j["endLine"] = end.line;
+        j["endColumn"] = end.column;
+        j["kind"] = static_cast<int>(kind);
+        j["path"] = path;
+        j["diagMessage"] = diagMessage;
+        j["diagCategory"] = static_cast<int>(diagCategory);
+        j["clearanceRequirement"] = static_cast<int>(clearanceRequirement);
+        return j;
+    }
+
+    static CodeCheckDiagnostic Deserialize(const nlohmann::ordered_json& j)
+    {
+        Position s(static_cast<unsigned>(j["startFileID"].get<int>()),
+            static_cast<unsigned>(j["startLine"].get<int>()),
+            static_cast<unsigned>(j["startColumn"].get<int>()));
+        Position e(static_cast<unsigned>(j["endFileID"].get<int>()),
+            static_cast<unsigned>(j["endLine"].get<int>()),
+            static_cast<unsigned>(j["endColumn"].get<int>()));
+        CodeCheckDiagKind k = static_cast<CodeCheckDiagKind>(j["kind"].get<int>());
+        CodeCheckDiagnostic d(s, e, k, j["path"].get<std::string>());
+        d.diagMessage = j["diagMessage"].get<std::string>();
+        d.diagCategory = static_cast<CodeCheckDiagCategory>(j["diagCategory"].get<int>());
+        d.clearanceRequirement =
+            static_cast<CodeCheckClearanceRequirement>(j["clearanceRequirement"].get<int>());
+        return d;
+    }
 };
 
 /**
@@ -279,7 +312,40 @@ public:
             PushToDiagnosticList(diagnostic);
         }
     }
+    nlohmann::ordered_json SerializeDiagnostics() const
+    {
+        nlohmann::ordered_json arr = nlohmann::ordered_json::array();
+        for (const auto& d : diagnosticList) {
+            arr.push_back(d.Serialize());
+        }
+        return arr;
+    }
 
+    nlohmann::ordered_json SerializeDiagnosticsFrom(size_t startIndex) const
+    {
+        nlohmann::ordered_json arr = nlohmann::ordered_json::array();
+        auto it = diagnosticList.begin();
+        std::advance(it, static_cast<std::ptrdiff_t>(std::min(startIndex, diagnosticList.size())));
+        for (; it != diagnosticList.end(); ++it) {
+            arr.push_back(it->Serialize());
+        }
+        return arr;
+    }
+
+    size_t GetDiagnosticCount() const { return diagnosticList.size(); }
+
+    void ImportSerializedDiagnostics(const nlohmann::ordered_json& arr)
+    {
+        for (const auto& j : arr) {
+            diagnosticList.push_back(CodeCheckDiagnostic::Deserialize(j));
+        }
+    }
+
+    static unsigned GetStaticErrorCount() { return errorCount.load(); }
+    static unsigned GetStaticWarningCount() { return warningCount.load(); }
+    static void AddToErrorCount(unsigned count) { errorCount += count; }
+    static void AddToWarningCount(unsigned count) { warningCount += count; }
+    void ClearDiagnostics() { diagnosticList.clear(); }
 private:
     static std::atomic<unsigned> errorCount;
     static std::atomic<unsigned> warningCount;
