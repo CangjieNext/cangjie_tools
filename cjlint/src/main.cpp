@@ -31,14 +31,10 @@ int main(int argc, char **argv, const char **envp)
     }
 
 #ifdef _WIN32
-    // Check if running as worker process (for process isolation)
-    // New format: --cjlint-worker <config_read_handle> <result_write_handle>
     if (argc >= 4 && std::string(argv[1]) == "--cjlint-worker") {
-        // Parse the two pipe handles
         uintptr_t configReadHandle = std::strtoull(argv[2], nullptr, 10);
         uintptr_t resultWriteHandle = std::strtoull(argv[3], nullptr, 10);
 
-        // Directly call WorkerMain - it reads config from pipe, no need for command line args
         int result = Checker::WorkerMain(
             reinterpret_cast<void*>(configReadHandle),
             reinterpret_cast<void*>(resultWriteHandle));
