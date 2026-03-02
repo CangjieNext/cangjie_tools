@@ -337,7 +337,7 @@ func test() {
 ```
 ###  4.1.1 Linux优化前
 当不使用进程隔离，直接对测试代码进行检查时，会正常输出三个阶段对应规则的检查结果：
-![[Pasted image 20260205154007.png]]
+![Pasted image 20260205154007.png](https://raw.gitcode.com/user-images/assets/8923410/f54e694b-dd77-4ed4-92ee-5617d0fe2613/Pasted_image_20260205154007.png 'Pasted image 20260205154007.png')
 首先需要模拟让不同的检查阶段发生崩溃，使用的方法是给空指针赋值，先在PARSE阶段GDCL02规则的执行函数中给空指针赋值。
 ```C++
 void StructuralRuleGDCL02::MatchPattern(ASTContext& ctx, Ptr<Node> node)
@@ -350,7 +350,7 @@ void StructuralRuleGDCL02::MatchPattern(ASTContext& ctx, Ptr<Node> node)
 }
 ```
 检查结果如下，可以看到程序在GDCL02的执行函数中挂掉了，同时也不会输出其他编译阶段的执行结果。
-![[Pasted image 20260205155849.png]]
+![Pasted image 20260205155849.png](https://raw.gitcode.com/user-images/assets/8923410/119ed6bf-2704-4907-b122-4b8859bf4347/Pasted_image_20260205155849.png 'Pasted image 20260205155849.png')              
 接着只在SEMA阶段的GNAM05规则的执行函数中给空指针赋值。
 ```C++
 void StructuralRuleGNAM05::MatchPattern(ASTContext& ctx, Ptr<Node> node)
@@ -363,8 +363,8 @@ void StructuralRuleGNAM05::MatchPattern(ASTContext& ctx, Ptr<Node> node)
 }
 ```
 检查结果如下，可以看到程序在GNAM05的执行函数中挂掉了，也不会输出PARSE阶段GDCL02的执行结果。
-![[Pasted image 20260205154803.png]]
-最后只在CHIR阶段的VAR01规则的执行函数中给空指针赋值。
+![Pasted image 20260205154803.png](https://raw.gitcode.com/user-images/assets/8923410/542e5010-48f2-4fab-8b15-d8282b10fa7f/Pasted_image_20260205154803.png 'Pasted image 20260205154803.png')  
+  最后只在CHIR阶段的VAR01规则的执行函数中给空指针赋值。
 ```C++
 void DataflowRuleVAR01Check::DoAnalysis(CJLintCompilerInstance* instance)
 {
@@ -383,10 +383,10 @@ void DataflowRuleVAR01Check::DoAnalysis(CJLintCompilerInstance* instance)
 }
 ```
 检查结果如下，可以看到程序在VAR01的执行函数中挂掉了，也不会输出之前两个阶段PARSE和SEMA对应规则的执行结果。
-![[Pasted image 20260205152603.png]]
+![Pasted image 20260205152603.png](https://raw.gitcode.com/user-images/assets/8923410/f6e99307-7add-4349-803e-cb87fb1b7198/Pasted_image_20260205152603.png 'Pasted image 20260205152603.png')
 ###  4.1.2 Linux优化后
 使用进程隔离对原来代码进行优化，直接对测试代码进行检查时，同样会正常输出三个阶段对应规则的检查结果：
-![[Pasted image 20260205163333.png]]
+![Pasted image 20260205163333.png](https://raw.gitcode.com/user-images/assets/8923410/d2a76f24-dabe-4243-9d06-6a75555980e4/Pasted_image_20260205163333.png 'Pasted image 20260205163333.png')
 与优化前采取的方式一样，需要模拟让不同的检查阶段发生崩溃，使用的方法是给空指针赋值，先在PARSE阶段GDCL02规则的执行函数中给空指针赋值。
 ```C++
 void StructuralRuleGDCL02::MatchPattern(ASTContext& ctx, Ptr<Node> node)
@@ -398,9 +398,8 @@ void StructuralRuleGDCL02::MatchPattern(ASTContext& ctx, Ptr<Node> node)
     CheckReturnValType(node);
 }
 ```
-
 检查结果如下，可以看到程序在GDCL02的执行函数中挂掉了，同时也不会输出其他编译阶段的执行结果。
-![[Pasted image 20260205160542.png]]
+![Pasted image 20260205160542.png](https://raw.gitcode.com/user-images/assets/8923410/b44cc43b-b668-4cd6-bf1e-2694295bffa3/Pasted_image_20260205160542.png 'Pasted image 20260205160542.png')
 接着只在SEMA阶段的GNAM05规则的执行函数中给空指针赋值。
 ```C++
 void StructuralRuleGNAM05::MatchPattern(ASTContext& ctx, Ptr<Node> node)
@@ -413,7 +412,7 @@ void StructuralRuleGNAM05::MatchPattern(ASTContext& ctx, Ptr<Node> node)
 }
 ```
 检查结果如下，可以看到程序在GNAM05的执行函数中挂掉了，但是会输出上一阶段PARSE的GDCL02的执行结果。
-![[Pasted image 20260205162241.png]]
+![Pasted image 20260205162241.png](https://raw.gitcode.com/user-images/assets/8923410/d9092cbc-a812-4171-866b-e92b0da361ba/Pasted_image_20260205162241.png 'Pasted image 20260205162241.png')
 最后只在CHIR阶段的VAR01规则的执行函数中给空指针赋值。
 ```C++
 void DataflowRuleVAR01Check::DoAnalysis(CJLintCompilerInstance* instance)
@@ -433,11 +432,11 @@ void DataflowRuleVAR01Check::DoAnalysis(CJLintCompilerInstance* instance)
 }
 ```
 检查结果如下，可以看到程序在VAR01的执行函数中挂掉了，但是会输出之前两个阶段PARSE和SEMA对应规则的执行结果。
-![[Pasted image 20260205162821.png]]
+![Pasted image 20260205162821.png](https://raw.gitcode.com/user-images/assets/8923410/ee51a247-165a-4bc3-80e4-bcae87d26d6f/Pasted_image_20260205162821.png 'Pasted image 20260205162821.png')
 上述结果说明通过对原来代码进行进程隔离优化可以实现需求，即SEMA发生崩溃，PARSE阶段的检查结果可以正常输出；CHIR发生崩溃，SEMA和PARSE阶段的检查结果都可以正常输出。
 ###   4.2.1 Windows优化前
 当不使用进程隔离，直接对测试代码进行检查时，会正常输出三个阶段对应规则的检查结果：
-![[Pasted image 20260224144550.png]]
+![Pasted image 20260224144550.png](https://raw.gitcode.com/user-images/assets/8923410/f88078c8-6f2a-4680-acfe-12edce4cc291/Pasted_image_20260224144550.png 'Pasted image 20260224144550.png')
 在PARSE阶段GDCL02规则的执行函数中给空指针赋值。
 ```C++
 void StructuralRuleGDCL02::MatchPattern(ASTContext& ctx, Ptr<Node> node)
@@ -449,8 +448,8 @@ void StructuralRuleGDCL02::MatchPattern(ASTContext& ctx, Ptr<Node> node)
     CheckReturnValType(node);
 }
 ```
-检查结果如下，可以看到程序在GDCL02的执行函数中挂掉了，同时也不会输出其他编译阶段的执行结果。
-![[Pasted image 20260224144634.png]]
+检查结果如下，可以看到程序在GDCL02的执行函数中挂掉了，同时也不会输出其他编译阶段的执行结果。       
+![Pasted image 20260224144634.png](https://raw.gitcode.com/user-images/assets/8923410/984e1764-a984-4339-bfb6-57471f2b9827/Pasted_image_20260224144634.png 'Pasted image 20260224144634.png')                                   
 接着只在SEMA阶段的GNAM05规则的执行函数中给空指针赋值。
 ```C++
 void StructuralRuleGNAM05::MatchPattern(ASTContext& ctx, Ptr<Node> node)
@@ -462,8 +461,8 @@ void StructuralRuleGNAM05::MatchPattern(ASTContext& ctx, Ptr<Node> node)
     FindGlobalOrStaticVarWithLetName(node);
 }
 ```
-检查结果如下，可以看到程序在GNAM05的执行函数中挂掉了，也不会输出PARSE阶段GDCL02的执行结果。
-![[Pasted image 20260224151338.png]]
+检查结果如下，可以看到程序在GNAM05的执行函数中挂掉了，也不会输出PARSE阶段GDCL02的执行结果。             
+![Pasted image 20260224151338.png](https://raw.gitcode.com/user-images/assets/8923410/2ec9a0e1-129b-494c-8414-d660b6d23a93/Pasted_image_20260224151338.png 'Pasted image 20260224151338.png')           
 最后只在CHIR阶段的VAR01规则的执行函数中给空指针赋值。
 ```C++
 void DataflowRuleVAR01Check::DoAnalysis(CJLintCompilerInstance* instance)
@@ -483,10 +482,10 @@ void DataflowRuleVAR01Check::DoAnalysis(CJLintCompilerInstance* instance)
 }
 ```
 检查结果如下，可以看到程序在VAR01的执行函数中挂掉了，也不会输出之前两个阶段PARSE和SEMA对应规则的执行结果。
-![[Pasted image 20260224153752.png]]
+![Pasted image 20260224153752.png](https://raw.gitcode.com/user-images/assets/8923410/ee6b42e3-1e57-4100-8755-9cd2e86c495f/Pasted_image_20260224153752.png 'Pasted image 20260224153752.png')
 ###   4.2.2 Windows优化后
 使用进程隔离对原来代码进行优化，直接对测试代码进行检查时，同样会正常输出三个阶段对应规则的检查结果：
-![[Pasted image 20260227113411.png]]
+![Pasted image 20260227113411.png](https://raw.gitcode.com/user-images/assets/8923410/c28280ba-0f47-45d5-a9e6-bf84ad472926/Pasted_image_20260227113411.png 'Pasted image 20260227113411.png')
 与优化前采取的方式一样，需要模拟让不同的检查阶段发生崩溃，使用的方法是给空指针赋值，先在PARSE阶段GDCL02规则的执行函数中给空指针赋值。
 ```C++
 void StructuralRuleGDCL02::MatchPattern(ASTContext& ctx, Ptr<Node> node)
@@ -498,9 +497,8 @@ void StructuralRuleGDCL02::MatchPattern(ASTContext& ctx, Ptr<Node> node)
     CheckReturnValType(node);
 }
 ```
-
 检查结果如下，可以看到程序在GDCL02的执行函数中挂掉了，同时也不会输出其他编译阶段的执行结果。
-![[Pasted image 20260227131110.png]]
+![Pasted image 20260227131110.png](https://raw.gitcode.com/user-images/assets/8923410/c2168dc4-42ef-40eb-adb5-4593c26b83a1/Pasted_image_20260227131110.png 'Pasted image 20260227131110.png')
 接着只在SEMA阶段的GNAM05规则的执行函数中给空指针赋值。
 ```C++
 void StructuralRuleGNAM05::MatchPattern(ASTContext& ctx, Ptr<Node> node)
@@ -513,7 +511,7 @@ void StructuralRuleGNAM05::MatchPattern(ASTContext& ctx, Ptr<Node> node)
 }
 ```
 检查结果如下，可以看到程序在GNAM05的执行函数中挂掉了，但是会输出上一阶段PARSE的GDCL02的执行结果。
-![[Pasted image 20260227120819.png]]
+![Pasted image 20260227120819.png](https://raw.gitcode.com/user-images/assets/8923410/34608865-5af6-413f-a22b-2e7eb383ab09/Pasted_image_20260227120819.png 'Pasted image 20260227120819.png')
 最后只在CHIR阶段的VAR01规则的执行函数中给空指针赋值。
 ```C++
 void DataflowRuleVAR01Check::DoAnalysis(CJLintCompilerInstance* instance)
@@ -533,5 +531,5 @@ void DataflowRuleVAR01Check::DoAnalysis(CJLintCompilerInstance* instance)
 }
 ```
 检查结果如下，可以看到程序在VAR01的执行函数中挂掉了，但是会输出之前两个阶段PARSE和SEMA对应规则的执行结果。
-![[Pasted image 20260227114920.png]]
+![Pasted image 20260227114920.png](https://raw.gitcode.com/user-images/assets/8923410/ec157b00-b6a5-4743-b611-bd70229bd7bc/Pasted_image_20260227114920.png 'Pasted image 20260227114920.png')
 上述结果说明通过对原来代码进行进程隔离优化可以实现需求，即SEMA发生崩溃，PARSE阶段的检查结果可以正常输出；CHIR发生崩溃，SEMA和PARSE阶段的检查结果都可以正常输出。
