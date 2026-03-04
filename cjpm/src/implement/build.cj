@@ -406,10 +406,14 @@ func hasExeFile(buildConfig: BuildConfig, fullName: String): Bool {
 func refreshIncreInfo(buildConfig: BuildConfig, curResolveData: ModuleResolve): Unit {
     collectCjoTime(buildConfig)
     collectLastTime(buildConfig)
-    var incrementalFlag: Bool = buildConfig.isIncremental
-    while (incrementalFlag) {
-        incrementalFlag = analyseRebuild(buildConfig)
-    }
+    // var incrementalFlag: Bool = buildConfig.isIncremental
+    // while (incrementalFlag) {
+        // incrementalFlag = analyseRebuild(buildConfig)
+    // }
+    let t1 = DateTime.now()
+    optimizeIncrementalRebuild(buildConfig)
+ 	let t2 = DateTime.now()
+    println(" optimizeIncrementalRebuild: " + (t2-t1).toString())
 
     for (r in curResolveData.resolves) {
         if (!buildConfig.rebuildList.contains(r.fullName)) {
@@ -513,6 +517,73 @@ func collectLastTime(buildConfig: BuildConfig): Unit {
         } catch (_: Exception) {}
     }
     return
+}
+
+func optimizeIncrementalRebuild(buildConfig: BuildConfig) {
+    let dependentsMap = HashMap<String, ArrayList<String>>()
+    for ((pkgName, requires) in buildConfig.requiresMap) {
+        for (r in requires) {
+            if (!dependentsMap.contains(r)) {
+                dependentsMap[r] = ArrayList<String>()
+            }
+            dependentsMap[r].add(pkgName)
+        }
+    }
+
+    let subToSuperMap = HashMap<String, ArrayList<String>>()
+    for ((superPkgName, superPkgCfg) in buildConfig.superPkgMap) {
+        for (subPkg in superPkgCfg.subPkgSet) {
+            if (!subToSuperMap.contains(subPkg)) {
+                subToSuperMap[subPkg] = ArrayList<String>()
+            }
+            subToSuperMap[subPkg].add(superPkgName)
+        }
+    }
+
+    let queue = ArrayDeque<String>()
+
+    for (pkg in buildConfig.rebuildList) {
+        queue.addLast(pkg)
+    }
+
+    for ((pkgName, requires) in buildConfig.requiresMap) {
+        if (buildConfig.rebuildList.contains(pkgName)) {
+            continue
+        }
+        for (r in requires) {
+            if (buildConfig.packageList.test.contains(r)) {
+                continue
+            }
+            if (buildConfig.cjoTimeMap.contains(r) && buildConfig.lastEndTime < buildConfig.cjoTimeMap[r]) {
+                buildConfig.rebuildList.add(pkgName)
+                queue.addLast(pkgName)
+                break
+            }
+        }
+    }
+
+    while (let Some(currentPkg) <- queue.removeFirst()) {
+
+        if (dependentsMap.contains(currentPkg)) {
+            for (dependentPkg in dependentsMap[currentPkg]) {
+                if (buildConfig.rebuildList.contains(dependentPkg)) {
+                    continue
+                }
+                buildConfig.rebuildList.add(dependentPkg)
+                buildConfig.indirectRebuilds.add(dependentPkg)
+                queue.addLast(dependentPkg)
+            }
+        }
+
+        if (subToSuperMap.contains(currentPkg)) {
+            for (superPkgName in subToSuperMap[currentPkg]) {
+                if (!buildConfig.rebuildList.contains(superPkgName)) {
+                    buildConfig.rebuildList.add(superPkgName)
+                    queue.addLast(superPkgName)
+                }
+            }
+        }
+    }
 }
 
 // Analyzing indirectly affected packages in incremental.
