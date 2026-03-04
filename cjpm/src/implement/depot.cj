@@ -108,7 +108,9 @@ public class Depot {
         // verify response code
         match (resp.status) {
             case 200 => return (true, "${name}-${version} ${orgStr}publish success")
-            case 400 => return (false, "${name}-${version} ${orgStr}publish failed with status ${resp.status}: invalid parameters")
+            case 400 =>
+                let respMsg = extractErrorMessage(resp)
+                return (false, "${name}-${version} ${orgStr}publish failed with status ${resp.status}: invalid parameters: ${respMsg}")
             case 401 => return (false, "${name}-${version} ${orgStr}publish failed with status ${resp.status}: authentication failed")
             case 403 => return (false, "${name}-${version} ${orgStr}publish failed with status ${resp.status}: permission denied")
             case 404 => return (false, "${name}-${version} ${orgStr}publish failed with status ${resp.status}: file does not exist")
@@ -145,7 +147,9 @@ public class Depot {
         var (flag, errLog) = (true, "")
         match (resp.status) {
             case 200 => ()
-            case 400 => (flag, errLog) = (false, "${name}-${version} ${orgStr}load failed with status ${resp.status}: invalid parameters")
+            case 400 =>
+                let respMsg = extractErrorMessage(resp)
+                (flag, errLog) = (false, "${name}-${version} ${orgStr}load failed with status ${resp.status}: invalid parameters: ${respMsg}")
             case 401 => (flag, errLog) = (false, "${name}-${version} ${orgStr}load failed with status ${resp.status}: authentication failed")
             case 403 => (flag, errLog) = (false, "${name}-${version} ${orgStr}load failed with status ${resp.status}: permission denied")
             case 404 => (flag, errLog) = (false, "${name}-${version} ${orgStr}load failed with status ${resp.status}: file does not exist")
@@ -265,7 +269,8 @@ public class Depot {
         match (resp.status) {
             case 200 => ()
             case 400 =>
-                (flag, errLog) = (false, "index of module '${name}'${orgStr} load failed with status ${resp.status}: invalid parameters")
+                let respMsg = extractErrorMessage(resp)
+                (flag, errLog) = (false, "index of module '${name}'${orgStr} load failed with status ${resp.status}: invalid parameters: ${respMsg}")
             case 401 =>
                 (flag, errLog) = (false, "index of module '${name}'${orgStr} load failed with status ${resp.status}: authentication failed")
             case 403 =>
@@ -313,6 +318,33 @@ public class Depot {
             eprintln("Error: ${output}")
         }
         return flag
+    }
+
+    private static func extractErrorMessage(resp: HttpResponse): String {
+        let buf = Array<UInt8>(1024, repeat: 0)
+        let buffer = ArrayList<UInt8>()
+        var readSize = 0
+        do {
+            readSize = resp.body.read(buf)
+            buffer.add(all: buf[..readSize])
+        } while (readSize != 0)
+        var respMsg = String.fromUtf8(buffer.toArray())
+        try {
+            let jsonResp = JsonValue.fromStr(respMsg).asObject()
+            if (let Some(errorsVal) <- jsonResp.get("errors")) {
+                let errors = errorsVal.asArray()
+                let messages = ArrayList<String>()
+                for (idx in 0..errors.size()) {
+                    if (let Some(msgVal) <- errors[idx].asObject().get("message")) {
+                        messages.add(msgVal.asString().getValue())
+                    }
+                }
+                if (!messages.isEmpty()) {
+                    respMsg = String.join(messages.toArray(), delimiter: "; ")
+                }
+            }
+        } catch (_: Exception) {}
+        return respMsg
     }
 
     // get index file
