@@ -568,12 +568,10 @@ void ItemResolverUtil::ResolveVarDeclDetail(std::string &detail, const Cangjie::
                                             SourceManager *sourceManager)
 {
     if (decl.TestAttr(Cangjie::AST::Attribute::ENUM_CONSTRUCTOR)) {
-        detail = "(enum_construct) ";
-        detail += ResolveSignatureByNode(decl);
+        detail = ResolveSignatureByNode(decl);
         return;
     }
-    detail = "(variable) ";
-    detail += GetModifierByNode(decl);
+    detail = GetModifierByNode(decl);
     if (decl.isConst) {
         detail += "const ";
     } else if (decl.isVar) {
@@ -690,15 +688,12 @@ void ItemResolverUtil::ResolveFuncDeclDetail(std::string &detail, const Cangjie:
                                              Cangjie::SourceManager *sourceManager)
 {
     if (decl.TestAttr(Cangjie::AST::Attribute::MACRO_FUNC)) {
-        detail = "(macro) ";
-        detail += GetModifierByNode(decl);
+        detail = GetModifierByNode(decl);
         detail += "macro ";
         ResolveFuncDeclQuickLook(detail, decl, sourceManager);
     } else if (decl.TestAttr(Cangjie::AST::Attribute::ENUM_CONSTRUCTOR)) {
-        detail = "(enum_construct) ";
         ResolveFuncDeclQuickLook(detail, decl, sourceManager);
     } else {
-        detail = "(function) ";
         detail += GetModifierByNode(decl);
         if (decl.propDecl) {
             detail += "prop ";
@@ -721,8 +716,7 @@ void ItemResolverUtil::ResolveFuncDeclDetail(std::string &detail, const Cangjie:
 void ItemResolverUtil::ResolvePrimaryCtorDeclDetail(std::string &detail, const Cangjie::AST::PrimaryCtorDecl &decl,
                                                     Cangjie::SourceManager *sourceManager)
 {
-    detail = "(function) ";
-    detail += GetModifierByNode(decl);
+    detail = GetModifierByNode(decl);
     detail += "func ";
     ResolvePrimaryCtorDeclSignature(detail, decl, sourceManager);
 
