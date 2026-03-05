@@ -9,7 +9,7 @@ package hle.tool
 import std.collection.*
 import std.ast.*
 import std.regex.*
-import stdx.serialization.serialization.*
+import cangjie_stdx::serialization.serialization.*
 
 public const i8: String = "Int8"
 public const i16: String = "Int16"

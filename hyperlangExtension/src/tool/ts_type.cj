@@ -7,7 +7,7 @@
 package hle.tool
 
 import std.collection.*
-import stdx.serialization.serialization.*
+import cangjie_stdx::serialization.serialization.*
 
 public enum TsType {
     | TsTypeRef(String) // SomeType, without generics

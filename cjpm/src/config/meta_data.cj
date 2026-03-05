@@ -9,10 +9,10 @@ package cjpm.config
 import std.collection.*
 import std.regex.*
 import std.fs.*
-import stdx.serialization.serialization.*
-import stdx.crypto.digest.*
-import stdx.encoding.hex.*
-import stdx.crypto.common.CryptoException
+import cangjie_stdx::serialization.serialization.*
+import cangjie_stdx::crypto.digest.*
+import cangjie_stdx::encoding.hex.*
+import cangjie_stdx::crypto.common.CryptoException
 
 // version of metadata and index
 public let META_DATA_VERSION_BYTE: Byte = 1

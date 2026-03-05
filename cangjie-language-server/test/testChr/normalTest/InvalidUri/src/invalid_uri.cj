@@ -9,7 +9,7 @@
  */
 package ohos_app_cangjie_entry
 
-import stdx.serialization.serialization.*
+import cangjie_stdx::serialization.serialization.*
 import std.ast.*
 import std.collection.ArrayList
 

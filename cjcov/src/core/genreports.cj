@@ -6,13 +6,13 @@
 
 package cjcov.core
 
-import stdx.encoding.json.*
+import cangjie_stdx::encoding.json.*
 import std.fs.*
 import std.time.*
 import std.collection.*
 import std.convert.*
 import cjcov.util.*
-import stdx.serialization.serialization.*
+import cangjie_stdx::serialization.serialization.*
 
 let LOW_COLOR = "LightPink"
 let MEDIUM_COLOR = "Yellow"

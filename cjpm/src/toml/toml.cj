@@ -9,7 +9,7 @@ package cjpm.toml
 import std.collection.*
 import std.fs.*
 import std.io.*
-import stdx.serialization.serialization.*
+import cangjie_stdx::serialization.serialization.*
 
 public interface ToToml {
     static func fromToml(tv: TomlValue): DataModel

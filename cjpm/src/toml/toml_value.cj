@@ -8,7 +8,7 @@ package cjpm.toml
 
 import std.time.{DateTime, Month}
 import std.collection.*
-import stdx.serialization.serialization.*
+import cangjie_stdx::serialization.serialization.*
 import std.convert.*
 
 public abstract class TomlValue <: ToString {

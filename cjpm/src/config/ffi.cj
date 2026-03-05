@@ -7,7 +7,7 @@
 package cjpm.config
 
 import std.collection.*
-import stdx.serialization.serialization.*
+import cangjie_stdx::serialization.serialization.*
 
 class CLibrary <: Serializable<CLibrary> {
     public var path: String = ""

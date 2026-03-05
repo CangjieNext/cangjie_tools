@@ -13,8 +13,8 @@ import std.collection.concurrent.*
 import std.env.*
 import std.time.*
 import std.sync.*
-import stdx.serialization.serialization.*
-import stdx.encoding.json.*
+import cangjie_stdx::serialization.serialization.*
+import cangjie_stdx::encoding.json.*
 import std.process.*
 import hle.tool.*
 import hle.entry.*

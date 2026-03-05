@@ -8,7 +8,7 @@ package cjpm.toml
 
 import std.collection.*
 import std.io.*
-import stdx.serialization.serialization.*
+import cangjie_stdx::serialization.serialization.*
 
 public struct Encoder {
     let w: OutputStream

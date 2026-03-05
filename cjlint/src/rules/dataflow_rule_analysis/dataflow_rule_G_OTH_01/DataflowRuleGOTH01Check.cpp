@@ -19,7 +19,7 @@ DataflowRuleGOTH01Check::DataflowRuleGOTH01Check(CodeCheckDiagnosticEngine* diag
 static bool IsLoggerSubTy(const Cangjie::CHIR::ClassType* classType)
 {
     auto classDef = classType->GetClassDef();
-    if (classDef && classDef->GetSrcCodeIdentifier() == "Logger" && classDef->GetPackageName() == "stdx.log") {
+    if (classDef && classDef->GetSrcCodeIdentifier() == "Logger" && classDef->GetPackageName() == "cangjie_stdx::log") {
         return true;
     }
     for (auto interface : classDef->GetImplementedInterfaceTys()) {
@@ -45,9 +45,9 @@ static bool IsLoggerSubTy(const Cangjie::CHIR::ClassType* classType)
 
 static bool IsLogger(const CHIRFuncInfo& chirFuncInfo, std::string funcName)
 {
-    AstFuncInfo func = AstFuncInfo(funcName, "Logger", {"Logger", "String", "Array"}, "Unit", "stdx.log");
+    AstFuncInfo func = AstFuncInfo(funcName, "Logger", {"Logger", "String", "Array"}, "Unit", "cangjie_stdx::log");
     if (funcName == "log") {
-        func = AstFuncInfo(funcName, "Logger", {"Logger", "LogLevel", "String", "Array"}, "Unit", "stdx.log");
+        func = AstFuncInfo(funcName, "Logger", {"Logger", "LogLevel", "String", "Array"}, "Unit", "cangjie_stdx::log");
     }
     if (!CommonFunc::CheckFuncName(chirFuncInfo, func) ||
         !CommonFunc::CheckReturnTy(chirFuncInfo, func)) {

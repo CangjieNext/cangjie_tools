@@ -7,7 +7,7 @@
 package cjcov.core
 
 import std.collection.*
-import stdx.serialization.serialization.*
+import cangjie_stdx::serialization.serialization.*
 
 public class FileJson <: Serializable<FileJson> {
     public var filepath: String = ""

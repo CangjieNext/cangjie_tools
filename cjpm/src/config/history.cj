@@ -9,8 +9,8 @@ package cjpm.config
 import std.collection.*
 import std.fs.*
 
-import stdx.serialization.serialization.*
-import stdx.encoding.json.*
+import cangjie_stdx::serialization.serialization.*
+import cangjie_stdx::encoding.json.*
 
 @When[os == "macOS"]	 
 import std.env.*

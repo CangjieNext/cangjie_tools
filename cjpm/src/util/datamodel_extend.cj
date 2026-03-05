@@ -6,7 +6,7 @@
 
 package cjpm.util
 
-import stdx.serialization.serialization.*
+import cangjie_stdx::serialization.serialization.*
 
 public interface DataModelStructExtends {
     func accessDeep(args: Array<String>): DataModel

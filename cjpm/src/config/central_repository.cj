@@ -10,7 +10,7 @@ import std.env.*
 import std.fs.*
 import std.collection.*
 import std.convert.*
-import stdx.serialization.serialization.*
+import cangjie_stdx::serialization.serialization.*
 import cjpm.toml.*
 import cjpm.toml.Decoder as DecoderToml
 

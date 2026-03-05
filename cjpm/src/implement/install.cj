@@ -8,7 +8,7 @@ package cjpm.implement
 
 import std.collection.*
 import std.fs.*
-import stdx.serialization.serialization.*
+import cangjie_stdx::serialization.serialization.*
 import cjpm.toml.*
 import cjpm.config.*
 

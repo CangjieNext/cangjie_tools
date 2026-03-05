@@ -10,16 +10,16 @@ import std.net.*
 import std.io.*
 import std.fs.*
 import std.collection.*
-import stdx.net.http.*
-import stdx.net.tls.common.*
-import stdx.net.tls.*
-import stdx.compress.*
-import stdx.crypto.digest.*
-import stdx.encoding.hex.*
-import stdx.serialization.serialization.*
-import stdx.encoding.json.*
+import cangjie_stdx::net.http.*
+import cangjie_stdx::net.tls.common.*
+import cangjie_stdx::net.tls.*
+import cangjie_stdx::compress.*
+import cangjie_stdx::crypto.digest.*
+import cangjie_stdx::encoding.hex.*
+import cangjie_stdx::serialization.serialization.*
+import cangjie_stdx::encoding.json.*
 import cjpm.config.*
-import stdx.crypto.common.CryptoException
+import cangjie_stdx::crypto.common.CryptoException
 
 const CONNECT_TIMEOUT = 30
 const READ_TIMEOUT = 60

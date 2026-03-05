@@ -9,7 +9,7 @@ package cjpm.config
 import std.collection.*
 import std.deriving.*
 
-import stdx.serialization.serialization.*
+import cangjie_stdx::serialization.serialization.*
 
 public class ImportInfo <: Serializable<ImportInfo> {
     public var fileImported: String = ""
