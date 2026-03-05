@@ -13,7 +13,7 @@ import std.sort.sort
 import std.fs.*
 import std.regex.Regex
 
-import stdx.serialization.serialization.*
+import cangjie_stdx::serialization.serialization.*
 
 import cjpm.util.*
 import cjpm.toml.*

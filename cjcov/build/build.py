@@ -102,11 +102,11 @@ def build(build_type, target, rpath=None):
     # Compile cjcov executable file
     COMMON_OPTION2 = f"-j1 --trimpath={CURRENT_DIR} {DEBUG_MODE} --import-path {os.path.join(CURRENT_DIR,'bin')} --import-path {os.environ['CANGJIE_STDX_PATH']} --output-dir {os.path.join(CURRENT_DIR, 'bin', 'cjcov')}"
     if IS_WINDOWS:
-        STDX_LINKS=f"-L %CANGJIE_STDX_PATH% -l:libstdx.logger.a -l:libstdx.log.a -l:libstdx.encoding.json.stream.a -l:libstdx.serialization.serialization.a -l:libstdx.encoding.json.a"
+        STDX_LINKS=f"-L %CANGJIE_STDX_PATH% -l:liblogger@cangjie_stdx.a -l:liblog@cangjie_stdx.a -l:libencoding.json.stream@cangjie_stdx.a -l:libserialization.serialization@cangjie_stdx.a -l:libencoding.json@cangjie_stdx.a"
     if IS_MACOS:
-        STDX_LINKS=f"$CANGJIE_STDX_PATH/libstdx.logger.a $CANGJIE_STDX_PATH/libstdx.log.a $CANGJIE_STDX_PATH/libstdx.encoding.json.stream.a $CANGJIE_STDX_PATH/libstdx.serialization.serialization.a $CANGJIE_STDX_PATH/libstdx.encoding.json.a"
+        STDX_LINKS=f"$CANGJIE_STDX_PATH/liblogger@cangjie_stdx.a $CANGJIE_STDX_PATH/liblog@cangjie_stdx.a $CANGJIE_STDX_PATH/libencoding.json.stream@cangjie_stdx.a $CANGJIE_STDX_PATH/libserialization.serialization@cangjie_stdx.a $CANGJIE_STDX_PATH/libencoding.json@cangjie_stdx.a"
     else:
-        STDX_LINKS=f"-L $CANGJIE_STDX_PATH -l:libstdx.logger.a -l:libstdx.log.a -l:libstdx.encoding.json.stream.a -l:libstdx.serialization.serialization.a -l:libstdx.encoding.json.a"
+        STDX_LINKS=f"-L $CANGJIE_STDX_PATH -l:liblogger@cangjie_stdx.a -l:liblog@cangjie_stdx.a -l:libencoding.json.stream@cangjie_stdx.a -l:libserialization.serialization@cangjie_stdx.a -l:libencoding.json@cangjie_stdx.a"
     
     if IS_LINUX:
         returncode = check_call(f"{CJC} {COMMON_OPTION2} {RPATH_SET_OPTION} \"--link-options=-z noexecstack -z relro -z now -s\" -L {os.path.join(CURRENT_DIR, 'bin', 'cjcov')} -L bin/cjcov -lcjcov.util -lcjcov.core {STDX_LINKS} -p {os.path.join(CURRENT_DIR, '..', 'src')}  -o cjcov")

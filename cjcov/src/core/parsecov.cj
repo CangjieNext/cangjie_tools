@@ -9,8 +9,8 @@ package cjcov.core
 import std.fs.*
 import std.regex.*
 import std.collection.*
-import stdx.log.*
-import stdx.logger.*
+import cangjie_stdx::log.*
+import cangjie_stdx::logger.*
 import std.convert.*
 import std.math.*
 import cjcov.util.*

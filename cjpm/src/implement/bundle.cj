@@ -9,11 +9,11 @@ package cjpm.implement
 import std.collection.*
 import std.fs.*
 import std.regex.*
-import stdx.serialization.serialization.*
-import stdx.encoding.json.*
-import stdx.compress.*
+import cangjie_stdx::serialization.serialization.*
+import cangjie_stdx::encoding.json.*
+import cangjie_stdx::compress.*
 import cjpm.config.*
-import stdx.crypto.common.CryptoException
+import cangjie_stdx::crypto.common.CryptoException
 
 let README_FILE = "README.md"
 let README_ZH_FILE = "README_zh.md"

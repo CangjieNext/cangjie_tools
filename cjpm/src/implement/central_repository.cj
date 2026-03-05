@@ -8,8 +8,8 @@ package cjpm.implement
 
 import std.fs.*
 import cjpm.config.*
-import stdx.crypto.common.CryptoException
-import stdx.net.tls.common.TlsException
+import cangjie_stdx::crypto.common.CryptoException
+import cangjie_stdx::net.tls.common.TlsException
 
 func processRepoDependencyModule(name: String, version: String, modulePath: String): (Bool, String) {
     if (version.isEmpty()) {

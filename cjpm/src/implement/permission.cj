@@ -7,8 +7,8 @@
 package cjpm.implement
 
 import std.fs.*
-import stdx.encoding.json.*
-import stdx.serialization.serialization.*
+import cangjie_stdx::encoding.json.*
+import cangjie_stdx::serialization.serialization.*
 import cjpm.config.*
 
 func loadCacheFile(file: String): Option<IncrementalCache> {

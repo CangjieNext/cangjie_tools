@@ -38,7 +38,7 @@ const std::string MACRO_DETAIL = "dylib";
 #else
 const std::string MACRO_DETAIL = "so";
 #endif
-const std::unordered_set<std::string> IGNORE_DYNAMIC = {"libstdx.fuzz.fuzz"};
+const std::unordered_set<std::string> IGNORE_DYNAMIC = {"libfuzz.fuzz@cangjie_stdx"};
 
 std::string GetLSPServerDir()
 {

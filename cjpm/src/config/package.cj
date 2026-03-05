@@ -8,7 +8,7 @@ package cjpm.config
 
 import std.collection.*
 import std.fs.*
-import stdx.serialization.serialization.*
+import cangjie_stdx::serialization.serialization.*
 import cjpm.util.WithDefault
 
 const FILE_VERSION = "cjc-version"

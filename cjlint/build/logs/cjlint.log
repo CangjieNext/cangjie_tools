@@ -1,0 +1,107 @@
+[2026-03-05 09:06:45,922:build:151:INFO] begin build...
+
+[2026-03-05 09:06:46,228:build:92:INFO] -- The C compiler identification is Clang 12.0.1
+[2026-03-05 09:06:47,077:build:92:INFO] -- The CXX compiler identification is Clang 12.0.1
+[2026-03-05 09:06:47,779:build:92:INFO] -- Detecting C compiler ABI info
+[2026-03-05 09:06:47,972:build:92:INFO] -- Detecting C compiler ABI info - done
+[2026-03-05 09:06:47,981:build:92:INFO] -- Check for working C compiler: /home/tools/llvm/bin/clang - skipped
+[2026-03-05 09:06:47,981:build:92:INFO] -- Detecting C compile features
+[2026-03-05 09:06:47,982:build:92:INFO] -- Detecting C compile features - done
+[2026-03-05 09:06:47,987:build:92:INFO] -- Detecting CXX compiler ABI info
+[2026-03-05 09:06:48,225:build:92:INFO] -- Detecting CXX compiler ABI info - done
+[2026-03-05 09:06:48,234:build:92:INFO] -- Check for working CXX compiler: /home/tools/llvm/bin/clang++ - skipped
+[2026-03-05 09:06:48,234:build:92:INFO] -- Detecting CXX compile features
+[2026-03-05 09:06:48,235:build:92:INFO] -- Detecting CXX compile features - done
+[2026-03-05 09:06:48,236:build:92:INFO] -- CANGJIE_HOME: /root/code/release/0303/cangjie
+[2026-03-05 09:06:48,236:build:92:INFO] -- Cangjie Lint: 1.1.0-alpha.62
+[2026-03-05 09:06:48,236:build:92:INFO] -- Obtain cjc version
+[2026-03-05 09:06:48,236:build:92:INFO] --
+[2026-03-05 09:06:48,247:build:92:INFO] -- Configuring done
+[2026-03-05 09:06:48,306:build:92:INFO] -- Generating done
+[2026-03-05 09:06:48,308:build:92:INFO] -- Build files have been written to: /root/code/cangjie_tools/cjlint/build/build
+[2026-03-05 09:08:08,716:build:92:INFO] [1/80] Building CXX object src/CMakeFiles/cjlint.dir/main.cpp.o
+[2026-03-05 09:08:10,276:build:92:INFO] [2/80] Building CXX object src/common/CMakeFiles/commonlib.dir/CJLintCompilerInstance.cpp.o
+[2026-03-05 09:08:11,594:build:92:INFO] [3/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGSER02/StructuralRuleGSER02.cpp.o
+[2026-03-05 09:08:15,355:build:92:INFO] [4/80] Building CXX object src/common/CMakeFiles/commonlib.dir/CommonFunc.cpp.o
+[2026-03-05 09:08:22,024:build:92:INFO] [5/80] Building CXX object src/CMakeFiles/lint.dir/Cjlint.cpp.o
+[2026-03-05 09:08:23,881:build:92:INFO] [6/80] Building CXX object src/common/CMakeFiles/commonlib.dir/ExcludeRule.cpp.o
+[2026-03-05 09:08:50,408:build:92:INFO] [7/80] Building CXX object src/checker/CMakeFiles/checker.dir/Checker.cpp.o
+[2026-03-05 09:08:50,448:build:92:INFO] [8/80] Linking CXX static library lib/libchecker.a
+[2026-03-05 09:09:33,189:build:92:INFO] [9/80] Building CXX object src/common/CMakeFiles/commonlib.dir/ConfigContext.cpp.o
+[2026-03-05 09:09:33,626:build:92:INFO] [10/80] Building CXX object src/common/CMakeFiles/commonlib.dir/CJLintCompilerInvocation.cpp.o
+[2026-03-05 09:09:37,769:build:92:INFO] [11/80] Building CXX object src/common/CMakeFiles/commonlib.dir/DiagnosticEngine.cpp.o
+[2026-03-05 09:09:37,819:build:92:INFO] [12/80] Linking CXX static library lib/libcommonlib.a
+[2026-03-05 09:09:43,985:build:92:INFO] [13/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRule.cpp.o
+[2026-03-05 09:09:44,503:build:92:INFO] [14/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/RegexRule.cpp.o
+[2026-03-05 09:10:11,207:build:92:INFO] [15/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGSER.cpp.o
+[2026-03-05 09:10:58,599:build:92:INFO] [16/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGCHK02/StructuralRuleGCHK02.cpp.o
+[2026-03-05 09:11:01,987:build:92:INFO] [17/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGCLS01/StructuralRuleGCLS01.cpp.o
+[2026-03-05 09:11:08,211:build:92:INFO] [18/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGCON01/StructuralRuleGCON01.cpp.o
+[2026-03-05 09:11:09,861:build:92:INFO] [19/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGCON02/StructuralRuleGCON02.cpp.o
+[2026-03-05 09:11:26,242:build:92:INFO] [20/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGCHK04/StructuralRuleGCHK04.cpp.o
+[2026-03-05 09:11:34,709:build:92:INFO] [21/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGCON03/StructuralRuleGCON03.cpp.o
+[2026-03-05 09:12:22,973:build:92:INFO] [22/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGENU01/StructuralRuleGENU01.cpp.o
+[2026-03-05 09:12:26,277:build:92:INFO] [23/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGENU02/StructuralRuleGENU02.cpp.o
+[2026-03-05 09:12:33,722:build:92:INFO] [24/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGERR01/StructuralRuleGERR01.cpp.o
+[2026-03-05 09:12:42,758:build:92:INFO] [25/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGERR02/StructuralRuleGERR02.cpp.o
+[2026-03-05 09:12:50,727:build:92:INFO] [26/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGERR03/StructuralRuleGERR03.cpp.o
+[2026-03-05 09:12:56,543:build:92:INFO] [27/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGERR04/StructuralRuleGERR04.cpp.o
+[2026-03-05 09:13:48,854:build:92:INFO] [28/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGEXP01/StructuralRuleGEXP01.cpp.o
+[2026-03-05 09:13:50,552:build:92:INFO] [29/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGEXP02/StructuralRuleGEXP02.cpp.o
+[2026-03-05 09:13:59,730:build:92:INFO] [30/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGEXP03/StructuralRuleGEXP03.cpp.o
+[2026-03-05 09:14:06,819:build:92:INFO] [31/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGEXP04/StructuralRuleGEXP04.cpp.o
+[2026-03-05 09:14:14,712:build:92:INFO] [32/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGEXP05/StructuralRuleGEXP05.cpp.o
+[2026-03-05 09:14:19,628:build:92:INFO] [33/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGEXP06/StructuralRuleGEXP06.cpp.o
+[2026-03-05 09:15:13,472:build:92:INFO] [34/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGFMT01/StructuralRuleGFMT01.cpp.o
+[2026-03-05 09:15:14,413:build:92:INFO] [35/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGEXP07/StructuralRuleGEXP07.cpp.o
+[2026-03-05 09:15:30,187:build:92:INFO] [36/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGFMT13/StructuralRuleGFMT13.cpp.o
+[2026-03-05 09:15:31,362:build:92:INFO] [37/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGFMT15/StructuralRuleGFMT15.cpp.o
+[2026-03-05 09:15:38,674:build:92:INFO] [38/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGFUN01/StructuralRuleGFUN01.cpp.o
+[2026-03-05 09:15:41,683:build:92:INFO] [39/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGFUN02/StructuralRuleGFUN02.cpp.o
+[2026-03-05 09:16:39,513:build:92:INFO] [40/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGFUNC03/StructuralRuleGFUNC03.cpp.o
+[2026-03-05 09:16:44,658:build:92:INFO] [41/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGNAM01/StructuralRuleGNAM01.cpp.o
+[2026-03-05 09:17:02,833:build:92:INFO] [42/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGNAM02/StructuralRuleGNAM02.cpp.o
+[2026-03-05 09:17:03,037:build:92:INFO] [43/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGNAM03/StructuralRuleGNAM03.cpp.o
+[2026-03-05 09:17:09,005:build:92:INFO] [44/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGNAM04/StructuralRuleGNAM04.cpp.o
+[2026-03-05 09:17:10,644:build:92:INFO] [45/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGNAM05/StructuralRuleGNAM05.cpp.o
+[2026-03-05 09:18:10,948:build:92:INFO] [46/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGNAM06/StructuralRuleGNAM06.cpp.o
+[2026-03-05 09:18:11,959:build:92:INFO] [47/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGDCL01/StructuralRuleGDCL01.cpp.o
+[2026-03-05 09:18:25,730:build:92:INFO] [48/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGOPR01/StructuralRuleGOPR01.cpp.o
+[2026-03-05 09:18:26,416:build:92:INFO] [49/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGDCL02/StructuralRuleGDCL02.cpp.o
+[2026-03-05 09:18:31,468:build:92:INFO] [50/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGOPR02/StructuralRuleGOPR02.cpp.o
+[2026-03-05 09:18:38,682:build:92:INFO] [51/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGOTH02/StructuralRuleGOTH02.cpp.o
+[2026-03-05 09:19:36,756:build:92:INFO] [52/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGOTH04/StructuralRuleGOTH04.cpp.o
+[2026-03-05 09:19:43,599:build:92:INFO] [53/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGOTH03/StructuralRuleGOTH03.cpp.o
+[2026-03-05 09:19:50,716:build:92:INFO] [54/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGPKG01/StructuralRuleGPKG01.cpp.o
+[2026-03-05 09:19:56,540:build:92:INFO] [55/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGSER01/StructuralRuleGSER01.cpp.o
+[2026-03-05 09:19:59,062:build:92:INFO] [56/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGSEC01/StructuralRuleGSEC01.cpp.o
+[2026-03-05 09:20:01,942:build:92:INFO] [57/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGVAR02/StructuralRuleGVAR02.cpp.o
+[2026-03-05 09:21:01,873:build:92:INFO] [58/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGVAR03/StructuralRuleGVAR03.cpp.o
+[2026-03-05 09:21:09,252:build:92:INFO] [59/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGITF01/StructuralRuleGITF01.cpp.o
+[2026-03-05 09:21:14,239:build:92:INFO] [60/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGITF02/StructuralRuleGITF02.cpp.o
+[2026-03-05 09:21:21,153:build:92:INFO] [61/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGITF04/StructuralRuleGITF04.cpp.o
+[2026-03-05 09:21:24,072:build:92:INFO] [62/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleP01/StructuralRuleP01.cpp.o
+[2026-03-05 09:21:24,742:build:92:INFO] [63/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleP03/StructuralRuleP03.cpp.o
+[2026-03-05 09:22:26,809:build:92:INFO] [64/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGITF03/StructuralRuleGITF03.cpp.o
+[2026-03-05 09:22:35,188:build:92:INFO] [65/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGSYN01/StructuralRuleGSYN01.cpp.o
+[2026-03-05 09:22:37,875:build:92:INFO] [66/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGSYN01/StructuralRuleGSYN0101.cpp.o
+[2026-03-05 09:22:45,307:build:92:INFO] [67/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleGTYP03/StructuralRuleGTYP03.cpp.o
+[2026-03-05 09:22:45,534:build:92:INFO] [68/80] Building CXX object src/rules/dataflow_rule_analysis/CMakeFiles/dataflowrule.dir/DataflowRule.cpp.o
+[2026-03-05 09:22:46,273:build:92:INFO] [69/80] Building CXX object src/rules/structural_rule_analysis/CMakeFiles/structuralrule.dir/StructuralRuleFFIC7/StructuralRuleFFIC7.cpp.o
+[2026-03-05 09:22:46,494:build:92:INFO] [70/80] Linking CXX static library lib/libstructuralrule.a
+[2026-03-05 09:24:02,875:build:92:INFO] [71/80] Building CXX object src/rules/dataflow_rule_analysis/CMakeFiles/dataflowrule.dir/dataflow_rule_G_SER_03/DataflowRuleGSER03Checker.cpp.o
+[2026-03-05 09:24:06,754:build:92:INFO] [72/80] Building CXX object src/rules/dataflow_rule_analysis/CMakeFiles/dataflowrule.dir/dataflow_rule_G_FIO_01/DataflowRuleGFIO01Check.cpp.o
+[2026-03-05 09:24:13,185:build:92:INFO] [73/80] Building CXX object src/rules/dataflow_rule_analysis/CMakeFiles/dataflowrule.dir/dataflow_rule_G_VAR_01/DataflowRuleVAR01Check.cpp.o
+[2026-03-05 09:24:13,814:build:92:INFO] [74/80] Building CXX object src/rules/dataflow_rule_analysis/CMakeFiles/dataflowrule.dir/dataflow_rule_G_OTH_01/DataflowRuleGOTH01Check.cpp.o
+[2026-03-05 09:24:13,939:build:92:INFO] [75/80] Building CXX object src/rules/dataflow_rule_analysis/CMakeFiles/dataflowrule.dir/dataflow_rule_P_02/DataflowRuleP02Check.cpp.o
+[2026-03-05 09:24:14,208:build:92:INFO] [76/80] Building CXX object src/rules/dataflow_rule_analysis/CMakeFiles/dataflowrule.dir/dataflow_rule_G_CHK_01/DataflowRuleGCHK01Check.cpp.o
+[2026-03-05 09:25:04,473:build:92:INFO] [77/80] Building CXX object src/rules/dataflow_rule_analysis/CMakeFiles/dataflowrule.dir/dataflow_rule_G_CHK_03/DataflowRuleGCHK03Check.cpp.o
+[2026-03-05 09:25:04,509:build:92:INFO] [78/80] Linking CXX static library lib/libdataflowrule.a
+[2026-03-05 09:25:06,558:build:92:INFO] [79/80] Linking CXX shared library lib/libcjlint.so
+[2026-03-05 09:25:06,857:build:92:INFO] [80/80] Linking CXX executable bin/cjlint
+[2026-03-05 09:25:06,858:build:200:INFO] end build
+
+[2026-03-05 10:17:11,771:build:205:INFO] begin clean...
+
+[2026-03-05 10:17:11,805:build:215:INFO] end clean
+

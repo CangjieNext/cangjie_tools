@@ -7,7 +7,7 @@
 package cjpm.config
 
 import std.collection.*
-import stdx.serialization.serialization.*
+import cangjie_stdx::serialization.serialization.*
 
 const TYPE_ERR_INFO: String = "  - incompatible import type, only one of 'path' or 'git' is allowed"
 

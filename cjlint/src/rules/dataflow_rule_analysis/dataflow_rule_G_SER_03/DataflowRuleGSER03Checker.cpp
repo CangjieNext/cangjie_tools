@@ -80,7 +80,7 @@ DataflowRuleGSER03Checker::TypeWithPosition DataflowRuleGSER03Checker::TypeInDes
 
 static std::function<bool(CHIR::ClassDef*)> isSubClass = [](CHIR::ClassDef* classDef) -> bool {
     if (classDef->GetSrcCodeIdentifier() == "Serializable" &&
-        classDef->GetPackageName() == "stdx.serialization.serialization") {
+        classDef->GetPackageName() == "cangjie_stdx::serialization.serialization") {
         return true;
     }
     auto superClass = classDef->GetSuperClassDef();
@@ -251,7 +251,7 @@ bool DataflowRuleGSER03Checker::CollectSerTypeInInitApply(const CHIR::Apply* app
     std::vector<TypeWithPosition>& serTypes, SerialiseMap& fieldSerMap)
 {
     AstFuncInfo funcInfo =
-        AstFuncInfo("init", NOT_CARE, {"Field", "String", "DataModel"}, "Void", "stdx.serialization.serialization");
+        AstFuncInfo("init", NOT_CARE, {"Field", "String", "DataModel"}, "Void", "cangjie_stdx::serialization.serialization");
     if (CommonFunc::FindCHIRFunction(imported, funcInfo)) {
         auto litVal = GetStrLitVal(apply->GetArgs()[1]);
         if (!litVal.empty()) {
@@ -275,7 +275,7 @@ bool DataflowRuleGSER03Checker::CollectSerTypeInAddApply(const CHIR::Apply* appl
     std::vector<TypeWithPosition>& serTypes, SerialiseMap& fieldSerMap)
 {
     auto funcInfo = AstFuncInfo(
-        "add", NOT_CARE, {"DataModelStruct", "Field"}, "DataModelStruct", "stdx.serialization.serialization");
+        "add", NOT_CARE, {"DataModelStruct", "Field"}, "DataModelStruct", "cangjie_stdx::serialization.serialization");
     if (CommonFunc::FindCHIRFunction(imported, funcInfo)) {
         auto expr = StaticCast<CHIR::LocalVar*>(apply->GetArgs()[1])->GetExpr();
         if (expr->GetExprKind() != CHIR::ExprKind::APPLY) {
@@ -375,7 +375,7 @@ void DataflowRuleGSER03Checker::CheckSerTypeInArgs(const CHIR::Apply* apply,
             return;
         }
         auto getFuncInfo = AstFuncInfo(
-            "get", "DataModelStruct", {"DataModelStruct", "String"}, "DataModel", "stdx.serialization.serialization");
+            "get", "DataModelStruct", {"DataModelStruct", "String"}, "DataModel", "cangjie_stdx::serialization.serialization");
         if (CommonFunc::FindCHIRFunction(get->GetCallee(), getFuncInfo)) {
             auto litVal = GetStrLitVal(get->GetArgs()[1]);
             if (litVal.empty()) {

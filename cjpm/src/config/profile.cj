@@ -13,8 +13,8 @@ import std.fs.*
 import std.io.*
 import std.time.*
 import std.deriving.Derive
-import stdx.serialization.serialization.*
-import stdx.encoding.json.*
+import cangjie_stdx::serialization.serialization.*
+import cangjie_stdx::encoding.json.*
 @When[os == "Windows" || os == "macOS"]
 import std.runtime.*
 

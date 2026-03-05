@@ -9,7 +9,7 @@ package cjpm.util
 import std.collection.*
 import std.deriving.*
 
-import stdx.serialization.serialization.*
+import cangjie_stdx::serialization.serialization.*
 
 public class DAGBuilder<K, V> where K <: Hashable & Equatable<K> {
     private let graph = HashMap<K, (Array<K>, ArrayList<K>)>()

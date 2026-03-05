@@ -11,8 +11,8 @@ import std.fs.*
 import std.sync.*
 import std.env.*
 import std.deriving.Derive
-import stdx.encoding.json.*
-import stdx.serialization.serialization.*
+import cangjie_stdx::encoding.json.*
+import cangjie_stdx::serialization.serialization.*
 
 import cjpm.util.*
 import cjpm.toml.*

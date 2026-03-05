@@ -9,7 +9,7 @@ package cjpm.util
 import std.collection.*
 import std.sort.sort
 import std.deriving.Derive
-import stdx.serialization.serialization.*
+import cangjie_stdx::serialization.serialization.*
 
 // Checks whether full-qualified name of the package represents some subpackage
 // 

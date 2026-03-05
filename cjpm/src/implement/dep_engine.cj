@@ -12,11 +12,11 @@ import std.sync.*
 import std.fs.*
 import std.time.*
 import std.regex.*
-import stdx.serialization.serialization.*
-import stdx.encoding.json.*
+import cangjie_stdx::serialization.serialization.*
+import cangjie_stdx::encoding.json.*
 import cjpm.config.*
-import stdx.crypto.common.CryptoException
-import stdx.net.tls.common.TlsException
+import cangjie_stdx::crypto.common.CryptoException
+import cangjie_stdx::net.tls.common.TlsException
 
 // Record modules finally chosen
 public class FinalDepModule {
