@@ -583,6 +583,25 @@ foreign func mach_host_self(): Int64
 @When[os == "macOS"]
 foreign func getpagesize(): Int64
 
+@C
+struct MachTaskBasicInfoDataT {
+    var virtual_size: UInt64 = 0
+    var resident_size: UInt64 = 0
+    var user_time_seconds: Int32 = 0
+    var user_time_microseconds: Int32 = 0
+    var system_time_seconds: Int32 = 0
+    var system_time_microseconds: Int32 = 0
+    var policy: Int32 = 0
+    var suspend_count: Int32 = 0
+}
+
+@When[os == "macOS"]
+foreign func mach_task_self(): Int64
+
+@When[os == "macOS"]
+foreign func task_info(targetTask: Int64, flavor: Int32, memoryData: CPointer<MachTaskBasicInfoDataT>,
+    mach_msg_type_number_t: CPointer<UInt32>): Int32
+
 @When[os == "macOS"]
 func getOSPageSize(): Float64 {
     unsafe {
@@ -595,22 +614,47 @@ func getOSPageSize(): Float64 {
     return 4.0 * K_BYTE
 }
 
+/**
+ * @brief Get system memory usage on macOS
+ * @return Total used memory (active + wired) in MB
+ */
 @When[os == "macOS"]
 public func getMemInfo(): Float64 {
     unsafe {
+        // Initialize vm_statistics64 structure to receive memory statistics
         var memoryData = vm_statistics64_data_t()
         // there are 38 32-bit data in vm_statistics64_data_t
         var mach_msg_type_number_t: UInt32 = 38
         // `HOST_VM_INFO64` is global var in <mac/mac.h>, and its value is always 4, that means we want memory info
         const HOST_VM_INFO64: Int32 = 4
+        // Get host VM statistics from mach kernel
         host_statistics64(mach_host_self(), HOST_VM_INFO64, inout memoryData, inout mach_msg_type_number_t)
+        // Calculate used memory: active pages + wired pages, convert from pages to MB
         return Float64(memoryData.active_count + memoryData.wire_count) * PAGE_SIZE / K_BYTE / K_BYTE // unit: MB
     }
 }
 
+/**
+ * @brief Get memory usage of current cjpm process on macOS
+ * @return Process resident memory size (RSS) in MB, falls back to heap size if unavailable
+ */
 @When[os == "macOS"]
 public func getCjpmMemInfo(): Float64 {
-    return Float64(getUsedHeapSize()) / K_BYTE / K_BYTE
+    unsafe {
+        // Initialize mach_task_basic_info structure to receive process memory info
+        var memoryData = MachTaskBasicInfoDataT()
+        const MACH_TASK_BASIC_INFO: Int32 = 20
+        // sizeof(MachTaskBasicInfoDataT) / sizeof(integer_t)
+        var mach_msg_type_number_t: UInt32 = 10
+        // Query current task's basic memory information
+        let status = task_info(mach_task_self(), MACH_TASK_BASIC_INFO, inout memoryData, inout mach_msg_type_number_t)
+        // If successful, return resident memory size (RSS)
+        if (status == 0) {
+            return Float64(memoryData.resident_size) / K_BYTE / K_BYTE
+        }
+        // Fallback to runtime heap size if task_info fails
+        return Float64(getUsedHeapSize()) / K_BYTE / K_BYTE
+    }
 }
 
 public func addMemoryProcess(): Future<Thread> {
