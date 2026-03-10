@@ -479,9 +479,8 @@ func hasExeFile(buildConfig: BuildConfig, fullName: String): Bool {
 func refreshIncreInfo(buildConfig: BuildConfig, curResolveData: ModuleResolve): Unit {
     collectCjoTime(buildConfig)
     collectLastTime(buildConfig)
-    var incrementalFlag: Bool = buildConfig.isIncremental
-    while (incrementalFlag) {
-        incrementalFlag = analyseRebuild(buildConfig)
+    if (buildConfig.isIncremental) {
+        optimizeIncrementalRebuild(buildConfig)
     }
 
     for (r in curResolveData.resolves) {
@@ -588,42 +587,84 @@ func collectLastTime(buildConfig: BuildConfig): Unit {
     return
 }
 
-// Analyzing indirectly affected packages in incremental.
-func analyseRebuild(buildConfig: BuildConfig): Bool {
+func buildDependentsMap(buildConfig: BuildConfig, queue: ArrayDeque<String>): HashMap<String, ArrayList<String>> {
+    let dependentsMap = HashMap<String, ArrayList<String>>()
     for ((pkgName, requires) in buildConfig.requiresMap) {
-        if (buildConfig.rebuildList.contains(pkgName)) {
-            continue
-        }
+        let needGhostCheck = !buildConfig.rebuildList.contains(pkgName)
+        var ghostFound = false
+
         for (r in requires) {
-            if (buildConfig.rebuildList.contains(r)) {
+            if (!dependentsMap.contains(r)) {
+                dependentsMap[r] = ArrayList<String>()
+            }
+            dependentsMap[r].add(pkgName)
+
+            if (needGhostCheck && !ghostFound &&
+                !buildConfig.packageList.test.contains(r) &&
+                buildConfig.cjoTimeMap.contains(r) &&
+                buildConfig.lastEndTime < buildConfig.cjoTimeMap[r]) {
                 buildConfig.rebuildList.add(pkgName)
                 buildConfig.indirectRebuilds.add(pkgName)
-                return true
-            }
-            if (buildConfig.packageList.isTest(r)) {
-                continue
-            }
-            if (buildConfig.cjoTimeMap.contains(r) && buildConfig.lastEndTime < buildConfig.cjoTimeMap[r]) {
-                buildConfig.rebuildList.add(pkgName)
-                return true
+                queue.addLast(pkgName)
+                ghostFound = true
             }
         }
     }
+    return dependentsMap
+}
 
+func buildSubToSuperMap(buildConfig: BuildConfig): HashMap<String, ArrayList<String>> {
+    let subToSuperMap = HashMap<String, ArrayList<String>>()
     for ((superPkgName, superPkgCfg) in buildConfig.superPkgMap) {
-        if (buildConfig.rebuildList.contains(superPkgName)) {
-            continue
+        for (subPkg in superPkgCfg.subPkgSet) {
+            if (!subToSuperMap.contains(subPkg)) {
+                subToSuperMap[subPkg] = ArrayList<String>()
+            }
+            subToSuperMap[subPkg].add(superPkgName)
+        }
+    }
+    return subToSuperMap
+}
+
+func propagateRebuilds(
+    buildConfig: BuildConfig,
+    dependentsMap: HashMap<String, ArrayList<String>>,
+    subToSuperMap: HashMap<String, ArrayList<String>>,
+    queue: ArrayDeque<String>
+) {
+    while (let Some(currentPkg) <- queue.removeFirst()) {
+        if (dependentsMap.contains(currentPkg)) {
+            for (dependentPkg in dependentsMap[currentPkg]) {
+                if (!buildConfig.rebuildList.contains(dependentPkg)) {
+                    buildConfig.rebuildList.add(dependentPkg)
+                    buildConfig.indirectRebuilds.add(dependentPkg)
+                    queue.addLast(dependentPkg)
+                }
+            }
         }
 
-        for (subPkg in superPkgCfg.subPkgSet) {
-            if (buildConfig.rebuildList.contains(subPkg)) {
-                buildConfig.rebuildList.add(superPkgName)
-                return true
+        if (subToSuperMap.contains(currentPkg)) {
+            for (superPkgName in subToSuperMap[currentPkg]) {
+                if (!buildConfig.rebuildList.contains(superPkgName)) {
+                    buildConfig.rebuildList.add(superPkgName)
+                    buildConfig.indirectRebuilds.add(superPkgName)
+                    queue.addLast(superPkgName)
+                }
             }
         }
     }
+}
 
-    return false
+// Analyzing indirectly affected packages in incremental.
+func optimizeIncrementalRebuild(buildConfig: BuildConfig) {
+    let queue = ArrayDeque<String>()
+    for (pkg in buildConfig.rebuildList) {
+        queue.addLast(pkg)
+    }
+
+    let dependentsMap = buildDependentsMap(buildConfig, queue)
+    let subToSuperMap = buildSubToSuperMap(buildConfig)
+    propagateRebuilds(buildConfig, dependentsMap, subToSuperMap, queue)
 }
 
 // Call cjc to compile.
