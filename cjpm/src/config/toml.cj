@@ -485,7 +485,7 @@ public func verifyModuleConfigPre(cfg: TomlInfo, path: String, rootPath: String,
         for ((pkg, pkgCfg) in cfg.pkg.packageConfiguration) {
             pkgCfg.compileOption = fixCompileOption(pkgCfg.compileOption, configFilePath)
         }
-        return verifyCombinedField(cfg, path) && verifyPackageField(cfg, path)
+        return verifyCombinedField(cfg, path, isTest) && verifyPackageField(cfg, path)
     }
     return true
 }

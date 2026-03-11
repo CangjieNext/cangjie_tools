@@ -90,6 +90,12 @@ func checkCombinedConfiguration(dm: DepModel, isProjectCombine: Bool, notSupport
 }
 
 func dealWithSuperPkg(dm: DepModel, isProjectCombine: Bool): Bool {
+    // combine only support cjpm build
+    if (dm.globalConfig.isTest) {
+        dm.superPkgMap.clear()
+        return true
+    }
+
     let notSupportSet = HashSet<String>()
     var superPkgInValidFlag = false;
     for ((superPkgName, superPkgCfg) in dm.superPkgMap) {

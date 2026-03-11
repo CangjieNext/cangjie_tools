@@ -363,7 +363,12 @@ public func getFinalEnvValue(envName: String, envValue: String, spliceType: Spli
     }
 }
 
-public func verifyCombinedField(cfg: TomlInfo, path: String): Bool {
+public func verifyCombinedField(cfg: TomlInfo, path: String, isTest: Bool): Bool {
+    // combine only support cjpm build
+    if (isTest) {
+        return true
+    }
+
     var flag = true
     for ((pkgName, outputType) in cfg.profile.build.combined) {
         if (pkgName != cfg.pkg.name) {
