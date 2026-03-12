@@ -444,7 +444,7 @@ func getMemoryValueFromMeminfoString(meminfoStr: String, target: String): Float6
  *      ...
  */
 @When[os == "Linux"]
-public func getMemInfo(): Float64 {
+public func getSystemMemInfo(): Float64 {
     let linuxMemPath = Path("/proc/meminfo")
     let meminfo = File(linuxMemPath, Read)
     let meminfoBuffer = readToEnd(meminfo)
@@ -512,7 +512,8 @@ struct ProcessMemoryCounters {
     var peakPagefileUsage: UInt64 = 0
 }
 
-
+// fills ProcessMemoryCounters for the specified process.
+// "K32" indicates this symbol is exported by Kernel32.dll.
 @When[os == "Windows"]
 foreign func K32GetProcessMemoryInfo(process: Int64, memoryCounter: CPointer<ProcessMemoryCounters>,
     cb: UInt32): Bool
@@ -520,10 +521,17 @@ foreign func K32GetProcessMemoryInfo(process: Int64, memoryCounter: CPointer<Pro
 @When[os == "Windows"]
 foreign func GetCurrentProcess(): Int64
 
+/**
+ * @brief Get current system physical memory usage on Windows.
+ * @return Used physical memory in MB.
+ */
 @When[os == "Windows"]
-public func getMemInfo(): Float64 {
+public func getSystemMemInfo(): Float64 {
     unsafe {
         var memory: MEMORYSTATUSEX = MEMORYSTATUSEX()
+        // MEMORYSTATUSEX is 64 bytes in C layout:
+        // 2 x UInt32 (8 bytes) + 7 x UInt64 (56 bytes) = 64 bytes.
+        // WinAPI requires dwLength = sizeof(MEMORYSTATUSEX) before calling GlobalMemoryStatusEx.
         memory.dwLength = 64
         GlobalMemoryStatusEx(inout memory)
         var memInfo = Float64(memory.ullTotalPhys - memory.ullAvailPhys) / K_BYTE / K_BYTE
@@ -535,7 +543,8 @@ public func getMemInfo(): Float64 {
 public func getCjpmMemInfo(): Float64 {
     unsafe {
         var memoryCounter = ProcessMemoryCounters()
-        // sizeof(ProcessMemoryCounters) in x64
+        // PROCESS_MEMORY_COUNTERS is 72 bytes on x64:
+        // The API requires cb = sizeof(PROCESS_MEMORY_COUNTERS).
         memoryCounter.cb = 72
         let status = K32GetProcessMemoryInfo(GetCurrentProcess(), inout memoryCounter, memoryCounter.cb)
         if (status) {
@@ -619,7 +628,7 @@ func getOSPageSize(): Float64 {
  * @return Total used memory (active + wired) in MB
  */
 @When[os == "macOS"]
-public func getMemInfo(): Float64 {
+public func getSystemMemInfo(): Float64 {
     unsafe {
         // Initialize vm_statistics64 structure to receive memory statistics
         var memoryData = vm_statistics64_data_t()
@@ -657,8 +666,10 @@ public func getCjpmMemInfo(): Float64 {
     }
 }
 
+
 public func addMemoryProcess(): Future<Thread> {
-    let cjpmMemOffset = getMemInfo() - getCjpmMemInfo()
+    // Memory baseline used by all processes except cjpm.
+    let otherProcessesMemBaseline = getSystemMemInfo() - getCjpmMemInfo()
     CJPM_COMPILE_INFO.add(DateTime.now().toUnixTimeStamp().toMilliseconds().toString(), getCjpmMemInfo())
     let memoryProcess = spawn { =>
         while (true) {
@@ -666,9 +677,13 @@ public func addMemoryProcess(): Future<Thread> {
                 return Thread.currentThread
             }
             sleep(100 * Duration.millisecond)
-            var cjpmMemByOffset = getMemInfo() - cjpmMemOffset
-            var cjpmMemByProcess = getCjpmMemInfo()
-            var cjpmRealTimeSystemPhysicalMemory = max(cjpmMemByOffset, cjpmMemByProcess)
+            // Estimated memory used by current cjpm and its child processes.
+            var cjpmAndChildrenMemByOffset = getSystemMemInfo() - otherProcessesMemBaseline
+            // Direct memory reading for the current cjpm and its child processes (MB).
+            var cjpmAndChildrenMemByProcess = getCjpmMemInfo()
+            // Use the larger estimate to avoid underestimating memory usage.
+            var cjpmRealTimeSystemPhysicalMemory = max(cjpmAndChildrenMemByOffset, cjpmAndChildrenMemByProcess)
+            // Clamp to zero to avoid negative values caused by sampling fluctuation.
             cjpmRealTimeSystemPhysicalMemory = max(0.0, cjpmRealTimeSystemPhysicalMemory)
             var cjpmTime: String = DateTime.now().toUnixTimeStamp().toMilliseconds().toString()
             CJPM_COMPILE_INFO.add(cjpmTime,cjpmRealTimeSystemPhysicalMemory)
