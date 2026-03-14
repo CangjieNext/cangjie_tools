@@ -524,10 +524,6 @@ public class Parser {
         }
         keyContext.append(key)
         if (hash.contains(key)) {
-            if (isImplicit(keyContext)) {
-                removeImplicit(keyContext)
-                return
-            }
             throw ParseException("Key '${keyContext}' has already been defined.", pos)
         }
         hash.put(key, value)
