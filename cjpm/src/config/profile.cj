@@ -582,13 +582,16 @@ public func getMemInfo(): Float64 {
 public func getCjpmMemInfo(): Float64 {
     unsafe {
         var memoryData = MachTaskBasicInfoData()
+        // MACH_TASK_BASIC_INFO asks for basic memory stats of the current task.
         const MACH_TASK_BASIC_INFO: Int32 = 20
-        // sizeof(MachTaskBasicInfoData) / sizeof(integer_t)
+        // Number of 32-bit integers in MachTaskBasicInfoData.
         var mach_msg_type_number_t: UInt32 = 10
+        // task_info returns 0 (KERN_SUCCESS) on success.
         let status = task_info(mach_task_self(), MACH_TASK_BASIC_INFO, inout memoryData, inout mach_msg_type_number_t)
         if (status == 0) {
             return Float64(memoryData.resident_size) / K_BYTE / K_BYTE
         }
+        // Fallback to runtime heap usage if task_info fails.
         return Float64(getUsedHeapSize()) / K_BYTE / K_BYTE
     }
 }
@@ -629,7 +632,6 @@ foreign func proc_name(pid: Int32, buffer: CPointer<UInt8>, buffersize: UInt32):
 @When[os == "macOS"]
 foreign func proc_pidinfo(pid: Int32, flavor: Int32, arg: UInt64, buffer: CPointer<ProcTaskInfo>, buffersize: Int32): Int32
 
-// 使用单一的 CPointer<UInt8> 规避 CPointer 命名冲突
 @When[os == "macOS"]
 foreign func malloc(size: UIntNative): CPointer<UInt8>
 @When[os == "macOS"]
@@ -658,12 +660,12 @@ public func getCoreCompilerMemInfo(): Float64 {
     var totalRSSBytes: UInt64 = 0
     let targetProcesses = ["cjpm", "cjc", "llc", "opt"]
     
-    // 对应系统的 C 宏常量
+    // Constants from libproc system headers.
     const PROC_ALL_PIDS: UInt32 = 1
     const PROC_PIDTASKINFO: Int32 = 4
     
     unsafe {
-        // 传入空指针探查当前需要分配多大内存
+        // Probe required buffer size by passing a null buffer.
         let nullPtr = CPointer<UInt8>()
         let bytesNeeded = proc_listpids(PROC_ALL_PIDS, 0, nullPtr, 0)
         
@@ -672,17 +674,17 @@ public func getCoreCompilerMemInfo(): Float64 {
         }
         
         let pidBuffer = malloc(UIntNative(bytesNeeded))
-        // 获取有效数量，每个 PID 占据 4 字节
+        // Get PID count; each PID entry uses 4 bytes.
         let count = proc_listpids(PROC_ALL_PIDS, 0, pidBuffer, bytesNeeded) / 4 
         let nameBuffer = malloc(UIntNative(256)) 
         
         for (i in 0..count) {
-            // 利用偏移手动拼装 Int32，规避跨类型强转问题
+            // Rebuild Int32 PID from 4 little-endian bytes.
             let offset = Int64(i * 4)
-            let b0 = UInt32(pidBuffer.read(offset))
-            let b1 = UInt32(pidBuffer.read(offset + 1))
-            let b2 = UInt32(pidBuffer.read(offset + 2))
-            let b3 = UInt32(pidBuffer.read(offset + 3))
+            let b0 = UInt32(pidBuffer.read(offset)) // byte 0 (LSB)
+            let b1 = UInt32(pidBuffer.read(offset + 1)) // byte 1
+            let b2 = UInt32(pidBuffer.read(offset + 2)) // byte 2
+            let b3 = UInt32(pidBuffer.read(offset + 3)) // byte 3 (MSB)
             let pid = Int32(b0 | (b1 << 8) | (b2 << 16) | (b3 << 24))
             
             if (pid <= 0) { continue }
@@ -701,7 +703,7 @@ public func getCoreCompilerMemInfo(): Float64 {
                 
                 if (isTarget) {
                     var taskInfo = ProcTaskInfo()
-                    let sizeOfTaskInfo: Int32 = 96 // 64位macOS中 proc_taskinfo 是严格的96字节
+                    let sizeOfTaskInfo: Int32 = 96 // proc_taskinfo is 96 bytes on 64-bit macOS.
                     
                     let status = proc_pidinfo(
                         pid, 
@@ -768,11 +770,7 @@ public func getCoreCompilerMemInfo(): Float64 {
     return Float64(totalRSSBytes) / K_BYTE / K_BYTE
 }
 
-// ---------------------------------------------------------
-// Thread Spawner implementation split by OS
-// ---------------------------------------------------------
 
-// 非 macOS/Windows 系统：继续沿用以前通过系统内存估算和 Offset 差值的方案
 @When[os == "Linux"]
 public func addMemoryProcess(): Future<Thread> {
 let cjpmMemOffset = getMemInfo() - getCjpmMemInfo()
@@ -792,9 +790,10 @@ let cjpmMemOffset = getMemInfo() - getCjpmMemInfo()
     return memoryProcess
 }
 
-// macOS/Windows 共用：直接提取核心编译进程 (cjc/cjpm/llc/opt) 的 RSS 之和
+// Shared path for macOS/Windows: sample total RSS of compiler processes.
 @When[os == "macOS" || os == "Windows"]
 public func addMemoryProcess(): Future<Thread> {
+    // Record an initial sample before starting the background loop.
     CJPM_COMPILE_INFO.add(DateTime.now().toUnixTimeStamp().toMilliseconds().toString(), getCoreCompilerMemInfo())
     let memoryProcess = spawn { =>
         while (true) {
@@ -803,7 +802,7 @@ public func addMemoryProcess(): Future<Thread> {
             }
             sleep(100 * Duration.millisecond)
             
-            // 使用纯 FFI 调用抓取进程列表并统计
+            // Sample total RSS via FFI-based process scan.
             let compilerMem = getCoreCompilerMemInfo()
             var cjpmTime: String = DateTime.now().toUnixTimeStamp().toMilliseconds().toString()
             CJPM_COMPILE_INFO.add(cjpmTime, compilerMem)
