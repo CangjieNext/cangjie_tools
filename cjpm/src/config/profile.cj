@@ -535,20 +535,29 @@ foreign func mach_host_self(): Int64
 foreign func getpagesize(): Int64
 
 @C
+// Mirror of macOS Mach task basic info structure for FFI interop.
 struct MachTaskBasicInfoData {
+    // Total virtual memory size in bytes.
     var virtual_size: UInt64 = 0
+    // Resident (physical) memory size in bytes.
     var resident_size: UInt64 = 0
+    // User CPU time of the task.
     var user_time_seconds: Int32 = 0
     var user_time_microseconds: Int32 = 0
+    // System CPU time of the task.
     var system_time_seconds: Int32 = 0
     var system_time_microseconds: Int32 = 0
+    // Scheduling policy identifier.
     var policy: Int32 = 0
+    // Number of active suspensions on the task.
     var suspend_count: Int32 = 0
 }
 
+// Returns the Mach port name for the current task.
 @When[os == "macOS"]
 foreign func mach_task_self(): Int64
 
+// Retrieves task information by flavor; mach_msg_type_number_t is an in/out item count.
 @When[os == "macOS"]
 foreign func task_info(targetTask: Int64, flavor: Int32, memoryData: CPointer<MachTaskBasicInfoData>,
     mach_msg_type_number_t: CPointer<UInt32>): Int32
@@ -582,30 +591,34 @@ public func getMemInfo(): Float64 {
 public func getCjpmMemInfo(): Float64 {
     unsafe {
         var memoryData = MachTaskBasicInfoData()
+        // MACH_TASK_BASIC_INFO asks for basic memory stats of the current task.
         const MACH_TASK_BASIC_INFO: Int32 = 20
-        // sizeof(MachTaskBasicInfoData) / sizeof(integer_t)
+        // Number of 32-bit integers in MachTaskBasicInfoData.
         var mach_msg_type_number_t: UInt32 = 10
+        // task_info returns 0 (KERN_SUCCESS) on success.
         let status = task_info(mach_task_self(), MACH_TASK_BASIC_INFO, inout memoryData, inout mach_msg_type_number_t)
         if (status == 0) {
             return Float64(memoryData.resident_size) / K_BYTE / K_BYTE
         }
+        // Fallback to runtime heap usage if task_info fails.
         return Float64(getUsedHeapSize()) / K_BYTE / K_BYTE
     }
 }
 
 
-// ---------------------------------------------------------
-// macOS New Implementation (libproc for core compilers)
-// ---------------------------------------------------------
+// Mirror of macOS proc_taskinfo for proc_pidinfo FFI calls.
 @When[os == "macOS"]
 @C
 struct ProcTaskInfo {
+    // Virtual and resident memory sizes in bytes.
     var pti_virtual_size: UInt64 = 0       
     var pti_resident_size: UInt64 = 0      
+    // Accumulated user/system CPU time.
     var pti_total_user: UInt64 = 0
     var pti_total_system: UInt64 = 0
     var pti_threads_user: UInt64 = 0
     var pti_threads_system: UInt64 = 0
+    // Scheduling and runtime activity counters.
     var pti_policy: Int32 = 0
     var pti_faults: Int32 = 0
     var pti_pageins: Int32 = 0
@@ -620,32 +633,41 @@ struct ProcTaskInfo {
     var pti_priority: Int32 = 0
 }
 
+// Lists process IDs and returns the number of bytes written.
 @When[os == "macOS"]
 foreign func proc_listpids(ptype: UInt32, ptypeinfo: UInt32, buffer: CPointer<UInt8>, buffersize: Int32): Int32
 
+// Writes the process name for a PID and returns the name length.
 @When[os == "macOS"]
 foreign func proc_name(pid: Int32, buffer: CPointer<UInt8>, buffersize: UInt32): Int32
 
+// Fills ProcTaskInfo for a PID; return value is bytes written.
 @When[os == "macOS"]
 foreign func proc_pidinfo(pid: Int32, flavor: Int32, arg: UInt64, buffer: CPointer<ProcTaskInfo>, buffersize: Int32): Int32
 
-// 使用单一的 CPointer<UInt8> 规避 CPointer 命名冲突
+// Allocates a C buffer for libproc calls.
 @When[os == "macOS"]
 foreign func malloc(size: UIntNative): CPointer<UInt8>
+
+// Frees a buffer allocated by malloc.
 @When[os == "macOS"]
 foreign func free(ptr: CPointer<UInt8>): Unit
 
+// Converts a null-terminated C byte buffer to a String.
 @When[os == "macOS"]
 func getCString(buffer: CPointer<UInt8>, maxSize: Int64): String {
     unsafe {
         var len = 0
+        // Scan until NUL or maxSize.
         while (len < maxSize && buffer.read(len) != 0) {
             len++
         }
+        // Empty C string.
         if (len == 0) {
             return ""
         }
         var bytes = Array<UInt8>(len, repeat: 0)
+        // Copy bytes into a managed array.
         for (i in 0..len) {
             bytes[i] = buffer.read(i)
         }
@@ -658,12 +680,12 @@ public func getCoreCompilerMemInfo(): Float64 {
     var totalRSSBytes: UInt64 = 0
     let targetProcesses = ["cjpm", "cjc", "llc", "opt"]
     
-    // 对应系统的 C 宏常量
+    // Constants from libproc system headers.
     const PROC_ALL_PIDS: UInt32 = 1
     const PROC_PIDTASKINFO: Int32 = 4
     
     unsafe {
-        // 传入空指针探查当前需要分配多大内存
+        // Probe required buffer size by passing a null buffer.
         let nullPtr = CPointer<UInt8>()
         let bytesNeeded = proc_listpids(PROC_ALL_PIDS, 0, nullPtr, 0)
         
@@ -672,17 +694,17 @@ public func getCoreCompilerMemInfo(): Float64 {
         }
         
         let pidBuffer = malloc(UIntNative(bytesNeeded))
-        // 获取有效数量，每个 PID 占据 4 字节
+        // Get PID count; each PID entry uses 4 bytes.
         let count = proc_listpids(PROC_ALL_PIDS, 0, pidBuffer, bytesNeeded) / 4 
         let nameBuffer = malloc(UIntNative(256)) 
         
         for (i in 0..count) {
-            // 利用偏移手动拼装 Int32，规避跨类型强转问题
+            // Rebuild Int32 PID from 4 little-endian bytes.
             let offset = Int64(i * 4)
-            let b0 = UInt32(pidBuffer.read(offset))
-            let b1 = UInt32(pidBuffer.read(offset + 1))
-            let b2 = UInt32(pidBuffer.read(offset + 2))
-            let b3 = UInt32(pidBuffer.read(offset + 3))
+            let b0 = UInt32(pidBuffer.read(offset)) // byte 0 (LSB)
+            let b1 = UInt32(pidBuffer.read(offset + 1)) // byte 1
+            let b2 = UInt32(pidBuffer.read(offset + 2)) // byte 2
+            let b3 = UInt32(pidBuffer.read(offset + 3)) // byte 3 (MSB)
             let pid = Int32(b0 | (b1 << 8) | (b2 << 16) | (b3 << 24))
             
             if (pid <= 0) { continue }
@@ -701,7 +723,7 @@ public func getCoreCompilerMemInfo(): Float64 {
                 
                 if (isTarget) {
                     var taskInfo = ProcTaskInfo()
-                    let sizeOfTaskInfo: Int32 = 96 // 64位macOS中 proc_taskinfo 是严格的96字节
+                    let sizeOfTaskInfo: Int32 = 96 // proc_taskinfo is 96 bytes on 64-bit macOS.
                     
                     let status = proc_pidinfo(
                         pid, 
@@ -727,55 +749,63 @@ public func getCoreCompilerMemInfo(): Float64 {
 
 @When[os == "Windows"]
 func parseTasklistMemUsageToBytes(memUsage: String): UInt64 {
+    // Extract all digit groups from text like "12,345 K".
     var digits = ""
     let numberRegex = Regex("[0-9]+")
     for (m in numberRegex.findAll(memUsage)) {
         digits += m.matchString(0)
     }
+    // Return 0 if the memory field is empty.
     if (digits.isEmpty()) {
         return 0
     }
     let kiloBytes = Int64.tryParse(digits) ?? 0
+    // Convert KB to bytes.
     return UInt64(kiloBytes) * 1024
 }
 
 @When[os == "Windows"]
 public func getCoreCompilerMemInfo(): Float64 {
+    // Compiler-related processes to include in the total.
     let targets = HashSet<String>(["cjpm.exe", "cjc.exe", "llc.exe", "opt.exe", "cjpm", "cjc", "llc", "opt"])
+    // Request CSV output without header from tasklist.
     let args = ArrayList<String>(["/FO", "CSV", "/NH"])
     let (ok, outInfo, _) = execWithOutput("tasklist", args)
+    // Return 0 if tasklist fails or has no output.
     if (!ok || outInfo.isEmpty()) {
         return 0.0
     }
 
+    // Sum memory usage of matched processes in bytes.
     var totalRSSBytes: UInt64 = 0
+    // Parse CSV columns: image, pid, session name, session id, mem usage.
     let lineRegex = Regex("^\"([^\"]+)\",\"([^\"]*)\",\"([^\"]*)\",\"([^\"]*)\",\"([^\"]+)\"$", MultiLine)
     for (line in outInfo.split("\n")) {
+        // Remove Windows CR at line end.
         let row = line.replace("\r", "")
         if (row.isEmpty()) {
             continue
         }
         match (lineRegex.find(row, group: true)) {
             case Some(md) =>
+                // Column 1 is image name.
                 let imageName = md.matchString(1)
                 if (targets.contains(imageName)) {
+                    // Column 5 is memory usage text, e.g. "12,345 K".
                     totalRSSBytes += parseTasklistMemUsageToBytes(md.matchString(5))
                 }
             case _ => ()
         }
     }
 
+    // Convert bytes to MB.
     return Float64(totalRSSBytes) / K_BYTE / K_BYTE
 }
 
-// ---------------------------------------------------------
-// Thread Spawner implementation split by OS
-// ---------------------------------------------------------
 
-// 非 macOS/Windows 系统：继续沿用以前通过系统内存估算和 Offset 差值的方案
 @When[os == "Linux"]
 public func addMemoryProcess(): Future<Thread> {
-let cjpmMemOffset = getMemInfo() - getCjpmMemInfo()
+    let cjpmMemOffset = getMemInfo() - getCjpmMemInfo()
     CJPM_COMPILE_INFO.add(DateTime.now().toUnixTimeStamp().toMilliseconds().toString(), getCjpmMemInfo())
     let memoryProcess = spawn { =>
         while (true) {
@@ -792,9 +822,10 @@ let cjpmMemOffset = getMemInfo() - getCjpmMemInfo()
     return memoryProcess
 }
 
-// macOS/Windows 共用：直接提取核心编译进程 (cjc/cjpm/llc/opt) 的 RSS 之和
+// Shared path for macOS/Windows: sample total RSS of compiler processes.
 @When[os == "macOS" || os == "Windows"]
 public func addMemoryProcess(): Future<Thread> {
+    // Record an initial sample before starting the background loop.
     CJPM_COMPILE_INFO.add(DateTime.now().toUnixTimeStamp().toMilliseconds().toString(), getCoreCompilerMemInfo())
     let memoryProcess = spawn { =>
         while (true) {
@@ -803,7 +834,7 @@ public func addMemoryProcess(): Future<Thread> {
             }
             sleep(100 * Duration.millisecond)
             
-            // 使用纯 FFI 调用抓取进程列表并统计
+            // Sample total RSS via FFI-based process scan.
             let compilerMem = getCoreCompilerMemInfo()
             var cjpmTime: String = DateTime.now().toUnixTimeStamp().toMilliseconds().toString()
             CJPM_COMPILE_INFO.add(cjpmTime, compilerMem)
