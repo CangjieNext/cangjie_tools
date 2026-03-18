@@ -323,12 +323,8 @@ func getResolveData(buildConfig: BuildConfig, tomlInfo: TomlInfo, isScriptDep: B
     }
 
     let resolves = ArrayList<ResolveItem>()
-    let superPkgList = ArrayList<SuperPackageConfig>()
     for (k in dm.readyPkgs) {
         var pkg = dm.packageDepMap[k]
-        if (let Some(v) <- pkg.superPkgCfg) {
-            superPkgList.add(v)
-        }
         if (buildConfig.globalConfig.isProjectCombine) {
             if (pkg.requires.contains(buildConfig.globalConfig.rootName)) {
                 eprintln("Error: roo package '${buildConfig.globalConfig.rootName}' is depended by package ${k}, " +
@@ -705,19 +701,18 @@ func sortCompileCost(compilePerformancePath : String): Unit {
     }
     let pkgSize = allPkgs.size
     var threadTime = Array<Int64>(pkgSize, repeat: 0)
-    var threadQueue = HashMap<String, Int64>()
     for (name in allPkgs) {
         for (i in 0..threadTime.size) {
             if (startMap[name] >= threadTime[i]) {
-                threadQueue[name] = i
+                for (cache in SHOW_CACHE) {
+                    if (cache.name == name) {
+                        cache.tid = i
+                    }
+                }
                 threadTime[i] = endMap[name]
                 break
             }
         }
-    }
-
-    for (cache in SHOW_CACHE) {
-        cache.tid = threadQueue[cache.name]
     }
 
     var timeCache = HashMap<String, String>()
@@ -751,9 +746,7 @@ func generateIncrementalCache(buildConfig: BuildConfig, curResolveData: ModuleRe
         }
         let cacheItem = CacheItem(pkgData.rootPkgName, pkgData.fileNameHash, pkgData.timeStamp,
             buildConfig.hasSubPkgs.contains(pkgName) || buildConfig.requiredForTests)
-        if (successPkgs.contains(pkgName)) {
-            cacheItem.isBuilt = true
-        }
+        cacheItem.isBuilt = successPkgs.contains(pkgName)
 
         cacheMap[pkgData.rootPkgName].packageInformation[pkgName] = cacheItem
     }
@@ -1181,8 +1174,10 @@ func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList
     }
 
     res.add(all: allOptions)
-    let (libPathOptions, binStdDeps) = getLinkOptionForBindep(buildConfig.binDepMap, linkSort, compileTask.isLto)
- 	let (crosslibPathOptions, crossbinStdDeps) = getLinkOptionForBindep(buildConfig.crossBinDepMap, linkSort, compileTask.isLto)
+    let bindepResult = getLinkOptionForBindep(buildConfig.binDepMap, linkSort, compileTask.isLto)
+    let (libPathOptions, binStdDeps) = bindepResult
+ 	let crossBindepResult = getLinkOptionForBindep(buildConfig.crossBinDepMap, linkSort, compileTask.isLto)
+    let (crosslibPathOptions, crossbinStdDeps) = crossBindepResult
     let binOptions = ArrayList<String>()
     binOptions.add(all: libPathOptions, at: 0)
     binOptions.add(all: crosslibPathOptions, at: 0)
@@ -1223,9 +1218,10 @@ func getForcedLibArgs(compileTask: CompileTask, buildConfig: BuildConfig): Array
         if (buildConfig.packageList.isMacro(depName) || buildConfig.packageList.isTest(depName)) {
             continue
         }
-        let libPath = Path(compileTask.targetDir).join(depRootName).toString()
-        let linkArray: ArrayList<String> = forcedLinkPackage(depName, libPath, compileTask.isLto)
-        if (linkArray.size <= 1 || libPathSet.add(libPath)) {
+        let linkArray: ArrayList<String> = forcedLinkPackage(depName,
+            Path(compileTask.targetDir).join(depRootName).toString(), compileTask.isLto)
+        if (linkArray.size <= 1 || libPathSet.add(
+            Path(compileTask.targetDir).join(depRootName).toString())) {
             allOptions.add(all: linkArray)
         } else {
             allOptions.add(linkArray[linkArray.size - 1])

@@ -453,9 +453,8 @@ public func getCoreCompilerMemInfo(): Float64 {
             }
 
             try {
-                let targetProcesses = ["cjpm", "cjc", "llc", "opt", "ar", "ld"]
                 // Read the process name from /proc/{pid}/comm and check if it matches a target.
-                if (targetProcesses.contains(
+                if (["cjpm", "cjc", "llc", "opt", "ar", "ld"].contains(
                     String.fromUtf8(readToEnd(File(Path("/proc/${dirName}/comm"), Read))).trimEnd("\n")
                 )) {
                     // Read RSS from /proc/{pid}/statm (field index 1, unit: pages)
