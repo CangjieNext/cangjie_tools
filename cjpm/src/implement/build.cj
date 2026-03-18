@@ -143,7 +143,7 @@ func recordCjpmBuildEndTime(tomlInfo: TomlInfo, path: String) {
         memProcess.get()
         var cjpmEndTime = DateTime.now().toUnixTimeStamp().toMilliseconds()
         SHOW_CACHE.add(PkgInfo("cjpm", "E", cjpmEndTime))
-        CJPM_COMPILE_INFO.add(cjpmEndTime.toString(),getCjpmMemInfo())
+        CJPM_COMPILE_INFO.add(cjpmEndTime.toString(),getCoreCompilerMemInfo())
         addCompileCost(path)
     }
 }
@@ -323,12 +323,8 @@ func getResolveData(buildConfig: BuildConfig, tomlInfo: TomlInfo, isScriptDep: B
     }
 
     let resolves = ArrayList<ResolveItem>()
-    let superPkgList = ArrayList<SuperPackageConfig>()
     for (k in dm.readyPkgs) {
         var pkg = dm.packageDepMap[k]
-        if (let Some(v) <- pkg.superPkgCfg) {
-            superPkgList.add(v)
-        }
         if (buildConfig.globalConfig.isProjectCombine) {
             if (pkg.requires.contains(buildConfig.globalConfig.rootName)) {
                 eprintln("Error: roo package '${buildConfig.globalConfig.rootName}' is depended by package ${k}, " +
@@ -697,12 +693,7 @@ func sortCompileCost(compilePerformancePath : String): Unit {
 }
 
 func generateIncrementalCache(buildConfig: BuildConfig, curResolveData: ModuleResolve): Bool {
-    var successPkgs = ArrayList<String>()
-    for (item in curResolveData.resolves) {
-        if (item.buildFlag) {
-            successPkgs.add(item.fullName)
-        }
-    }
+    let successPkgs = ArrayList<String>(curResolveData.resolves.filter { item => item.buildFlag }.map { item => item.fullName })
 
     var cacheMap = HashMap<String, IncrementalCache>()
     for ((rootPkgName, jsonData) in buildConfig.jsonInformation) {
@@ -749,8 +740,7 @@ func generateIncrementalCache(buildConfig: BuildConfig, curResolveData: ModuleRe
     let endTimeCacheFile = Path(buildConfig.globalConfig.targetDir)
         .join("${buildConfig.curModuleName}-cache.json")
         .toString()
-    let endTime: String = DateTime.now().toUnixTimeStamp().toSeconds().toString()
-    if (!createAndWriteFile(endTimeCacheFile, endTime)) {
+    if (!createAndWriteFile(endTimeCacheFile, DateTime.now().toUnixTimeStamp().toSeconds().toString())) {
         cacheFlag = false
     }
 
@@ -1091,9 +1081,6 @@ func getLtoCombineBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig):
 func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList<String> {
     let res = ArrayList<String>()
     // Record dependent root packages
-    let cLibLinkMap = if (compileTask.isCrossCompile) {
-        buildConfig.globalConfig.crossCLibLinkMap
-    } else { buildConfig.globalConfig.cLibLinkMap }
     let cLibNameList = ArrayList<String>([compileTask.rootPkgName])
 
     // Record dependent package names
@@ -1153,6 +1140,9 @@ func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList
     binOptions.add(all: libPathOptions, at: 0)
     binOptions.add(all: crosslibPathOptions, at: 0)
     res.add(all: binOptions)
+    let cLibLinkMap = if (compileTask.isCrossCompile) {
+        buildConfig.globalConfig.crossCLibLinkMap
+    } else { buildConfig.globalConfig.cLibLinkMap }
     res.add(all: getMinimizedCLibLinkStr(cLibLinkMap, cLibNameList))
 
     if (compileTask.id.compilePhase == LinkOnly) {
@@ -1222,10 +1212,10 @@ func getForcedBinDep(compileTask: CompileTask, buildConfig: BuildConfig, binDepS
     var binOptions = ArrayList<String>()
     binOptions.add(all: appendOptionForBindep(buildConfig.binDepMap, binDepSet, compileTask.isLto), at: 0)
     binOptions.add(all: appendOptionForBindep(buildConfig.crossBinDepMap, binDepSet, compileTask.isLto), at: 0)
-    let cLibLinkMap = if (compileTask.isCrossCompile) {
-        buildConfig.globalConfig.crossCLibLinkMap
-    } else { buildConfig.globalConfig.cLibLinkMap }
-    binOptions.add(all: getMinimizedCLibLinkStr(cLibLinkMap, cLibNameList))
+    binOptions.add(all: getMinimizedCLibLinkStr(
+        if (compileTask.isCrossCompile) { buildConfig.globalConfig.crossCLibLinkMap } else { buildConfig.globalConfig.cLibLinkMap },
+        cLibNameList
+    ))
     return binOptions
 }
 
