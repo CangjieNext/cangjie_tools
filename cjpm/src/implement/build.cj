@@ -322,10 +322,9 @@ func getResolveData(buildConfig: BuildConfig, tomlInfo: TomlInfo, isScriptDep: B
         return Option<ModuleResolve>.None
     }
 
-    let resolves = ArrayList<ResolveItem>()
-    for (k in dm.readyPkgs) {
-        var pkg = dm.packageDepMap[k]
-        if (buildConfig.globalConfig.isProjectCombine) {
+    if (buildConfig.globalConfig.isProjectCombine) {
+        for (k in dm.readyPkgs) {
+            var pkg = dm.packageDepMap[k]
             if (pkg.requires.contains(buildConfig.globalConfig.rootName)) {
                 eprintln("Error: roo package '${buildConfig.globalConfig.rootName}' is depended by package ${k}, " +
                     "it cannot be depended by any package when field 'combine-all-deps = true' is valid")
@@ -337,7 +336,6 @@ func getResolveData(buildConfig: BuildConfig, tomlInfo: TomlInfo, isScriptDep: B
                 pkg.outputType = Dynamic
             }
         }
-        resolves.add(dm.packageDepMap[k])
     }
     buildConfig.binDepMap = dm.binDepMap
     buildConfig.crossBinDepMap = dm.crossBinDepMap
@@ -346,7 +344,7 @@ func getResolveData(buildConfig: BuildConfig, tomlInfo: TomlInfo, isScriptDep: B
     buildConfig.superPkgMap = dm.superPkgMap
     buildConfig.superPkgSubMap = dm.superPkgSubMap
     return ModuleResolve(
-        resolves: resolves,
+        resolves: dm.readyPkgs.iterator().map { k => dm.packageDepMap[k] } |> collectArrayList,
         binDeps: dm.binDepMap,
         crossBinDeps: dm.crossBinDepMap
     )
@@ -687,6 +685,24 @@ func addCompileCost(compilePerformanceTargetDir : String): Unit {
     createAndWriteFile(CJPM_COMPILE_INFOPath,CJPM_COMPILE_INFO.serialize().toJson().toJsonString())
 }
 
+func assignCacheThreadIds(startMap: HashMap<String, Int64>, endMap: HashMap<String, Int64>,
+    allPkgs: ArrayList<String>): Unit {
+    var threadTime = Array<Int64>(allPkgs.size, repeat: 0)
+    var threadQueue = HashMap<String, Int64>()
+    for (name in allPkgs) {
+        for (i in 0..threadTime.size) {
+            if (startMap[name] >= threadTime[i]) {
+                threadQueue[name] = i
+                threadTime[i] = endMap[name]
+                break
+            }
+        }
+    }
+    for (cache in SHOW_CACHE) {
+        cache.tid = threadQueue[cache.name]
+    }
+}
+
 func sortCompileCost(compilePerformancePath : String): Unit {
     var startMap = HashMap<String, Int64>()
     var endMap = HashMap<String, Int64>()
@@ -699,21 +715,7 @@ func sortCompileCost(compilePerformancePath : String): Unit {
             endMap[k.name] = k.ts
         }
     }
-    let pkgSize = allPkgs.size
-    var threadTime = Array<Int64>(pkgSize, repeat: 0)
-    for (name in allPkgs) {
-        for (i in 0..threadTime.size) {
-            if (startMap[name] >= threadTime[i]) {
-                for (cache in SHOW_CACHE) {
-                    if (cache.name == name) {
-                        cache.tid = i
-                    }
-                }
-                threadTime[i] = endMap[name]
-                break
-            }
-        }
-    }
+    assignCacheThreadIds(startMap, endMap, allPkgs)
 
     var timeCache = HashMap<String, String>()
     for (k in allPkgs) {
@@ -726,12 +728,9 @@ func sortCompileCost(compilePerformancePath : String): Unit {
 }
 
 func generateIncrementalCache(buildConfig: BuildConfig, curResolveData: ModuleResolve): Bool {
-    var successPkgs = ArrayList<String>()
-    for (item in curResolveData.resolves) {
-        if (item.buildFlag) {
-            successPkgs.add(item.fullName)
-        }
-    }
+    let successPkgs: HashSet<String> = curResolveData.resolves.iterator()
+        .filter { item => item.buildFlag }
+        .map { item => item.fullName } |> collectHashSet
 
     var cacheMap = HashMap<String, IncrementalCache>()
     for ((rootPkgName, jsonData) in buildConfig.jsonInformation) {
@@ -740,10 +739,7 @@ func generateIncrementalCache(buildConfig: BuildConfig, curResolveData: ModuleRe
         cacheMap[rootPkgName].rootPkgName = rootPkgName
     }
 
-    for ((pkgName, pkgData) in buildConfig.pkgCacheMap) {
-        if (!cacheMap.contains(pkgData.rootPkgName)) {
-            continue
-        }
+    for ((pkgName, pkgData) in buildConfig.pkgCacheMap where cacheMap.contains(pkgData.rootPkgName)) {
         let cacheItem = CacheItem(pkgData.rootPkgName, pkgData.fileNameHash, pkgData.timeStamp,
             buildConfig.hasSubPkgs.contains(pkgName) || buildConfig.requiredForTests)
         cacheItem.isBuilt = successPkgs.contains(pkgName)
@@ -1142,11 +1138,9 @@ func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList
     }
 
     addStdDeps(compileTask.fullName)
-    for (index in (buildConfig.packageList.all.size - 1)..=0 : -1) {
+    for (index in (buildConfig.packageList.all.size - 1)..=0 : -1 where linkSort.contains(
+        buildConfig.packageList.all[index])) {
         let depName = buildConfig.packageList.all[index]
-        if (!linkSort.contains(depName)) {
-            continue
-        }
 
         let depRootName: String = getRootPkgName(depName)
         cLibNameList.add(depRootName, at: 0)
@@ -1174,10 +1168,8 @@ func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList
     }
 
     res.add(all: allOptions)
-    let bindepResult = getLinkOptionForBindep(buildConfig.binDepMap, linkSort, compileTask.isLto)
-    let (libPathOptions, binStdDeps) = bindepResult
- 	let crossBindepResult = getLinkOptionForBindep(buildConfig.crossBinDepMap, linkSort, compileTask.isLto)
-    let (crosslibPathOptions, crossbinStdDeps) = crossBindepResult
+    let (libPathOptions, binStdDeps) = getLinkOptionForBindep(buildConfig.binDepMap, linkSort, compileTask.isLto)
+    let (crosslibPathOptions, crossbinStdDeps) = getLinkOptionForBindep(buildConfig.crossBinDepMap, linkSort, compileTask.isLto)
     let binOptions = ArrayList<String>()
     binOptions.add(all: libPathOptions, at: 0)
     binOptions.add(all: crosslibPathOptions, at: 0)
