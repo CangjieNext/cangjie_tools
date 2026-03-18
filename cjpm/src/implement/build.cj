@@ -143,7 +143,7 @@ func recordCjpmBuildEndTime(tomlInfo: TomlInfo, path: String) {
         memProcess.get()
         var cjpmEndTime = DateTime.now().toUnixTimeStamp().toMilliseconds()
         SHOW_CACHE.add(PkgInfo("cjpm", "E", cjpmEndTime))
-        CJPM_COMPILE_INFO.add(cjpmEndTime.toString(),getCjpmMemInfo())
+        CJPM_COMPILE_INFO.add(cjpmEndTime.toString(),getCoreCompilerMemInfo())
         addCompileCost(path)
     }
 }
@@ -322,14 +322,9 @@ func getResolveData(buildConfig: BuildConfig, tomlInfo: TomlInfo, isScriptDep: B
         return Option<ModuleResolve>.None
     }
 
-    let resolves = ArrayList<ResolveItem>()
-    let superPkgList = ArrayList<SuperPackageConfig>()
     for (k in dm.readyPkgs) {
-        var pkg = dm.packageDepMap[k]
-        if (let Some(v) <- pkg.superPkgCfg) {
-            superPkgList.add(v)
-        }
         if (buildConfig.globalConfig.isProjectCombine) {
+            var pkg = dm.packageDepMap[k]
             if (pkg.requires.contains(buildConfig.globalConfig.rootName)) {
                 eprintln("Error: roo package '${buildConfig.globalConfig.rootName}' is depended by package ${k}, " +
                     "it cannot be depended by any package when field 'combine-all-deps = true' is valid")
@@ -341,8 +336,8 @@ func getResolveData(buildConfig: BuildConfig, tomlInfo: TomlInfo, isScriptDep: B
                 pkg.outputType = Dynamic
             }
         }
-        resolves.add(dm.packageDepMap[k])
     }
+    let resolves = ArrayList<ResolveItem>(dm.readyPkgs.map { k => dm.packageDepMap[k] })
     buildConfig.binDepMap = dm.binDepMap
     buildConfig.crossBinDepMap = dm.crossBinDepMap
     buildConfig.targetMacroMods = dm.targetMacroMods
@@ -697,13 +692,6 @@ func sortCompileCost(compilePerformancePath : String): Unit {
 }
 
 func generateIncrementalCache(buildConfig: BuildConfig, curResolveData: ModuleResolve): Bool {
-    var successPkgs = ArrayList<String>()
-    for (item in curResolveData.resolves) {
-        if (item.buildFlag) {
-            successPkgs.add(item.fullName)
-        }
-    }
-
     var cacheMap = HashMap<String, IncrementalCache>()
     for ((rootPkgName, jsonData) in buildConfig.jsonInformation) {
         cacheMap[rootPkgName] = IncrementalCache()
@@ -717,7 +705,7 @@ func generateIncrementalCache(buildConfig: BuildConfig, curResolveData: ModuleRe
         }
         let cacheItem = CacheItem(pkgData.rootPkgName, pkgData.fileNameHash, pkgData.timeStamp,
             buildConfig.hasSubPkgs.contains(pkgName) || buildConfig.requiredForTests)
-        if (successPkgs.contains(pkgName)) {
+        if (curResolveData.resolves.any { item => item.buildFlag && item.fullName == pkgName }) {
             cacheItem.isBuilt = true
         }
 
@@ -739,22 +727,15 @@ func generateIncrementalCache(buildConfig: BuildConfig, curResolveData: ModuleRe
             cacheFlag = false
             continue
         }
-        let cacheFile = cachePath.join(INCREMENTAL_CACHE).toString()
-        let cacheStr = v.serialize().toJson().toJsonString()
-        if (!createAndWriteFile(cacheFile, cacheStr)) {
+        if (!createAndWriteFile(cachePath.join(INCREMENTAL_CACHE).toString(), v.serialize().toJson().toJsonString())) {
             cacheFlag = false
         }
     }
 
-    let endTimeCacheFile = Path(buildConfig.globalConfig.targetDir)
-        .join("${buildConfig.curModuleName}-cache.json")
-        .toString()
-    let endTime: String = DateTime.now().toUnixTimeStamp().toSeconds().toString()
-    if (!createAndWriteFile(endTimeCacheFile, endTime)) {
-        cacheFlag = false
-    }
-
-    return cacheFlag
+    return cacheFlag && createAndWriteFile(
+        Path(buildConfig.globalConfig.targetDir).join("${buildConfig.curModuleName}-cache.json").toString(),
+        DateTime.now().toUnixTimeStamp().toSeconds().toString()
+    )
 }
 
 func constructCjcInvocation(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList<String> {
@@ -1090,17 +1071,6 @@ func getLtoCombineBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig):
 
 func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList<String> {
     let res = ArrayList<String>()
-    // Record dependent root packages
-    let cLibLinkMap = if (compileTask.isCrossCompile) {
-        buildConfig.globalConfig.crossCLibLinkMap
-    } else { buildConfig.globalConfig.cLibLinkMap }
-    let cLibNameList = ArrayList<String>([compileTask.rootPkgName])
-
-    // Record dependent package names
-    let linkSort: HashSet<String> = getDepSet(compileTask, buildConfig)
-
-    let allOptions = ArrayList<String>()
-    let libPathSet = HashSet<String>()
     let stdDeps = StdDeps()
 
     let addStdDeps = { depName =>
@@ -1114,6 +1084,9 @@ func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList
         }
     }
 
+    let cLibNameList = ArrayList<String>([compileTask.rootPkgName])
+    let linkSort: HashSet<String> = getDepSet(compileTask, buildConfig)
+    let libPathSet = HashSet<String>()
     addStdDeps(compileTask.fullName)
     for (index in (buildConfig.packageList.all.size - 1)..=0 : -1) {
         let depName = buildConfig.packageList.all[index]
@@ -1135,24 +1108,25 @@ func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList
 
         let linkArray: ArrayList<String> = linkPackage(depName, libPath, compileTask.isLto)
         if (linkArray.size <= 1) {
-            allOptions.add(all: linkArray)
+            res.add(all: linkArray)
             continue
         }
         if (libPathSet.contains(libPath)) {
-            allOptions.add(linkArray[linkArray.size - 1])
+            res.add(linkArray[linkArray.size - 1])
         } else {
-            allOptions.add(all: linkArray)
+            res.add(all: linkArray)
             libPathSet.add(libPath)
         }
     }
-
-    res.add(all: allOptions)
     let (libPathOptions, binStdDeps) = getLinkOptionForBindep(buildConfig.binDepMap, linkSort, compileTask.isLto)
  	let (crosslibPathOptions, crossbinStdDeps) = getLinkOptionForBindep(buildConfig.crossBinDepMap, linkSort, compileTask.isLto)
     let binOptions = ArrayList<String>()
     binOptions.add(all: libPathOptions, at: 0)
     binOptions.add(all: crosslibPathOptions, at: 0)
     res.add(all: binOptions)
+    let cLibLinkMap = if (compileTask.isCrossCompile) {
+        buildConfig.globalConfig.crossCLibLinkMap
+    } else { buildConfig.globalConfig.cLibLinkMap }
     res.add(all: getMinimizedCLibLinkStr(cLibLinkMap, cLibNameList))
 
     if (compileTask.id.compilePhase == LinkOnly) {
@@ -1219,13 +1193,12 @@ func getForcedLibArgs(compileTask: CompileTask, buildConfig: BuildConfig): Array
 
 @When[os == "Linux" || os == "Windows"]
 func getForcedBinDep(compileTask: CompileTask, buildConfig: BuildConfig, binDepSet: HashSet<String>, cLibNameList: ArrayList<String>): ArrayList<String> {
-    var binOptions = ArrayList<String>()
-    binOptions.add(all: appendOptionForBindep(buildConfig.binDepMap, binDepSet, compileTask.isLto), at: 0)
-    binOptions.add(all: appendOptionForBindep(buildConfig.crossBinDepMap, binDepSet, compileTask.isLto), at: 0)
-    let cLibLinkMap = if (compileTask.isCrossCompile) {
-        buildConfig.globalConfig.crossCLibLinkMap
-    } else { buildConfig.globalConfig.cLibLinkMap }
-    binOptions.add(all: getMinimizedCLibLinkStr(cLibLinkMap, cLibNameList))
+    let binOptions = appendOptionForBindep(buildConfig.crossBinDepMap, binDepSet, compileTask.isLto)
+    binOptions.add(all: appendOptionForBindep(buildConfig.binDepMap, binDepSet, compileTask.isLto))
+    binOptions.add(all: getMinimizedCLibLinkStr(
+        if (compileTask.isCrossCompile) { buildConfig.globalConfig.crossCLibLinkMap } else { buildConfig.globalConfig.cLibLinkMap },
+        cLibNameList
+    ))
     return binOptions
 }
 
