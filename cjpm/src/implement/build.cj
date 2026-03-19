@@ -322,8 +322,8 @@ func getResolveData(buildConfig: BuildConfig, tomlInfo: TomlInfo, isScriptDep: B
         return Option<ModuleResolve>.None
     }
 
-    if (buildConfig.globalConfig.isProjectCombine) {
-        for (k in dm.readyPkgs) {
+    for (k in dm.readyPkgs) {
+        if (buildConfig.globalConfig.isProjectCombine) {
             var pkg = dm.packageDepMap[k]
             if (pkg.requires.contains(buildConfig.globalConfig.rootName)) {
                 eprintln("Error: roo package '${buildConfig.globalConfig.rootName}' is depended by package ${k}, " +
@@ -685,22 +685,20 @@ func addCompileCost(compilePerformanceTargetDir : String): Unit {
     createAndWriteFile(CJPM_COMPILE_INFOPath,CJPM_COMPILE_INFO.serialize().toJson().toJsonString())
 }
 
-func assignCacheThreadIds(startMap: HashMap<String, Int64>, endMap: HashMap<String, Int64>,
-    allPkgs: ArrayList<String>): Unit {
+func computeThreadQueue(startMap: HashMap<String, Int64>, endMap: HashMap<String, Int64>,
+    allPkgs: ArrayList<String>): HashMap<String, Int64> {
     var threadTime = Array<Int64>(allPkgs.size, repeat: 0)
-    var threadQueue = HashMap<String, Int64>()
+    var result = HashMap<String, Int64>()
     for (name in allPkgs) {
         for (i in 0..threadTime.size) {
             if (startMap[name] >= threadTime[i]) {
-                threadQueue[name] = i
+                result[name] = i
                 threadTime[i] = endMap[name]
                 break
             }
         }
     }
-    for (cache in SHOW_CACHE) {
-        cache.tid = threadQueue[cache.name]
-    }
+    return result
 }
 
 func sortCompileCost(compilePerformancePath : String): Unit {
@@ -715,7 +713,10 @@ func sortCompileCost(compilePerformancePath : String): Unit {
             endMap[k.name] = k.ts
         }
     }
-    assignCacheThreadIds(startMap, endMap, allPkgs)
+    let threadQueue = computeThreadQueue(startMap, endMap, allPkgs)
+    for (cache in SHOW_CACHE) {
+        cache.tid = threadQueue[cache.name]
+    }
 
     var timeCache = HashMap<String, String>()
     for (k in allPkgs) {
@@ -1119,9 +1120,6 @@ func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList
     } else { buildConfig.globalConfig.cLibLinkMap }
     let cLibNameList = ArrayList<String>([compileTask.rootPkgName])
 
-    // Record dependent package names
-    let linkSort: HashSet<String> = getDepSet(compileTask, buildConfig)
-
     let allOptions = ArrayList<String>()
     let libPathSet = HashSet<String>()
     let stdDeps = StdDeps()
@@ -1138,9 +1136,12 @@ func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList
     }
 
     addStdDeps(compileTask.fullName)
-    for (index in (buildConfig.packageList.all.size - 1)..=0 : -1 where linkSort.contains(
-        buildConfig.packageList.all[index])) {
+    let linkSort: HashSet<String> = getDepSet(compileTask, buildConfig)
+    for (index in (buildConfig.packageList.all.size - 1)..=0 : -1) {
         let depName = buildConfig.packageList.all[index]
+        if (!linkSort.contains(depName)) {
+            continue
+        }
 
         let depRootName: String = getRootPkgName(depName)
         cLibNameList.add(depRootName, at: 0)
