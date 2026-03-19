@@ -141,6 +141,11 @@ public:
         const std::function<void(const std::string &, const std::string &,
             const Symbol &, const CompletionItem &)>& callback) =0;
 
+    virtual void FindImportReExportSymsOnCompletion(
+        const std::pair<std::unordered_set<SymbolID>, std::unordered_set<SymbolID>>& filterSyms,
+        const std::string &curPkgName, const std::string &curModule, const std::string &prefix,
+        std::function<void(const std::string &, const ReExportSymbol &, const CompletionItem &)> callback) = 0;
+
     virtual void FindComment(const Symbol &sym, std::vector<std::string> &comments) = 0;
 
     virtual void RefsFindReference(const RefsRequest &req, Ref &definition,
@@ -183,6 +188,11 @@ public:
         const std::function<void(const std::string &, const std::string &,
             const Symbol &, const CompletionItem &)>& callback) override;
 
+    void FindImportReExportSymsOnCompletion(
+        const std::pair<std::unordered_set<SymbolID>, std::unordered_set<SymbolID>>& filterSyms,
+        const std::string &curPkgName, const std::string &curModule, const std::string &prefix,
+        std::function<void(const std::string &, const ReExportSymbol &, const CompletionItem &)> callback) override;
+
     void RefsFindReference(const RefsRequest &req, Ref &definition,
         std::function<void(const Ref &)> callback) const override;
 
@@ -205,6 +215,8 @@ public:
     std::map<std::string, ExtendSlab> pkgExtendsMap{};
 
     std::map<std::string, CrossSymbolSlab> pkgCrossSymsMap{};
+
+    std::map<std::string, ReExportSymbolSlab> pkgReExportSymsMap{};
 
     void FindRiddenUp(SymbolID id, std::unordered_set<SymbolID> &ids, SymbolID &topId) override
     {

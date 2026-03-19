@@ -100,8 +100,13 @@ void DotCompleterByParse::Complete(const ArkAST &input,
     std::string curModule = SplitFullPackage(srcPkgName).first;
     if (targetPkg && !CompilerCangjieProject::GetInstance()->IsCombinedSym(curModule, srcPkgName, fullImportId)) {
         auto members = importManager->GetPackageMembers(srcPkgName, targetPkg->fullPackageName);
-        for (const auto &decl : members) {
-            env.InvokedAccessible(decl.get(), false, false, CompletionImpl::IsPreamble(input, pos));
+        for (const auto &[alias, decls] : members) {
+            for (auto &decl: decls) {
+                auto rawId = decl->identifier;
+                decl->identifier = alias;
+                env.InvokedAccessible(decl.get(), false, false, CompletionImpl::IsPreamble(input, pos));
+                decl->identifier = rawId;
+            }
         }
     }
 

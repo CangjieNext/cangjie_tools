@@ -56,6 +56,11 @@ public:
         return &crsSymsMap;
     }
 
+    const ReExportSymbolSlab* GetReExportSymbolMap() const
+    {
+        return &reExportSymsMap;
+    }
+
     const std::vector<Relation>* GetRelations() const
     {
         return &relations;
@@ -141,6 +146,25 @@ private:
 
     void CreateImportRef(const File &fileNode);
 
+    void CollectReExportSymbol(const File &file);
+
+    void CollectReExportCompletionItem(const Decl &decl, ReExportSymbol &symbol);
+
+    void CreateReExportSymbolFromSingleImport(const File &file,
+         const Ptr<ImportSpec> importSpec,
+        std::set<std::pair<std::string, SymbolID>> &addedReExportSymbols,
+        std::unordered_map<std::string, std::map<std::string, AST::OrderedDeclSet>> &pkgMembersMap);
+
+    void CreateReExportSymbolFromAliasImport(const File &file,
+        const Ptr<ImportSpec> importSpec,
+        std::set<std::pair<std::string, SymbolID>> &addedReExportSymbols,
+        std::unordered_map<std::string, std::map<std::string, AST::OrderedDeclSet>> &pkgMembersMap);
+
+    void CreateReExportSymbolFromAllImport(const File &file,
+        const Ptr<ImportSpec> importSpec,
+        std::set<std::pair<std::string, SymbolID>> &addedReExportSymbols,
+        std::unordered_map<std::string, std::map<std::string, AST::OrderedDeclSet>> &pkgMembersMap);
+
     void CreateExtend(const Decl& decl, const std::string& filePath);
 
     void CreateCrossSymbolByInterop(const Decl &decl);
@@ -153,7 +177,7 @@ private:
 
     void DealRegisterFunc(const FuncArg &registerIdentify, const FuncArg &registerTarget);
 
-    void  ResloveBlock(const Block &block, const std::string &registerIdentify);
+    void ResloveBlock(const Block &block, const std::string &registerIdentify);
 
     void DealCrossSymbol(const NameReferenceExpr &ref, const Decl &target, const SrcIdentifier &identifier);
 
@@ -275,6 +299,8 @@ private:
     std::map<SymbolID, std::vector<ExtendItem>> symbolExtendMap;
 
     std::vector<CrossSymbol> crsSymsMap;
+
+    ReExportSymbolSlab reExportSymsMap;
 
     bool isCjoPkg;
 

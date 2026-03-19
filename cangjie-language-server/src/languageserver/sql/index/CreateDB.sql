@@ -743,6 +743,99 @@ SQL(
 )
 
 SQL(
+  CREATE TABLE IF NOT EXISTS _reexport_symbols(
+    CJPackageName TEXT NOT NULL,
+    SymbolID BLOB,
+    Name TEXT NOT NULL,
+    Modifier INTEGER,
+    Signature TEXT,
+    PRIMARY KEY(
+      CJPackageName,
+      SymbolID,
+      Name
+    )
+  ) WITHOUT ROWID;
+
+  CREATE INDEX IF NOT EXISTS reexport_symbols_CJPackageName ON _reexport_symbols(CJPackageName);
+  CREATE INDEX IF NOT EXISTS reexport_symbols_Name ON _reexport_symbols(Name);
+)
+
+SQL(
+  CREATE VIEW IF NOT EXISTS reexport_symbols(
+    CJPackageName,
+    SymbolID,
+    Name,
+    Modifier,
+    Signature
+  )
+  AS SELECT
+    CJPackageName,
+    SymbolID,
+    Name,
+    Modifier,
+    Signature
+  FROM _reexport_symbols;
+
+  DROP TRIGGER IF EXISTS reexport_symbols_instead_of_insert;
+
+  CREATE TRIGGER reexport_symbols_instead_of_insert
+  INSTEAD OF INSERT ON reexport_symbols FOR EACH ROW
+  BEGIN
+    INSERT INTO _reexport_symbols VALUES(
+      NEW.CJPackageName,
+      NEW.SymbolID,
+      NEW.Name,
+      NEW.Modifier,
+      NEW.Signature
+    );
+  END;
+)
+
+SQL(
+  CREATE TABLE IF NOT EXISTS _reexport_completions(
+    Name TEXT NOT NULL,
+    SymbolID BLOB NOT NULL,
+    Label TEXT,
+    InsertText TEXT,
+    PRIMARY KEY(
+         Name,
+         SymbolID
+      )
+  ) WITHOUT ROWID;
+
+  CREATE INDEX IF NOT EXISTS reexport_completions_SymbolID ON _reexport_completions(SymbolID);
+  CREATE INDEX IF NOT EXISTS reexport_completions_Name ON _reexport_completions(Name);
+)
+
+SQL(
+  CREATE VIEW IF NOT EXISTS reexport_completions(
+    Name,
+    SymbolID,
+    Label,
+    InsertText
+  )
+  AS SELECT
+    Name,
+    SymbolID,
+    Label,
+    InsertText
+  FROM _reexport_completions;
+
+  DROP TRIGGER IF EXISTS reexport_completions_instead_of_insert;
+
+  CREATE TRIGGER reexport_completions_instead_of_insert
+  INSTEAD OF INSERT ON reexport_completions FOR EACH ROW
+  BEGIN
+    INSERT INTO _reexport_completions VALUES(
+      NEW.Name,
+      NEW.SymbolID,
+      NEW.Label,
+      NEW.InsertText
+    );
+  END;
+)
+
+SQL(
   PRAGMA application_id = DATABASE_MAGIC;
   PRAGMA user_version = DATABASE_VERSION;
 )
