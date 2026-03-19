@@ -589,18 +589,18 @@ public func getCoreCompilerMemInfo(): Float64 {
 
 @When[os == "Windows"]
 func parseTasklistMemUsageToBytes(memUsage: String): UInt64 {
-    // Extract all digits from text like "12,345 K", skipping commas and spaces.
-    var digits = ""
-    for (ch in memUsage) {
-        if (ch >= '0' && ch <= '9') {
-            digits += ch.toString()
-        }
-    }
-    // Return 0 if the memory field is empty.
-    if (digits.isEmpty()) {
+    if (memUsage.isEmpty()) {
         return 0
     }
-    let kiloBytes = Int64.tryParse(digits) ?? 0
+    // Extract all digits from text like "12,345 K", skipping commas and spaces.
+    let cleanStr = memUsage.replace(",", "")
+                           .replace(" ", "")
+                           .replace("K", "")
+    // Return 0 if the memory field is empty.
+    if (cleanStr.isEmpty()) {
+        return 0
+    }
+    let kiloBytes = Int64.tryParse(cleanStr) ?? 0
     // Convert KB to bytes.
     return UInt64(kiloBytes) * 1024
 }
