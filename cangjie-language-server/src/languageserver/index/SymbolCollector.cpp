@@ -1397,15 +1397,17 @@ void SymbolCollector::CreateImportRef(const File &fileNode)
             return;
         }
         const auto members = this->importMgr.GetPackageMembers(srcPkgName, targetPkg->fullPackageName);
-        for (const auto &memberDecl : members) {
-            if (const auto declPtr = dynamic_cast<const Decl *>(memberDecl.get());
-                declPtr == nullptr || (!isAllImport && declPtr->identifier != importContent.identifier)) {
-                    continue;
-                }
-            SymbolLocation loc{importSpec.begin, importSpec.end, filePath};
-            Ref refInfo{.location = loc, .kind = RefKind::IMPORT};
-            UpdatePos(refInfo.location, importSpec, filePath);
-            (void)symbolRefMap[GetDeclSymbolID(*memberDecl)].emplace_back(refInfo);
+        for (const auto &[_, memberDecls] : members) {
+            for (const auto& memberDecl: memberDecls) {
+                if (const auto declPtr = dynamic_cast<const Decl *>(memberDecl.get());
+                    declPtr == nullptr || (!isAllImport && declPtr->identifier != importContent.identifier)) {
+                        continue;
+                    }
+                SymbolLocation loc{importSpec.begin, importSpec.end, filePath};
+                Ref refInfo{.location = loc, .kind = RefKind::IMPORT};
+                UpdatePos(refInfo.location, importSpec, filePath);
+                (void)symbolRefMap[GetDeclSymbolID(*memberDecl)].emplace_back(refInfo);
+            }
         }
     };
 
