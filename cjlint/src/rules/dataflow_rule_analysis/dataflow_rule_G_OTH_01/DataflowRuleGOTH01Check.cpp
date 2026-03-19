@@ -90,8 +90,8 @@ static std::string GetLogMsg(const CHIR::Expression* expr)
             auto applyAdd = static_cast<const CHIR::Apply*>(expr);
             auto add = applyAdd->GetCallee();
             if (add->IsImportedFunc()) {
-                auto importedVal = VirtualCast<CHIR::ImportedFunc*>(add);
-                if (importedVal->GetSrcCodeIdentifier() == "+" && importedVal->GetSourcePackageName() == "std.core") {
+                auto importedVal = StaticCast<CHIR::Function*>(add);
+                if (importedVal->GetSrcCodeIdentifier() == "+" && importedVal->GetPackageName() == "std.core") {
                     return GetSubLogMsg(applyAdd->GetArgs()[0]) + GetSubLogMsg(applyAdd->GetArgs()[1]);
                 }
             }
