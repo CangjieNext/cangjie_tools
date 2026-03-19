@@ -686,7 +686,7 @@ func addCompileCost(compilePerformanceTargetDir : String): Unit {
 }
 
 func computeThreadQueue(startMap: HashMap<String, Int64>, endMap: HashMap<String, Int64>,
-    allPkgs: ArrayList<String>): HashMap<String, Int64> {
+    allPkgs: ArrayList<String>): (HashMap<String, Int64>, Array<Int64>) {
     var threadTime = Array<Int64>(allPkgs.size, repeat: 0)
     var result = HashMap<String, Int64>()
     for (name in allPkgs) {
@@ -698,7 +698,7 @@ func computeThreadQueue(startMap: HashMap<String, Int64>, endMap: HashMap<String
             }
         }
     }
-    return result
+    return (result, threadTime)
 }
 
 func sortCompileCost(compilePerformancePath : String): Unit {
@@ -713,7 +713,7 @@ func sortCompileCost(compilePerformancePath : String): Unit {
             endMap[k.name] = k.ts
         }
     }
-    let threadQueue = computeThreadQueue(startMap, endMap, allPkgs)
+    let threadQueue = computeThreadQueue(startMap, endMap, allPkgs)[0]
     for (cache in SHOW_CACHE) {
         cache.tid = threadQueue[cache.name]
     }
@@ -1112,6 +1112,24 @@ func getLtoCombineBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig):
     return res
 }
 
+func addBindepLinkOptions(res: ArrayList<String>, buildConfig: BuildConfig, compileTask: CompileTask,
+    linkSort: HashSet<String>, cLibLinkMap: HashMap<String, ArrayList<String>>,
+    cLibNameList: ArrayList<String>, stdDeps: StdDeps): Unit {
+    let (libPathOptions, binStdDeps) = getLinkOptionForBindep(buildConfig.binDepMap, linkSort, compileTask.isLto)
+    let (crosslibPathOptions, crossbinStdDeps) = getLinkOptionForBindep(buildConfig.crossBinDepMap, linkSort, compileTask.isLto)
+    let binOptions = ArrayList<String>()
+    binOptions.add(all: libPathOptions, at: 0)
+    binOptions.add(all: crosslibPathOptions, at: 0)
+    res.add(all: binOptions)
+    res.add(all: getMinimizedCLibLinkStr(cLibLinkMap, cLibNameList))
+
+    if (compileTask.id.compilePhase == LinkOnly) {
+        stdDeps.add(all: binStdDeps)
+        stdDeps.add(all: crossbinStdDeps)
+        res.add(all: topoSort(stdDeps).map { std => "-lcangjie-std-${std.removePrefix("std.")}" })
+    }
+}
+
 func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList<String> {
     let res = ArrayList<String>()
     // Record dependent root packages
@@ -1169,19 +1187,7 @@ func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList
     }
 
     res.add(all: allOptions)
-    let (libPathOptions, binStdDeps) = getLinkOptionForBindep(buildConfig.binDepMap, linkSort, compileTask.isLto)
-    let (crosslibPathOptions, crossbinStdDeps) = getLinkOptionForBindep(buildConfig.crossBinDepMap, linkSort, compileTask.isLto)
-    let binOptions = ArrayList<String>()
-    binOptions.add(all: libPathOptions, at: 0)
-    binOptions.add(all: crosslibPathOptions, at: 0)
-    res.add(all: binOptions)
-    res.add(all: getMinimizedCLibLinkStr(cLibLinkMap, cLibNameList))
-
-    if (compileTask.id.compilePhase == LinkOnly) {
-        stdDeps.add(all: binStdDeps)
-        stdDeps.add(all: crossbinStdDeps)
-        res.add(all: topoSort(stdDeps).map { std => "-lcangjie-std-${std.removePrefix("std.")}" })
-    }
+    addBindepLinkOptions(res, buildConfig, compileTask, linkSort, cLibLinkMap, cLibNameList, stdDeps)
 
     res
 }
