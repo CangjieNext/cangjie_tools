@@ -1125,15 +1125,13 @@ func addStdDepsForPkg(stdDeps: StdDeps, depName: String, compileTask: CompileTas
 }
 
 func addBindepLinkOptions(res: ArrayList<String>, buildConfig: BuildConfig, compileTask: CompileTask,
-    linkSort: HashSet<String>, cLibLinkMap: HashMap<String, ArrayList<String>>,
-    cLibNameList: ArrayList<String>): (StdDeps, StdDeps) {
+    linkSort: HashSet<String>): (StdDeps, StdDeps) {
     let (libPathOptions, binStdDeps) = getLinkOptionForBindep(buildConfig.binDepMap, linkSort, compileTask.isLto)
     let (crosslibPathOptions, crossbinStdDeps) = getLinkOptionForBindep(buildConfig.crossBinDepMap, linkSort, compileTask.isLto)
     let binOptions = ArrayList<String>()
     binOptions.add(all: libPathOptions, at: 0)
     binOptions.add(all: crosslibPathOptions, at: 0)
     res.add(all: binOptions)
-    res.add(all: getMinimizedCLibLinkStr(cLibLinkMap, cLibNameList))
     (binStdDeps, crossbinStdDeps)
 }
 
@@ -1191,7 +1189,8 @@ func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList
     }
 
     res.add(all: allOptions)
-    let (binStdDeps, crossbinStdDeps) = addBindepLinkOptions(res, buildConfig, compileTask, linkSort, cLibLinkMap, cLibNameList)
+    let (binStdDeps, crossbinStdDeps) = addBindepLinkOptions(res, buildConfig, compileTask, linkSort)
+    res.add(all: getMinimizedCLibLinkStr(cLibLinkMap, cLibNameList))
     addBindepStdDeps(res, compileTask, stdDeps, binStdDeps, crossbinStdDeps)
 
     res
