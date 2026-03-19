@@ -592,7 +592,7 @@ func parseTasklistMemUsageToBytes(memUsage: String): UInt64 {
     // Extract all digits from text like "12,345 K", skipping commas and spaces.
     var digits = ""
     for (ch in memUsage) {
-        if (ch >= '0' && ch <= '9') {
+        if (ch >= b'0' && ch <= b'9') {
             digits += ch.toString()
         }
     }
