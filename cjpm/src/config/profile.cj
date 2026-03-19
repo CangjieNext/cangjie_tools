@@ -471,12 +471,12 @@ public func getCoreCompilerMemInfo(): Float64 {
                         totalRSSBytes += rssPages * UInt64(PAGE_SIZE)
                     }
                 }
-            } catch (e) {
+            } catch (e: Exception) {
                 eprintln("Warning: failed to read /proc/${dirName}: ${e}")
                 continue
             }
         }
-    } catch (e) {
+    } catch (e: Exception) {
         eprintln("Warning: failed to read /proc: ${e}")
     }
 
