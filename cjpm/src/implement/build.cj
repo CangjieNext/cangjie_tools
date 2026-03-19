@@ -1112,9 +1112,21 @@ func getLtoCombineBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig):
     return res
 }
 
+func addStdDepsForPkg(stdDeps: StdDeps, depName: String, compileTask: CompileTask,
+    buildConfig: BuildConfig): Unit {
+    if (compileTask.id.compilePhase != LinkOnly) {
+        return
+    }
+    if (let Some(resolveItem) <- buildConfig.resolveItemMap.get(depName)) {
+        stdDeps.add(all: resolveItem.stdRequires)
+    } else {
+        eprintln("Error: cannot find ResolveItem of ${depName}")
+    }
+}
+
 func addBindepLinkOptions(res: ArrayList<String>, buildConfig: BuildConfig, compileTask: CompileTask,
     linkSort: HashSet<String>, cLibLinkMap: HashMap<String, ArrayList<String>>,
-    cLibNameList: ArrayList<String>, stdDeps: StdDeps): Unit {
+    cLibNameList: ArrayList<String>): (StdDeps, StdDeps) {
     let (libPathOptions, binStdDeps) = getLinkOptionForBindep(buildConfig.binDepMap, linkSort, compileTask.isLto)
     let (crosslibPathOptions, crossbinStdDeps) = getLinkOptionForBindep(buildConfig.crossBinDepMap, linkSort, compileTask.isLto)
     let binOptions = ArrayList<String>()
@@ -1122,7 +1134,11 @@ func addBindepLinkOptions(res: ArrayList<String>, buildConfig: BuildConfig, comp
     binOptions.add(all: crosslibPathOptions, at: 0)
     res.add(all: binOptions)
     res.add(all: getMinimizedCLibLinkStr(cLibLinkMap, cLibNameList))
+    (binStdDeps, crossbinStdDeps)
+}
 
+func addBindepStdDeps(res: ArrayList<String>, compileTask: CompileTask,
+    stdDeps: StdDeps, binStdDeps: StdDeps, crossbinStdDeps: StdDeps): Unit {
     if (compileTask.id.compilePhase == LinkOnly) {
         stdDeps.add(all: binStdDeps)
         stdDeps.add(all: crossbinStdDeps)
@@ -1136,24 +1152,12 @@ func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList
     let cLibLinkMap = if (compileTask.isCrossCompile) {
         buildConfig.globalConfig.crossCLibLinkMap
     } else { buildConfig.globalConfig.cLibLinkMap }
-    let cLibNameList = ArrayList<String>([compileTask.rootPkgName])
 
     let allOptions = ArrayList<String>()
     let libPathSet = HashSet<String>()
+    let cLibNameList = ArrayList<String>([compileTask.rootPkgName])
     let stdDeps = StdDeps()
-
-    let addStdDeps = { depName =>
-        if (compileTask.id.compilePhase != LinkOnly) {
-            return
-        }
-        if (let Some(resolveItem) <- buildConfig.resolveItemMap.get(depName)) {
-            stdDeps.add(all: resolveItem.stdRequires)
-        } else {
-            eprintln("Error: cannot find ResolveItem of ${depName}")
-        }
-    }
-
-    addStdDeps(compileTask.fullName)
+    addStdDepsForPkg(stdDeps, compileTask.fullName, compileTask, buildConfig)
     let linkSort: HashSet<String> = getDepSet(compileTask, buildConfig)
     for (index in (buildConfig.packageList.all.size - 1)..=0 : -1) {
         let depName = buildConfig.packageList.all[index]
@@ -1166,7 +1170,7 @@ func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList
         if (buildConfig.packageList.isMacro(depName) || buildConfig.packageList.isTest(depName)) {
             continue
         }
-        addStdDeps(depName)
+        addStdDepsForPkg(stdDeps, depName, compileTask, buildConfig)
         let libPath: String = if (let Some(suffix) <- buildConfig.packageList.productSuffixes.get(depName)) {
             Path(compileTask.targetDir).join(swapOrgName(depRootName)).join(suffix).toString()
         } else {
@@ -1187,7 +1191,8 @@ func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList
     }
 
     res.add(all: allOptions)
-    addBindepLinkOptions(res, buildConfig, compileTask, linkSort, cLibLinkMap, cLibNameList, stdDeps)
+    let (binStdDeps, crossbinStdDeps) = addBindepLinkOptions(res, buildConfig, compileTask, linkSort, cLibLinkMap, cLibNameList)
+    addBindepStdDeps(res, compileTask, stdDeps, binStdDeps, crossbinStdDeps)
 
     res
 }
