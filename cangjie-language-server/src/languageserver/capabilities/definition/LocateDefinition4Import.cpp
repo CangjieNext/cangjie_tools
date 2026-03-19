@@ -30,11 +30,13 @@ Ptr<Decl> ProcSingleImport(
 
     if (const auto targetPkg = importManager.GetPackageDecl(packagePrefix)) {
         const auto members = importManager.GetPackageMembers(srcPkgName, targetPkg->fullPackageName);
-        for (const auto &memberDecl : members) {
-            if (const auto declPtr = dynamic_cast<const Decl *>(memberDecl.get());
-                declPtr == nullptr || declPtr->identifier != importContent.identifier)
-                continue;
-            return memberDecl;
+        for (const auto &[_, memberDecls] : members) {
+            for (auto &memberDecl: memberDecls) {
+                if (const auto declPtr = dynamic_cast<const Decl *>(memberDecl.get());
+                    declPtr == nullptr || declPtr->identifier != importContent.identifier)
+                    continue;
+                return memberDecl;
+            }
         }
     }
     return Ptr<Decl>();

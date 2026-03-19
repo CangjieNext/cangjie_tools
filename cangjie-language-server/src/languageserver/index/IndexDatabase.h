@@ -119,6 +119,15 @@ public:
     dberr_no GetCrossSymbols(const std::string &pkgName, const std::string &symName,
         const std::function<void(const CrossSymbol &)> &callback);
 
+    dberr_no GetReExportSymbols(const std::string &pkgName,
+        const std::function<void(const ReExportSymbol &)> &callback);
+
+    dberr_no GetReExportCompletion(const std::string &pkgName, const ReExportSymbol &sym,
+        std::function<void(const ReExportSymbol &, const CompletionItem &)> callback);
+
+    dberr_no GetReExportSymbolsWithCompletions(const std::string &pkgName,
+        std::function<void(const ReExportSymbol &, const CompletionItem &)> callback);
+
     dberr_no GetRelationsRiddenUp(const SymbolID &objectID, RelationKind kind,
         std::function<bool(const Relation &rel)> callback);
 
@@ -230,6 +239,18 @@ public:
         void DealCrossSymbols(const std::vector<std::pair<std::string, CrossSymbol>> &crsSyms);
 
         dberr_no InsertCrossSymbols(const std::vector<std::pair<std::string, CrossSymbol>> &crsSyms);
+
+        dberr_no InsertReExportSymbol(const std::string &curPkgName, const ReExportSymbol &reExportSym);
+
+        void DealReExportSymbols(const std::vector<std::pair<std::string, ReExportSymbol>> &reExportSyms);
+
+        dberr_no InsertReExportSymbols(const std::vector<std::pair<std::string, ReExportSymbol>> &reExportSyms);
+
+        dberr_no InsertReExportCompletion(const ReExportSymbol &sym, const CompletionItem &completionItem);
+
+        void DealReExportCompletions(const std::vector<std::pair<IDArray, CompletionItem>> &completions);
+
+        dberr_no InsertReExportCompletions(const std::vector<std::pair<IDArray, CompletionItem>> &completions);
         // LCOV_EXCL_START
         template <typename... Ts>
         void BindValue(const sqldb::Bind<Ts...> &bind, sqlite3_stmt *stmt, int &Index)

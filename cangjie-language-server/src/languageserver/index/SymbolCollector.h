@@ -56,6 +56,11 @@ public:
         return &crsSymsMap;
     }
 
+    const ReExportSymbolSlab* GetReExportSymbolMap() const
+    {
+        return &reExportSymsMap;
+    }
+
     const std::vector<Relation>* GetRelations() const
     {
         return &relations;
@@ -140,6 +145,10 @@ private:
     void CreateNamedArgRef(const CallExpr& ce);
 
     void CreateImportRef(const File &fileNode);
+
+    void CreateReExportSymbol(const File &file);
+
+    void CollectReExportCompletionItem(const Decl &decl, ReExportSymbol &symbol);
 
     void CreateExtend(const Decl& decl, const std::string& filePath);
 
@@ -275,6 +284,8 @@ private:
     std::map<SymbolID, std::vector<ExtendItem>> symbolExtendMap;
 
     std::vector<CrossSymbol> crsSymsMap;
+
+    ReExportSymbolSlab reExportSymsMap;
 
     bool isCjoPkg;
 

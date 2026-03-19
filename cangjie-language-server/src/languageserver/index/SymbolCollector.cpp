@@ -11,6 +11,9 @@
 #include "../CompilerCangjieProject.h"
 #include "CjdIndex.h"
 #include "MemIndex.h"
+#include "Symbol.h"
+#include "cangjie/AST/AttributePack.h"
+#include "cangjie/AST/Node.h"
 
 namespace {
 using namespace Cangjie;
@@ -333,6 +336,7 @@ void SymbolCollector::ProcessFile(const File& file, const std::string& packagePa
 
     if (!CjdIndexer::GetInstance() || !CjdIndexer::GetInstance()->GetRunningState()) {
         CreateImportRef(file);
+        CreateReExportSymbol(file);
     }
 }
 
@@ -1397,15 +1401,17 @@ void SymbolCollector::CreateImportRef(const File &fileNode)
             return;
         }
         const auto members = this->importMgr.GetPackageMembers(srcPkgName, targetPkg->fullPackageName);
-        for (const auto &memberDecl : members) {
-            if (const auto declPtr = dynamic_cast<const Decl *>(memberDecl.get());
-                declPtr == nullptr || (!isAllImport && declPtr->identifier != importContent.identifier)) {
-                    continue;
-                }
-            SymbolLocation loc{importSpec.begin, importSpec.end, filePath};
-            Ref refInfo{.location = loc, .kind = RefKind::IMPORT};
-            UpdatePos(refInfo.location, importSpec, filePath);
-            (void)symbolRefMap[GetDeclSymbolID(*memberDecl)].emplace_back(refInfo);
+        for (const auto &[_, memberDecls] : members) {
+            for (const auto& memberDecl: memberDecls) {
+                if (const auto declPtr = dynamic_cast<const Decl *>(memberDecl.get());
+                    declPtr == nullptr || (!isAllImport && declPtr->identifier != importContent.identifier)) {
+                        continue;
+                    }
+                SymbolLocation loc{importSpec.begin, importSpec.end, filePath};
+                Ref refInfo{.location = loc, .kind = RefKind::IMPORT};
+                UpdatePos(refInfo.location, importSpec, filePath);
+                (void)symbolRefMap[GetDeclSymbolID(*memberDecl)].emplace_back(refInfo);
+            }
         }
     };
 
@@ -1418,6 +1424,209 @@ void SymbolCollector::CreateImportRef(const File &fileNode)
             continue;
         }
         ProcImport(*importSpec, importContent, importSpec->IsImportAll());
+    }
+}
+
+void SymbolCollector::CreateReExportSymbol(const File &file)
+{
+    if (!file.curFile || !file.curPackage) {
+        return;
+    }
+
+    std::set<std::pair<std::string, SymbolID>> addedReExportSymbols;
+
+    auto getReExportModifier = [](const ImportSpec &importSpec) -> lsp::Modifier {
+        if (!importSpec.modifier) {
+            return lsp::Modifier::PRIVATE;
+        }
+        switch (importSpec.modifier->modifier) {
+            case TokenKind::PRIVATE:
+                return lsp::Modifier::PRIVATE;
+            case TokenKind::INTERNAL:
+                return lsp::Modifier::INTERNAL;
+            case TokenKind::PROTECTED:
+                return lsp::Modifier::PROTECTED;
+            case TokenKind::PUBLIC:
+                return lsp::Modifier::PUBLIC;
+            default:
+                return lsp::Modifier::PRIVATE;
+        }
+    };
+
+    auto getDeclModifier = [](const Ptr<Decl> decl) -> lsp::Modifier {
+        if (!decl) {
+            return lsp::Modifier::UNDEFINED;
+        }
+        if (decl->TestAttr(Attribute::PUBLIC)) {
+            return lsp::Modifier::PUBLIC;
+        }
+        if (decl->TestAttr(Attribute::PROTECTED)) {
+            return lsp::Modifier::PROTECTED;
+        }
+        if (decl->TestAttr(Attribute::INTERNAL)) {
+            return lsp::Modifier::INTERNAL;
+        }
+        if (decl->TestAttr(Attribute::PRIVATE)) {
+            return lsp::Modifier::PRIVATE;
+        }
+        return lsp::Modifier::UNDEFINED;
+    };
+
+    auto checkAccessible = [&getReExportModifier, &getDeclModifier](Ptr<Decl> decl, ImportSpec& is) -> bool {
+        return getDeclModifier(decl) >= getReExportModifier(is);
+    };
+
+    auto filePath = file.curFile->filePath;
+    std::unordered_map<std::string, std::map<std::string, AST::OrderedDeclSet>> pkgMembersMap;
+    for (const auto &importSpec : file.imports) {
+        // private package and private import, import package only be private
+        if (file.curPackage->accessible == AccessLevel::PRIVATE ||
+            !importSpec || importSpec->end.IsZero() ||
+            !importSpec->modifier || importSpec->modifier->modifier == TokenKind::PRIVATE) {
+            continue;
+        }
+        auto importContent = importSpec->content;
+        if (importContent.end.IsZero()) {
+            continue;
+        }
+        switch(importContent.kind) {
+            case ImportKind::IMPORT_SINGLE: {
+                std::string importedPkgName = Utils::JoinStrings(importContent.prefixPaths, ".");
+                auto importedPkg = importMgr.GetPackageDecl(importedPkgName);
+                if (!importedPkg) {
+                    break;
+                }
+                if (pkgMembersMap.find(importedPkgName) == pkgMembersMap.end()) {
+                    auto pkgMembers =
+                        importMgr.GetPackageMembers(file.curPackage->fullPackageName, importedPkgName);
+                    pkgMembersMap[importedPkgName] = std::move(pkgMembers);
+                }
+                auto identifier = importContent.identifier;
+                if (pkgMembersMap[importedPkgName].find(identifier) == pkgMembersMap[importedPkgName].end()) {
+                    break;
+                }
+                auto &candidates = pkgMembersMap[importedPkgName][identifier];
+                if (candidates.empty()) {
+                    break;
+                }
+                auto refDecl = *candidates.begin();
+                if (!refDecl || !checkAccessible(refDecl, *importSpec)) {
+                    break;
+                }
+                auto id = GetDeclSymbolID(*refDecl);
+                if (addedReExportSymbols.count({identifier, id})) {
+                    break;
+                }
+                ReExportSymbol reExportSym;
+                reExportSym.id = id;
+                reExportSym.modifier = getReExportModifier(*importSpec);
+                reExportSym.name = identifier;
+                reExportSym.signature = ItemResolverUtil::ResolveSignatureByNode(*refDecl);
+                CollectReExportCompletionItem(*refDecl, reExportSym);
+                reExportSymsMap.emplace_back(reExportSym);
+                addedReExportSymbols.insert({identifier, id});
+                break;
+            }
+            case ImportKind::IMPORT_ALIAS: {
+                std::string importedPkgName = Utils::JoinStrings(importContent.prefixPaths, ".");
+                auto importedPkg = importMgr.GetPackageDecl(importedPkgName);
+                if (!importedPkg) {
+                    break;
+                }
+                if (pkgMembersMap.find(importedPkgName) == pkgMembersMap.end()) {
+                    auto pkgMembers =
+                        importMgr.GetPackageMembers(file.curPackage->fullPackageName, importedPkgName);
+                    pkgMembersMap[importedPkgName] = std::move(pkgMembers);
+                }
+                auto identifier = importContent.aliasName;
+                auto &candidates = pkgMembersMap[importedPkgName][importContent.identifier];
+                if (candidates.empty()) {
+                    break;
+                }
+                auto refDecl = *candidates.begin();
+                if (!refDecl || !checkAccessible(refDecl, *importSpec)) {
+                    break;
+                }
+                auto id = GetDeclSymbolID(*refDecl);
+                if (addedReExportSymbols.count({identifier, id})) {
+                    break;
+                }
+                auto rawId = refDecl->identifier;
+                refDecl->identifier = identifier;
+                ReExportSymbol reExportSym;
+                reExportSym.id = id;
+                reExportSym.modifier = getReExportModifier(*importSpec);
+                reExportSym.name = identifier;
+                reExportSym.signature = ItemResolverUtil::ResolveSignatureByNode(*refDecl);
+                CollectReExportCompletionItem(*refDecl, reExportSym);
+                reExportSymsMap.emplace_back(reExportSym);
+                refDecl->identifier = rawId;
+                addedReExportSymbols.insert({identifier, id});
+                break;
+            }
+            case ImportKind::IMPORT_ALL: {
+                std::string importedPkgName = Utils::JoinStrings(importContent.prefixPaths, ".");
+                auto importedPkg = importMgr.GetPackageDecl(importedPkgName);
+                if (!importedPkg) {
+                    break;
+                }
+                if (pkgMembersMap.find(importedPkgName) == pkgMembersMap.end()) {
+                    auto pkgMembers =
+                        importMgr.GetPackageMembers(file.curPackage->fullPackageName, importedPkgName);
+                    pkgMembersMap[importedPkgName] = std::move(pkgMembers);
+                }
+                for (auto& [identifier, decls]: pkgMembersMap[importedPkgName]) {
+                    for (auto decl: decls) {
+                        if (!decl || !checkAccessible(decl, *importSpec)) {
+                            continue;
+                        }
+                        auto id = GetDeclSymbolID(*decl);
+                        if (addedReExportSymbols.count({identifier, id})) {
+                            continue;
+                        }
+                        ReExportSymbol reExportSym;
+                        reExportSym.id = id;
+                        reExportSym.modifier = getReExportModifier(*importSpec);
+                        reExportSym.name = identifier;
+                        reExportSym.signature = ItemResolverUtil::ResolveSignatureByNode(*decl);
+                        CollectReExportCompletionItem(*decl, reExportSym);
+                        reExportSymsMap.emplace_back(reExportSym);
+                        addedReExportSymbols.insert({identifier, id});
+                        break;
+                    }
+                }
+                break;
+            }
+            case ImportKind::IMPORT_MULTI:
+            default:
+                break;
+        }
+    }
+}
+
+void SymbolCollector::CollectReExportCompletionItem(const Decl &decl, ReExportSymbol &symbol)
+{
+    std::string insertText = ItemResolverUtil::ResolveInsertByNode(decl);
+    auto funcDecl = dynamic_cast<const FuncDecl*>(&decl);
+    if (decl.TestAttr(Cangjie::AST::Attribute::MACRO_FUNC) && funcDecl && funcDecl->funcBody) {
+        symbol.signature = decl.identifier;
+        ItemResolverUtil::ResolveMacroParams(symbol.signature, funcDecl->funcBody->paramLists);
+    }
+    symbol.completionItems.push_back({symbol.signature, insertText});
+    // add follow lambda completion
+    std::string flSignature = ItemResolverUtil::ResolveFollowLambdaSignature(decl);
+    if (!flSignature.empty()) {
+        std::string flInsert = ItemResolverUtil::ResolveFollowLambdaInsert(decl);
+        if (!flInsert.empty()) {
+            symbol.completionItems.push_back({flSignature, flInsert});
+        }
+    }
+    // add paramList completion for func_type's var_decl
+    std::string varSignature;
+    std::string varInsert;
+    ItemResolverUtil::ResolveParamListFuncTypeVarDecl(decl, varSignature, varInsert);
+    if (!varSignature.empty() && !varInsert.empty()) {
+        symbol.completionItems.push_back({varSignature, varInsert});
     }
 }
 
