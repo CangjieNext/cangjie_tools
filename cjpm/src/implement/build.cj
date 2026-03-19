@@ -337,7 +337,6 @@ func getResolveData(buildConfig: BuildConfig, tomlInfo: TomlInfo, isScriptDep: B
             }
         }
     }
-    let resolves = ArrayList<ResolveItem>(dm.readyPkgs.map { k => dm.packageDepMap[k] })
     buildConfig.binDepMap = dm.binDepMap
     buildConfig.crossBinDepMap = dm.crossBinDepMap
     buildConfig.targetMacroMods = dm.targetMacroMods
@@ -345,7 +344,7 @@ func getResolveData(buildConfig: BuildConfig, tomlInfo: TomlInfo, isScriptDep: B
     buildConfig.superPkgMap = dm.superPkgMap
     buildConfig.superPkgSubMap = dm.superPkgSubMap
     return ModuleResolve(
-        resolves: resolves,
+        resolves: dm.readyPkgs.iterator().map { k => dm.packageDepMap[k] } |> collectArrayList,
         binDeps: dm.binDepMap,
         crossBinDeps: dm.crossBinDepMap
     )
@@ -652,6 +651,22 @@ func addCompileCost(compilePerformanceTargetDir : String): Unit {
     createAndWriteFile(CJPM_COMPILE_INFOPath,CJPM_COMPILE_INFO.serialize().toJson().toJsonString())
 }
 
+func computeThreadQueue(startMap: HashMap<String, Int64>, endMap: HashMap<String, Int64>,
+ 	     allPkgs: ArrayList<String>): (HashMap<String, Int64>, Array<Int64>) {
+ 	     var threadTime = Array<Int64>(allPkgs.size, repeat: 0)
+ 	     var result = HashMap<String, Int64>()
+ 	     for (name in allPkgs) {
+ 	         for (i in 0..threadTime.size) {
+ 	             if (startMap[name] >= threadTime[i]) {
+ 	                 result[name] = i
+ 	                 threadTime[i] = endMap[name]
+ 	                 break
+ 	             }
+ 	         }
+ 	     }
+ 	     return (result, threadTime)
+}
+ 	 
 func sortCompileCost(compilePerformancePath : String): Unit {
     var startMap = HashMap<String, Int64>()
     var endMap = HashMap<String, Int64>()
@@ -664,19 +679,7 @@ func sortCompileCost(compilePerformancePath : String): Unit {
             endMap[k.name] = k.ts
         }
     }
-    let pkgSize = allPkgs.size
-    var threadTime = Array<Int64>(pkgSize, repeat: 0)
-    var threadQueue = HashMap<String, Int64>()
-    for (name in allPkgs) {
-        for (i in 0..threadTime.size) {
-            if (startMap[name] >= threadTime[i]) {
-                threadQueue[name] = i
-                threadTime[i] = endMap[name]
-                break
-            }
-        }
-    }
-
+    let threadQueue = computeThreadQueue(startMap, endMap, allPkgs)[0]
     for (cache in SHOW_CACHE) {
         cache.tid = threadQueue[cache.name]
     }
@@ -692,6 +695,10 @@ func sortCompileCost(compilePerformancePath : String): Unit {
 }
 
 func generateIncrementalCache(buildConfig: BuildConfig, curResolveData: ModuleResolve): Bool {
+    let successPkgs: HashSet<String> = curResolveData.resolves.iterator()
+ 	         .filter { item => item.buildFlag }
+ 	         .map { item => item.fullName } |> collectHashSet
+
     var cacheMap = HashMap<String, IncrementalCache>()
     for ((rootPkgName, jsonData) in buildConfig.jsonInformation) {
         cacheMap[rootPkgName] = IncrementalCache()
@@ -699,15 +706,10 @@ func generateIncrementalCache(buildConfig: BuildConfig, curResolveData: ModuleRe
         cacheMap[rootPkgName].rootPkgName = rootPkgName
     }
 
-    for ((pkgName, pkgData) in buildConfig.pkgCacheMap) {
-        if (!cacheMap.contains(pkgData.rootPkgName)) {
-            continue
-        }
+    for ((pkgName, pkgData) in buildConfig.pkgCacheMap where cacheMap.contains(pkgData.rootPkgName)) {
         let cacheItem = CacheItem(pkgData.rootPkgName, pkgData.fileNameHash, pkgData.timeStamp,
             buildConfig.hasSubPkgs.contains(pkgName) || buildConfig.requiredForTests)
-        if (curResolveData.resolves.any { item => item.buildFlag && item.fullName == pkgName }) {
-            cacheItem.isBuilt = true
-        }
+        cacheItem.isBuilt = successPkgs.contains(pkgName)
 
         cacheMap[pkgData.rootPkgName].packageInformation[pkgName] = cacheItem
     }
@@ -727,15 +729,22 @@ func generateIncrementalCache(buildConfig: BuildConfig, curResolveData: ModuleRe
             cacheFlag = false
             continue
         }
-        if (!createAndWriteFile(cachePath.join(INCREMENTAL_CACHE).toString(), v.serialize().toJson().toJsonString())) {
+        let cacheFile = cachePath.join(INCREMENTAL_CACHE).toString()
+        let cacheStr = v.serialize().toJson().toJsonString()
+        if (!createAndWriteFile(cacheFile, cacheStr)) {
             cacheFlag = false
         }
     }
 
-    return cacheFlag && createAndWriteFile(
-        Path(buildConfig.globalConfig.targetDir).join("${buildConfig.curModuleName}-cache.json").toString(),
-        DateTime.now().toUnixTimeStamp().toSeconds().toString()
-    )
+    let endTimeCacheFile = Path(buildConfig.globalConfig.targetDir)
+        .join("${buildConfig.curModuleName}-cache.json")
+        .toString()
+    let endTime: String = DateTime.now().toUnixTimeStamp().toSeconds().toString()
+    if (!createAndWriteFile(endTimeCacheFile, endTime)) {
+        cacheFlag = false
+    }
+
+    return cacheFlag
 }
 
 func constructCjcInvocation(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList<String> {
@@ -1069,25 +1078,52 @@ func getLtoCombineBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig):
     return res
 }
 
+func addStdDepsForPkg(stdDeps: StdDeps, depName: String, compileTask: CompileTask,
+ 	buildConfig: BuildConfig): Unit {
+ 	if (compileTask.id.compilePhase != LinkOnly) {
+ 	    return
+ 	}
+ 	if (let Some(resolveItem) <- buildConfig.resolveItemMap.get(depName)) {
+ 	    stdDeps.add(all: resolveItem.stdRequires)
+ 	} else {
+ 	    eprintln("Error: cannot find ResolveItem of ${depName}")
+ 	}
+}
+ 	 
+func addBindepLinkOptions(res: ArrayList<String>, buildConfig: BuildConfig, compileTask: CompileTask,
+ 	linkSort: HashSet<String>): (StdDeps, StdDeps) {
+ 	let (libPathOptions, binStdDeps) = getLinkOptionForBindep(buildConfig.binDepMap, linkSort, compileTask.isLto)
+ 	let (crosslibPathOptions, crossbinStdDeps) = getLinkOptionForBindep(buildConfig.crossBinDepMap, linkSort, compileTask.isLto)
+ 	let binOptions = ArrayList<String>()
+ 	binOptions.add(all: libPathOptions, at: 0)
+ 	binOptions.add(all: crosslibPathOptions, at: 0)
+ 	res.add(all: binOptions)
+ 	(binStdDeps, crossbinStdDeps)
+}
+ 	 
+func addBindepStdDeps(res: ArrayList<String>, compileTask: CompileTask,
+ 	stdDeps: StdDeps, binStdDeps: StdDeps, crossbinStdDeps: StdDeps): Unit {
+ 	if (compileTask.id.compilePhase == LinkOnly) {
+ 	    stdDeps.add(all: binStdDeps)
+ 	    stdDeps.add(all: crossbinStdDeps)
+ 	    res.add(all: topoSort(stdDeps).map { std => "-lcangjie-std-${std.removePrefix("std.")}" })
+ 	}
+}
+ 	 
 func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList<String> {
     let res = ArrayList<String>()
-    let stdDeps = StdDeps()
+    // Record dependent root packages
+    let cLibLinkMap = if (compileTask.isCrossCompile) {
+        buildConfig.globalConfig.crossCLibLinkMap
+    } else { buildConfig.globalConfig.cLibLinkMap }
 
-    let addStdDeps = { depName =>
-        if (compileTask.id.compilePhase != LinkOnly) {
-            return
-        }
-        if (let Some(resolveItem) <- buildConfig.resolveItemMap.get(depName)) {
-            stdDeps.add(all: resolveItem.stdRequires)
-        } else {
-            eprintln("Error: cannot find ResolveItem of ${depName}")
-        }
-    }
-
-    let cLibNameList = ArrayList<String>([compileTask.rootPkgName])
-    let linkSort: HashSet<String> = getDepSet(compileTask, buildConfig)
+    let allOptions = ArrayList<String>()
     let libPathSet = HashSet<String>()
-    addStdDeps(compileTask.fullName)
+    let cLibNameList = ArrayList<String>([compileTask.rootPkgName])
+    let stdDeps = StdDeps()
+    addStdDepsForPkg(stdDeps, compileTask.fullName, compileTask, buildConfig)
+ 	let linkSort: HashSet<String> = getDepSet(compileTask, buildConfig)
+
     for (index in (buildConfig.packageList.all.size - 1)..=0 : -1) {
         let depName = buildConfig.packageList.all[index]
         if (!linkSort.contains(depName)) {
@@ -1099,7 +1135,7 @@ func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList
         if (buildConfig.packageList.isMacro(depName) || buildConfig.packageList.isTest(depName)) {
             continue
         }
-        addStdDeps(depName)
+        addStdDepsForPkg(stdDeps, depName, compileTask, buildConfig)
         let libPath: String = if (let Some(suffix) <- buildConfig.packageList.productSuffixes.get(depName)) {
             Path(compileTask.targetDir).join(swapOrgName(depRootName)).join(suffix).toString()
         } else {
@@ -1108,32 +1144,21 @@ func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList
 
         let linkArray: ArrayList<String> = linkPackage(depName, libPath, compileTask.isLto)
         if (linkArray.size <= 1) {
-            res.add(all: linkArray)
+            allOptions.add(all: linkArray)
             continue
         }
         if (libPathSet.contains(libPath)) {
-            res.add(linkArray[linkArray.size - 1])
+            allOptions.add(linkArray[linkArray.size - 1])
         } else {
-            res.add(all: linkArray)
+            allOptions.add(all: linkArray)
             libPathSet.add(libPath)
         }
     }
-    let (libPathOptions, binStdDeps) = getLinkOptionForBindep(buildConfig.binDepMap, linkSort, compileTask.isLto)
- 	let (crosslibPathOptions, crossbinStdDeps) = getLinkOptionForBindep(buildConfig.crossBinDepMap, linkSort, compileTask.isLto)
-    let binOptions = ArrayList<String>()
-    binOptions.add(all: libPathOptions, at: 0)
-    binOptions.add(all: crosslibPathOptions, at: 0)
-    res.add(all: binOptions)
-    let cLibLinkMap = if (compileTask.isCrossCompile) {
-        buildConfig.globalConfig.crossCLibLinkMap
-    } else { buildConfig.globalConfig.cLibLinkMap }
-    res.add(all: getMinimizedCLibLinkStr(cLibLinkMap, cLibNameList))
 
-    if (compileTask.id.compilePhase == LinkOnly) {
-        stdDeps.add(all: binStdDeps)
-        stdDeps.add(all: crossbinStdDeps)
-        res.add(all: topoSort(stdDeps).map { std => "-lcangjie-std-${std.removePrefix("std.")}" })
-    }
+    res.add(all: allOptions)
+    let (binStdDeps, crossbinStdDeps) = addBindepLinkOptions(res, buildConfig, compileTask, linkSort)
+    res.add(all: getMinimizedCLibLinkStr(cLibLinkMap, cLibNameList))
+    addBindepStdDeps(res, compileTask, stdDeps, binStdDeps, crossbinStdDeps)
 
     res
 }
@@ -1163,9 +1188,10 @@ func getForcedLibArgs(compileTask: CompileTask, buildConfig: BuildConfig): Array
         if (buildConfig.packageList.isMacro(depName) || buildConfig.packageList.isTest(depName)) {
             continue
         }
-        let libPath = Path(compileTask.targetDir).join(depRootName).toString()
-        let linkArray: ArrayList<String> = forcedLinkPackage(depName, libPath, compileTask.isLto)
-        if (linkArray.size <= 1 || libPathSet.add(libPath)) {
+        let linkArray: ArrayList<String> = forcedLinkPackage(depName,
+ 	        Path(compileTask.targetDir).join(depRootName).toString(), compileTask.isLto)
+ 	    if (linkArray.size <= 1 || libPathSet.add(
+ 	        Path(compileTask.targetDir).join(depRootName).toString())) {  
             allOptions.add(all: linkArray)
         } else {
             allOptions.add(linkArray[linkArray.size - 1])
@@ -1193,12 +1219,13 @@ func getForcedLibArgs(compileTask: CompileTask, buildConfig: BuildConfig): Array
 
 @When[os == "Linux" || os == "Windows"]
 func getForcedBinDep(compileTask: CompileTask, buildConfig: BuildConfig, binDepSet: HashSet<String>, cLibNameList: ArrayList<String>): ArrayList<String> {
-    let binOptions = appendOptionForBindep(buildConfig.crossBinDepMap, binDepSet, compileTask.isLto)
-    binOptions.add(all: appendOptionForBindep(buildConfig.binDepMap, binDepSet, compileTask.isLto))
-    binOptions.add(all: getMinimizedCLibLinkStr(
-        if (compileTask.isCrossCompile) { buildConfig.globalConfig.crossCLibLinkMap } else { buildConfig.globalConfig.cLibLinkMap },
-        cLibNameList
-    ))
+    var binOptions = ArrayList<String>()
+    binOptions.add(all: appendOptionForBindep(buildConfig.binDepMap, binDepSet, compileTask.isLto), at: 0)
+    binOptions.add(all: appendOptionForBindep(buildConfig.crossBinDepMap, binDepSet, compileTask.isLto), at: 0)
+    let cLibLinkMap = if (compileTask.isCrossCompile) {
+        buildConfig.globalConfig.crossCLibLinkMap
+    } else { buildConfig.globalConfig.cLibLinkMap }
+    binOptions.add(all: getMinimizedCLibLinkStr(cLibLinkMap, cLibNameList))
     return binOptions
 }
 
