@@ -185,6 +185,10 @@ URI URI::Parse(const std::string& origUri)
         u.authority = PercentDecode(uri.substr(0, pos));
         uri = uri.substr(pos);
     }
+    // 1MB limit
+    if (uri.length() > 1024 * 1024) {
+        return u;
+    }
     u.body = PercentDecode(uri);
     return u;
 }
