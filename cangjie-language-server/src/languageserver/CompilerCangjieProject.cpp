@@ -1670,7 +1670,7 @@ bool CompilerCangjieProject::Compiler(const std::string &moduleUri,
     if (initializationOptions.contains(MODULES_HOME_OPTION)) {
         modulesHomeOption = initializationOptions.value(MODULES_HOME_OPTION, "");
 #ifdef _WIN32
-        modulesHomeOption = NormalizeStringToGBK(modulesHomeOption);
+        modulesHomeOption = Cangjie::StringConvertor::NormalizeStringToGBK(modulesHomeOption).value();
 #endif
         modulesHomeOption = FileStore::NormalizePath(modulesHomeOption);
     }
@@ -1678,7 +1678,7 @@ bool CompilerCangjieProject::Compiler(const std::string &moduleUri,
     if (initializationOptions.contains(STD_LIB_PATH_OPTION)) {
         stdLibPathOption = initializationOptions.value(STD_LIB_PATH_OPTION, "");
 #ifdef _WIN32
-        stdLibPathOption = NormalizeStringToGBK(stdLibPathOption);
+        stdLibPathOption = Cangjie::StringConvertor::NormalizeStringToGBK(stdLibPathOption).value();
 #endif
         stdLibPathOption = FileStore::NormalizePath(stdLibPathOption);
     }
@@ -1724,7 +1724,7 @@ bool CompilerCangjieProject::Compiler(const std::string &moduleUri,
     if (MessageHeaderEndOfLine::GetIsDeveco() && initializationOptions.contains(STD_CJD_PATH_OPTION)) {
         stdCjdPathOption = initializationOptions.value(STD_CJD_PATH_OPTION, "");
 #ifdef _WIN32
-        stdCjdPathOption = NormalizeStringToGBK(stdCjdPathOption);
+        stdCjdPathOption = Cangjie::StringConvertor::NormalizeStringToGBK(stdCjdPathOption).value();
 #endif
         stdCjdPathOption = FileStore::NormalizePath(stdCjdPathOption);
     }
@@ -1732,7 +1732,7 @@ bool CompilerCangjieProject::Compiler(const std::string &moduleUri,
     if (MessageHeaderEndOfLine::GetIsDeveco() && initializationOptions.contains(OHOS_CJD_PATH_OPTION)) {
         ohosCjdPathOption = initializationOptions.value(OHOS_CJD_PATH_OPTION, "");
 #ifdef _WIN32
-        ohosCjdPathOption = NormalizeStringToGBK(ohosCjdPathOption);
+        ohosCjdPathOption = Cangjie::StringConvertor::NormalizeStringToGBK(ohosCjdPathOption).value();
 #endif
         ohosCjdPathOption = FileStore::NormalizePath(ohosCjdPathOption);
     }
@@ -1740,7 +1740,7 @@ bool CompilerCangjieProject::Compiler(const std::string &moduleUri,
     if (MessageHeaderEndOfLine::GetIsDeveco() && initializationOptions.contains(CJD_CACHE_PATH_OPTION)) {
         cjdCachePathOption = initializationOptions.value(CJD_CACHE_PATH_OPTION, "");
 #ifdef _WIN32
-        cjdCachePathOption = NormalizeStringToGBK(cjdCachePathOption);
+        cjdCachePathOption = Cangjie::StringConvertor::NormalizeStringToGBK(cjdCachePathOption).value();
 #endif
         cjdCachePathOption = FileStore::NormalizePath(cjdCachePathOption);
     }
