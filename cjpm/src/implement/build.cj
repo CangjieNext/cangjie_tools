@@ -815,9 +815,6 @@ func getLtoCombineBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig):
         buildConfig.globalConfig.crossCLibLinkMap
     } else { buildConfig.globalConfig.cLibLinkMap }
     res.add(all: getMinimizedCLibLinkStr(cLibLinkMap, cLibNameList))
-    if (compileTask.outputType == Exe) {
-        res.add("--compile-as-exe")
-    }
 
     return res
 }
