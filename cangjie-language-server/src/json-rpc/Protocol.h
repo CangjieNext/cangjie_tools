@@ -697,6 +697,13 @@ struct FileRefactorRespParams {
 
 bool ToJSON(const FileRefactorRespParams &item, nlohmann::json &reply);
 
+struct IndexingProgresssUpdateParams {
+    int total;
+    int current;
+};
+
+bool ToJSON(const IndexingProgresssUpdateParams &params, nlohmann::json &reply);
+
 class MessageHeaderEndOfLine {
 public:
     static std::string& GetEol()

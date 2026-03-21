@@ -14,6 +14,7 @@
 #include "capabilities/semanticHighlight/SemanticTokensAdaptor.h"
 #include "capabilities/shutdown/Shutdown.h"
 #include "ArkLanguageServer.h"
+#include "logger/Logger.h"
 
 namespace ark {
 using namespace Cangjie;
@@ -1612,6 +1613,24 @@ void ArkLanguageServer::OnOverrideMethods(const OverrideMethodsParams &params, n
         transp.Reply(std::move(id), std::move(result));
     };
     Server->FindOverrideMethods(file, params, std::move(reply));
+}
+
+void ArkLanguageServer::UpdateIndexingProgress(const IndexingProgresssUpdateParams &params)
+{
+    if (!Options::GetInstance().IsOptionSet("test") && !MessageHeaderEndOfLine::GetIsDeveco()) {
+        return;
+    }
+    std::stringstream log;
+    Logger &logger = Logger::Instance();
+    CleanAndLog(log, "ArkLanguageServer::UpdateIndexingProgress in");
+    logger.LogMessage(MessageType::MSG_LOG, log.str());
+
+    nlohmann::json jsonParams;
+    if (!ToJSON(params, jsonParams)) {
+        return;
+    }
+    ValueOrError result(ValueOrErrorCheck::VALUE, jsonParams);
+    Notify("progress/UpdateIndexingProgress", result);
 }
 
 CodeAction toCodeAction(const ArkServer::TweakRef &T, const std::string &uri, Range range)
