@@ -1176,3 +1176,5 @@
 {"applyEdit":{"testFile":"ExtractVariable_Apply_001.test","method":"workspace/applyEdit"}}
 {"applyEdit":{"testFile":"ExtractVariable_Apply_002.test","method":"workspace/applyEdit"}}
 {"applyEdit":{"testFile":"ExtractVariable_Apply_003.test","method":"workspace/applyEdit"}}
+
+{"progress":{"testFile":"IndexingProgress_001.test"}}

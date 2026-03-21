@@ -960,4 +960,11 @@ bool ToJSON(const FileRefactorRespParams &item, nlohmann::json &reply)
     }
     return true;
 }
+
+bool ToJSON(const IndexingProgresssUpdateParams &params, nlohmann::json &reply)
+{
+    reply["total"] = params.total;
+    reply["current"] = params.current;
+    return true;
+}
 } // namespace ark

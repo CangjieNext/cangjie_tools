@@ -68,6 +68,8 @@ public:
 
     void PublishCompletionTip(const CompletionTip &params) override;
 
+    void UpdateIndexingProgress(const IndexingProgresssUpdateParams &params) override;
+
     lsp::IndexDatabase *GetIndexDB() const
     {
         return arkIndexDB;
