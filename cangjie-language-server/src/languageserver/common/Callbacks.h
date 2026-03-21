@@ -47,6 +47,7 @@ public:
     virtual void AddDocWhenInitCompile(const std::string &file) = 0;
     virtual void ReportCjoVersionErr(std::string message) = 0;
     virtual void PublishCompletionTip(const CompletionTip &params) = 0;
+    virtual void UpdateIndexingProgress(const IndexingProgresssUpdateParams &params) = 0;
     bool isRenameDefined = false;
     std::string path = "";
 };
