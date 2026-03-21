@@ -61,8 +61,8 @@ struct Node<K> {
 
     func filterEdges(cond: (K) -> Bool): Node<K> {
         Node(
-            this.indeg.filter(cond) |> collectArray,
-            this.outdeg.filter(cond) |> collectArray
+            this.indeg.iterator().filter(cond) |> collectArray,
+            this.outdeg.iterator().filter(cond) |> collectArray
         )
     }
 }
@@ -106,7 +106,7 @@ public class DAG<K, V> where K <: Hashable & Equatable<K> {
             return (id, state.filterEdges { it => cond(it, this._data[it] )} )
         } |> collectHashMap
 
-        let toposort = toposort.filter { it => cond(it, this._data[it]) } |> collectArray
+        let toposort = toposort.iterator().filter { it => cond(it, this._data[it]) } |> collectArray
 
         DAG<K, V>(graph, _roots, toposort, _data)
     }
@@ -220,12 +220,37 @@ extend <K, V> DAG<K, V> {
     }
 }
 
+func serializeSerializableArray<T>(items: Array<T>): DataModelSeq where T <: Serializable<T> {
+    let result = DataModelSeq()
+    for (item in items) {
+        result.add(item.serialize())
+    }
+    return result
+}
+
+func serializeStringArray(items: Array<String>): DataModelSeq {
+    let result = DataModelSeq()
+    for (item in items) {
+        result.add(DataModelString(item))
+    }
+    return result
+}
+
+func deserializeSerializableArray<T>(dm: DataModel): Array<T> where T <: Serializable<T> {
+    let result = ArrayList<T>()
+    for (item in ((dm as DataModelSeq) ?? DataModelSeq()).getItems()) {
+        result.add(T.deserialize(item))
+    }
+    return result.toArray()
+}
+
+
 extend <V> DAG<String, V> <: Serializable<DAG<String, V>> where V <: Serializable<V> {
     public func serialize(): DataModel {
         DataModelStruct()
-            .add(field("roots", roots))
+            .add(Field("roots", serializeStringArray(roots)))
             .add(field("graph", graph))
-            .add(field("toposort", toposort))
+            .add(Field("toposort", serializeSerializableArray(toposort)))
             .add(field("data", data))
     }
 
@@ -236,7 +261,7 @@ extend <V> DAG<String, V> <: Serializable<DAG<String, V>> where V <: Serializabl
         }
 
         let roots = HashSet<String>.deserialize(dms.get("roots"))
-        let toposort = Array<String>.deserialize(dms.get("toposort"))
+        let toposort = deserializeSerializableArray<String>(dms.get("toposort"))
         let graph = HashMap<String, Node<String>>.deserialize(dms.get("graph"))
         let data = HashMap<String, V>.deserialize(dms.get("data"))
 
@@ -247,8 +272,8 @@ extend <V> DAG<String, V> <: Serializable<DAG<String, V>> where V <: Serializabl
 extend <K> Node<K> <: Serializable<Node<K>> where K <: Serializable<K> {
     public func serialize(): DataModel {
         DataModelStruct()
-            .add(field("indeg", indeg))
-            .add(field("outdeg", outdeg))
+            .add(Field("indeg", serializeSerializableArray(indeg)))
+            .add(Field("outdeg", serializeSerializableArray(outdeg)))
     }
 
     public static func deserialize(dm: DataModel): Node<K> {
@@ -257,8 +282,8 @@ extend <K> Node<K> <: Serializable<Node<K>> where K <: Serializable<K> {
             case _ => throw DataModelException("this data is not DataModelStruct")
         }
 
-        let indeg = Array<K>.deserialize(dms.get("indeg"))
-        let outdeg = Array<K>.deserialize(dms.get("outdeg"))
+        let indeg = deserializeSerializableArray<K>(dms.get("indeg"))
+        let outdeg = deserializeSerializableArray<K>(dms.get("outdeg"))
         Node(indeg, outdeg)
     }
 }

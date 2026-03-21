@@ -269,7 +269,7 @@ func handleCombineAllDeps(buildConfig: BuildConfig, tomlInfo: TomlInfo): Bool {
     if (!tomlInfo.profile.build.ltoValue.isEmpty()) {
         buildConfig.isLto = supportLto()
         if (!buildConfig.isLto) {
-            println("Warning: configuration failed, field 'profile.build.lto' settings only support compilation for Linux/OHOS")
+            println("Warning: configuration failed, field 'profile.build.lto' settings only support compilation for Linux/OHOS/Android/macOS/iOS(target only)")
         }
         buildConfig.ltoValue = tomlInfo.profile.build.ltoValue
     }
@@ -282,7 +282,7 @@ func handleCombineAllDeps(buildConfig: BuildConfig, tomlInfo: TomlInfo): Bool {
     } else if (!supportLto() && buildConfig.globalConfig.isProjectCombine) {
         eprintln("Error: field " +
             "'package.package-configuration.${buildConfig.globalConfig.rootName}.combine-all-deps = true' " +
-            "only supports compilation to Linux/OHOS")
+            "only supports compilation to Linux/OHOS/Android/macOS/iOS(target only)")
         return false
     }
     true
@@ -767,6 +767,9 @@ func getLtoCombineBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig):
     // and get all binary dependencies depended by root package
     for (index in (buildConfig.packageList.all.size - 1)..=0 : -1) {
         let depName = buildConfig.packageList.all[index]
+        if (depName == compileTask.fullName) {
+            continue
+        }
         if (linkSort.contains(depName)) {
             linkSort.add(all: getDepSet(depName, buildConfig))
         }
@@ -808,20 +811,13 @@ func getLtoCombineBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig):
     let compileTarget = compileTask.target
     addForcedLibArgs(res, otherBinOptions, compileTarget)
 
-    // forced-add std dynamic libs
-    if (let Some(stdLinks) <- addStdLibsLink(compileTarget)) {
-        res.add(all: stdLinks)
-    } else {
-        println("Warning: cannot find std dynamic libraries for target '${compileTarget}' " +
-            "from $CANGJIE_HOME/runtime/lib while compiling combine package ${compileTask.fullName}, " +
-            "output may be invalid if sub packages import std libraries")
-    }
-
     let cLibLinkMap = if (compileTask.isCrossCompile) {
         buildConfig.globalConfig.crossCLibLinkMap
     } else { buildConfig.globalConfig.cLibLinkMap }
     res.add(all: getMinimizedCLibLinkStr(cLibLinkMap, cLibNameList))
-    res.add("--lto=${buildConfig.ltoValue}")
+    if (compileTask.outputType == Exe) {
+        res.add("--compile-as-exe")
+    }
 
     return res
 }
@@ -840,26 +836,14 @@ func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList
     let allOptions = ArrayList<String>()
     let libPathSet = HashSet<String>()
     let stdDeps = StdDeps()
-
-    let isLinkTask = match (compileTask.id) {
-        case Link(_, _, _, _, _, _) => true
-        case _ => false
+    if (compileTask.id.compilePhase == LinkOnly) {
+        addStdDepsOfPackage(stdDeps, compileTask.fullName, buildConfig)
     }
-
-    let addStdDeps = { depName =>
-        if (!isLinkTask) {
-            return
-        }
-        if (let Some(resolveItem) <- buildConfig.resolveItemMap.get(depName)) {
-            stdDeps.add(all: resolveItem.stdRequires)
-        } else {
-            eprintln("Error: cannot find ResolveItem of ${depName}")
-        }
-    }
-
-    addStdDeps(compileTask.fullName)
     for (index in (buildConfig.packageList.all.size - 1)..=0 : -1) {
         let depName = buildConfig.packageList.all[index]
+        if (depName == compileTask.fullName) {
+            continue
+        }
         if (!linkSort.contains(depName)) {
             continue
         }
@@ -869,7 +853,9 @@ func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList
         if (buildConfig.packageList.isMacro(depName) || buildConfig.packageList.isTest(depName)) {
             continue
         }
-        addStdDeps(depName)
+        if (compileTask.id.compilePhase == LinkOnly) {
+            addStdDepsOfPackage(stdDeps, depName, buildConfig)
+        }
         let libPath: String = if (let Some(suffix) <- buildConfig.packageList.productSuffixes.get(depName)) {
             Path(compileTask.targetDir).join(swapOrgName(depRootName)).join(suffix).toString()
         } else {
@@ -901,7 +887,13 @@ func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList
     if (isLinkTask) {
         stdDeps.add(all: binStdDeps)
         stdDeps.add(all: crossbinStdDeps)
-        res.add(all: topoSort(stdDeps).map { std => "-lcangjie-std-${std.removePrefix("std.")}" })
+        res.add(all: getStdLinkArgs(compileTask.target, stdDeps, compileTask.isLto))
+    }
+
+    // Non-combined executable LTO builds also need --compile-as-exe on the driver command
+    // so cjc can forward it to the final LTO linker stage.
+    if (compileTask.isLto && compileTask.outputType == Exe) {
+        res.add("--compile-as-exe")
     }
 
     res
@@ -915,6 +907,7 @@ func getForcedLibArgs(compileTask: CompileTask, buildConfig: BuildConfig): Array
     let allOptions = ArrayList<String>()
     let libPathSet = HashSet<String>()
     let binDepSet = HashSet<String>()
+    let stdDeps = StdDeps()
     let forcedLibSet: HashSet<String> = HashSet<String>(compileTask.subPkgSet)
     for (forcedLib in compileTask.subPkgSet) {
         forcedLibSet.add(all: getDepSet(forcedLib, buildConfig))
@@ -932,6 +925,7 @@ func getForcedLibArgs(compileTask: CompileTask, buildConfig: BuildConfig): Array
         if (buildConfig.packageList.isMacro(depName) || buildConfig.packageList.isTest(depName)) {
             continue
         }
+        addStdDepsOfPackage(stdDeps, depName, buildConfig)
         let libPath = Path(compileTask.targetDir).join(depRootName).toString()
         let linkArray: ArrayList<String> = forcedLinkPackage(depName, libPath, compileTask.isLto)
         if (linkArray.size <= 1 || libPathSet.add(libPath)) {
@@ -948,14 +942,9 @@ func getForcedLibArgs(compileTask: CompileTask, buildConfig: BuildConfig): Array
     // So we should remove it from `binDepSet` because we only need link it once.
     binDepSet.remove(all: linkSort)
     allOptions.add(all: getForcedBinDep(compileTask, buildConfig, binDepSet, cLibNameList))
+    stdDeps.add(all: collectStdDepsForBinDep(buildConfig, binDepSet, compileTask.isLto))
     addForcedLibArgs(res, allOptions, compileTask.target)
-    if (let Some(stdLinks) <- addStdLibsLink(compileTask.target)) {
-        res.add(all: stdLinks)
-    } else {
-        println("Warning: cannot find std dynamic libraries for target '${compileTask.target}' " +
-            "from $CANGJIE_HOME/runtime/lib while compiling combined package ${compileTask.fullName}, " +
-            "output may be invalid if sub packages import std libraries")
-    }
+    res.add(all: getStdLinkArgs(compileTask.target, stdDeps, compileTask.isLto))
 
     return res
 }
@@ -1126,13 +1115,13 @@ func addStdLibsLink(compileTarget: String): ?ArrayList<String> {
     let cjHome = getVariable("CANGJIE_HOME") ?? return None
     let runtimePath = Path(cjHome).join("runtime").join("lib").toString()
     if (directoryExists(runtimePath)) {
-        let (platform, framework) = getTargetKeywords(compileTarget)
+        let (platform, framework, isSimulator) = getTargetKeywords(compileTarget)
 
         // get directory of std dylib
         let runtimeDirList = getDirectoryList(runtimePath)
         var runtimeLibPath = ""
         for (dirInfo in runtimeDirList) {
-            if (checkRuntimeLibDir(dirInfo.name, platform, framework)) {
+            if (checkRuntimeLibDir(dirInfo.name, platform, framework, isSimulator)) {
                 runtimeLibPath = dirInfo.path.toString()
                 break
             }
@@ -1165,12 +1154,79 @@ func addStdLibsLink(compileTarget: String): ?ArrayList<String> {
     return None
 }
 
-func getTargetKeywords(compileTarget: String): (String, String) {
+func addStdDepsOfPackage(stdDeps: StdDeps, depName: String, buildConfig: BuildConfig): Unit {
+    if (let Some(resolveItem) <- buildConfig.resolveItemMap.get(depName)) {
+        stdDeps.add(all: resolveItem.stdRequires)
+    } else {
+        eprintln("Error: cannot find ResolveItem of ${depName}")
+    }
+}
+
+func collectStdDepsForBinDep(buildConfig: BuildConfig, linkPkgs: HashSet<String>, isLto: Bool): StdDeps {
+    let (_, stdDeps) = getLinkOptionForBindep(buildConfig.binDepMap, linkPkgs, isLto)
+    let (_, crossStdDeps) = getLinkOptionForBindep(buildConfig.crossBinDepMap, linkPkgs, isLto)
+    stdDeps.add(all: crossStdDeps)
+    return stdDeps
+}
+
+func addStdBitcodeLinks(compileTarget: String, stdDeps: StdDeps): ?ArrayList<String> {
+    let cjHome = getVariable("CANGJIE_HOME") ?? return None
+    let modulesPath = Path(cjHome).join("modules").toString()
+    if (!directoryExists(modulesPath)) {
+        return None
+    }
+
+    let (platform, framework, isSimulator) = getTargetKeywords(compileTarget)
+    var moduleDir = ""
+    for (dirInfo in getDirectoryList(modulesPath)) {
+        if (checkRuntimeLibDir(dirInfo.name, platform, framework, isSimulator)) {
+            moduleDir = dirInfo.path.toString()
+            break
+        }
+    }
+    if (moduleDir.isEmpty()) {
+        return None
+    }
+
+    let res = ArrayList<String>()
+    for (std in topoSort(stdDeps)) {
+        let bcPath = if (std == "std") {
+            Path(moduleDir).join("libstd.bc").toString()
+        } else {
+            Path(moduleDir).join("std").join("lib${std}.bc").toString()
+        }
+        if (!fileExists(bcPath)) {
+            return None
+        }
+        res.add(bcPath)
+    }
+    return res
+}
+
+func getStdDynLibLinks(stdDeps: StdDeps): ArrayList<String> {
+    let res = ArrayList<String>()
+    res.add(all: topoSort(stdDeps).map { std => "-lcangjie-std-${std.removePrefix("std.")}" })
+    return res
+}
+
+func getStdLinkArgs(compileTarget: String, stdDeps: StdDeps, useBitcode: Bool): ArrayList<String> {
+    if (useBitcode) {
+        if (let Some(bitcodeLinks) <- addStdBitcodeLinks(compileTarget, stdDeps)) {
+            return bitcodeLinks
+        }
+    }
+    return getStdDynLibLinks(stdDeps)
+}
+
+func getTargetKeywords(compileTarget: String): (String, String, Bool) {
     var platform = "unknown"
     var framework = "unknown"
+    let isSimulator = compileTarget.contains("simulator") || compileTarget.endsWith("-sim")
 
     // check platform
-    if (compileTarget.contains("darwin")) {
+    if (compileTarget.contains("ios")) {
+        platform = "ios"
+    } else if (compileTarget.contains("darwin")) {
         platform = "darwin"
     } else if (compileTarget.contains("ohos")) {
         platform = "ohos"
@@ -1187,12 +1243,20 @@ func getTargetKeywords(compileTarget: String): (String, String) {
         framework = "x86"
     }
 
-    return (platform, framework)
+    return (platform, framework, isSimulator)
 }
 
-func checkRuntimeLibDir(dirName: String, platform: String, framework: String): Bool {
+func checkRuntimeLibDir(dirName: String, platform: String, framework: String, isSimulator: Bool): Bool {
     if (dirName.contains("ohos") && (platform == "linux")) {
         return false
+    }
+    if (platform == "ios") {
+        if (isSimulator && !dirName.contains("simulator")) {
+            return false
+        }
+        if (!isSimulator && dirName.contains("simulator")) {
+            return false
+        }
     }
     return dirName.contains(platform) && dirName.contains(framework)
 }
