@@ -30,6 +30,97 @@ IS_MACOS = platform.system() == "Darwin"
 IS_CROSS_WINDOWS = False
 SUPPORTED_BUILD_TYPE = ["debug", "release"]
 SUPPORTED_TARGET = ["native", "windows-x86_64"]
+HLE_SRC_DIRS = ["dtsparser", "tool", "entry", "app"]
+HLE_EXEC_LINK_DEPS = ["app", "entry", "tool", "dtsparser"]
+MACOS_HLE_DYLIB_DEPS = {
+    "dtsparser": [],
+    "tool": [],
+    "entry": ["tool"],
+    "app": ["entry", "tool"],
+}
+MACOS_HLE_EXEC_DEPS = ["app"]
+
+
+def get_stdx_link_args(stdx_path=None):
+    if not stdx_path:
+        stdx_path = os.environ["CANGJIE_STDX_PATH"]
+    return [
+        '-L', stdx_path,
+        '-lstdx.logger',
+        '-lstdx.log',
+        '-lstdx.encoding.json.stream',
+        '-lstdx.serialization.serialization',
+        '-lstdx.encoding.json',
+        '-lstdx.encoding.url',
+    ]
+
+
+def get_macos_stdx_path():
+    stdx_path = os.environ["CANGJIE_STDX_PATH"]
+    static_suffix = f"{os.sep}static{os.sep}stdx"
+    dynamic_suffix = f"{os.sep}dynamic{os.sep}stdx"
+    if stdx_path.endswith(static_suffix):
+        dynamic_path = stdx_path[:-len(static_suffix)] + dynamic_suffix
+        if os.path.isdir(dynamic_path):
+            return dynamic_path
+    return stdx_path
+
+
+def normalize_macos_arch(machine):
+    machine = machine.lower()
+    if machine in ("arm64", "aarch64"):
+        return "aarch64"
+    if machine in ("x86_64", "x86-64", "amd64"):
+        return "x86_64"
+    return machine
+
+
+def build_link_options(*options):
+    valid_options = [option for option in options if option]
+    if not valid_options:
+        return []
+    return [f"--link-options={' '.join(valid_options)}"]
+
+
+def get_macos_rpath_options():
+    arch = normalize_macos_arch(platform.machine())
+    return [
+        "-rpath @loader_path",
+        f"-rpath @loader_path/../../lib/darwin_{arch}_cjnative",
+        f"-rpath @loader_path/../../runtime/lib/darwin_{arch}_cjnative",
+    ]
+
+
+def get_macos_dylib_link_options(output_name):
+    return build_link_options(
+        f"-install_name @rpath/{output_name}",
+        *get_macos_rpath_options(),
+    )
+
+
+def get_macos_executable_link_options():
+    return build_link_options(*get_macos_rpath_options())
+
+
+def get_hle_link_args(output_dir, packages):
+    if not packages:
+        return []
+    args = ['-L', output_dir]
+    for package in packages:
+        args.append(f'-lhle.{package}')
+    return args
+
+
+def copy_dylibs(src_dir, dst_dir, prefix=None):
+    if not os.path.isdir(src_dir):
+        return
+    os.makedirs(dst_dir, exist_ok=True)
+    for filename in os.listdir(src_dir):
+        if not filename.endswith('.dylib'):
+            continue
+        if prefix and not filename.startswith(prefix):
+            continue
+        shutil.copy(os.path.join(src_dir, filename), dst_dir)
 
 # Check command
 def check_call(command):
@@ -68,29 +159,70 @@ def build(args):
     # Create output directories
     os.makedirs(os.path.join(CURRENT_DIR, '..', 'target', 'bin'), exist_ok=True)
     os.makedirs(os.path.join(CURRENT_DIR, '..', 'target', 'hle'), exist_ok=True)
+    target_bin_dir = os.path.join(CURRENT_DIR, '..', 'target', 'bin')
+    target_hle_dir = os.path.join(CURRENT_DIR, '..', 'target', 'hle')
+    main_source = os.path.join(CURRENT_DIR, '..', 'src', 'main.cj')
+    macos_stdx_path = get_macos_stdx_path() if IS_MACOS else ""
 
-    src_dirs = ['dtsparser', 'tool', 'entry']
-    for src in src_dirs:
+    for src in HLE_SRC_DIRS:
         if IS_LINUX or IS_MACOS:
-            returncode = check_call(COMMON_OPTION + ['-O2', '--strip-all', '--no-sub-pkg', '-p', f"{os.path.join(CURRENT_DIR, '..', 'src', src)}", '--import-path', f"{os.environ['CANGJIE_STDX_PATH']}", '--output-type=staticlib', '--output-dir', f"{os.path.join(CURRENT_DIR, '..', 'target', 'hle')}", '-o', f"libhle.{src}.a"])
+            if IS_MACOS:
+                output_name = f"libhle.{src}.dylib"
+                returncode = check_call(
+                    COMMON_OPTION
+                    + get_macos_dylib_link_options(output_name)
+                    + ['-O2', '--strip-all', '--no-sub-pkg', '-p', f"{os.path.join(CURRENT_DIR, '..', 'src', src)}"]
+                    + ['--import-path', macos_stdx_path]
+                    + get_hle_link_args(target_hle_dir, MACOS_HLE_DYLIB_DEPS[src])
+                    + get_stdx_link_args(macos_stdx_path)
+                    + ['--output-type=dylib', '--output-dir', target_hle_dir, '-o', output_name]
+                )
+            else:
+                returncode = check_call(COMMON_OPTION + ['-O2', '--strip-all', '--no-sub-pkg', '-p', f"{os.path.join(CURRENT_DIR, '..', 'src', src)}", '--import-path', f"{os.environ['CANGJIE_STDX_PATH']}", '--output-type=staticlib', '--output-dir', target_hle_dir, '-o', f"libhle.{src}.a"])
         if IS_WINDOWS:
-            returncode = check_call(COMMON_OPTION + ['-O2', '--strip-all', '--no-sub-pkg', '-p', f"{os.path.join(CURRENT_DIR, '..', 'src', src)}", '--import-path', f"{os.path.join(CURRENT_DIR, '..', 'target', 'hle')}", '--import-path', f"{os.environ['CANGJIE_STDX_PATH']}", '--output-type=staticlib', '--output-dir', f"{os.path.join(CURRENT_DIR, '..', 'target', 'hle')}", '-o', f"libhle.{src}.a"])
+            returncode = check_call(COMMON_OPTION + ['-O2', '--strip-all', '--no-sub-pkg', '-p', f"{os.path.join(CURRENT_DIR, '..', 'src', src)}", '--import-path', target_hle_dir, '--import-path', f"{os.environ['CANGJIE_STDX_PATH']}", '--output-type=staticlib', '--output-dir', target_hle_dir, '-o', f"libhle.{src}.a"])
         if IS_CROSS_WINDOWS:
-            returncode = check_call(COMMON_OPTION + ['--target=x86_64-windows-gnu', '-O2', '--strip-all', '--no-sub-pkg', '-p', f"{os.path.join(CURRENT_DIR, '..', 'src', src)}", '--import-path', f"{os.environ['CANGJIE_STDX_PATH']}", '--output-type=staticlib', '--output-dir', f"{os.path.join(CURRENT_DIR, '..', 'target', 'hle')}", '-o', f"libhle.{src}.a"])
+            returncode = check_call(COMMON_OPTION + ['--target=x86_64-windows-gnu', '-O2', '--strip-all', '--no-sub-pkg', '-p', f"{os.path.join(CURRENT_DIR, '..', 'src', src)}", '--import-path', f"{os.environ['CANGJIE_STDX_PATH']}", '--output-type=staticlib', '--output-dir', target_hle_dir, '-o', f"libhle.{src}.a"])
         if returncode != 0: 
             print(f"build {src} failed")
             return returncode
         
     if IS_LINUX:
-        returncode = check_call(COMMON_OPTION + ['--link-options=-z noexecstack -z relro -z now -s', '--import-path', f"{os.environ['CANGJIE_STDX_PATH']}", '-L', f"{os.path.join(CURRENT_DIR, '..', 'target', 'hle')}", '-lhle.dtsparser', '-lhle.tool', '-lhle.entry', '-L', f"{os.environ['CANGJIE_STDX_PATH']}", '-lstdx.logger', '-lstdx.log', '-lstdx.encoding.json.stream', '-lstdx.serialization.serialization', '-lstdx.encoding.json', '-lstdx.encoding.url', '-p', f"{os.path.join(CURRENT_DIR, '..', 'src')}", '-O2', '--output-dir', f"{os.path.join(CURRENT_DIR, '..', 'target', 'bin')}", '-o', 'main'])
+        returncode = check_call(
+            COMMON_OPTION
+            + ['--link-options=-z noexecstack -z relro -z now -s', '--import-path', f"{os.environ['CANGJIE_STDX_PATH']}"]
+            + get_hle_link_args(target_hle_dir, HLE_EXEC_LINK_DEPS)
+            + get_stdx_link_args()
+            + [main_source, '-O2', '--output-dir', target_bin_dir, '-o', 'main']
+        )
     if IS_MACOS:
-        returncode = check_call(COMMON_OPTION + ['--import-path', f"{os.environ['CANGJIE_STDX_PATH']}", '-L', f"{os.path.join(CURRENT_DIR, '..', 'target', 'hle')}", '-lhle.dtsparser', '-lhle.tool', '-lhle.entry', '-L', f"{os.environ['CANGJIE_STDX_PATH']}", '-lstdx.logger', '-lstdx.log', '-lstdx.encoding.json.stream', '-lstdx.serialization.serialization', '-lstdx.encoding.json', '-lstdx.encoding.url', '-p', f"{os.path.join(CURRENT_DIR, '..', 'src')}", '-O2', '--output-dir', f"{os.path.join(CURRENT_DIR, '..', 'target', 'bin')}", '-o', 'main'])
+        returncode = check_call(
+            COMMON_OPTION
+            + get_macos_executable_link_options()
+            + get_hle_link_args(target_hle_dir, MACOS_HLE_EXEC_DEPS)
+            + [main_source, '-O2', '--output-dir', target_bin_dir, '-o', 'main']
+        )
     if IS_CROSS_WINDOWS:
-        returncode = check_call(COMMON_OPTION + ['--target=x86_64-windows-gnu', '--import-path', f"{os.path.join(CURRENT_DIR, '..', 'target', 'hle')}", '--import-path', f"{os.environ['CANGJIE_STDX_PATH']}", '--link-options=--no-insert-timestamp', '-L', f"{os.path.join(CURRENT_DIR, '..', 'target', 'hle')}", '-lhle.dtsparser', '-lhle.tool', '-lhle.entry', '-L', f"{os.environ['CANGJIE_STDX_PATH']}", '-lstdx.logger', '-lstdx.log', '-lstdx.encoding.json.stream', '-lstdx.serialization.serialization', '-lstdx.encoding.json', '-lstdx.encoding.url', '-p', f"{os.path.join(CURRENT_DIR, '..', 'src')}", '-O2', '--output-dir', f"{os.path.join(CURRENT_DIR, '..', 'target', 'bin')}", '-o', 'main.exe'])
+        returncode = check_call(
+            COMMON_OPTION
+            + ['--target=x86_64-windows-gnu', '--import-path', target_hle_dir, '--import-path', f"{os.environ['CANGJIE_STDX_PATH']}", '--link-options=--no-insert-timestamp']
+            + get_hle_link_args(target_hle_dir, HLE_EXEC_LINK_DEPS)
+            + get_stdx_link_args()
+            + [main_source, '-O2', '--output-dir', target_bin_dir, '-o', 'main.exe']
+        )
     if IS_WINDOWS:
-        returncode = check_call(COMMON_OPTION + ['--import-path', f"{os.path.join(CURRENT_DIR, '..', 'target', 'hle')}", '--import-path', f"{os.environ['CANGJIE_STDX_PATH']}", '--link-options=--no-insert-timestamp', '-L', f"{os.path.join(CURRENT_DIR, '..', 'target', 'hle')}", '-lhle.dtsparser', '-lhle.tool', '-lhle.entry', '-L', f"{os.environ['CANGJIE_STDX_PATH']}", '-lstdx.logger', '-lstdx.log', '-lstdx.encoding.json.stream', '-lstdx.serialization.serialization', '-lstdx.encoding.json', '-lstdx.encoding.url', '-p', f"{os.path.join(CURRENT_DIR, '..', 'src')}", '-O2', '--output-dir', f"{os.path.join(CURRENT_DIR, '..', 'target', 'bin')}", '-o', 'main.exe'])
+        returncode = check_call(
+            COMMON_OPTION
+            + ['--import-path', target_hle_dir, '--import-path', f"{os.environ['CANGJIE_STDX_PATH']}", '--link-options=--no-insert-timestamp']
+            + get_hle_link_args(target_hle_dir, HLE_EXEC_LINK_DEPS)
+            + get_stdx_link_args()
+            + [main_source, '-O2', '--output-dir', target_bin_dir, '-o', 'main.exe']
+        )
     if returncode != 0: 
         return returncode
+    if IS_MACOS:
+        copy_dylibs(target_hle_dir, target_bin_dir, prefix='libhle.')
+        copy_dylibs(macos_stdx_path, target_bin_dir)
 
     print("Successfully build HLE!")
 
@@ -107,6 +239,8 @@ def install(args):
             shutil.copy(os.path.join(CURRENT_DIR, '..', 'target', 'bin', 'main'), os.path.join(os.path.abspath(prefix), 'hle'))
         if os.path.exists(os.path.join(CURRENT_DIR, '..', 'target', 'bin', 'main.exe')):
             shutil.copy(os.path.join(CURRENT_DIR, '..', 'target', 'bin', 'main.exe'), os.path.join(os.path.abspath(prefix), 'hle.exe'))
+        if IS_MACOS:
+            copy_dylibs(os.path.join(CURRENT_DIR, '..', 'target', 'bin'), os.path.abspath(prefix))
     print("Successfully install HLE!")
 
 # Clean output of build

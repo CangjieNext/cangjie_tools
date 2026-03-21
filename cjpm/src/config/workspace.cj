@@ -115,9 +115,9 @@ public class WorkSpace <: Serializable<WorkSpace> {
 
     public func serialize(): DataModel {
         return DataModelStruct()
-            .add(field<ArrayList<String>>("members", this.members))
-            .add(field<ArrayList<String>>("build-members", this.buildMembers))
-            .add(field<ArrayList<String>>("test-members", this.testMembers))
+            .add(Field("members", serializeStringList(this.members)))
+            .add(Field("build-members", serializeStringList(this.buildMembers)))
+            .add(Field("test-members", serializeStringList(this.testMembers)))
             .add(field<String>(COMPILE_OPTION, this.compileOption))
             .add(field<String>(OVERRIDE_COMPILE_OPTION, this.overrideCompileOption))
             .add(field<String>(LINK_OPTION, this.linkOption))
@@ -131,10 +131,9 @@ public class WorkSpace <: Serializable<WorkSpace> {
             case _ => throw Exception("this data is not DataModelStruct")
         }
         var result = WorkSpace()
-        result.members = ArrayList<String>.deserialize((dms.get("members") as DataModelSeq) ?? DataModelSeq())
-        result.buildMembers = ArrayList<String>.deserialize((dms.get("build-members") as DataModelSeq) ??
-            DataModelSeq())
-        result.testMembers = ArrayList<String>.deserialize((dms.get("test-members") as DataModelSeq) ?? DataModelSeq())
+        result.members = deserializeStringList((dms.get("members") as DataModelSeq) ?? DataModelSeq())
+        result.buildMembers = deserializeStringList((dms.get("build-members") as DataModelSeq) ?? DataModelSeq())
+        result.testMembers = deserializeStringList((dms.get("test-members") as DataModelSeq) ?? DataModelSeq())
         result.compileOption = String.deserialize((dms.get(COMPILE_OPTION) as DataModelString) ?? DataModelString(""))
         result.overrideCompileOption = String.deserialize(
             (dms.get(OVERRIDE_COMPILE_OPTION) as DataModelString) ?? DataModelString(""))

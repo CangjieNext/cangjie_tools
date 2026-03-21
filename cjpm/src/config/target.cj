@@ -31,7 +31,7 @@ public class BinDependencies <: Serializable<BinDependencies> {
             case _ => throw Exception("this data is not DataModelStruct")
         }
         var result = BinDependencies()
-        result.pathOption = ArrayList<String>.deserialize((dms.get(PATH_OPTION) as DataModelSeq) ?? DataModelSeq())
+        result.pathOption = deserializeStringList((dms.get(PATH_OPTION) as DataModelSeq) ?? DataModelSeq())
         result.packageOption = HashMap<String, String>.deserialize(
             (dms.get(PACKAGE_OPTION) as DataModelStruct) ?? DataModelStruct())
         return result
@@ -168,7 +168,7 @@ public class TargetConfig <: Serializable<TargetConfig> {
         }
         var result = TargetConfig()
         match (dms.get(COMPILE_TARGET_MACROS)) {
-            case data: DataModelSeq => result.commonTargetInfo.someTargetMacros = ArrayList<String>.deserialize(data)
+            case data: DataModelSeq => result.commonTargetInfo.someTargetMacros = deserializeStringList(data)
             case str: DataModelString => result.commonTargetInfo.allTargetMacros = str.getValue()
             case _ => ()
         }

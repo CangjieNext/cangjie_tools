@@ -20,6 +20,124 @@ CPP_BUILD_DIR = os.path.join(CPP_DIR, "build")
 CPP_OUT_DIR = os.path.join(CPP_DIR, "out")
 LIBFSWATCHER_A_PATH = os.path.join(CPP_BUILD_DIR, "lib", "libfswatcher.a")
 LIBUV_A_PATH = os.path.join(CPP_BUILD_DIR, "lib", "libuv.a")
+CJPM_SRC_DIRS = ["toml", "util", "config", "implement", "command"]
+MACOS_CJPM_DYLIB_DEPS = {
+    "toml": [],
+    "util": [],
+    "config": ["toml", "util"],
+    "implement": ["config", "util", "toml"],
+    "command": ["implement", "config", "util", "toml"],
+}
+
+
+def get_stdx_link_args(stdx_path=None):
+    if not stdx_path:
+        stdx_path = os.environ["CANGJIE_STDX_PATH"]
+    return (
+        f"-L {stdx_path} -lstdx.encoding.json -lstdx.serialization.serialization -lstdx.net.tls "
+        f"-lstdx.net.http -lstdx.net.tls.common -lstdx.logger -lstdx.log -lstdx.encoding.url "
+        f"-lstdx.encoding.json.stream -lstdx.crypto.x509 -lstdx.crypto.keys -lstdx.encoding.hex "
+        f"-lstdx.crypto.crypto -lstdx.crypto.digest -lstdx.crypto.common -lstdx.encoding.base64 "
+        f"-lstdx.compress -lstdx.compress.zlib -lstdx.compress.tar"
+    )
+
+
+def get_macos_cpp_link_args():
+    return f"-L {CPP_OUT_DIR} -lfswatcher -luv -lc++ -ldl -lpthread"
+
+
+def get_macos_stdx_path():
+    stdx_path = os.environ["CANGJIE_STDX_PATH"]
+    static_suffix = f"{os.sep}static{os.sep}stdx"
+    dynamic_suffix = f"{os.sep}dynamic{os.sep}stdx"
+    if stdx_path.endswith(static_suffix):
+        dynamic_path = stdx_path[:-len(static_suffix)] + dynamic_suffix
+        if os.path.isdir(dynamic_path):
+            return dynamic_path
+    return stdx_path
+
+
+def normalize_macos_arch(machine):
+    machine = machine.lower()
+    if machine in ("arm64", "aarch64"):
+        return "aarch64"
+    if machine in ("x86_64", "x86-64", "amd64"):
+        return "x86_64"
+    return machine
+
+
+def get_macos_stdlib_rpath(runtime_rpath=None):
+    if runtime_rpath and "runtime/lib/" in runtime_rpath:
+        return runtime_rpath.replace("runtime/lib/", "lib/", 1)
+    arch = normalize_macos_arch(platform.machine())
+    return f"@loader_path/../../lib/darwin_{arch}_cjnative"
+
+
+def get_macos_openssl_rpath():
+    openssl_path = os.environ.get("OPENSSL_PATH")
+    if openssl_path and os.path.isdir(openssl_path):
+        return os.path.abspath(openssl_path)
+
+    openssl_root_dir = os.environ.get("OPENSSL_ROOT_DIR")
+    if openssl_root_dir:
+        lib_dir = os.path.join(os.path.abspath(openssl_root_dir), "lib")
+        if os.path.isdir(lib_dir):
+            return lib_dir
+    return ""
+
+
+def build_link_options(*options):
+    valid_options = [option for option in options if option]
+    if not valid_options:
+        return ""
+    return f"\"--link-options={' '.join(valid_options)}\""
+
+
+def join_command_parts(*parts):
+    return " ".join(part for part in parts if part)
+
+
+def get_macos_rpath_options(runtime_rpath):
+    rpath_options = ["-rpath @loader_path", f"-rpath {get_macos_stdlib_rpath(runtime_rpath)}"]
+    if runtime_rpath:
+        rpath_options.append(f"-rpath {runtime_rpath}")
+    openssl_rpath = get_macos_openssl_rpath()
+    if openssl_rpath:
+        rpath_options.append(f"-rpath {openssl_rpath}")
+    return rpath_options
+
+
+def get_macos_dylib_link_option(output_name, runtime_rpath):
+    return build_link_options(
+        f"-install_name @rpath/{output_name}",
+        *get_macos_rpath_options(runtime_rpath),
+    )
+
+
+def get_macos_executable_link_option(runtime_rpath):
+    return build_link_options(*get_macos_rpath_options(runtime_rpath))
+
+
+def get_cjpm_link_args(bin_dir, packages):
+    if not packages:
+        return ""
+    libs = " ".join(f"-lcjpm.{package}" for package in packages)
+    return f"-L {bin_dir} {libs}"
+
+
+def copy_cjpm_dylibs(src_dir, dst_dir):
+    for src in CJPM_SRC_DIRS:
+        dylib = os.path.join(src_dir, f"libcjpm.{src}.dylib")
+        if os.path.exists(dylib):
+            shutil.copy(dylib, dst_dir)
+
+
+def copy_macos_stdx_dylibs(src_dir, dst_dir):
+    if not os.path.isdir(src_dir):
+        return
+    for filename in os.listdir(src_dir):
+        if filename.endswith(".dylib"):
+            shutil.copy(os.path.join(src_dir, filename), dst_dir)
 
 # Check command
 def check_call(command, cwd=None):
@@ -161,11 +279,32 @@ def build(build_type, target, rpath=None, native_only=False):
     if returncode != 0 or native_only:
         return returncode
 
-    # Compile static libs of sub-packages
-    src_dirs = ['toml', 'util', 'config', 'implement', 'command']
-    for src in src_dirs:
+    bin_dir = os.path.join(CURRENT_DIR, 'bin', 'cjpm')
+    macos_stdx_path = get_macos_stdx_path() if is_macos else ""
+
+    # Compile sub-packages
+    for src in CJPM_SRC_DIRS:
         if is_linux or is_macos:
-            returncode = check_call(f"{cjc} {common_option} -p {os.path.join(CURRENT_DIR, '..', 'src', src)} --import-path {os.environ['CANGJIE_STDX_PATH']} --output-type=staticlib --output-dir {os.path.join(CURRENT_DIR, 'bin', 'cjpm')} -o libcjpm.{src}.a")
+            if is_macos:
+                output_name = f"libcjpm.{src}.dylib"
+                dylib_deps = get_cjpm_link_args(bin_dir, MACOS_CJPM_DYLIB_DEPS[src])
+                extra_link_args = get_stdx_link_args(macos_stdx_path)
+                if src == "implement":
+                    extra_link_args = join_command_parts(extra_link_args, get_macos_cpp_link_args())
+                returncode = check_call(join_command_parts(
+                    cjc,
+                    common_option,
+                    get_macos_dylib_link_option(output_name, rpath),
+                    f"-p {os.path.join(CURRENT_DIR, '..', 'src', src)}",
+                    f"--import-path {macos_stdx_path}",
+                    dylib_deps,
+                    extra_link_args,
+                    "--output-type=dylib",
+                    f"--output-dir {bin_dir}",
+                    f"-o {output_name}",
+                ))
+            else:
+                returncode = check_call(f"{cjc} {common_option} -p {os.path.join(CURRENT_DIR, '..', 'src', src)} --import-path {os.environ['CANGJIE_STDX_PATH']} --output-type=staticlib --output-dir {os.path.join(CURRENT_DIR, 'bin', 'cjpm')} -o libcjpm.{src}.a")
         if is_windows:
             returncode = check_call(f"{cjc} {common_option} -p {os.path.join(CURRENT_DIR, '..', 'src', src)} --import-path {os.path.join(CURRENT_DIR, 'bin')} --import-path {os.environ['CANGJIE_STDX_PATH']} --output-type=staticlib --output-dir {os.path.join(CURRENT_DIR, 'bin', 'cjpm')} -o libcjpm.{src}.a")
         if is_cross_windows:
@@ -179,7 +318,17 @@ def build(build_type, target, rpath=None, native_only=False):
     if is_linux:
         returncode = check_call(f"{cjc} {common_option} {rpath_set_option} \"--link-options=-z noexecstack -z relro -z now -s\" --import-path {os.environ['CANGJIE_STDX_PATH']} -L {os.path.join(CURRENT_DIR, 'bin', 'cjpm')} -lcjpm.command -lcjpm.implement -lcjpm.config -lcjpm.util -lcjpm.toml -L {os.environ['CANGJIE_STDX_PATH']} -lstdx.encoding.json -lstdx.serialization.serialization -lstdx.net.tls -lstdx.net.http -lstdx.net.tls.common -lstdx.logger -lstdx.log -lstdx.encoding.url -lstdx.encoding.json.stream -lstdx.crypto.x509 -lstdx.crypto.keys -lstdx.encoding.hex -lstdx.crypto.crypto -lstdx.crypto.digest -lstdx.crypto.common -lstdx.encoding.base64 -lstdx.compress -lstdx.compress.zlib -lstdx.compress.tar -L {os.path.join(CURRENT_DIR, '../cpp/out')} -lfswatcher -luv -lstdc++ -lgcc_s -ldl -lpthread -p {os.path.join(CURRENT_DIR, '..', 'src')} -O2 --output-dir {os.path.join(CURRENT_DIR, 'bin', 'cjpm')} -o cjpm")
     if is_macos:
-        returncode = check_call(f"{cjc} {common_option} {rpath_set_option} --import-path {os.environ['CANGJIE_STDX_PATH']} -L {os.path.join(CURRENT_DIR, 'bin', 'cjpm')} -lcjpm.command -lcjpm.implement -lcjpm.config -lcjpm.util -lcjpm.toml -L {os.environ['CANGJIE_STDX_PATH']} -lstdx.encoding.json -lstdx.serialization.serialization -lstdx.net.tls -lstdx.net.http -lstdx.net.tls.common -lstdx.logger -lstdx.log -lstdx.encoding.url -lstdx.encoding.json.stream -lstdx.crypto.x509 -lstdx.crypto.keys -lstdx.encoding.hex -lstdx.crypto.crypto -lstdx.crypto.digest -lstdx.crypto.common -lstdx.encoding.base64 -lstdx.compress -lstdx.compress.zlib -lstdx.compress.tar -L {os.path.join(CURRENT_DIR, '../cpp/out')} -lfswatcher -luv -lc++ -ldl -lpthread -p {os.path.join(CURRENT_DIR, '..', 'src')} -O2 --output-dir {os.path.join(CURRENT_DIR, 'bin', 'cjpm')} -o cjpm")
+        returncode = check_call(join_command_parts(
+            cjc,
+            common_option,
+            get_macos_executable_link_option(rpath),
+            f"--import-path {macos_stdx_path}",
+            get_cjpm_link_args(bin_dir, ["command", "implement", "config", "util", "toml"]),
+            os.path.join(CURRENT_DIR, '..', 'src', 'main.cj'),
+            "-O2",
+            f"--output-dir {bin_dir}",
+            "-o cjpm",
+        ))
     if is_cross_windows:
         stdx_path = os.environ['CANGJIE_STDX_PATH']
         static_lib = os.path.join(stdx_path, "libboundscheck-static.a")
@@ -205,6 +354,10 @@ def build(build_type, target, rpath=None, native_only=False):
         shutil.copy(os.path.join(CURRENT_DIR, 'bin', 'cjpm', 'cjpm.exe'), os.path.join(CURRENT_DIR, '..', 'dist'))
     else:
         shutil.copy(os.path.join(CURRENT_DIR, 'bin', 'cjpm', 'cjpm'), os.path.join(CURRENT_DIR, '..', 'dist'))
+    if is_macos:
+        copy_macos_stdx_dylibs(macos_stdx_path, bin_dir)
+        copy_cjpm_dylibs(bin_dir, os.path.join(CURRENT_DIR, '..', 'dist'))
+        copy_macos_stdx_dylibs(macos_stdx_path, os.path.join(CURRENT_DIR, '..', 'dist'))
     shutil.copy(os.path.join(CURRENT_DIR, '..', 'config', 'cangjie-repo.toml'), os.path.join(CURRENT_DIR, '..', 'dist'))
 
     print("Successfully build cjpm!")
@@ -223,6 +376,9 @@ def install(prefix):
             shutil.copy(os.path.join(CURRENT_DIR, '..', 'dist', 'cjpm'), os.path.abspath(prefix))
         if os.path.exists(os.path.join(CURRENT_DIR, '..', 'dist', 'cjpm.exe')):
             shutil.copy(os.path.join(CURRENT_DIR, '..', 'dist', 'cjpm.exe'), os.path.abspath(prefix))
+        copy_cjpm_dylibs(os.path.join(CURRENT_DIR, '..', 'dist'), os.path.abspath(prefix))
+        if platform.system() == "Darwin":
+            copy_macos_stdx_dylibs(get_macos_stdx_path(), os.path.abspath(prefix))
         shutil.copy(os.path.join(CURRENT_DIR, '..', 'dist', 'cangjie-repo.toml'), os.path.abspath(prefix))
 
     print("Successfully install cjpm!")

@@ -111,15 +111,15 @@ func deserializePackage(dm: DataModel): Package {
     result.linkOption = String.deserialize((dms.get(LINK_OPTION) as DataModelString) ?? DataModelString(""))
     result.packageConfiguration = HashMap<String, PackageConfiguration>.deserialize(
         (dms.get(PACKAGE_CONFIGURATION) as DataModelStruct) ?? DataModelStruct())
-    result.includeRules = Array<String>.deserialize((dms.get(BUNDLE_INCLUDE) as DataModelSeq) ?? DataModelSeq())
-    result.excludeRules = Array<String>.deserialize((dms.get(BUNDLE_EXCLUDE) as DataModelSeq) ?? DataModelSeq())
-    result.authors = Array<String>.deserialize((dms.get(META_AUTHORS) as DataModelSeq) ?? DataModelSeq())
+    result.includeRules = deserializeStringArray((dms.get(BUNDLE_INCLUDE) as DataModelSeq) ?? DataModelSeq())
+    result.excludeRules = deserializeStringArray((dms.get(BUNDLE_EXCLUDE) as DataModelSeq) ?? DataModelSeq())
+    result.authors = deserializeStringArray((dms.get(META_AUTHORS) as DataModelSeq) ?? DataModelSeq())
     result.repositroy = String.deserialize((dms.get(META_REPOSITORY) as DataModelString) ?? DataModelString(""))
     result.homepage = String.deserialize((dms.get(META_HOMEPAGE) as DataModelString) ?? DataModelString(""))
     result.documentation = String.deserialize((dms.get(META_DOCUMENTATION) as DataModelString) ?? DataModelString(""))
-    result.tag = Array<String>.deserialize((dms.get(META_TAG) as DataModelSeq) ?? DataModelSeq())
-    result.category = Array<String>.deserialize((dms.get(META_CATEGORY) as DataModelSeq) ?? DataModelSeq())
-    result.license = Array<String>.deserialize((dms.get(META_LICENSE) as DataModelSeq) ?? DataModelSeq())
+    result.tag = deserializeStringArray((dms.get(META_TAG) as DataModelSeq) ?? DataModelSeq())
+    result.category = deserializeStringArray((dms.get(META_CATEGORY) as DataModelSeq) ?? DataModelSeq())
+    result.license = deserializeStringArray((dms.get(META_LICENSE) as DataModelSeq) ?? DataModelSeq())
     return result
 }
 

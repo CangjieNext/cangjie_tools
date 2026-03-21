@@ -87,8 +87,8 @@ public class RequiresPackages <: Serializable<RequiresPackages> {
         result.add(field<String>("accessLevel", this.accessLevel))
         result.add(field<Int64>("timeStamp", this.timeStamp))
         result.add(field<ArrayList<FullName>>(DEPENDENCIES, this.dependencies))
-        result.add(field<StdDeps>("std-dependencies", this.stdDependencies))
-        result.add(field("features", features |> map { it => it.toString() } |> collectArray))
+        result.add(Field("std-dependencies", serializeStdDeps(this.stdDependencies)))
+        result.add(Field("features", serializeStringArray(features |> map { it => it.toString() } |> collectArray)))
         result.add(field("product", product))
         result.add(field<Bool>("testUsed", this.testUsed))
         result.add(field<Bool>("mockUsed", this.mockUsed))
@@ -106,8 +106,7 @@ public class RequiresPackages <: Serializable<RequiresPackages> {
         result.accessLevel = String.deserialize((dms.get("accessLevel") as DataModelString) ?? DataModelString("public"))
         result.timeStamp = Int64.deserialize((dms.get("timeStamp") as DataModelInt) ?? DataModelInt(0))
         result.testUsed = Bool.deserialize((dms.get("testUsed") as DataModelBool) ?? DataModelBool(false))
-        result.features = Array<String>
-            .deserialize((dms.get("features") as DataModelSeq) ?? DataModelSeq())
+        result.features = deserializeStringArray((dms.get("features") as DataModelSeq) ?? DataModelSeq())
             .map { it => Feature.fromString(it).getOrThrow() } |> collectHashSet
         result.product = Bool.deserialize((dms.get("product") as DataModelBool) ?? DataModelBool(true))
         result.mockUsed = Bool.deserialize((dms.get("mockUsed") as DataModelBool) ?? DataModelBool(false))
@@ -124,7 +123,7 @@ public class RequiresPackages <: Serializable<RequiresPackages> {
             }
         }
         result.dependencies = allDependencies
-        result.stdDependencies = StdDeps.deserialize((dms.get("std-dependencies") as DataModelSeq) ?? DataModelSeq())
+        result.stdDependencies = deserializeStdDeps((dms.get("std-dependencies") as DataModelSeq) ?? DataModelSeq())
         return result
     }
 }
@@ -150,7 +149,7 @@ public class RequiresPackagesInfo <: Serializable<RequiresPackagesInfo> {
         return DataModelStruct()
             .add(field<Bool>("isMacroPackage", isMacroPackage))
             .add(field<HashSet<String>>("requires", requires))
-            .add(field<StdDeps>("std-requires", stdRequires))
+            .add(Field("std-requires", serializeStdDeps(stdRequires)))
             .add(field<String>("cjPath", cjPath))
             .add(field<String>("libPath", libPath))
             .add(field<String>("libName", libName))
@@ -164,7 +163,7 @@ public class RequiresPackagesInfo <: Serializable<RequiresPackagesInfo> {
         var result = RequiresPackagesInfo()
         result.isMacroPackage = Bool.deserialize(dms.get("isMacroPackage"))
         result.requires = HashSet<String>.deserialize(dms.get("requires"))
-        result.stdRequires = StdDeps.deserialize(dms.get("std-requires"))
+        result.stdRequires = deserializeStdDeps(dms.get("std-requires"))
         result.cjPath = String.deserialize(dms.get("cjPath"))
         result.libPath = String.deserialize(dms.get("libPath"))
         result.libName = String.deserialize(dms.get("libName"))

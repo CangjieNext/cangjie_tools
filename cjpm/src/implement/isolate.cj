@@ -7,23 +7,28 @@
 package cjpm.implement
 import cjpm.config.*
 
-import cjpm.config.*
-
 func supportLto(): Bool {
-    if (crossCompileTarget.isEmpty()) {
-        return targetConfigName.contains("linux") && !targetConfigName.contains("android")
-    }
-    return crossCompileTarget.contains("linux") && !crossCompileTarget.contains("android")
+    let isCrossCompile = !crossCompileTarget.isEmpty()
+    let compileTarget = if (isCrossCompile) { crossCompileTarget } else { targetConfigName }
+    let isLinux = compileTarget.contains("linux") && !compileTarget.contains("android")
+    let isAndroid = isCrossCompile && compileTarget.contains("android")
+    let isDarwin = compileTarget.contains("darwin")
+    let isIos = isCrossCompile && compileTarget.contains("ios")
+    return isLinux || isAndroid || isDarwin || isIos
 }
 
 func isSupportCombine(): Bool {
-    let compileTarget = if (crossCompileTarget.isEmpty()) {
-            targetConfigName
-        } else {
+    let isCrossCompile = !crossCompileTarget.isEmpty()
+    let compileTarget = if (isCrossCompile) {
             crossCompileTarget
+        } else {
+            targetConfigName
         }
     let isTargetLinux = compileTarget.contains("linux")
     let isTargetAndroid = compileTarget.contains("android")
     let isTargetWindows = compileTarget.contains("windows") || compileTarget.contains("w64")
-    return ((isTargetLinux && !isTargetAndroid) || isTargetWindows)
+    let isTargetDarwin = compileTarget.contains("darwin")
+    let isTargetIos = isCrossCompile && compileTarget.contains("ios")
+    // combine-all-deps is supported on Linux, Android cross targets, Windows, macOS, and iOS cross targets.
+    return (isTargetLinux || isTargetWindows || isTargetDarwin || isTargetIos || (isCrossCompile && isTargetAndroid))
 }

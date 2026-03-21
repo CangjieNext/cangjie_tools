@@ -1539,7 +1539,7 @@ hello = { path = "./src/" }
 
 ```text
 [profile.build]
-lto = "full"  # 是否开启 `LTO` （Link Time Optimization 链接时优化）优化编译模式，该功能仅支持目标平台为`Linux/OHOS` 平台
+lto = "full"  # 是否开启 `LTO` （Link Time Optimization 链接时优化）优化编译模式，该功能仅支持目标平台为`Linux/OHOS/macOS/iOS` 平台（`iOS` 仅支持作为 target）
 performance_analysis = true # 开启编译性能分析功能
 incremental = true # 是否默认开启增量编译
 compile-pipeline-parallel = true # 是否开启流水并行编译优化
@@ -1625,7 +1625,7 @@ demo = "dynamic"
 > - 目前 `profile.build.combined` 配置项为实验特性，暂不稳定，开发者若想启用该配置，需要注意如下限制：
 >     - 如果配置了该字段的模块直接或间接依赖了其他源码模块，或者被其他源码模块直接或间接依赖，那么这些依赖模块也需要配置该字段；
 >     - 构建脚本依赖的源码模块中，若配置了 `profile.build.combined`，不会生效；
->     - `profile.build.combined` 选项仅支持 `Linux/OpenHarmonyOS/Windows` 平台。
+>     - `profile.build.combined` 选项仅支持 `Linux/OpenHarmonyOS/Windows/macOS/iOS` 平台（`iOS` 仅支持作为 target）。
 
 若启用了 `combined` 配置，可能会出现无法通过导入关系识别的循环依赖，导致出现 `cyclic dependency` 循环依赖报错，解决方式如下：
 
@@ -1676,7 +1676,7 @@ PATH = { value = "/usr/bin", splice-type = "prepend" }
 用于指定支持的编译选项，其列表如下:
 
 - `compile-option` 是一个包含附加 `cjc` 编译选项的字符串。为顶级 `compile-option` 字段做补充
-- `lto` 指定是否开启 `LTO` 优化编译模式，该值可为 `thin` 或 `full` ，该功能仅支持目标平台为`Linux/OHOS` 平台
+- `lto` 指定是否开启 `LTO` 优化编译模式，该值可为 `thin` 或 `full` ，该功能仅支持目标平台为`Linux/OHOS/macOS/iOS` 平台（`iOS` 仅支持作为 target）
 - `mock` 显式设置 `mock` 模式，可能的选项：`on`、`off`、`runtime-error` 。对 `test` / `build` 子命令默认值为 `on`，对于 `bench` 子命令默认值为 `runtime-error`
 
 #### "profile.test.env"

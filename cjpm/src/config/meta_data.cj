@@ -277,13 +277,13 @@ public class MetaData <: Serializable<MetaData> {
             .add(field<String>(META_DESCRIPTION, this.description))
             .add(field<String>(META_ARTIFACT_TYPE, this.artifactType))
             .add(field<Bool>(META_EXECUTABLE, this.executable))
-            .add(field<Array<String>>(META_AUTHORS, this.authors))
+            .add(Field(META_AUTHORS, serializeStringArray(this.authors)))
             .add(field<String>(META_REPOSITORY, this.repository))
             .add(field<String>(META_HOMEPAGE, this.homepage))
             .add(field<String>(META_DOCUMENTATION, this.documentation))
-            .add(field<Array<String>>(META_TAG, this.tag))
-            .add(field<Array<String>>(META_CATEGORY, this.category))
-            .add(field<Array<String>>(META_LICENSE, this.license))
+            .add(Field(META_TAG, serializeStringArray(this.tag)))
+            .add(Field(META_CATEGORY, serializeStringArray(this.category)))
+            .add(Field(META_LICENSE, serializeStringArray(this.license)))
             .add(field<String>(META_CJC_VERSION, this.cjcVersion))
             .add(field<ArtifactIndex>(META_INDEX, this.index))
             .add(field<Byte>(META_META_VERSION, this.metaVersion))
@@ -301,13 +301,13 @@ public class MetaData <: Serializable<MetaData> {
             String.deserialize((dms.get(META_DESCRIPTION) as DataModelString) ?? DataModelString("")),
             String.deserialize((dms.get(META_ARTIFACT_TYPE) as DataModelString) ?? DataModelString("")),
             Bool.deserialize((dms.get(META_EXECUTABLE) as DataModelBool) ?? DataModelBool(false)),
-            Array<String>.deserialize((dms.get(META_AUTHORS) as DataModelSeq) ?? DataModelSeq()),
+            deserializeStringArray((dms.get(META_AUTHORS) as DataModelSeq) ?? DataModelSeq()),
             String.deserialize((dms.get(META_REPOSITORY) as DataModelString) ?? DataModelString("")),
             String.deserialize((dms.get(META_HOMEPAGE) as DataModelString) ?? DataModelString("")),
             String.deserialize((dms.get(META_DOCUMENTATION) as DataModelString) ?? DataModelString("")),
-            Array<String>.deserialize((dms.get(META_TAG) as DataModelSeq) ?? DataModelSeq()),
-            Array<String>.deserialize((dms.get(META_CATEGORY) as DataModelSeq) ?? DataModelSeq()),
-            Array<String>.deserialize((dms.get(META_LICENSE) as DataModelSeq) ?? DataModelSeq()),
+            deserializeStringArray((dms.get(META_TAG) as DataModelSeq) ?? DataModelSeq()),
+            deserializeStringArray((dms.get(META_CATEGORY) as DataModelSeq) ?? DataModelSeq()),
+            deserializeStringArray((dms.get(META_LICENSE) as DataModelSeq) ?? DataModelSeq()),
             String.deserialize((dms.get(META_CJC_VERSION) as DataModelString) ?? DataModelString("")),
             ArtifactIndex.deserialize((dms.get(META_INDEX) as DataModelStruct) ?? DataModelStruct()),
             Byte.deserialize((dms.get(META_META_VERSION) as DataModelInt) ?? DataModelInt(1))

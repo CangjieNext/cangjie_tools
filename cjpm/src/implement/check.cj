@@ -108,7 +108,7 @@ func dealWithSuperPkg(dm: DepModel, isProjectCombine: Bool): Bool {
             continue
         }
         if (!isSupportCombine()) {
-            println("Warning: field 'profile.build.combined' only supports 'Linux/OHOS/Windows', " +
+            println("Warning: field 'profile.build.combined' only supports 'Linux/OHOS/Android/Windows/macOS/iOS(target only)', " +
                 "so output targeted for module '${superPkgName}' will not be combined")
             notSupportSet.add(superPkgName)
             continue
