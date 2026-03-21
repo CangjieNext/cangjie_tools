@@ -5,6 +5,7 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 #include "CompilerCangjieProject.h"
+#include <atomic>
 #include <memory>
 #include <string>
 #include <utility>
@@ -1562,7 +1563,8 @@ void CompilerCangjieProject::FullCompilation()
         }
     }
 #endif
-
+    int totalPkgCnt = sortResult.size();
+    std::atomic<int> workDoneCnt = 0;
     // submit all package to taskpool, fresh all packagea status
     for (auto& fullPkg: sortResult) {
         auto taskId = GenTaskId(fullPkg);
@@ -1571,18 +1573,22 @@ void CompilerCangjieProject::FullCompilation()
         for (auto &iter: allDependencies) {
             dependencies.emplace(GenTaskId(iter));
         }
-        auto task = [this, fullPkg, taskId]() {
+        auto task = [this, fullPkg, taskId, totalPkgCnt, &workDoneCnt]() {
             Trace::Log("start execute task ", fullPkg);
             if (CIMap.find(fullPkg) == CIMap.end()) {
+                workDoneCnt++;
                 thrdPool->TaskCompleted(taskId);
+                callback->UpdateIndexingProgress({totalPkgCnt, workDoneCnt});
                 Trace::Log("package empty, finish execute task ", fullPkg);
                 return;
             }
 
             if (cjoManager->GetStatus(fullPkg) !=  DataStatus::STALE) {
                 cjoManager->UpdateStatus({fullPkg}, DataStatus::FRESH);
+                workDoneCnt++;
                 thrdPool->TaskCompleted(taskId);
-                Trace::Log("finsh execuate task", fullPkg);
+                callback->UpdateIndexingProgress({totalPkgCnt, workDoneCnt});
+                Trace::Log("finish execute task", fullPkg);
                 return;
             }
             auto &ci = CIMap[fullPkg];
@@ -1595,7 +1601,9 @@ void CompilerCangjieProject::FullCompilation()
                 auto cjoData = cjoManager->GetData(upstreamSourcePkg);
                 if (!cjoData) {
                     Trace::Log("can not find upstream source-set cache, failed execuate task", fullPkg);
+                    workDoneCnt++;
                     thrdPool->TaskCompleted(taskId);
+                    callback->UpdateIndexingProgress({totalPkgCnt, workDoneCnt});
                     return;
                 }
                 callback->RemoveDiagOfCurPkg(ci->invocation.globalOptions.packagePaths.front());
@@ -1621,7 +1629,9 @@ void CompilerCangjieProject::FullCompilation()
             }
             BuildIndex(CIMap[fullPkg], true);
             pLRUCache->SetForFullCompiler(fullPkg, CIMap[fullPkg]);
+            workDoneCnt++;
             thrdPool->TaskCompleted(taskId);
+            callback->UpdateIndexingProgress({totalPkgCnt, workDoneCnt});
             Trace::Log("finish execute task ", fullPkg);
         };
         thrdPool->AddTask(taskId, dependencies, task);
