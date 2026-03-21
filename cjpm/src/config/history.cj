@@ -22,6 +22,64 @@ const NATIVE_COMPILE_OPTION = "native-compile-option"
 const NATIVE_LINK_OPTION = "native-link-option"
 const C_LIBS = "c_libs"
 
+func serializeStringArray(items: Array<String>): DataModelSeq {
+    let result = DataModelSeq()
+    for (item in items) {
+        result.add(DataModelString(item))
+    }
+    return result
+}
+
+func deserializeStringArray(dm: DataModel): Array<String> {
+    let result = ArrayList<String>()
+    for (item in ((dm as DataModelSeq) ?? DataModelSeq()).getItems()) {
+        result.add(String.deserialize((item as DataModelString) ?? DataModelString("")))
+    }
+    return result |> collectArray
+}
+
+func serializeStringList(items: ArrayList<String>): DataModelSeq {
+    let result = DataModelSeq()
+    for (item in items) {
+        result.add(DataModelString(item))
+    }
+    return result
+}
+
+func deserializeStringList(dm: DataModel): ArrayList<String> {
+    let result = ArrayList<String>()
+    for (item in ((dm as DataModelSeq) ?? DataModelSeq()).getItems()) {
+        result.add(String.deserialize((item as DataModelString) ?? DataModelString("")))
+    }
+    return result
+}
+
+func serializeStdDeps(stdDeps: StdDeps): DataModelSeq {
+    let result = DataModelSeq()
+    for (stdDep in stdDeps) {
+        let item = DataModelStruct()
+        for ((name, deps) in stdDep) {
+            item.add(Field(name, serializeStringArray(deps)))
+        }
+        result.add(item)
+    }
+    return result
+}
+
+func deserializeStdDeps(dm: DataModel): StdDeps {
+    let result = StdDeps()
+    let items = ((dm as DataModelSeq) ?? DataModelSeq()).getItems()
+    for (item in items) {
+        let stdDep = HashMap<String, Array<String>>()
+        let fields = ((item as DataModelStruct) ?? DataModelStruct()).getFields()
+        for (fieldInfo in fields) {
+            stdDep[fieldInfo.getName()] = deserializeStringArray(fieldInfo.getData())
+        }
+        result.add(stdDep)
+    }
+    return result
+}
+
 // '.cjpm-history' model
 public class ModuleResolve <: Serializable<ModuleResolve> {
     public ModuleResolve(
@@ -133,7 +191,7 @@ public class BinDeps <: Serializable<BinDeps> {
     public func serialize(): DataModel {
         let result = DataModelStruct()
         result.add(field<HashMap<String, RequiresPackagesInfo>>(PACKAGE_REQUIRES, this.packageRequires))
-        result.add(field<ArrayList<String>>("packageRequiresSort", this.packageRequiresSort))
+        result.add(Field("packageRequiresSort", serializeStringList(this.packageRequiresSort)))
         return result
     }
 
@@ -145,8 +203,8 @@ public class BinDeps <: Serializable<BinDeps> {
         var result = BinDeps()
         result.packageRequires = HashMap<String, RequiresPackagesInfo>.deserialize(
             (dms.get(PACKAGE_REQUIRES) as DataModelStruct) ?? DataModelStruct())
-        result.packageRequiresSort = ArrayList<String>.deserialize(
-            (dms.get("packageRequiresSort") as DataModelSeq) ?? DataModelSeq())
+        result.packageRequiresSort = deserializeStringList((dms.get("packageRequiresSort") as DataModelSeq) ??
+            DataModelSeq())
         return result
     }
 
@@ -245,14 +303,14 @@ func serializeResolve(r: ResolveItem): DataModel {
         .add(field<String>(LINK_OPTION, r.linkOption))
         .add(field<String>(NATIVE_LINK_OPTION, r.nativeLinkOption))
         .add(field<HashSet<String>>("requires", r.requires))
-        .add(field<StdDeps>("std-requires", r.stdRequires))
+        .add(Field("std-requires", serializeStdDeps(r.stdRequires)))
         .add(field<HashMap<String, String>>(C_LIBS, r.cLibs))
         .add(field<HashMap<String, String>>("cross_c_libs", r.crossCLibs))
         .add(field<Bool>("hasTestFiles", r.hasTestFiles))
         .add(field<Bool>("hasProdFiles", r.hasProdFiles))
         .add(field<Bool>("hasTestsInProdFiles", r.hasTestsInProdFiles))
         .add(field<String>("accessLevel", r.accessLevel))
-        .add(field<HashSet<Feature>>("features", r.features))
+        .add(Field("features", serializeStringArray(r.features.iterator().map { it => it.toString() } |> collectArray)))
         .add(field<FeatureDeducer>("deducer", r.featureDeducer))
     return result
 }
@@ -278,7 +336,7 @@ func deserializeResolve(dm: DataModel): ResolveItem {
     result.nativeLinkOption = String.deserialize((dms.get(NATIVE_LINK_OPTION) as DataModelString) ??
         DataModelString(""))
     result.requires = HashSet<String>.deserialize(dms.get("requires"))
-    result.stdRequires = StdDeps.deserialize(dms.get("std-requires"))
+    result.stdRequires = deserializeStdDeps(dms.get("std-requires"))
     result.cLibs = HashMap<String, String>.deserialize(dms.get(C_LIBS))
     result.crossCLibs = HashMap<String, String>.deserialize(dms.get("cross_c_libs"))
     result.hasProdFiles = Bool.deserialize((dms.get("hasProdFiles") as DataModelBool) ?? DataModelBool(false))
@@ -286,7 +344,7 @@ func deserializeResolve(dm: DataModel): ResolveItem {
     result.hasTestsInProdFiles = Bool.deserialize(
         (dms.get("hasTestsInProdFiles") as DataModelBool) ?? DataModelBool(false))
     result.accessLevel = String.deserialize((dms.get("accessLevel") as DataModelString) ?? DataModelString("public"))
-    result.features = Array<String>.deserialize((dms.get("features") as DataModelSeq) ?? DataModelSeq())
+    result.features = deserializeStringArray((dms.get("features") as DataModelSeq) ?? DataModelSeq())
         .map { it => Feature.fromString(it).getOrThrow() } |> collectHashSet
     result.featureDeducer = FeatureDeducer.deserialize((dms.get("deducer") as DataModelStruct) ?? DataModelStruct())
     return result
