@@ -40,7 +40,9 @@ namespace TestLspGoToDefinition {
 
         /* Check the test case result. */
         nlohmann::json expLines = ReadExpectedResult(param.baseFile);
+        std::cout << "before exp expLines: " << expLines << std::endl;
         ChangeMessageUrlForBaseFile(testFile, expLines, rootUri, isMultiModule);
+        std::cout << "after exp expLines: " << expLines << std::endl;
         nlohmann::json result = ReadFileById(p->pathOut, param.id);
 
         /* if CheckResult return false, print the reason */

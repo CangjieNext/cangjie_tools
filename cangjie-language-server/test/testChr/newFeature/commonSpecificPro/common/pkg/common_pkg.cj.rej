@@ -1,0 +1,11 @@
+diff a/cangjie-language-server/test/testChr/newFeature/commonSpecificPro/common/pkg/common_pkg.cj b/cangjie-language-server/test/testChr/newFeature/commonSpecificPro/common/pkg/common_pkg.cj	(rejected hunks)
+@@ -15,4 +15,8 @@ public common func message1_pkg(): Unit
+ 
+ public func addfun(a:Int8, b:Int8) {
+     a + b
++}
++
++public common func message2_pkg(): Unit {
++    addfun(1, 2)
+ }
+\ No newline at end of file
