@@ -467,7 +467,7 @@ func createCompileTasks(r: ResolveItem, buildConfig: BuildConfig): ?ArrayList<Co
     let hasSubPkgs = buildConfig.hasSubPkgs.contains(fullName)
     let exportForTests = requiredForTests && r.hasTestFiles
     let isMacro = buildConfig.packageList.isMacro(fullName)
-    let isAnalysisCompilePerformance = !isMultiplatform && buildConfig.globalConfig.isAnalysisCompilePerformance
+    let isAnalysisCompilePerformance = buildConfig.globalConfig.isAnalysisCompilePerformance
 
     let allEnabledFeatures = r.featureDeducer
         .addFeature(r.features)
