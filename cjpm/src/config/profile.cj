@@ -483,7 +483,7 @@ foreign func free(ptr: CPointer<UInt8>): Unit
 
 // Converts a null-terminated C byte buffer to a String.
 @When[os == "macOS"]
-func getCString(buffer: CPointer<UInt8>, maxSize: Int64): String {
+func convertCPointer2String(buffer: CPointer<UInt8>, maxSize: Int64): String {
     unsafe {
         var len = 0
         // Scan until NUL or maxSize.
@@ -549,7 +549,7 @@ public func getCoreCompilerMemInfo(): Float64 {
             let nameLen = proc_name(pid, nameBuffer, 32)
             if (nameLen > 0) {
                 // Convert the raw C-string buffer into a native String.
-                let procName = getCString(nameBuffer, 32)
+                let procName = convertCPointer2String(nameBuffer, 32)
                 
                 // Step 7: Check if the current process name matches our target list.
                 var isTarget = false
