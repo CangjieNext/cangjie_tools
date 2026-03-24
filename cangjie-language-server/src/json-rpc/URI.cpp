@@ -119,7 +119,7 @@ inline std::string PathToGBK(const std::string &originStr)
 {
     auto strGBK = originStr;
 #ifdef _WIN32
-    strGBK = Cangjie::StringConvertor::NormalizeStringToGBK(strGBK).value();
+    strGBK = NormalizeStringToGBK(strGBK);
 #endif
     return strGBK;
 }
@@ -157,7 +157,7 @@ std::string URI::ToString() const
     if (authority.empty() && body.empty()) {
         return result;
     }
-    
+
     if (!authority.empty() || (!body.empty() && body[0] == '/')) {
         (void)result.append("//");
         PercentEncode(authority, result);
@@ -184,6 +184,11 @@ URI URI::Parse(const std::string& origUri)
         pos = uri.find('/');
         u.authority = PercentDecode(uri.substr(0, pos));
         uri = uri.substr(pos);
+    }
+    int oneMb = 1024 * 1024;
+    // 1MB limit
+    if (uri.length() > oneMb) {
+        return u;
     }
     u.body = PercentDecode(uri);
     return u;

@@ -6,6 +6,7 @@
 
 #include "Utils.h"
 #include "cangjie/Basic/Version.h"
+#include "cangjie/Basic/StringConvertor.h"
 #include "Inherit/InheritDeclUtil.h"
 #include "../CompilerCangjieProject.h"
 
@@ -71,7 +72,7 @@ bool IsHiddenDecl(const Ptr<Node> node) {
         auto target = anno->baseExpr ? anno->baseExpr->GetTarget() : nullptr;
         if (target) {
             return target->GetFullPackageName() == PKG_NAME_OHOS_LABELS && target->outerDecl &&
-                target->outerDecl->identifier == HIDE_ANNO_NAME; 
+                target->outerDecl->identifier == HIDE_ANNO_NAME;
         }
         // 6.0 annotation is not export target, to compatible with 6.0, treat as hidden
         return true;
@@ -1495,7 +1496,7 @@ Position FindLastImportPos(const File &file)
 {
     int lastImportLine = 0;
     for(const auto &import : file.imports) {
-        if (!import) 
+        if (!import)
         {
             continue;
         }
@@ -1543,5 +1544,17 @@ std::vector<std::string> GetAllFilePathUnderCurrentPath(const std::string& path,
         });
     });
     return allFiles;
+}
+
+std::string NormalizeStringToGBK(const std::string& data)
+{
+    auto strGBK = data;
+#ifdef _WIN32
+    auto ret = Cangjie::StringConvertor::NormalizeStringToUTF8(strGBK);
+    if (ret.has_value()) {
+        strGBK = ret.value();
+    }
+#endif
+    return strGBK;
 }
 } // namespace ark

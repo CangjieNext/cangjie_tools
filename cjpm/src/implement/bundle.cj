@@ -144,6 +144,7 @@ func checkBuildTest(bundleConfig: BundleConfig, tomlInfo: TomlInfo): Bool {
         let buildConfig = BuildConfig()
         buildConfig.isVerbose = bundleConfig.isVerbose
         buildConfig.isIncremental = true
+        buildConfig.globalConfig.isPureBuild = true
         if (!doBuild(buildConfig)) {
             eprintln("Error: running 'cjpm build -i' failed")
             return false
@@ -275,7 +276,8 @@ func getBundleFileList(dir: String, fileSet: HashSet<String>, bundleConfig: Bund
         }
 
         let dirPath = getCanonicalPath(dirInfo.path.toString())
-        if ((dirPath == bundleConfig.targetDir) || (dirPath == bundleConfig.scriptDir)) {
+        if ((dirPath == bundleConfig.targetDir) || (dirPath == bundleConfig.scriptDir) ||
+            (dirPath == getCanonicalPath(FINAL_CJPM_CONFIG_INFO.repository[REPO_CACHE_NAME].path))) {
             continue
         }
         getBundleFileList(dirPath, fileSet, bundleConfig, tomlInfo)
