@@ -67,7 +67,9 @@ private:
     std::set<std::string> FindDeclSetByFiles(const std::string &packageName,
                                              std::vector<OwnedPtr<Cangjie::AST::File>> &files) const;
 
-    void AddExtendDeclFromIndex(Ptr<Ty> &extendTy, CompletionEnv &env, const Position &pos) const;
+    void AddExtendDeclFromIndex(Ptr<Ty> extendTy, CompletionEnv &env) const;
+
+    void AddExtendDeclFromIndexBatch(const std::vector<Ptr<Ty>> &extendTys, CompletionEnv &env) const;
 
     std::string QueryByPos(Ptr<Node> node, const Position pos);
 

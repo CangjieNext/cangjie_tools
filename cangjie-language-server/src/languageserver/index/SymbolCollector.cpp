@@ -11,6 +11,8 @@
 #include "../CompilerCangjieProject.h"
 #include "CjdIndex.h"
 #include "MemIndex.h"
+#include "Symbol.h"
+#include "SymbolCollector.h"
 
 namespace {
 using namespace Cangjie;
@@ -1238,12 +1240,16 @@ void SymbolCollector::CreateExtend(const Decl &decl, const std::string &filePath
     if (isInvalidExtend) {
         return;
     }
-    auto target = extendDecl->extendedType->GetTarget();
-    if (!target || (target->ty && target->ty->HasGeneric())) {
+    auto target = GetRealTarget(extendDecl->extendedType->GetTarget());
+    if ((!target || (target->ty && target->ty->HasGeneric())) && !extendDecl->extendedType->ty->IsPrimitive()) {
         return;
     }
-    std::string targetName = ItemResolverUtil::ResolveSignatureByNode(*target);
-    SymbolID symbolID = GetDeclSymbolID(*target);
+    SymbolID symbolID = INVALID_SYMBOL_ID;
+    if (target) {
+        symbolID = GetDeclSymbolID(*target);
+    } else {
+        symbolID = GetPrimaryTypeSymbolId(extendDecl->extendedType->ty);
+    }
     auto fullPackageName = extendDecl->fullPackageName;
     std::vector<ExtendInfo> extendVec;
     std::map<std::string, ExtendInfo> extendInfoMap;
@@ -1254,7 +1260,6 @@ void SymbolCollector::CreateExtend(const Decl &decl, const std::string &filePath
         std::string signature = ItemResolverUtil::ResolveSignatureByNode(*member);
         auto modifier = GetDeclModifier(*member);
         auto extendSymbolID = GetDeclSymbolID(*member);
-        ExtendItem extendItem = {.id = extendSymbolID};
         extendVec.push_back({.id=extendSymbolID, .name=signature});
         extendInfoMap.insert_or_assign(signature, extendVec.back());
     }

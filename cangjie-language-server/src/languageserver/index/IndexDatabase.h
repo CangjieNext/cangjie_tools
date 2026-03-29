@@ -59,7 +59,7 @@ public:
     dberr_no GetSymbolsByName(const std::string &name, std::function<bool(const Symbol &sym)> callback);
 
     dberr_no GetPkgSymbols(std::string pkgName, std::function<bool(const Symbol &sym)> callback);
-    
+
     dberr_no GetSymbolByID(IDArray id, std::function<bool(const Symbol &sym)> callback);
 
     dberr_no GetCrossSymbolByID(IDArray id, std::function<void(const CrossSymbol &sym)> callback);
@@ -99,7 +99,7 @@ public:
                            std::function<bool(const Ref &ref)> callback);
 
     dberr_no GetFileReferences(const std::string &fileUri, RefKind kind,
-         std::function<bool(const Ref &ref, const SymbolID symId)> callback);                       
+         std::function<bool(const Ref &ref, const SymbolID symId)> callback);
 
     dberr_no GetReferred(const SymbolID &id,
                          std::function<void(const SymbolID &, const Ref &)> callback);

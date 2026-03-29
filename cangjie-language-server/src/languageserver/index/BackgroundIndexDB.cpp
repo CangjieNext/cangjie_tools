@@ -486,6 +486,52 @@ void BackgroundIndexDB::FindExtendSymsOnCompletion(const SymbolID &dotCompleteSy
     });
 }
 
+void BackgroundIndexDB::FindExtendSymsOnCompletionBatch(
+    const std::unordered_set<SymbolID> &ids,
+    const std::unordered_set<SymbolID> &allVisibleMembers,
+    const std::string &curPkgName, const std::string &curModule,
+    const std::function<void(const std::string &, const std::string &,
+        const Symbol &, const CompletionItem &)>& callback)
+{
+    if (ids.empty()) {
+        return;
+    }
+
+    std::unordered_set<std::string> curModuleDeps =
+        CompilerCangjieProject::GetInstance()->GetOneModuleDirectDeps(curModule);
+
+    for (const auto dotCompleteSym : ids) {;
+        db.GetExtendItem(GetArrayFromID(dotCompleteSym),
+        [&](const std::string &packageName, const Symbol &sym,
+            const ExtendItem &extendIem, const CompletionItem &completionItem) {
+                if (curPkgName == packageName) {
+                    return;
+                }
+                if (allVisibleMembers.find(extendIem.id) != allVisibleMembers.end()) {
+                    return;
+                }
+                auto relation = GetPackageRelation(curPkgName, packageName);
+                auto checkAccessible = [&relation](const Modifier& modifier) -> bool {
+                    bool isAccessible =
+                        modifier == Modifier::PUBLIC
+                        || (relation == PackageRelation::CHILD && (modifier == Modifier::INTERNAL
+                                                                || modifier == Modifier::PROTECTED))
+                        || (relation == PackageRelation::SAME_MODULE &&
+                            modifier == Modifier::PROTECTED)
+                        || (relation == PackageRelation::PARENT && modifier == Modifier::PROTECTED);
+                    return isAccessible;
+                };
+                if (!sym.isCjoSym && !curModuleDeps.count(sym.curModule)) {
+                    return;
+                }
+                // filter by modifier
+                if (checkAccessible(extendIem.modifier) && checkAccessible(sym.modifier)) {
+                    callback(packageName, extendIem.interfaceName, sym, completionItem);
+                }
+        });
+    }
+}
+
 void BackgroundIndexDB::FindComment(const Symbol &sym, std::vector<std::string> &comments)
 {
     db.GetComment(GetArrayFromID(sym.id), [&](const Comment &comment) {
