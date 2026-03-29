@@ -636,6 +636,7 @@ dberr_no IndexDatabase::GetExtendItem(IDArray id,
 #ifndef NO_EXCEPTIONS
     try {
 #endif
+        Trace::Log("GetExtendItem start");
         Use(sql::SelectExtends).execute(sqldb::with(id), [&](sqldb::Result Row) {
             Symbol resSym;
             ExtendItem extendItem;
@@ -645,6 +646,7 @@ dberr_no IndexDatabase::GetExtendItem(IDArray id,
             callback(packageName, resSym, extendItem, completionItem);
             return true;
         });
+        Trace::Log("GetExtendItem end");
 #ifndef NO_EXCEPTIONS
     } catch (std::exception &ex) {
         Trace::Log("get extem item failed: ", ex.what());
@@ -652,6 +654,7 @@ dberr_no IndexDatabase::GetExtendItem(IDArray id,
 #endif
     return true;
 }
+
 // LCOV_EXCL_STOP
 dberr_no IndexDatabase::GetComment(IDArray id, std::function<bool(const Comment &comment)> callback)
 {
