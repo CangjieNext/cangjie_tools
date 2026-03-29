@@ -10,6 +10,7 @@
 #include "../sql/wrapper/Memory.h"
 #include "../common/Utils.h"
 #include "IndexDatabase.h"
+#include "Symbol.h"
 
 namespace ark {
 namespace lsp {
@@ -162,7 +163,7 @@ void PopulateExtendItemAndCompletions(const sqldb::Result &row, ExtendItem &exte
     IDArray idArray;
     row.store(
         // extendItem
-        extendId, extendItem.id, extendItem.modifier, extendItem.interfaceName, pkgName,
+        extendId, extendItem.id, extendItem.modifier, extendItem.isStatic, extendItem.interfaceName, pkgName,
         // symbol
         idArray, sym.name, sym.modifier, sym.kind, sym.curModule, sym.isCjoSym, sym.isDeprecated, sym.syscap,
         sym.signature,
@@ -636,6 +637,7 @@ dberr_no IndexDatabase::GetExtendItem(IDArray id,
 #ifndef NO_EXCEPTIONS
     try {
 #endif
+        Trace::Log("GetExtendItem start");
         Use(sql::SelectExtends).execute(sqldb::with(id), [&](sqldb::Result Row) {
             Symbol resSym;
             ExtendItem extendItem;
@@ -645,6 +647,7 @@ dberr_no IndexDatabase::GetExtendItem(IDArray id,
             callback(packageName, resSym, extendItem, completionItem);
             return true;
         });
+        Trace::Log("GetExtendItem end");
 #ifndef NO_EXCEPTIONS
     } catch (std::exception &ex) {
         Trace::Log("get extem item failed: ", ex.what());
@@ -652,6 +655,7 @@ dberr_no IndexDatabase::GetExtendItem(IDArray id,
 #endif
     return true;
 }
+
 // LCOV_EXCL_STOP
 dberr_no IndexDatabase::GetComment(IDArray id, std::function<bool(const Comment &comment)> callback)
 {
@@ -1412,14 +1416,15 @@ dberr_no IndexDatabase::DBUpdate::InsertRelations(const std::vector<Relation> &r
     return true;
 }
 
-dberr_no IndexDatabase::DBUpdate::InsertExtend(const IDArray &extendId, const IDArray &id, const Modifier modifier,
-    const std::string &name, const std::string &curPkgName)
+dberr_no IndexDatabase::DBUpdate::InsertExtend(const IDArray &extendId, const ExtendItem &extendItem,
+    const std::string &curPkgName)
 {
 #ifndef NO_EXCEPTIONS
     try {
 #endif
         db.Use(sql::InsertExtend)
-            .execute(sqldb::with(extendId, id, modifier, name, curPkgName));
+            .execute(sqldb::with(extendId, GetArrayFromID(extendItem.id), extendItem.modifier,
+                extendItem.isStatic, extendItem.interfaceName, curPkgName));
 #ifndef NO_EXCEPTIONS
     } catch (const std::exception &e) {
         Trace::Log("err in insert extend: ", e.what());

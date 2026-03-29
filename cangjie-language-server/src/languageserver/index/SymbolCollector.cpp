@@ -11,6 +11,8 @@
 #include "../CompilerCangjieProject.h"
 #include "CjdIndex.h"
 #include "MemIndex.h"
+#include "Symbol.h"
+#include "SymbolCollector.h"
 
 namespace {
 using namespace Cangjie;
@@ -1227,6 +1229,7 @@ struct ExtendInfo {
     SymbolID id;
     std::string name;
     ark::lsp::Modifier modifier;
+    bool isStatic;
     std::string interfaceName;
 };
 
@@ -1238,24 +1241,28 @@ void SymbolCollector::CreateExtend(const Decl &decl, const std::string &filePath
     if (isInvalidExtend) {
         return;
     }
-    auto target = extendDecl->extendedType->GetTarget();
-    if (!target || (target->ty && target->ty->HasGeneric())) {
+    auto target = GetRealTarget(extendDecl->extendedType->GetTarget());
+    if ((!target || (target->ty && target->ty->HasGeneric())) && !extendDecl->extendedType->ty->IsPrimitive()) {
         return;
     }
-    std::string targetName = ItemResolverUtil::ResolveSignatureByNode(*target);
-    SymbolID symbolID = GetDeclSymbolID(*target);
+    SymbolID symbolID = INVALID_SYMBOL_ID;
+    if (target) {
+        symbolID = GetDeclSymbolID(*target);
+    } else {
+        symbolID = GetPrimaryTypeSymbolId(extendDecl->extendedType->ty);
+    }
     auto fullPackageName = extendDecl->fullPackageName;
     std::vector<ExtendInfo> extendVec;
     std::map<std::string, ExtendInfo> extendInfoMap;
     for (auto &member : extendDecl->members) {
-        if (IsHiddenDecl(member) || !member->IsExportedDecl()) {
+        if (IsHiddenDecl(member) || !member->IsExportedDecl() || member->TestAttr(Attribute::OPERATOR)) {
             continue;
         }
         std::string signature = ItemResolverUtil::ResolveSignatureByNode(*member);
         auto modifier = GetDeclModifier(*member);
         auto extendSymbolID = GetDeclSymbolID(*member);
-        ExtendItem extendItem = {.id = extendSymbolID};
-        extendVec.push_back({.id=extendSymbolID, .name=signature});
+        bool isStatic = member->TestAttr(Attribute::STATIC);
+        extendVec.push_back({.id=extendSymbolID, .name=signature, .isStatic=isStatic});
         extendInfoMap.insert_or_assign(signature, extendVec.back());
     }
     std::function<void(const InheritableDecl&, std::vector<Ptr<Decl>>&)> collectInheritMember =
@@ -1300,16 +1307,21 @@ void SymbolCollector::CreateExtend(const Decl &decl, const std::string &filePath
         collectInheritMember(*targetDecl, members);
         std::string interfaceName = ItemResolverUtil::ResolveSignatureByNode(*targetDecl);
         for (const auto& member : members) {
+            if (member->TestAttr(Attribute::OPERATOR)) {
+                continue;
+            }
+            bool isStatic = member->TestAttr(Attribute::STATIC);
             std::string signature = ItemResolverUtil::ResolveSignatureByNode(*member);
             auto extendSymbolID = GetDeclSymbolID(*member);
-            ExtendInfo info = {.id = extendSymbolID, .name = signature,
-                               .modifier = interfaceModifier, .interfaceName = interfaceName};
+            ExtendInfo info = {.id = extendSymbolID, .name = signature, .modifier = interfaceModifier,
+                               .isStatic = isStatic, .interfaceName = interfaceName};
             extendInfoMap.insert_or_assign(signature, info);
         }
     }
     for (const auto& info : extendInfoMap) {
         ExtendItem extendItem = {.id = info.second.id,
                                  .modifier = info.second.modifier,
+                                 .isStatic = info.second.isStatic,
                                  .interfaceName = info.second.interfaceName};
         (void)symbolExtendMap[symbolID].emplace_back(extendItem);
     }
