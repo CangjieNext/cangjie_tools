@@ -1544,4 +1544,11 @@ std::vector<std::string> GetAllFilePathUnderCurrentPath(const std::string& path,
     });
     return allFiles;
 }
+
+bool IsReExportModifier(lsp::Modifier modifier)
+{
+    return modifier == lsp::Modifier::INTERNAL
+        || modifier == lsp::Modifier::PROTECTED
+        || modifier == lsp::Modifier::PUBLIC;
+}
 } // namespace ark

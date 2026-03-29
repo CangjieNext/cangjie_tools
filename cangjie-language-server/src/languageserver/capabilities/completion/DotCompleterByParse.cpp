@@ -1080,6 +1080,25 @@ void DotCompleterByParse::AddExtendDeclFromIndex(Ptr<Ty> &extendTy, CompletionEn
             item.sortType = SortType::AUTO_IMPORT_SYM;
             completetions.push_back(item);
         });
+    index->FindReExportSymsOnCompletion(std::make_pair(visibleMembers, std::unordered_set<lsp::SymbolID>{}),
+        curPkgName, curModule, "",
+        [&editRange, &completetions](const std::string &pkg,
+            const lsp::Symbol &sym, const lsp::CompletionItem &completionItem) {
+            CodeCompletion item;
+            auto astKind = sym.kind;
+            item.deprecated = sym.isDeprecated;
+            item.kind = ItemResolverUtil::ResolveKindByASTKind(astKind);
+            item.name = sym.name;
+            item.label = completionItem.label;
+            item.insertText = completionItem.insertText;
+            item.detail = "import " + pkg;
+            ark::TextEdit textEdit;
+            textEdit.range = editRange;
+            textEdit.newText = "import " + pkg + "." + sym.name + "\n";
+            item.additionalTextEdits = std::vector<TextEdit>{textEdit};
+            item.sortType = SortType::AUTO_IMPORT_SYM;
+            completetions.push_back(item);
+        });
     for (const auto &completion : completetions) {
         env.AddCompletionItem(completion.label, completion.label, completion, false);
     }

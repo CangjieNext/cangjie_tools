@@ -292,6 +292,70 @@ void MemIndex::FindExtendSymsOnCompletion(const SymbolID &dotCompleteSym,
     }
 }
 
+void MemIndex::FindReExportSymsOnCompletion(
+    const std::pair<std::unordered_set<SymbolID>, std::unordered_set<SymbolID>>& filterSyms,
+    const std::string &curPkgName, const std::string &curModule, const std::string &prefix,
+    std::function<void(const std::string &, const Symbol &, const CompletionItem &)> callback)
+{
+    if (Options::GetInstance().IsOptionSet("test")) {
+        return;
+    }
+    const auto &normalCompleteSyms  = filterSyms.first;
+    const auto &importDeclSyms  = filterSyms.second;
+    size_t normalCompleteCount = 0;
+    size_t importDeclCount = 0;
+    std::unordered_set<std::string> curModuleDeps =
+        CompilerCangjieProject::GetInstance()->GetOneModuleDirectDeps(curModule);
+    for (const auto &reExportSyms : pkgReExportSymsMap) {
+        std::string pkgName = reExportSyms.first;
+        if (curPkgName == pkgName) {
+            continue;
+        }
+        auto relation = GetPackageRelation(curPkgName, pkgName);
+        auto syms = pkgSymsMap[pkgName];
+        std::unordered_map<SymbolID, Symbol> symMap;
+        for (const auto& sym : syms) {
+            symMap.insert_or_assign(sym.id, sym);
+        }
+        auto checkAccessible = [&relation](const Modifier& modifier) -> bool {
+            bool isAccessible =
+                modifier == Modifier::PUBLIC
+                || (relation == PackageRelation::CHILD && (modifier == Modifier::INTERNAL
+                                                        || modifier == Modifier::PROTECTED))
+                || (relation == PackageRelation::SAME_MODULE && modifier == Modifier::PROTECTED)
+                || (relation == PackageRelation::PARENT && modifier == Modifier::PROTECTED);
+            return isAccessible;
+        };
+        for (const auto& reExportSym : reExportSyms.second) {
+            auto sym = symMap[reExportSym.id];
+            if (sym.IsInvalidSym()) {
+                continue;
+            }
+            if (!sym.isCjoSym && !curModuleDeps.count(sym.curModule)) {
+                continue;
+            }
+            if (sym.id != 0 && normalCompleteCount < normalCompleteSyms.size() && normalCompleteSyms.count(sym.id)) {
+                normalCompleteCount++;
+                continue;
+            }
+            if (importDeclCount < importDeclSyms.size() && importDeclSyms.count(sym.id)) {
+                importDeclCount++;
+                continue;
+            }
+            if (sym.scope.find(':') != std::string::npos) {
+                continue;
+            }
+            if (checkAccessible(reExportSym.modifier) && checkAccessible(sym.modifier)) {
+                if (!CompilerCangjieProject::GetInstance()->IsCombinedSym(curModule, curPkgName, pkgName)) {
+                    for (const auto &completionItem : reExportSym.completionItems) {
+                        callback(pkgName, sym, completionItem);
+                    }
+                }
+            }
+        }
+    }
+}
+
 void MemIndex::FindImportSymsOnQuickFix(const std::string &curPkgName, const std::string &curModule,
     const std::unordered_set<SymbolID> &importDeclSyms, const std::string& identifier,
     const std::function<void(const std::string &, const Symbol &)>& callback)

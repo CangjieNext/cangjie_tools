@@ -855,6 +855,23 @@ dberr_no IndexDatabase::GetCrossSymbols(
     return true;
 }
 
+dberr_no IndexDatabase::GetReExportSymbols(const std::string &pkgName, SymbolID symId,
+    std::function<bool(const ReExportSymbol &)> callback)
+{
+    Use(sql::SelectReExportSymbols)
+        .execute(sqldb::with(pkgName, symId), [&](sqldb::Result row) {
+            ReExportSymbol reExportSym;
+            CompletionItem completionItem;
+            std::string tempPkgName;
+            row.store(reExportSym.id, reExportSym.modifier, reExportSym.name, tempPkgName,
+                completionItem.label, completionItem.insertText);
+            reExportSym.completionItems.push_back(completionItem);
+            callback(reExportSym);
+            return true;
+        });
+    return true;
+}
+
 dberr_no IndexDatabase::DBUpdate::InsertFileWithId(int fileID, std::vector<std::string> &fileInfo)
 {
 #ifndef NO_EXCEPTIONS
@@ -1531,6 +1548,39 @@ dberr_no IndexDatabase::Update(std::function<dberr_no(DBUpdate)> callback)
         std::cerr << " err in update commit\n";
         dbConnect.Use(sql::Rollback).execute();
         return 1;
+    }
+#endif
+    return true;
+}
+
+dberr_no IndexDatabase::DBUpdate::InsertReExportSymbol(const std::string &curPkgName, const ReExportSymbol &reExportSym)
+{
+#ifndef NO_EXCEPTIONS
+    try {
+#endif
+        db.Use(sql::InsertReExportSymbol)
+            .execute(sqldb::with(reExportSym.id, static_cast<int>(reExportSym.modifier), reExportSym.name, curPkgName));
+#ifndef NO_EXCEPTIONS
+    } catch (std::exception &ex) {
+        std::cerr << "exception in InsertReExportSymbol: " << ex.what() << "\n";
+    }
+#endif
+    return true;
+}
+
+dberr_no IndexDatabase::DBUpdate::InsertReExportCompletions(const std::string &curPkgName,
+    const std::vector<std::pair<SymbolID, CompletionItem>> &completions)
+{
+#ifndef NO_EXCEPTIONS
+    try {
+#endif
+        for (const auto &completion : completions) {
+            db.Use(sql::InsertReExportCompletion)
+                .execute(sqldb::with(completion.first, completion.second.label, completion.second.insertText, curPkgName));
+        }
+#ifndef NO_EXCEPTIONS
+    } catch (std::exception &ex) {
+        std::cerr << "exception in InsertReExportCompletions: " << ex.what() << "\n";
     }
 #endif
     return true;

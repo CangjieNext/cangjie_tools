@@ -88,6 +88,14 @@ void BackgroundIndexDB::Update(const std::string &curPkgName, IndexFileOut index
         for (const CrossSymbol &crs : *index.crossSymbos) {
             update.InsertCrossSymbol(curPkgName, crs);
         }
+        for (const ReExportSymbol &reExportSym : *index.reExportSyms) {
+            update.InsertReExportSymbol(curPkgName, reExportSym);
+            std::vector<std::pair<SymbolID, CompletionItem>> completions;
+            for (const auto &completionItem : reExportSym.completionItems) {
+                completions.emplace_back(reExportSym.id, completionItem);
+            }
+            update.InsertReExportCompletions(curPkgName, completions);
+        }
         return update.Done();
     });
 }
@@ -483,6 +491,72 @@ void BackgroundIndexDB::FindExtendSymsOnCompletion(const SymbolID &dotCompleteSy
             if (checkAccessible(extendIem.modifier) && checkAccessible(sym.modifier)) {
                 callback(packageName, extendIem.interfaceName, sym, completionItem);
             }
+    });
+}
+
+void BackgroundIndexDB::FindReExportSymsOnCompletion(
+    const std::pair<std::unordered_set<SymbolID>, std::unordered_set<SymbolID>>& filterSyms,
+    const std::string &curPkgName, const std::string &curModule, const std::string &prefix,
+    std::function<void(const std::string &, const Symbol &, const CompletionItem &)> callback)
+{
+    if (Options::GetInstance().IsOptionSet("test")) {
+        return;
+    }
+    const auto &normalCompleteSyms  = filterSyms.first;
+    const auto &importDeclSyms  = filterSyms.second;
+    size_t normalCompleteCount = 0;
+    size_t importDeclCount = 0;
+    std::unordered_set<std::string> curModuleDeps =
+        CompilerCangjieProject::GetInstance()->GetOneModuleDirectDeps(curModule);
+    db.GetSymbolsAndCompletions(prefix, [&](const Symbol &sym, const CompletionItem &completion) {
+        std::string symPackage;
+        std::string symModule;
+        db.GetFileWithUri(sym.location.fileUri, [&](std::string packageName, std::string moduleName) {
+            symPackage = packageName;
+            symModule = moduleName;
+            return true;
+        });
+        if (symPackage.empty()) {
+            return true;
+        }
+        if (curPkgName == symPackage) {
+            return true;
+        }
+        if (!sym.isCjoSym && !curModuleDeps.count(symModule)) {
+            return true;
+        }
+        if (sym.id != 0 && normalCompleteCount < normalCompleteSyms.size() && normalCompleteSyms.count(sym.id)) {
+            normalCompleteCount++;
+            return true;
+        }
+        if (importDeclCount < importDeclSyms.size() && importDeclSyms.count(sym.id)) {
+            importDeclCount++;
+            return true;
+        }
+        if (sym.scope.find(':') != std::string::npos) {
+            return true;
+        }
+        db.GetReExportSymbols(symPackage, sym.id, [&](const ReExportSymbol &reExportSym) {
+            auto relation = GetPackageRelation(curPkgName, symPackage);
+            auto checkAccessible = [&relation](const Modifier& modifier) -> bool {
+                bool isAccessible =
+                    modifier == Modifier::PUBLIC
+                    || (relation == PackageRelation::CHILD && (modifier == Modifier::INTERNAL
+                                                            || modifier == Modifier::PROTECTED))
+                    || (relation == PackageRelation::SAME_MODULE && modifier == Modifier::PROTECTED)
+                    || (relation == PackageRelation::PARENT && modifier == Modifier::PROTECTED);
+                return isAccessible;
+            };
+            if (checkAccessible(reExportSym.modifier) && checkAccessible(sym.modifier)) {
+                if (!CompilerCangjieProject::GetInstance()->IsCombinedSym(curModule, curPkgName, symPackage)) {
+                    for (const auto &completionItem : reExportSym.completionItems) {
+                        callback(symPackage, sym, completionItem);
+                    }
+                }
+            }
+            return true;
+        });
+        return true;
     });
 }
 

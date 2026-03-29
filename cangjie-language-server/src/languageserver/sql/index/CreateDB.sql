@@ -739,6 +739,93 @@ SQL(
       LOCATION(NEW.DeclareEndLine - NEW.DeclareStartLine,
                NEW.DeclareEndColumn - NEW.DeclareStartColumn)
     );
+   END;
+)
+
+SQL(
+  CREATE TABLE IF NOT EXISTS _re_export_symbols(
+    SymbolID BLOB NOT NULL,
+    Modifier INTEGER,
+    Name TEXT NOT NULL,
+    PackageName TEXT NOT NULL,
+    PRIMARY KEY(
+      SymbolID,
+      PackageName
+    )
+  ) WITHOUT ROWID;
+
+  CREATE INDEX IF NOT EXISTS re_export_symbols_SymbolID ON _re_export_symbols(SymbolID);
+)
+
+SQL(
+  CREATE VIEW IF NOT EXISTS re_export_symbols(
+    SymbolID,
+    Modifier,
+    Name,
+    PackageName
+  )
+  AS SELECT
+    SymbolID,
+    Modifier,
+    Name,
+    PackageName
+  FROM _re_export_symbols;
+
+  DROP TRIGGER IF EXISTS re_export_symbols_instead_of_insert;
+
+  CREATE TRIGGER re_export_symbols_instead_of_insert
+  INSTEAD OF INSERT ON re_export_symbols FOR EACH ROW
+  BEGIN
+    INSERT INTO _re_export_symbols VALUES(
+      NEW.SymbolID,
+      NEW.Modifier,
+      NEW.Name,
+      NEW.PackageName
+    );
+  END;
+)
+
+SQL(
+  CREATE TABLE IF NOT EXISTS _re_export_completions(
+    SymbolID BLOB NOT NULL,
+    Label TEXT,
+    InsertText TEXT,
+    PackageName TEXT NOT NULL,
+    PRIMARY KEY(
+         SymbolID,
+         InsertText,
+         PackageName
+     )
+  ) WITHOUT ROWID;
+
+  CREATE INDEX IF NOT EXISTS re_export_completions_SymbolID ON _re_export_completions(SymbolID);
+)
+
+SQL(
+  CREATE VIEW IF NOT EXISTS re_export_completions(
+    SymbolID,
+    Label,
+    InsertText,
+    PackageName
+  )
+  AS SELECT
+    SymbolID,
+    Label,
+    InsertText,
+    PackageName
+  FROM _re_export_completions;
+
+  DROP TRIGGER IF EXISTS re_export_completions_instead_of_insert;
+
+  CREATE TRIGGER re_export_completions_instead_of_insert
+  INSTEAD OF INSERT ON re_export_completions FOR EACH ROW
+  BEGIN
+    INSERT INTO _re_export_completions VALUES(
+      NEW.SymbolID,
+      NEW.Label,
+      NEW.InsertText,
+      NEW.PackageName
+    );
   END;
 )
 

@@ -302,6 +302,7 @@ void SymbolCollector::Build(const Package &package, const std::string &packagePa
     }
     scopes.pop_back();
     CollectRelations(inheritableDecls);
+    CollectReExportSymbols(package);
 }
 
 void SymbolCollector::ProcessFile(const File& file, const std::string& packagePath, AccessLevel pkgAccess,
@@ -1419,7 +1420,171 @@ void SymbolCollector::CreateImportRef(const File &fileNode)
         if (importContent.end.IsZero()) {
             continue;
         }
-        ProcImport(*importSpec, importContent, importSpec->IsImportAll());
+    ProcImport(*importSpec, importContent, importSpec->IsImportAll());
+    }
+}
+
+void SymbolCollector::CollectReExportSymbols(const Package& package)
+{
+    if (package.accessible == AccessLevel::PRIVATE) {
+        return;
+    }
+    auto GetPackagePrefixWithPaths = [](const std::vector<std::string> &prefixPaths)-> std::string {
+        std::stringstream ss;
+        for (const auto &prefix : prefixPaths) {
+            ss << prefix << ".";
+        }
+        return ss.str().substr(0, ss.str().size() - 1);
+    };
+    auto GetReExportModifier = [](const ImportSpec &importSpec) -> lsp::Modifier {
+        if (!importSpec.modifier) {
+            return lsp::Modifier::PRIVATE;
+        }
+        switch (importSpec.modifier->modifier) {
+            case TokenKind::PRIVATE:
+                return lsp::Modifier::PRIVATE;
+            case TokenKind::INTERNAL:
+                return lsp::Modifier::INTERNAL;
+            case TokenKind::PROTECTED:
+                return lsp::Modifier::PROTECTED;
+            case TokenKind::PUBLIC:
+                return lsp::Modifier::PUBLIC;
+            default:
+                return lsp::Modifier::PRIVATE;
+        }
+    };
+    std::unordered_map<SymbolID, Symbol> symMap;
+    for (const auto &sym : pkgSymsMap) {
+        symMap.insert_or_assign(sym.id, sym);
+    }
+    for (const auto &file : package.files) {
+        for (const auto &importSpec : file->imports) {
+            if (!importSpec) {
+                continue;
+            }
+            auto modifier = GetReExportModifier(*importSpec);
+            if (!IsReExportModifier(modifier)) {
+                continue;
+            }
+            if (importSpec->IsImportMulti()) {
+                for (const auto &content : importSpec->content.items) {
+                    std::string packagePrefix = GetPackagePrefixWithPaths(content.prefixPaths);
+                    const auto targetPkg = this->importMgr.GetPackageDecl(packagePrefix);
+                    if (!targetPkg) {
+                        continue;
+                    }
+                    const auto members = this->importMgr.GetPackageMembers(package.fullPackageName, targetPkg->fullPackageName);
+                    for (const auto &[_, memberDecls] : members) {
+                        for (const auto& memberDecl: memberDecls) {
+                            const auto *declPtr = dynamic_cast<const Decl *>(memberDecl.get());
+                            if (declPtr == nullptr || declPtr->identifier != content.identifier) {
+                                continue;
+                            }
+                            auto symId = GetDeclSymbolID(*declPtr);
+                            if (symId == INVALID_SYMBOL_ID) {
+                                continue;
+                            }
+                            std::string symbolName = content.kind == ImportKind::IMPORT_ALIAS ? content.aliasName.Val() : content.identifier;
+                            ReExportSymbol reExportSym;
+                            reExportSym.id = symId;
+                            reExportSym.modifier = modifier;
+                            reExportSym.name = symbolName;
+                            auto it = symMap.find(symId);
+                            if (it != symMap.end()) {
+                                const auto &sym = it->second;
+                                for (const auto &item : sym.completionItems) {
+                                    CompletionItem newItem = item;
+                                    if (newItem.label == sym.name) {
+                                        newItem.label = symbolName;
+                                    }
+                                    if (newItem.insertText == sym.name) {
+                                        newItem.insertText = symbolName;
+                                    }
+                                    reExportSym.completionItems.push_back(newItem);
+                                }
+                            }
+                            reExportSymsMap.push_back(reExportSym);
+                        }
+                    }
+                }
+            } else {
+                auto importContent = importSpec->content;
+                std::string packagePrefix = GetPackagePrefixWithPaths(importContent.prefixPaths);
+                const auto targetPkg = this->importMgr.GetPackageDecl(packagePrefix);
+                if (!targetPkg) {
+                    continue;
+                }
+                if (importSpec->IsImportAll()) {
+                    const auto members = this->importMgr.GetPackageMembers(package.fullPackageName, targetPkg->fullPackageName);
+                    for (const auto &[_, memberDecls] : members) {
+                        for (const auto& memberDecl: memberDecls) {
+                            const auto *declPtr = dynamic_cast<const Decl *>(memberDecl.get());
+                            if (declPtr == nullptr) {
+                                continue;
+                            }
+                            auto symId = GetDeclSymbolID(*declPtr);
+                            if (symId == INVALID_SYMBOL_ID) {
+                                continue;
+                            }
+                            std::string symbolName = declPtr->identifier;
+                            ReExportSymbol reExportSym;
+                            reExportSym.id = symId;
+                            reExportSym.modifier = modifier;
+                            reExportSym.name = symbolName;
+                            auto it = symMap.find(symId);
+                            if (it != symMap.end()) {
+                                const auto &sym = it->second;
+                                for (const auto &item : sym.completionItems) {
+                                    CompletionItem newItem = item;
+                                    if (newItem.label == sym.name) {
+                                        newItem.label = symbolName;
+                                    }
+                                    if (newItem.insertText == sym.name) {
+                                        newItem.insertText = symbolName;
+                                    }
+                                    reExportSym.completionItems.push_back(newItem);
+                                }
+                            }
+                            reExportSymsMap.push_back(reExportSym);
+                        }
+                    }
+                } else {
+                    const auto members = this->importMgr.GetPackageMembers(package.fullPackageName, targetPkg->fullPackageName);
+                    for (const auto &[_, memberDecls] : members) {
+                        for (const auto& memberDecl: memberDecls) {
+                            const auto *declPtr = dynamic_cast<const Decl *>(memberDecl.get());
+                            if (declPtr == nullptr || declPtr->identifier != importContent.identifier) {
+                                continue;
+                            }
+                            auto symId = GetDeclSymbolID(*declPtr);
+                            if (symId == INVALID_SYMBOL_ID) {
+                                continue;
+                            }
+                            std::string symbolName = importContent.kind == ImportKind::IMPORT_ALIAS ? importContent.aliasName.Val() : importContent.identifier;
+                            ReExportSymbol reExportSym;
+                            reExportSym.id = symId;
+                            reExportSym.modifier = modifier;
+                            reExportSym.name = symbolName;
+                            auto it = symMap.find(symId);
+                            if (it != symMap.end()) {
+                                const auto &sym = it->second;
+                                for (const auto &item : sym.completionItems) {
+                                    CompletionItem newItem = item;
+                                    if (newItem.label == sym.name) {
+                                        newItem.label = symbolName;
+                                    }
+                                    if (newItem.insertText == sym.name) {
+                                        newItem.insertText = symbolName;
+                                    }
+                                    reExportSym.completionItems.push_back(newItem);
+                                }
+                            }
+                            reExportSymsMap.push_back(reExportSym);
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

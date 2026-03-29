@@ -364,5 +364,7 @@ std::vector<std::string> Split(const std::string &str, const std::string &patter
 std::vector<std::string> GetAllFilePathUnderCurrentPath(
     const std::string& path, const std::string& extension,
     bool shouldSkipTestFiles = false, bool shouldSkipRegularFiles = false);
+
+bool IsReExportModifier(lsp::Modifier modifier);
 }
 #endif // LSPSERVER_UTILS_H

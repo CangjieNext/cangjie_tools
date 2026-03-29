@@ -119,6 +119,9 @@ public:
     dberr_no GetCrossSymbols(const std::string &pkgName, const std::string &symName,
         const std::function<void(const CrossSymbol &)> &callback);
 
+    dberr_no GetReExportSymbols(const std::string &pkgName, SymbolID symId,
+        std::function<bool(const ReExportSymbol &)> callback);
+
     dberr_no GetRelationsRiddenUp(const SymbolID &objectID, RelationKind kind,
         std::function<bool(const Relation &rel)> callback);
 
@@ -230,6 +233,12 @@ public:
         void DealCrossSymbols(const std::vector<std::pair<std::string, CrossSymbol>> &crsSyms);
 
         dberr_no InsertCrossSymbols(const std::vector<std::pair<std::string, CrossSymbol>> &crsSyms);
+
+        dberr_no InsertReExportSymbol(const std::string &curPkgName, const ReExportSymbol &reExportSym);
+
+        dberr_no InsertReExportCompletions(const std::string &curPkgName,
+            const std::vector<std::pair<SymbolID, CompletionItem>> &completions);
+
         // LCOV_EXCL_START
         template <typename... Ts>
         void BindValue(const sqldb::Bind<Ts...> &bind, sqlite3_stmt *stmt, int &Index)

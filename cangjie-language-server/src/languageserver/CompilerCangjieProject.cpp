@@ -2260,6 +2260,7 @@ void CompilerCangjieProject::StorePackageCache(const std::string& pkgName)
         shard.relations = &memIndex->pkgRelationsMap[pkgName];
         shard.extends = &memIndex->pkgExtendsMap[pkgName];
         shard.crossSymbos = &memIndex->pkgCrossSymsMap[pkgName];
+        shard.reExportSyms = &memIndex->pkgReExportSymsMap[pkgName];
         cacheManager->StoreIndexShard(pkgName, shardIdentifier, shard);
     }
     cacheManager->Store(

@@ -220,6 +220,15 @@ public:
 
 using CrossSymbolSlab = std::vector<CrossSymbol>;
 
+struct ReExportSymbol {
+    SymbolID id;
+    Modifier modifier;
+    std::string name;
+    std::vector<CompletionItem> completionItems;
+};
+
+using ReExportSymbolSlab = std::vector<ReExportSymbol>;
+
 } // namespace lsp
 } // namespace ark
 #endif // LSPSERVER_INDEX_SYMBOL_H

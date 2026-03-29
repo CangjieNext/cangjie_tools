@@ -510,7 +510,24 @@ SQL(MultiInsertCrossSymbolsValue,
 );
 
 SQL(SelectCrossSymbol,
- SELECT * FROM cross_symbols WHERE CJPackageName = :CJPackageName AND Name = :Name
+  SELECT * FROM cross_symbols WHERE CJPackageName = :PackageName AND Name = :SymbolName
+);
+
+SQL(SelectReExportSymbols,
+  SELECT re_export_symbols.*,
+         re_export_completions.*
+  FROM re_export_symbols
+  JOIN re_export_completions ON re_export_completions.SymbolID = re_export_symbols.SymbolID
+                               AND re_export_completions.PackageName = re_export_symbols.PackageName
+  WHERE re_export_symbols.PackageName = :PackageName AND re_export_symbols.SymbolID = :SymbolID
+);
+
+SQL(InsertReExportSymbol,
+  INSERT INTO re_export_symbols VALUES(:SymbolID, :Modifier, :Name, :PackageName)
+);
+
+SQL(InsertReExportCompletion,
+  INSERT INTO re_export_completions VALUES(:SymbolID, :Label, :InsertText, :PackageName)
 );
 
 SQL(SelectCrossSymbolByID,

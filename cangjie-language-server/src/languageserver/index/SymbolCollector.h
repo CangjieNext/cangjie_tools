@@ -56,6 +56,11 @@ public:
         return &crsSymsMap;
     }
 
+    const std::vector<ReExportSymbol>* GetReExportSymbolMap() const
+    {
+        return &reExportSymsMap;
+    }
+
     const std::vector<Relation>* GetRelations() const
     {
         return &relations;
@@ -123,6 +128,8 @@ private:
     bool ShouldPassInCjdIndexing(Ptr<Node> node);
 
     void CollectRelations(const std::unordered_set<Ptr<InheritableDecl>>& inheritableDecls);
+
+    void CollectReExportSymbols(const Package& package);
 
     void CollectNamedParam(Ptr<const Decl> parent, Ptr<const Decl> member);
 
@@ -275,6 +282,8 @@ private:
     std::map<SymbolID, std::vector<ExtendItem>> symbolExtendMap;
 
     std::vector<CrossSymbol> crsSymsMap;
+
+    std::vector<ReExportSymbol> reExportSymsMap;
 
     bool isCjoPkg;
 

@@ -377,6 +377,33 @@ void CompletionImpl::AutoImportPackageComplete(const ArkAST &input, CompletionRe
             completion.sortType = SortType::AUTO_IMPORT_SYM;
             result.completions.push_back(completion);
         });
+    index->FindReExportSymsOnCompletion(std::make_pair(result.normalCompleteSymID, result.importDeclsSymID),
+        pkgName, curModule, prefix,
+        [&result, &textEditRange, &syscap](const std::string &pkg,
+            const lsp::Symbol &sym, const lsp::CompletionItem &completionItem) {
+            if (!sym.syscap.empty() && !syscap.CheckSysCap(sym.syscap)) {
+                return;
+            }
+            CodeCompletion completion;
+            std::string fullSymName = pkg + ":" + sym.name;
+            if (externalImportSym.count(fullSymName)) {
+                CompletionImpl::HandleExternalSymAutoImport(result, pkg, sym, completionItem, textEditRange);
+                return;
+            }
+            auto astKind = sym.kind;
+            completion.deprecated = sym.isDeprecated;
+            completion.kind = ItemResolverUtil::ResolveKindByASTKind(astKind);
+            completion.name = sym.name;
+            completion.label = completionItem.label;
+            completion.insertText = completionItem.insertText;
+            completion.detail = "import " + pkg;
+            TextEdit textEdit;
+            textEdit.range = textEditRange;
+            textEdit.newText = "import " + pkg + "." + sym.name + "\n";
+            completion.additionalTextEdits = std::vector<TextEdit>{{textEdit}};
+            completion.sortType = SortType::AUTO_IMPORT_SYM;
+            result.completions.push_back(completion);
+        });
     // LCOV_EXCL_STOP
 }
 

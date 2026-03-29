@@ -64,6 +64,7 @@ struct IndexFileIn {
     RelationSlab relations;
     ExtendSlab extends;
     CrossSymbolSlab crossSymbos;
+    ReExportSymbolSlab reExportSyms;
 };
 
 struct IndexFileOut {
@@ -72,6 +73,7 @@ struct IndexFileOut {
     const RelationSlab *relations = nullptr;
     const ExtendSlab *extends = nullptr;
     const CrossSymbolSlab *crossSymbos = nullptr;
+    const ReExportSymbolSlab *reExportSyms = nullptr;
 
     IndexFileOut() = default;
 };
