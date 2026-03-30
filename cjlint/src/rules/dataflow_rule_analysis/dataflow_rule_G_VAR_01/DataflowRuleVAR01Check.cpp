@@ -351,7 +351,7 @@ void DataflowRuleVAR01Check::CheckBasedOnCHIR(CHIR::Package& package)
         diagEngine->Diagnose(genericDef.second.first.first, genericDef.second.first.second,
             CodeCheckDiagKind::G_VAR_01_prefer_immutable_prop, genericDef.second.second);
     }
-    for (auto& globalVar : package.GetGlobalVars()) {
+    for (auto& globalVar : package.GetGlobalVarsWithInit()) {
         if (globalVar->TestAttr(CHIR::Attribute::IMPORTED)) {
             continue;
         }
@@ -364,7 +364,7 @@ void DataflowRuleVAR01Check::CheckBasedOnCHIR(CHIR::Package& package)
         diagEngine->Diagnose(
             loc.first, loc.second, CodeCheckDiagKind::G_VAR_01_prefer_immutable_var, staticVar->GetSrcCodeIdentifier());
     }
-    for (auto& func : package.GetGlobalFuncs()) {
+    for (auto& func : package.GetGlobalFuncsWithBody()) {
         if (CommonFunc::IsGenericInstantated(func) || func->TestAttr(CHIR::Attribute::IMPORTED)) {
             continue;
         }

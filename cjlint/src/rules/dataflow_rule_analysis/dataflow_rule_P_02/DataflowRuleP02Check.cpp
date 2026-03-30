@@ -469,7 +469,7 @@ void DataflowRuleP02Check::CheckBasedOnCHIRFunc(CHIR::BlockGroup& body)
 
 void DataflowRuleP02Check::CheckBasedOnCHIR(CHIR::Package &package)
 {
-    auto funcs = package.GetGlobalFuncs();
+    auto funcs = package.GetGlobalFuncsWithBody();
     for (auto &func : funcs) {
         if (func->TestAttr(CHIR::Attribute::IMPORTED)) {
             continue;

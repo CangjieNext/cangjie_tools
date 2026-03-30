@@ -281,7 +281,7 @@ void DataflowRuleGFIO01Check::CheckBasedOnCHIR(CHIR::Package& package)
     // Collect the function translated from the default argument and bind it to the original function
     std::map<std::string, std::vector<std::string>> funcWithDefaultParams;
     std::map<std::string, std::map<std::string, std::pair<Cangjie::Position, Cangjie::Position>>> fileNamePosMap;
-    for (auto func : package.GetGlobalFuncs()) {
+    for (auto func : package.GetGlobalFuncsWithBody()) {
         if (func->GetFuncKind() != FuncKind::DEFAULT_PARAMETER_FUNC || func->TestAttr(CHIR::Attribute::IMPORTED)) {
             continue;
         }
@@ -297,7 +297,7 @@ void DataflowRuleGFIO01Check::CheckBasedOnCHIR(CHIR::Package& package)
         }
     }
 
-    for (auto func : package.GetGlobalFuncs()) {
+    for (auto func : package.GetGlobalFuncsWithBody()) {
         if (func->GetFuncKind() == FuncKind::DEFAULT_PARAMETER_FUNC || func->TestAttr(CHIR::Attribute::IMPORTED)) {
             continue;
         }
