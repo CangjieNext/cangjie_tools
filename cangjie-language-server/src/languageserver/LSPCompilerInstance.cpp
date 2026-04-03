@@ -29,7 +29,7 @@ inline bool ShouldSkipDecl(const Decl &decl)
 {
     auto md = DynamicCast<const MacroDecl *>(&decl);
     const Decl &beCheckedDecl = md && md->desugarDecl ? *md->desugarDecl : decl;
-    return beCheckedDecl.TestAnyAttr(Attribute::HAS_BROKEN, Attribute::IS_BROKEN) || !Ty::IsTyCorrect(beCheckedDecl.ty);
+    return beCheckedDecl.TestAnyAttr(Attribute::HAS_BROKEN, Attribute::IS_BROKEN) || !Ty::IsTyCorrect(beCheckedDecl.GetTy());
 }
 
 std::tuple<std::string, std::string> GetFullPackageNames(const ImportSpec& import)

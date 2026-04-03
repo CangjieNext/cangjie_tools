@@ -32,8 +32,8 @@ TypeSubst GenerateTypeMapping(Ptr<const Generic> generic, const std::vector<Ptr<
         return mapping;
     }
     for (size_t i = 0; i < typeArgs.size(); ++i) {
-        if (Ty::IsTyCorrect(generic->typeParameters[i]->ty) && Ty::IsTyCorrect(typeArgs[i])) {
-            if (auto genParam = DynamicCast<GenericsTy*>(generic->typeParameters[i]->ty)) {
+        if (Ty::IsTyCorrect(generic->typeParameters[i]->GetTy()) && Ty::IsTyCorrect(typeArgs[i])) {
+            if (auto genParam = DynamicCast<GenericsTy*>(generic->typeParameters[i]->GetTy())) {
                 mapping[genParam] = typeArgs[i];
             }
         }
@@ -186,7 +186,7 @@ bool IsExportExtendSuper(Ptr<ClassLikeDecl> decl)
 
 bool CheckExtendExported(const ExtendDecl* decl)
 {
-    auto extendedDecl = Ty::GetDeclPtrOfTy<InheritableDecl>(decl->ty);
+    auto extendedDecl = Ty::GetDeclPtrOfTy<InheritableDecl>(decl->GetTy());
     bool isInSamePkg = extendedDecl && extendedDecl->fullPackageName == decl->fullPackageName;
     auto isUpperBoundExport = [decl]() {
         bool isUpperboundAllExported = true;
@@ -385,7 +385,7 @@ VisitAction SymbolCollector::CollectPreAction(Ptr<Node> node, const std::string&
     if (auto invocation = node->GetConstInvocation()) {
         CreateMacroRef(*node, *invocation);
     }
-    if (!Ty::IsTyCorrect(node->ty)) {
+    if (!Ty::IsTyCorrect(node->GetTy())) {
         if (!ShouldPassInCjdIndexing(node)) {
             return VisitAction::WALK_CHILDREN;
         }
@@ -611,7 +611,7 @@ void SymbolCollector::CreateCrossSymbolByRegister(const NameReferenceExpr &ref, 
     }
     const auto &registerIdentify = callExpr->args.at(0);
     const auto &registerTarget = callExpr->args.at(1);
-    bool isInvalidRegister = !registerIdentify || !registerTarget || !registerTarget->ty || !registerTarget->expr;
+    bool isInvalidRegister = !registerIdentify || !registerTarget || !registerTarget->GetTy() || !registerTarget->expr;
     if (isInvalidRegister) {
         return;
     }
@@ -729,7 +729,7 @@ void SymbolCollector::DealRegisterClass(const FuncArg &registerIdentify, const F
 void SymbolCollector::DealRegisterFunc(const FuncArg &registerIdentify, const FuncArg &registerTarget)
 {
     // public static func registerFunc(name: String, lambda: JSLambda): Unit
-    if (registerTarget.ty->String() == JS_LAMBDA_TY) {
+    if (registerTarget.GetTy()->String() == JS_LAMBDA_TY) {
         if (registerTarget.expr->astKind == ASTKind::LAMBDA_EXPR) {
             CrossSymbol crossSym;
             crossSym.id = INVALID_SYMBOL_ID;
@@ -760,7 +760,7 @@ void SymbolCollector::DealRegisterFunc(const FuncArg &registerIdentify, const Fu
             return;
         }
     }
-    if (registerTarget.ty->String() != FUNC_REGISTER_TY) {
+    if (registerTarget.GetTy()->String() != FUNC_REGISTER_TY) {
         return;
     }
     // public static func registerFunc(name: String, register: FuncRegister): Unit
@@ -1115,7 +1115,7 @@ void SymbolCollector::DealCrossClassSymbol(const NameReferenceExpr &clazzRef, co
             break;
         }
     }
-    if (!decl || !decl->curFile || !decl->ty) {
+    if (!decl || !decl->curFile || !decl->GetTy()) {
         return;
     }
     DealClassSymbolInFunc(*decl, clazzRef, identifier);
@@ -1239,7 +1239,7 @@ void SymbolCollector::CreateExtend(const Decl &decl, const std::string &filePath
         return;
     }
     auto target = extendDecl->extendedType->GetTarget();
-    if (!target || (target->ty && target->ty->HasGeneric())) {
+    if (!target || (target->GetTy() && target->GetTy()->HasGeneric())) {
         return;
     }
     std::string targetName = ItemResolverUtil::ResolveSignatureByNode(*target);
@@ -1519,8 +1519,8 @@ void SymbolCollector::CollectRelations(
 {
     for (auto &id : inheritableDecls) {
         for (auto &type : id->inheritedTypes) {
-            auto decl = Ty::GetDeclPtrOfTy(type->ty);
-            if (decl == nullptr || type->ty->IsObject()) { // Ignore core object.
+            auto decl = Ty::GetDeclPtrOfTy(type->GetTy());
+            if (decl == nullptr || type->GetTy()->IsObject()) { // Ignore core object.
                 continue;
             }
             auto subject = GetDeclSymbolID(*decl);
@@ -1528,8 +1528,8 @@ void SymbolCollector::CollectRelations(
             auto object = GetDeclSymbolID(*id);
             if (auto ed = DynamicCast<const ExtendDecl *>(id.get())) {
                 predicate = RelationKind::EXTEND;
-                auto beingExtendDecl = Ty::GetDeclPtrOfTy(ed->extendedType->ty);
-                if (beingExtendDecl == nullptr || ed->extendedType->ty->IsObject()) { // Ignore core object.
+                auto beingExtendDecl = Ty::GetDeclPtrOfTy(ed->extendedType->GetTy());
+                if (beingExtendDecl == nullptr || ed->extendedType->GetTy()->IsObject()) { // Ignore core object.
                     continue;
                 }
                 object = GetDeclSymbolID(*beingExtendDecl);
@@ -1539,7 +1539,7 @@ void SymbolCollector::CollectRelations(
         }
 
         for (auto &member : id->GetMemberDecls()) {
-            if (!Ty::IsTyCorrect(member->ty)) {
+            if (!Ty::IsTyCorrect(member->GetTy())) {
                 continue;
             }
             (void)relations.emplace_back(Relation{.subject = GetDeclSymbolID(*member),
@@ -1585,12 +1585,12 @@ Ptr<Decl> SymbolCollector::FindOverriddenMember(const Decl &member, const Inheri
     Ptr<Decl> found = nullptr;
     for (auto &it : id.GetMemberDeclPtrs()) {
         CJC_NULLPTR_CHECK(it);
-        if (!Ty::IsTyCorrect(it->ty) || !satisfy(*it)) {
+        if (!Ty::IsTyCorrect(it->GetTy()) || !satisfy(*it)) {
             continue;
         }
-        auto memberTy = tyMgr.GetInstantiatedTy(it->ty, typeMapping);
+        auto memberTy = tyMgr.GetInstantiatedTy(it->GetTy(), typeMapping);
         if (member.astKind == ASTKind::PROP_DECL) {
-            if (memberTy == member.ty) {
+            if (memberTy == member.GetTy()) {
                 found = it;
             }
             break;
@@ -1603,7 +1603,7 @@ Ptr<Decl> SymbolCollector::FindOverriddenMember(const Decl &member, const Inheri
             memberTy = tyMgr.GetInstantiatedTy(memberTy, mapping);
         }
         if (tyMgr.IsFuncParameterTypesIdentical(*StaticCast<FuncTy *>(memberTy),
-                                                *StaticCast<FuncTy *>(member.ty))) {
+                                                *StaticCast<FuncTy *>(member.GetTy()))) {
             found = it;
             break;
         }
@@ -1625,12 +1625,12 @@ Ptr<Decl> SymbolCollector::FindOverriddenMemberFromSuperClass(const Decl &member
     while (current != nullptr) {
         Ptr<ClassDecl> sd = nullptr;
         for (auto &it : current->inheritedTypes) {
-            if (!Ty::IsTyCorrect(it->ty) || !it->ty->IsClass()) {
+            if (!Ty::IsTyCorrect(it->GetTy()) || !it->GetTy()->IsClass()) {
                 continue;
             }
-            sd = StaticCast<ClassDecl *>(Ty::GetDeclPtrOfTy(it->ty));
+            sd = StaticCast<ClassDecl *>(Ty::GetDeclPtrOfTy(it->GetTy()));
             CJC_NULLPTR_CHECK(sd); // When ty is class and correct, sd must be non-null.
-            typeMapping.merge(GenerateTypeMapping(sd->GetGeneric(), it->ty->typeArgs));
+            typeMapping.merge(GenerateTypeMapping(sd->GetGeneric(), it->GetTy()->typeArgs));
             if (auto parent = FindOverriddenMember(member, *sd, typeMapping, condition)) {
                 return parent;
             }
@@ -1654,10 +1654,10 @@ std::vector<Ptr<Decl>> SymbolCollector::FindImplMemberFromInterface(const Decl &
         auto [curDecl, mapping] = workList.front();
         workList.pop();
         for (auto &it : curDecl->inheritedTypes) {
-            if (!Ty::IsTyCorrect(it->ty)) {
+            if (!Ty::IsTyCorrect(it->GetTy())) {
                 continue;
             }
-            auto interfaceDecl = DynamicCast<InterfaceDecl *>(Ty::GetDeclPtrOfTy(it->ty));
+            auto interfaceDecl = DynamicCast<InterfaceDecl *>(Ty::GetDeclPtrOfTy(it->GetTy()));
             if (interfaceDecl == nullptr) {
                 continue;
             }
@@ -1665,7 +1665,7 @@ std::vector<Ptr<Decl>> SymbolCollector::FindImplMemberFromInterface(const Decl &
                 continue;
             }
             auto currentMapping =
-                GenerateTypeMapping(interfaceDecl->GetGeneric(), it->ty->typeArgs);
+                GenerateTypeMapping(interfaceDecl->GetGeneric(), it->GetTy()->typeArgs);
             currentMapping.insert(mapping.begin(), mapping.end());
             if (auto found =
                     FindOverriddenMember(member, *interfaceDecl, currentMapping, condition)) {
