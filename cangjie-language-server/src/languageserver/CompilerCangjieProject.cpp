@@ -320,14 +320,14 @@ void CompilerCangjieProject::HandleUpstreamSourceSet(const std::string &fullPkgN
         auto cjoData = cjoManager->GetData(upstreamSourcePkg);
         if (!cjoData) {
             Trace::Log("can not find upstream source-set cache, failed execuate task", fullPkgName);
-            ci->invocation.globalOptions.commonPartCjos.clear();
+            ci->invocation.globalOptions.commonCjoFiles.clear();
         } else {
-            ci->invocation.globalOptions.commonPartCjos.clear();
-            ci->invocation.globalOptions.commonPartCjos.push_back(realPkgName);
+            ci->invocation.globalOptions.commonCjoFiles.clear();
+            ci->invocation.globalOptions.commonCjoFiles.push_back(realPkgName);
             ci->importManager.SetPackageCjoCache(realPkgName, *cjoData);
         }
     } else {
-        ci->invocation.globalOptions.commonPartCjos.clear();
+        ci->invocation.globalOptions.commonCjoFiles.clear();
     }
 }
 
@@ -510,14 +510,14 @@ void CompilerCangjieProject::SubmitTasksToPool(const std::unordered_set<std::str
                 auto cjoData = cjoManager->GetData(upstreamSourcePkg);
                 if (!cjoData) {
                     Trace::Log("can not find upstream source-set cache, failed execuate task", package);
-                    ci->invocation.globalOptions.commonPartCjos.clear();
+                    ci->invocation.globalOptions.commonCjoFiles.clear();
                 } else {
-                    ci->invocation.globalOptions.commonPartCjos.clear();
-                    ci->invocation.globalOptions.commonPartCjos.push_back(realPkgName);
+                    ci->invocation.globalOptions.commonCjoFiles.clear();
+                    ci->invocation.globalOptions.commonCjoFiles.push_back(realPkgName);
                     ci->importManager.SetPackageCjoCache(realPkgName, *cjoData);
                 }
             } else {
-                ci->invocation.globalOptions.commonPartCjos.clear();
+                ci->invocation.globalOptions.commonCjoFiles.clear();
             }
             ci->PreCompileProcess();
             bool changed = ci->CompileAfterParse(cjoManager, graph);
@@ -582,14 +582,14 @@ void CompilerCangjieProject::IncrementTempPkgCompile(const std::string &basicStr
         auto cjoData = cjoManager->GetData(upstreamSourcePkg);
         if (!cjoData) {
             Trace::Log("can not find upstream source-set cache, failed execuate task", fullPkgName);
-            newCI->invocation.globalOptions.commonPartCjos.clear();
+            newCI->invocation.globalOptions.commonCjoFiles.clear();
         } else {
-            newCI->invocation.globalOptions.commonPartCjos.clear();
-            newCI->invocation.globalOptions.commonPartCjos.push_back(realPkgName);
+            newCI->invocation.globalOptions.commonCjoFiles.clear();
+            newCI->invocation.globalOptions.commonCjoFiles.push_back(realPkgName);
             newCI->importManager.SetPackageCjoCache(realPkgName, *cjoData);
         }
     } else {
-        newCI->invocation.globalOptions.commonPartCjos.clear();
+        newCI->invocation.globalOptions.commonCjoFiles.clear();
     }
     if (!UpdateDependencies(fullPkgName, newCI)) {
         return;
@@ -1001,14 +1001,14 @@ std::unique_ptr<LSPCompilerInstance> CompilerCangjieProject::GetCIForFileRefacto
         std::string upstreamSourcePkg = ci->upstreamSourceSetName + "-" + realPkgName;
         auto cjoData = cjoManager->GetData(upstreamSourcePkg);
         if (!cjoData) {
-            ci->invocation.globalOptions.commonPartCjos.clear();
+            ci->invocation.globalOptions.commonCjoFiles.clear();
         } else {
-            ci->invocation.globalOptions.commonPartCjos.clear();
-            ci->invocation.globalOptions.commonPartCjos.push_back(realPkgName);
+            ci->invocation.globalOptions.commonCjoFiles.clear();
+            ci->invocation.globalOptions.commonCjoFiles.push_back(realPkgName);
             ci->importManager.SetPackageCjoCache(realPkgName, *cjoData);
         }
     } else {
-        ci->invocation.globalOptions.commonPartCjos.clear();
+        ci->invocation.globalOptions.commonCjoFiles.clear();
     }
     ci->PreCompileProcess();
 
@@ -1605,8 +1605,8 @@ void CompilerCangjieProject::FullCompilation()
                 ci->loadSrcFilesFromCache = true;
                 ci->upstreamSourceSetName = upstreamSourceSetName;
                 ci->bufferCache = bufferCache;
-                ci->invocation.globalOptions.commonPartCjos.clear();
-                ci->invocation.globalOptions.commonPartCjos.push_back(realPackageName);
+                ci->invocation.globalOptions.commonCjoFiles.clear();
+                ci->invocation.globalOptions.commonCjoFiles.push_back(realPackageName);
                 ci->importManager.SetPackageCjoCache(realPackageName, *cjoData);
                 CIMap[fullPkg] = std::move(ci);
                 CIMap[fullPkg]->PreCompileProcess();
