@@ -540,7 +540,7 @@ func constructCjcInvocation(compileTask: CompileTask, buildConfig: BuildConfig):
 
     res.add(all: extractOptionByString(compileTask.compileOption))
     res.add(all: extractOptionByString(compileTask.overrideOption))
-    res.add(all: appendLinkOption(compileTask))
+    res.add(all: appendLinkOption(compileTask, buildConfig))
     res.add(all: getTypeCommand(compileTask))
     return res
 }
@@ -598,14 +598,56 @@ func appendCommandOptions(compileTask: CompileTask, ignoreTestFlags!: Bool = fal
     res
 }
 
-func appendLinkOption(compileTask: CompileTask, ignoreTestFlags!: Bool = false): ArrayList<String> {
-    if (compileTask.linkOption.isEmpty()) {
+func appendLinkOption(compileTask: CompileTask, buildConfig: BuildConfig, ignoreTestFlags!: Bool = false): ArrayList<String> {
+    if (let Obj | Chir <- compileTask.outputType) {
         return ArrayList<String>()
     }
+
     if (compileTask.outputType == Static && (!ignoreTestFlags && !compileTask.requiredForTests)) {
         return ArrayList<String>()
     }
-    return ArrayList<String>(["--link-options", compileTask.linkOption])
+
+    let linkOptions = ArrayList<String>()
+
+    if (!compileTask.linkOption.isEmpty()) {
+        for (opt in extractOptionByString(compileTask.linkOption)) {
+            linkOptions.add(opt)
+        }
+    }
+
+    let linkSort: HashSet<String> = getDepSet(compileTask, buildConfig) /* cjlint-ignore !G.VAR.02 */
+    let isNativeForCross = compileTask.isCrossCompile                   /* cjlint-ignore !G.VAR.02 */
+
+    for (index in (buildConfig.packageList.all.size - 1)..=0 : -1) {
+        let depName = buildConfig.packageList.all[index]
+        if (!linkSort.contains(depName)) {
+            continue
+        }
+
+        if (buildConfig.packageList.isMacro(depName) || buildConfig.packageList.isTest(depName)) {
+            continue
+        }
+
+        // Get dependency's linkOption from resolveItemMap
+        if (let Some(resolveItem) <- buildConfig.resolveItemMap.get(depName)) {
+            let depLinkOption = if (isNativeForCross) {                 /* cjlint-ignore !G.VAR.02 */
+                resolveItem.nativeLinkOption
+            } else {
+                resolveItem.linkOption
+            }
+
+            if (!depLinkOption.isEmpty()) {
+                let opts = extractOptionByString(depLinkOption)
+                linkOptions.add(all:opts)
+            }
+        }
+    }
+
+    if (linkOptions.isEmpty()) {
+        return ArrayList<String>()
+    }
+
+    return ArrayList<String>(["--link-options", String.join(linkOptions.toArray(), delimiter: " ")])
 }
 
 func getDepLinkCommand(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList<String> {
