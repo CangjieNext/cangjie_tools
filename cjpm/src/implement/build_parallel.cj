@@ -513,7 +513,7 @@ private func registerReadCompilerOptionsTask(engine: IncrementalEngine, compileT
         }
         res.add(all: extractOptionByString(compileTask.compileOption))
         res.add(all: extractOptionByString(compileTask.overrideOption))
-        res.add(all: appendLinkOption(compileTask, ignoreTestFlags: compileTask.requiredForTests))
+        res.add(all: appendLinkOption(compileTask, buildConfig, ignoreTestFlags: compileTask.requiredForTests))
         res.add(all: getTypeCommand(compileTask, ignoreTestFlags: compileTask.requiredForTests))
         CompilerOptions.fromString(res |> collectString(delimiter: " "))
     }
