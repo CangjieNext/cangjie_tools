@@ -6,6 +6,7 @@
 
 #include "LSPDiagObserver.h"
 #include "../../CompilerCangjieProject.h"
+#include "cangjie/Basic/DiagnosticEngine.h"
 
 namespace ark {
 using namespace Cangjie;
@@ -14,6 +15,9 @@ const std::unordered_set<DiagKind> IMPORT_FIX_KIND = {DiagKind::sema_undeclared_
 
 const std::unordered_set<DiagKindRefactor> IMPORT_FIX_RKIND = {DiagKindRefactor::parse_expected_decl,
     DiagKindRefactor::lex_expected_identifier, DiagKindRefactor::sema_undeclared_identifier};
+
+const std::unordered_set<DiagKindRefactor> OVERRIDE_FIX_RKIND = {
+    DiagKindRefactor::sema_class_need_abstract_modifier_or_func_need_impl};
 
 LSPDiagObserver::LSPDiagObserver(Callbacks *c, Cangjie::DiagnosticEngine &engine)
     : Cangjie::DiagnosticHandler(engine, Cangjie::DiagHandlerKind::LSP_HANDLER), callback(c)
@@ -200,11 +204,17 @@ void LSPDiagObserver::CollectQuickFix(Cangjie::Diagnostic &diagnostic, Diagnosti
     bool isRefactor = (!diagnostic.isRefactor && IMPORT_FIX_KIND.count(diagnostic.kind))
         || (diagnostic.isRefactor && IMPORT_FIX_RKIND.count(diagnostic.rKind));
     if (isRefactor) {
-        diagToken.diaFix->addImport = true;
+        diagToken.diagFix->addImport = true;
     }
     // provide remove unused import quick fix
     if (diagnostic.isRefactor && diagnostic.rKind == DiagKindRefactor::sema_unused_import) {
-        diagToken.diaFix->removeImport = true;
+        diagToken.diagFix->removeImport = true;
+    }
+
+    if (diagnostic.isRefactor &&
+        (diagnostic.rKind == DiagKindRefactor::sema_class_need_abstract_modifier_or_func_need_impl ||
+         diagnostic.rKind == DiagKindRefactor::sema_need_member_implementation)) {
+            diagToken.diagFix->overrideFix = true;
     }
 }
 } // namespace ark

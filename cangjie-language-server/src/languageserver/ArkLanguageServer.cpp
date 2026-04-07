@@ -10,10 +10,16 @@
 #include <mutex>
 #include <utility>
 
+#include "cangjie/AST/AttributePack.h"
+#include "cangjie/AST/Node.h"
+#include "cangjie/Basic/Position.h"
 #include "cangjie/Frontend/CompilerInstance.h"
+#include "cangjie/Utils/CastingTemplate.h"
 #include "capabilities/semanticHighlight/SemanticTokensAdaptor.h"
 #include "capabilities/shutdown/Shutdown.h"
 #include "ArkLanguageServer.h"
+#include "common/ItemResolverUtil.h"
+#include "capabilities/overrideMethods/FindOverrideMethodsUtils.h"
 
 namespace ark {
 using namespace Cangjie;
@@ -1222,9 +1228,9 @@ void ArkLanguageServer::ReadyForDiagnostics(std::string file,
     }
     notification.uri.file = URI::URIFromAbsolutePath(file).ToString();
     ArkAST *arkAst = CompilerCangjieProject::GetInstance()->GetArkAST(file);
-    if (MessageHeaderEndOfLine::GetIsDeveco()) {
+    // if (MessageHeaderEndOfLine::GetIsDeveco()) {
         AddDiagnosticQuickFix(diagnostics, arkAst, file);
-    }
+    // }
     for (auto &diagnostic: diagnostics) {
         diagnostic.range = TransformFromIDE2Char(diagnostic.range);
         if (arkAst != nullptr) {
@@ -1248,14 +1254,17 @@ void ArkLanguageServer::AddDiagnosticQuickFix(std::vector<DiagnosticToken> &diag
     }
     const std::string uri = URI::URIFromAbsolutePath(file).ToString();
     for (auto &diagnostic : diagnostics) {
-        if (!diagnostic.diaFix.has_value()) {
+        if (!diagnostic.diagFix.has_value()) {
             continue;
         }
-        if (diagnostic.diaFix->addImport) {
+        if (diagnostic.diagFix->addImport) {
             AddImportQuickFix(diagnostic, arkAst);
         }
-        if (diagnostic.diaFix->removeImport) {
+        if (diagnostic.diagFix->removeImport) {
             RemoveImportQuickFix(diagnostic, arkAst, uri);
+        }
+        if (diagnostic.diagFix->overrideFix) {
+            AddOverrideQuickFix(diagnostic, arkAst);
         }
     }
     ImportAllSymsCodeAction(diagnostics, uri);
@@ -1524,6 +1533,69 @@ void ArkLanguageServer::RemoveImportQuickFix(DiagnosticToken &diagnostic, ArkAST
     }
 }
 
+void ArkLanguageServer::AddOverrideQuickFix(DiagnosticToken &diagnostic, ArkAST *ast)
+{
+    if (!ast->file || !ast->packageInstance ||
+        !diagnostic.diagFix->overrideFix || !diagnostic.relatedInformation.has_value()) {
+        return;
+    }
+
+    auto AdaptASTPos = [](const Position &p) {
+        auto pos = p;
+        pos.line++;
+        pos.column++;
+        return pos;
+    };
+
+    auto pos = AdaptASTPos(diagnostic.range.start);
+
+    auto FindRealDecl = [&ast](const Position pos) -> Ptr<Decl> {
+        std::string query = "_ = (" + std::to_string(pos.fileID) + ", "
+                        + std::to_string(pos.line) + ", " + std::to_string(pos.column) + ")";
+
+        auto syms = SearchContext(ast->packageInstance->ctx, query);
+        auto decls = ast->FindRealDecl(*ast, syms, query, pos, {true, false});
+
+        return decls.empty() ? nullptr : decls[0];
+    };
+
+    auto inheritableDecl = FindRealDecl(pos);
+
+    if (!inheritableDecl) {
+        return;
+    }
+
+    auto superDecls = GetCanSuperCallDecls(inheritableDecl);
+
+    for (auto &info: diagnostic.relatedInformation.value()) {
+        auto lackDeclPos = AdaptASTPos(info.location.range.start);
+        auto decl = FindRealDecl(lackDeclPos);
+        if (!decl) {
+            continue;
+        }
+
+        if (!decl->outerDecl || !DynamicCast<InheritableDecl>(decl->outerDecl)) {
+            continue;
+        }
+
+        auto outer = DynamicCast<InheritableDecl>(decl->outerDecl);
+
+        if (auto funcDecl = DynamicCast<FuncDecl>(decl)) {
+            auto detail = ResolveFuncDetail(funcDecl);
+            FilterModifiers(funcDecl, detail.modifiers);
+            auto signature = detail.ToString();
+            auto superCallText = GetSuperFuncCall(outer, funcDecl, superDecls);
+            auto insertText = detail.ToString() + " {\n" + superCallText + "}";
+            int x = 0;
+        }
+
+        if (auto propDecl = DynamicCast<PropDecl>(decl)) {
+            auto signature = ItemResolverUtil::ResolveDetailByNode(*decl, ast->sourceManager);
+            int x = 0;
+        }
+    }
+}
+
 void ArkLanguageServer::RemoveAllUnusedImportsCodeAction(std::vector<DiagnosticToken> &diagnostics, ArkAST *arkAst,
     const std::string &uri)
 {
@@ -1562,7 +1634,7 @@ void ArkLanguageServer::RemoveAllUnusedImportsCodeAction(std::vector<DiagnosticT
         allUnusedImportCA.edit.value().changes[uri].push_back(textEdit);
     }
     for (auto &diagnostic : diagnostics) {
-        if (!diagnostic.diaFix.has_value() || !diagnostic.diaFix->removeImport || !diagnostic.codeActions.has_value()) {
+        if (!diagnostic.diagFix.has_value() || !diagnostic.diagFix->removeImport || !diagnostic.codeActions.has_value()) {
             continue;
         }
         diagnostic.codeActions.value().push_back(allUnusedImportCA);
@@ -1773,7 +1845,7 @@ int ArkLanguageServer::GetUnusedImportCount(std::vector<DiagnosticToken> &diagno
 {
     int unusedImportCount = 0;
     for (auto &diagnostic : diagnostics) {
-        if (!diagnostic.diaFix.has_value() || !diagnostic.diaFix->removeImport || !diagnostic.codeActions.has_value()) {
+        if (!diagnostic.diagFix.has_value() || !diagnostic.diagFix->removeImport || !diagnostic.codeActions.has_value()) {
             continue;
         }
         unusedImportCount++;
@@ -1801,7 +1873,7 @@ WorkspaceEdit ArkLanguageServer::GetWorkspaceEdit(std::vector<DiagnosticToken> &
 {
     WorkspaceEdit edit;
     for (auto &diagnostic : diagnostics) {
-        if (!diagnostic.diaFix.has_value() || !diagnostic.diaFix->removeImport || !diagnostic.codeActions.has_value()) {
+        if (!diagnostic.diagFix.has_value() || !diagnostic.diagFix->removeImport || !diagnostic.codeActions.has_value()) {
             continue;
         }
         TextEdit textEdit;

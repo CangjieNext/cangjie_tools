@@ -459,6 +459,7 @@ struct CodeAction;
 struct DiagFix {
     bool addImport{false};
     bool removeImport{false};
+    bool overrideFix{false};
 };
 
 struct DiagnosticToken {
@@ -480,7 +481,7 @@ struct DiagnosticToken {
 
     std::optional<std::vector<CodeAction>> codeActions{};
 
-    std::optional<DiagFix> diaFix = DiagFix{false, false};
+    std::optional<DiagFix> diagFix = DiagFix{false, false};
 
     DiagnosticToken()
         : range(), severity(0), code(0), source(""), message(""), relatedInformation() {};

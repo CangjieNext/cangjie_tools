@@ -165,6 +165,8 @@ private:
 
     void RemoveImportQuickFix(DiagnosticToken &diagnostic, ArkAST *arkAst, const std::string &uri);
 
+    void AddOverrideQuickFix(DiagnosticToken &diagnostic, ArkAST *arkAst);
+
     void RemoveAllUnusedImportsCodeAction(std::vector<DiagnosticToken> &diagnostics, ArkAST *arkAst,
         const std::string &uri);
 
