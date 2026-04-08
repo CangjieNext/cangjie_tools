@@ -13,7 +13,7 @@ import cjpm.implement.*
 import cjpm.config.*
 
 let BUILD_LONG_OPTION: Array<String> = ["verbose", "coverage", "output=", "target=", "enable-features=",
-    "no-feature-deduce", "incremental", "target-dir=", "jobs=", "lint", "mock", "member=", "skip-script"]
+    "no-feature-deduce", "incremental", "target-dir=", "jobs=", "lint", "mock", "member=", "skip-script", "lto="]
 let BUILD_USAGE: String = """
 Compile a local module and all of its dependencies.
 
@@ -36,7 +36,8 @@ Available options:
   -o, --output <value>          specify product name when compiling an executable file
   -l, --lint                    enable cjlint code check
   --mock                        enable support of mocking classes in tests
-  --skip-script                 disable script 'build.cj'."""
+  --skip-script                 disable script 'build.cj'.
+  --lto <value>                 override LTO mode (e.g. full, thin); equivalent to profile.build.lto in cjpm.toml."""
 @When[os == "Windows"]
 let EXAMPLE_OUTPUT_NAME = "main.exe"
 @When[os != "Windows"]
@@ -163,6 +164,15 @@ class BuildCommand <: Handle {
 
         if (!handleUnparseArgs(unparseArgs, buildConfig)) {
             return false
+        }
+
+        // --lto=<value> CLI flag overrides profile.build.lto in cjpm.toml
+        let (ltoVal, hasLto) = getArgValue(argMap, "--lto")
+        if (hasLto) {
+            if (!ltoValueCheck(ltoVal, "")) {
+                return false
+            }
+            buildConfig.ltoFromCli = ltoVal
         }
 
         buildConfig.globalConfig.isVerbose = buildConfig.isVerbose
