@@ -26,6 +26,7 @@ public class CommandFactory {
             case "install" => InstallCommand(args)
             case "uninstall" => UninstallCommand(args)
             case "bundle" => BundleCommand(args)
+            case "lib-fold" | "ohos-bundle" => LibFoldCommand(args)
             case "publish" => PublishCommand(args)
             case _ => CpmCommand(args)
         }
