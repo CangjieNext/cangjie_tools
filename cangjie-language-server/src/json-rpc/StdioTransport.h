@@ -13,7 +13,7 @@
 #include "Transport.h"
 
 namespace ark {
-constexpr int MAX_MESSAGE_LENGTH = 30;
+constexpr int MAX_MESSAGE_LENGTH = 25;
 
 class StdioTransport : public Transport {
 public:
@@ -46,6 +46,12 @@ private:
     std::string ReadRawMessage();
 
     std::string ReadStandardMessage();
+
+    bool ParseHeaders(unsigned long long &contentLength);
+
+    bool ValidateContentLength(unsigned long long contentLength);
+
+    std::string ReadBody(unsigned long long contentLength);
 
     std::FILE *pFileIn = nullptr;
     std::FILE *pFileOut = nullptr;
