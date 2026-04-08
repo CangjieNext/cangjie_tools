@@ -272,6 +272,7 @@ func handleCombineAllDeps(buildConfig: BuildConfig, tomlInfo: TomlInfo): Bool {
             println("Warning: configuration failed, field 'profile.build.lto' settings only support compilation for Linux/OHOS")
         }
         buildConfig.ltoValue = tomlInfo.profile.build.ltoValue
+        buildConfig.saveBc = tomlInfo.profile.build.saveBc
     }
 
     if (supportLto() && buildConfig.globalConfig.isProjectCombine && buildConfig.ltoValue.isEmpty()) {
