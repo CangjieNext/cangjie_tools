@@ -62,6 +62,11 @@ public class Profile <: Serializable<Profile> {
 
 public class BuildProfile <: Serializable<BuildProfile> {
     public var ltoValue: String = ""
+    // When true, every package compiled under this profile will also emit a `.bc` bitcode file
+    // into the same target directory, regardless of its output-type.
+    // Packages already compiled as `static` with LTO produce `.bc` natively; all other
+    // output types (dynamic, exe, static-without-lto) get a companion compilation pass.
+    public var saveBc: Bool = false
     public var incremental: Bool = false
     public var analysisCompilePerformance: Bool = false
     public var combined: HashMap<String, OutputType> = HashMap<String, OutputType>()
@@ -82,7 +87,22 @@ public class BuildProfile <: Serializable<BuildProfile> {
         var result = BuildProfile()
         result.cjcJobs = Option<Int64>.deserialize(dms.get("cjc-jobs"))
         result.heuristic = Bool.deserialize((dms.get("enable-heuristic-parallelism") as DataModelBool) ?? DataModelBool(false))
-        result.ltoValue = String.deserialize((dms.get("lto") as DataModelString) ?? DataModelString(""))
+        // Support both the legacy string form  (lto = "full")
+        // and the new table form               ([profile.build.lto] level = "full"  save-bc = true).
+        match (dms.get("lto")) {
+            case Some(v) =>
+                match (v as DataModelString) {
+                    case Some(s) => result.ltoValue = s.getValue()
+                    case None =>
+                        match (v as DataModelStruct) {
+                            case Some(obj) =>
+                                result.ltoValue = String.deserialize((obj.get("level") as DataModelString) ?? DataModelString(""))
+                                result.saveBc = Bool.deserialize((obj.get("save-bc") as DataModelBool) ?? DataModelBool(false))
+                            case None => ()
+                        }
+                }
+            case None => ()
+        }
         result.incremental = Bool.deserialize((dms.get("incremental") as DataModelBool) ?? DataModelBool(false))
         result.analysisCompilePerformance = Bool.deserialize((dms.get("performance_analysis") as DataModelBool) ??
             DataModelBool(false))
