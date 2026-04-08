@@ -82,8 +82,8 @@ void StdioTransport::SendMsg(const nlohmann::json &message)
     std::ostringstream os;
     // "-1", no indentation format
     os << message.dump(-1, ' ', false, nlohmann::json::error_handler_t::ignore);
-    (void)fprintf(pFileOut, "Content-Length: %d%s%s",
-                   static_cast<int>(os.str().size()), MessageHeaderEndOfLine::GetEol().c_str(), os.str().c_str());
+    (void)fprintf(pFileOut, "Content-Length: %zu%s%s",
+                   os.str().size(), MessageHeaderEndOfLine::GetEol().c_str(), os.str().c_str());
     (void)fflush(pFileOut);
     CleanAndLog(log, "send message body:" + os.str());
     Logger::Instance().LogMessage(MessageType::MSG_INFO, log.str());
@@ -159,6 +159,10 @@ std::string StdioTransport::ReadStandardMessage()
             std::stringstream stream;
             stream << line.substr(found + strlen("Content-Length:"));
             stream >> contentLength;
+            if (stream.fail()) {
+                logger.LogMessage(MessageType::MSG_WARNING, "Failed to parse Content-Length header.");
+                contentLength = 0;
+            }
             stream.clear();
         }
     }
@@ -167,7 +171,7 @@ std::string StdioTransport::ReadStandardMessage()
         return "";
     }
 
-    if (contentLength > 1 << MAX_MESSAGE_LENGTH) {
+    if (contentLength > (1ULL << MAX_MESSAGE_LENGTH)) {
         logger.LogMessage(MessageType::MSG_WARNING, "Refusing to read message with too long Content-Length.");
         return "";
     }
