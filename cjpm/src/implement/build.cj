@@ -272,6 +272,16 @@ func handleCombineAllDeps(buildConfig: BuildConfig, tomlInfo: TomlInfo): Bool {
             println("Warning: configuration failed, field 'profile.build.lto' settings only support compilation for Linux/OHOS")
         }
         buildConfig.ltoValue = tomlInfo.profile.build.ltoValue
+        buildConfig.saveBc = tomlInfo.profile.build.saveBc
+    }
+
+    // CLI --lto=<value> overrides cjpm.toml profile.build.lto
+    if (!buildConfig.ltoFromCli.isEmpty()) {
+        buildConfig.isLto = supportLto()
+        if (!buildConfig.isLto) {
+            println("Warning: --lto flag only supported for Linux/OHOS targets, ignoring")
+        }
+        buildConfig.ltoValue = buildConfig.ltoFromCli
     }
 
     if (supportLto() && buildConfig.globalConfig.isProjectCombine && buildConfig.ltoValue.isEmpty()) {

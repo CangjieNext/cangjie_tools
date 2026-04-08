@@ -487,6 +487,10 @@ public open class CommandConfig {
     public var customizedOption: HashSet<String> = HashSet<String>()
     public var isLto: Bool = false
     public var ltoValue: String = ""
+    public var ltoFromCli: String = ""  // set by --lto=<value> CLI flag, overrides cjpm.toml
+    // When true, every package emits an additional `.bc` bitcode file into the target directory.
+    // Derived from [profile.build.lto] save-bc = true in cjpm.toml.
+    public var saveBc: Bool = false
     public var isDebug: Bool = false
     public var memberModule: String = ""
 }
