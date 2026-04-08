@@ -13,6 +13,43 @@
 
 namespace ark {
 namespace lsp {
+
+std::string EscapeLikePattern(const std::string& input)
+{
+    std::string result;
+    for (char c : input) {
+        if (c == '%' || c == '_' || c == '\\') {
+            result += '\\';
+        }
+        result += c;
+    }
+    return result;
+}
+
+std::string EscapeGlobPattern(const std::string& input)
+{
+    std::string result;
+    for (char c : input) {
+        if (c == '*' || c == '?' || c == '[' || c == ']') {
+            result += '\\';
+        }
+        result += c;
+    }
+    return result;
+}
+
+std::string EscapeFts5Pattern(const std::string& input)
+{
+    std::string result;
+    for (char c : input) {
+        if (c == '"') {
+            result += '"';
+        }
+        result += c;
+    }
+    return result;
+}
+
 namespace sql {
 
 #define EXPAND(...) #__VA_ARGS__
@@ -205,6 +242,11 @@ std::once_flag g_configureFlag;
 
 dberr_no ConfigureSQLite()
 {
+    // Security: Log SQLite version for auditing
+    Trace::Log("SQLite version: ", sqlite3_libversion());
+    if (sqlite3_libversion_number() < 3039000) {
+        Trace::Wlog("WARNING: SQLite version older than 3.39.0, security fixes may be missing");
+    }
     sqldb::setSerializedMode();
     return 0;
 }
@@ -490,8 +532,9 @@ dberr_no IndexDatabase::GetCrossSymbolByID(IDArray id, std::function<void(const 
 dberr_no IndexDatabase::GetPkgSymbols(std::string pkgName, std::function<bool(const Symbol &sym)> callback)
 {
     try {
-        std::string scopePrefix = pkgName + ":";
-        Use(sql::SelectSymbolsByPkgName).execute(sqldb::with(pkgName, scopePrefix),
+        std::string scopePrefix = EscapeLikePattern(pkgName) + ":%";
+        std::string escapedPkgName = EscapeLikePattern(pkgName);
+        Use(sql::SelectSymbolsByPkgName).execute(sqldb::with(escapedPkgName, scopePrefix),
             [&](sqldb::Result Row) {
             Symbol resSym;
             PopulateSymbol(Row, resSym);
@@ -507,7 +550,7 @@ dberr_no IndexDatabase::GetPkgSymbols(std::string pkgName, std::function<bool(co
 dberr_no IndexDatabase::GetSymbolsAndCompletions(const std::string &prefix,
     std::function<void(const Symbol &sym, const CompletionItem &completion)> callback)
 {
-    std::string fuzzyPrefix = AddPercentAfterEachUTF8Char(prefix);
+    std::string fuzzyPrefix = EscapeLikePattern(AddPercentAfterEachUTF8Char(prefix));
     try {
         Use(sql::SelectCompletions).execute(sqldb::with(fuzzyPrefix), [&](sqldb::Result Row) {
             Symbol resSym;
@@ -622,7 +665,8 @@ dberr_no IndexDatabase::GetMatchingSymbols(
     std::stringstream patternStream;
     auto Tokenize = GetIdentifierTokenizer();
     Tokenize(query, [&patternStream](std::string_view token, size_t) {
-        patternStream << '"' << token << '"' << '*' << ' ';
+        std::string escapedToken = EscapeFts5Pattern(std::string(token));
+        patternStream << '"' << escapedToken << '"' << '*' << ' ';
     });
     std::string pattern = patternStream.str();
     try {

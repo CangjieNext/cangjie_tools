@@ -46,11 +46,23 @@ public:
 
     static URI URIFromAbsolutePath(const std::string absolutePath);
 
+    static void SetWorkspaceRoot(const std::string& root) {
+        workspaceRoot = root;
+    }
+
+    static bool IsPathWithinWorkspace(const std::string& path) {
+        if (workspaceRoot.empty()) {
+            return true;
+        }
+        return path.find(workspaceRoot) == 0;
+    }
+
 private:
     URI() = default;
     std::string scheme;
     std::string authority;
     std::string body;
+    static std::string workspaceRoot;
 };
 } // namespace ark
 
