@@ -274,6 +274,15 @@ func handleCombineAllDeps(buildConfig: BuildConfig, tomlInfo: TomlInfo): Bool {
         buildConfig.ltoValue = tomlInfo.profile.build.ltoValue
     }
 
+    // CLI --lto=<value> overrides cjpm.toml profile.build.lto
+    if (!buildConfig.ltoFromCli.isEmpty()) {
+        buildConfig.isLto = supportLto()
+        if (!buildConfig.isLto) {
+            println("Warning: --lto flag only supported for Linux/OHOS targets, ignoring")
+        }
+        buildConfig.ltoValue = buildConfig.ltoFromCli
+    }
+
     if (supportLto() && buildConfig.globalConfig.isProjectCombine && buildConfig.ltoValue.isEmpty()) {
         eprintln("Error: field " +
             "'package.package-configuration.${buildConfig.globalConfig.rootName}.combine-all-deps = true' " +
