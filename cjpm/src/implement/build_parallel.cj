@@ -174,6 +174,11 @@ public struct CompileTask {
         // A value of `--lto` flag to be passed to a compiler
         public let isLto!: Bool = false,
         public let ltoValue!: String = "",
+        // When true, a companion static+LTO compilation pass is scheduled for this task to
+        // emit a `.bc` bitcode file into the same target directory.
+        // Only set for packages whose normal output would not already be `.bc`
+        // (i.e. output-type is not static-with-lto).
+        public let saveBc!: Bool = false,
         // Locations of `*.chir` and `*.cjo` of each source set, the current one depends on
         // 0 - CHIR file with declarations to be merged for multiplatform build
         // 1 - The value of `--common-part-cjo` for multiplatform build
@@ -230,6 +235,7 @@ public struct CompileTask {
         isMacro!: ?Bool = None,
         isLto!: ?Bool = None,
         ltoValue!: ?String = None,
+        saveBc!: ?Bool = None,
         prevStageArtifacts!: ?Array<(String, String)> = None,
         isMultiplatform!: ?Bool = None,
         supressed!: ?ArrayList<String> = None,
@@ -274,6 +280,7 @@ public struct CompileTask {
             isMacro: isMacro ?? this.isMacro,
             isLto: isLto ?? this.isLto,
             ltoValue: ltoValue ?? this.ltoValue,
+            saveBc: saveBc ?? this.saveBc,
             prevStageArtifacts: prevStageArtifacts ?? this.prevStageArtifacts,
             isMultiplatform: isMultiplatform ?? this.isMultiplatform,
             supressed: supressed ?? this.supressed,
@@ -1241,6 +1248,10 @@ func createPackageCompileTasks(r: ResolveItem, buildConfig: BuildConfig, product
 
             let isLto = buildConfig.isLto && (outputType == Static || outputType == Exe)
             let ltoValue = if (isLto) { buildConfig.ltoValue } else { "" }
+            // A companion save-bc pass is needed only when the normal compilation would not
+            // already produce a `.bc` file.  Static+LTO already outputs `.bc` natively.
+            // Also requires a non-empty ltoValue (companion task uses --lto=<value> with cjc).
+            let saveBc = buildConfig.saveBc && !buildConfig.ltoValue.isEmpty() && !(outputType == Static && isLto)
 
             let isSplittable = !isMultiplatform &&
                 !isLto &&
@@ -1361,6 +1372,7 @@ func createPackageCompileTasks(r: ResolveItem, buildConfig: BuildConfig, product
                 isMacro: isMacro,
                 isLto: isLto,
                 ltoValue: ltoValue,
+                saveBc: saveBc,
                 prevStageArtifacts: prevStageArtifacts,
                 isMultiplatform: isMultiplatform,
                 supressed: supressed,
@@ -1372,7 +1384,33 @@ func createPackageCompileTasks(r: ResolveItem, buildConfig: BuildConfig, product
             )
 
             let compileTasks = ArrayList<CompileTask>([task])
- 	 
+
+            // When save-bc is requested and the main task would not already produce a `.bc`
+            // file (i.e. not static+LTO), schedule a companion compilation that re-compiles
+            // the same sources as a static+LTO pass to emit `<name>.bc` into the same
+            // target directory.  The companion task has its own Compile TaskId (keyed on
+            // Static output type) so it participates in the incremental cache independently
+            // and does not block any other task.
+            if (task.saveBc) {
+                let bcTaskId = TaskId.Compile(fullName, target, isDebug, mockSupported, Static, sourceSetDir)
+                let (bcOutLog, bcErrLog) = getLogFile(logPath, bcTaskId)
+                let bcTask = task.copy(
+                    id: bcTaskId,
+                    outputType: Static,
+                    isLto: true,
+                    ltoValue: buildConfig.ltoValue,
+                    // Prevent the companion task from spawning another companion for itself.
+                    saveBc: false,
+                    requireTasks: requireTasks,
+                    outLogFile: bcOutLog,
+                    errLogFile: bcErrLog,
+                    compileTargetOutput: None<OutputType>,
+                    prevStageObj: None<String>,
+                    requiresOnlyTypeInfo: false
+                )
+                compileTasks.add(bcTask)
+            }
+
             if (isSplittable) {
                 let taskId = TaskId.Link(fullName, target, isDebug, mockSupported, outputType, sourceSetDir)
                 let prevStageObj = Path(task.targetPath).join(getOutput(task).getOrThrow()).toString()
