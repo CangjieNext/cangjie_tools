@@ -42,7 +42,17 @@ bool CJLintCompilerInstance::PerformImportPackage()
 #ifdef _WIN32
         if (!FileUtil::FileExist(output.c_str()) || remove(output.c_str()) == 0) {
 #endif
-            std::string cmd = "cjc -p " + package + " --compile-macro -o " + package + " > " + EMPTY_DEVICE + " 2>&1";
+            // Short-term mitigation for shell command injection caused by using `system()`.
+            // Validate the dynamic part that will be embedded into the shell command.
+            if (FileUtil::CheckCommandLineInjection(package)) {
+                (void)diag.Diagnose(DiagKind::macro_expand_failed);
+                return false;
+            }
+            // Escape backticks to avoid shell command substitution.
+            // (Run the injection check before escaping to avoid false positives.)
+            std::string safePackage = FileUtil::TransferEscapeBacktick(package);
+            safePackage = FileUtil::GetQuoted(safePackage);
+            std::string cmd = "cjc -p " + safePackage + " --compile-macro -o " + safePackage + " > " + EMPTY_DEVICE + " 2>&1";
             res = system(cmd.c_str());
 #ifdef _WIN32
         }
