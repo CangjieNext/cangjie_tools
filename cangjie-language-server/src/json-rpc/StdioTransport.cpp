@@ -97,13 +97,9 @@ std::string StdioTransport::ReadRawMessage()
 bool ReadLine(std::FILE *in, std::string &out)
 {
     static constexpr int bufSize = 1024;
-    static constexpr size_t maxLineLength = 16 * 1024;
     size_t size = 0;
     out.clear();
     for (;;) {
-        if (size >= maxLineLength) {
-            return false;
-        }
         out.resize(size + bufSize);
 
         if (!RetryAfterSignalUnlessShutdown(nullptr, [&] { return std::fgets(&out[size], bufSize, in); })) {

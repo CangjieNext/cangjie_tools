@@ -8,8 +8,6 @@
 #include "../languageserver/common/Utils.h"
 
 namespace ark {
-std::string URI::workspaceRoot;
-
 static bool ShouldEscape(unsigned char c)
 {
     // Unreserved characters.
@@ -198,20 +196,13 @@ URI URI::Parse(const std::string& origUri)
 
 std::string URI::Resolve(const URI &u)
 {
-    std::string absolutePath = GetAbsolutePath(u.body);
-    if (!IsPathWithinWorkspace(absolutePath)) {
-        return "";
-    }
-    return absolutePath;
+    return GetAbsolutePath(u.body);
 }
 
 std::string URI::Resolve(const std::string &fileURI)
 {
     auto uri = URI::Parse(fileURI);
     auto path = URI::Resolve(uri);
-    if (path.empty()) {
-        return "";
-    }
     return PathToGBK(path);
 }
 } // namespace ark
