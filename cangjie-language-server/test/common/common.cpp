@@ -864,6 +864,8 @@ namespace test::common {
         if (!infile.is_open()) {
             return {};
         }
+	    std::string methodLower = method;
+	    std::transform(methodLower.begin(), methodLower.end(), methodLower.begin(), ::tolower);
         while (infile.good() && !infile.eof()) {
             char buf[MAX_LEN] = {0};
             infile.getline(buf, MAX_LEN);
@@ -883,9 +885,15 @@ namespace test::common {
                     continue;
                 }
                 root = nlohmann::json::parse(message);
-                if (root.contains("method") && std::regex_replace(root["method"].dump(), quotePattern, "") == method) {
-                    return root;
+                if (!root.contains("method")) {
+                    continue;
                 }
+		        std::string rootMethod = std::regex_replace(root["method"].dump(), quotePattern, "");
+		        std::string rootMethodLower = rootMethod;
+                std::transform(rootMethodLower.begin(), rootMethodLower.end(), rootMethodLower.begin(), ::tolower);
+		        if (rootMethodLower.find(methodLower) != std::string::npos) {
+                    return root;
+		        }
 #ifndef NO_EXCEPTIONS
             } catch (nlohmann::detail::parse_error &errs) {
                 continue;
