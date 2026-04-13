@@ -1,0 +1,15 @@
+# LSP generated `macrocall` and `.cache` files
+*.cj.macrocall
+.cache
+
+# `cjpm` built by `cjpm build`
+target
+build-script-cache
+# currently `cjpm` is not used to build `cjpm` so `cjpm.lock` is also ignored
+cjpm.lock
+
+# `cjpm` built by `build/build.py`
+cpp/build
+cpp/out
+cpp/third_party
+
