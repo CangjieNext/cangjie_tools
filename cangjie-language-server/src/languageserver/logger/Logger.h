@@ -101,7 +101,7 @@ public:
 
     static std::mutex logMtx;
 
-private:
+public:
     Logger()
     {
         if (!enableLog) {

@@ -9,6 +9,7 @@
 
 #include <cangjie/Utils/FileUtil.h>
 #include <cstdint>
+#include <memory>
 #include <regex>
 #include <shared_mutex>
 #include <string>
