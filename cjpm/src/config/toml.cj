@@ -467,6 +467,9 @@ public func verifyModuleConfigPre(cfg: TomlInfo, path: String, rootPath: String,
     if (!ltoValueCheck(cfg.profile.build.ltoValue, configFilePath)) {
         return false
     }
+    if (!ltoFinalOutputCheck(cfg.profile.build.ltoFinalOutputValue, configFilePath)) {
+        return false
+    }
     if (!ltoValueCheck(cfg.profile.test.ltoValue, configFilePath)) {
         return false
     }
@@ -519,4 +522,3 @@ func verifyAll<T>(location: String, checkList: T): Bool where T <: Iterable<((St
 
     return result
 }
-

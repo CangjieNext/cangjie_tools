@@ -273,6 +273,51 @@ func handleCombineAllDeps(buildConfig: BuildConfig, tomlInfo: TomlInfo): Bool {
         }
         buildConfig.ltoValue = tomlInfo.profile.build.ltoValue
     }
+    buildConfig.ltoFinalOutputValue = tomlInfo.profile.build.ltoFinalOutputValue
+    buildConfig.ltoExportFile = tomlInfo.profile.build.ltoExportFile
+    buildConfig.ltoRootBcListFile = tomlInfo.profile.build.ltoRootBcListFile
+    buildConfig.ltoRootCJMetadataPrune = tomlInfo.profile.build.ltoRootCJMetadataPrune
+
+    if (!buildConfig.ltoFinalOutputValue.isEmpty()) {
+        if (buildConfig.ltoValue.isEmpty()) {
+            eprintln("Error: field 'profile.build.lto-final-output' requires field 'profile.build.lto'")
+            return false
+        }
+        if (!buildConfig.isLto) {
+            eprintln("Error: field 'profile.build.lto-final-output' only supports compilation to Linux/OHOS/Android/macOS/iOS(target only)")
+            return false
+        }
+        if (tomlInfo.pkg.outputType != Static) {
+            eprintln("Error: field 'profile.build.lto-final-output' only supports root package with output-type '${Static}'")
+            return false
+        }
+    }
+    if (!buildConfig.ltoExportFile.isEmpty()) {
+        if (buildConfig.ltoFinalOutputValue.isEmpty()) {
+            eprintln("Error: field 'profile.build.lto-export-file' requires field 'profile.build.lto-final-output'")
+            return false
+        }
+        if (!fileExists(buildConfig.ltoExportFile)) {
+            eprintln("Error: the file '${buildConfig.ltoExportFile}' configured by 'profile.build.lto-export-file' does not exist")
+            return false
+        }
+    }
+    if (!buildConfig.ltoRootBcListFile.isEmpty()) {
+        if (buildConfig.ltoFinalOutputValue.isEmpty()) {
+            eprintln("Error: field 'profile.build.lto-root-bc-list' requires field 'profile.build.lto-final-output'")
+            return false
+        }
+        if (!fileExists(buildConfig.ltoRootBcListFile)) {
+            eprintln("Error: the file '${buildConfig.ltoRootBcListFile}' configured by 'profile.build.lto-root-bc-list' does not exist")
+            return false
+        }
+    }
+    if (buildConfig.ltoRootCJMetadataPrune) {
+        if (buildConfig.ltoRootBcListFile.isEmpty()) {
+            eprintln("Error: field 'profile.build.lto-root-cjmetadata-prune' requires field 'profile.build.lto-root-bc-list'")
+            return false
+        }
+    }
 
     if (supportLto() && buildConfig.globalConfig.isProjectCombine && buildConfig.ltoValue.isEmpty()) {
         eprintln("Error: field " +
@@ -330,6 +375,8 @@ func getResolveData(buildConfig: BuildConfig, tomlInfo: TomlInfo, isScriptDep: B
                 return Option<ModuleResolve>.None
             }
             if (k != buildConfig.globalConfig.rootName && !pkg.isMacroPackage) {
+                pkg.outputType = Static
+            } else if (pkg.outputType == Static && !buildConfig.ltoFinalOutputValue.isEmpty()) {
                 pkg.outputType = Static
             } else {
                 pkg.outputType = Dynamic
@@ -576,7 +623,9 @@ func appendLinkOption(compileTask: CompileTask, ignoreTestFlags!: Bool = false):
     if (compileTask.linkOption.isEmpty()) {
         return ArrayList<String>()
     }
-    if (compileTask.outputType == Static && (!ignoreTestFlags && !compileTask.requiredForTests)) {
+    if (compileTask.outputType == Static &&
+        (!ignoreTestFlags && !compileTask.requiredForTests) &&
+        compileTask.ltoFinalOutputValue.isEmpty()) {
         return ArrayList<String>()
     }
     return ArrayList<String>(["--link-options", compileTask.linkOption])
@@ -592,7 +641,9 @@ func getDepLinkCommand(compileTask: CompileTask, buildConfig: BuildConfig): Arra
         return res
     }
 
-    if (compileTask.outputType == Exe || compileTask.outputType == Dynamic) {
+    if (compileTask.outputType == Exe ||
+        compileTask.outputType == Dynamic ||
+        (compileTask.outputType == Static && !compileTask.ltoFinalOutputValue.isEmpty())) {
         if (compileTask.isProjectCombined) {
             res.add(all: getLtoCombineBuildArgs(compileTask, buildConfig))
         } else {
@@ -606,7 +657,12 @@ func getDepLinkCommand(compileTask: CompileTask, buildConfig: BuildConfig): Arra
 func getOutput(compileTask: CompileTask): Option<String> {
     match (compileTask.outputType) {
         case Static =>
-            if (compileTask.isLto) {
+            if (!compileTask.ltoFinalOutputValue.isEmpty()) {
+                if (compileTask.ltoFinalOutputValue == "archive") {
+                    return makeCangjieStaticlibName(compileTask.filename)
+                }
+                return "${swapOrgName(compileTask.filename)}.o"
+            } else if (compileTask.isLto) {
                 makeLtoName(compileTask.filename)
             } else {
                 makeCangjieStaticlibName(compileTask.filename)
@@ -648,6 +704,18 @@ func getTypeCommand(compileTask: CompileTask, ignoreTestFlags!: Bool = false): A
     if (compileTask.isLto) {
         assertion { compileTask.outputType == Static || compileTask.outputType == Exe }
         res.add("--lto=${compileTask.ltoValue}")
+    }
+    if (!compileTask.ltoFinalOutputValue.isEmpty()) {
+        res.add("--lto-final-output=${compileTask.ltoFinalOutputValue}")
+    }
+    if (!compileTask.ltoExportFile.isEmpty()) {
+        res.add("--lto-export-list=${compileTask.ltoExportFile}")
+    }
+    if (!compileTask.ltoRootBcListFile.isEmpty()) {
+        res.add("--lto-root-bc-list=${compileTask.ltoRootBcListFile}")
+    }
+    if (compileTask.ltoRootCJMetadataPrune) {
+        res.add("--lto-root-cjmetadata-prune")
     }
 
     res.add("--output-type=${compileTask.outputType.asCompilerArg}")
@@ -821,6 +889,7 @@ func getLtoCombineBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig):
 
 func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList<String> {
     let res = ArrayList<String>()
+    let isLinkTask = compileTask.prevStageObj.isSome()
     // Record dependent root packages
     let cLibLinkMap = if (compileTask.isCrossCompile) {
         buildConfig.globalConfig.crossCLibLinkMap
@@ -833,7 +902,7 @@ func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList
     let allOptions = ArrayList<String>()
     let libPathSet = HashSet<String>()
     let stdDeps = StdDeps()
-    if (compileTask.id.compilePhase == LinkOnly) {
+    if (isLinkTask) {
         addStdDepsOfPackage(stdDeps, compileTask.fullName, buildConfig)
     }
     for (index in (buildConfig.packageList.all.size - 1)..=0 : -1) {
@@ -850,7 +919,7 @@ func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList
         if (buildConfig.packageList.isMacro(depName) || buildConfig.packageList.isTest(depName)) {
             continue
         }
-        if (compileTask.id.compilePhase == LinkOnly) {
+        if (isLinkTask) {
             addStdDepsOfPackage(stdDeps, depName, buildConfig)
         }
         let libPath: String = if (let Some(suffix) <- buildConfig.packageList.productSuffixes.get(depName)) {

@@ -174,12 +174,17 @@ public struct CompileTask {
         // A value of `--lto` flag to be passed to a compiler
         public let isLto!: Bool = false,
         public let ltoValue!: String = "",
+        public let ltoFinalOutputValue!: String = "",
+        public let ltoExportFile!: String = "",
+        public let ltoRootBcListFile!: String = "",
+        public let ltoRootCJMetadataPrune!: Bool = false,
         // Locations of `*.chir` and `*.cjo` of each source set, the current one depends on
         // 0 - CHIR file with declarations to be merged for multiplatform build
         // 1 - The value of `--common-part-cjo` for multiplatform build
         public let prevStageArtifacts!: Array<(String, String)> = Array(), 
         // Whether the source code location is spread between multiple [[source-set]] src-dir
         public let isMultiplatform!: Bool = false, 
+        public let checkDepCjo!: Bool = false,
         // A list of `-Woff` compiler options
         public let supressed!: ArrayList<String> = ArrayList<String>(),
         // The directory, where `outLogFile` and `errLogFile` are stored
@@ -230,8 +235,13 @@ public struct CompileTask {
         isMacro!: ?Bool = None,
         isLto!: ?Bool = None,
         ltoValue!: ?String = None,
+        ltoFinalOutputValue!: ?String = None,
+        ltoExportFile!: ?String = None,
+        ltoRootBcListFile!: ?String = None,
+        ltoRootCJMetadataPrune!: ?Bool = None,
         prevStageArtifacts!: ?Array<(String, String)> = None,
         isMultiplatform!: ?Bool = None,
+        checkDepCjo!: ?Bool = None,
         supressed!: ?ArrayList<String> = None,
         logPath!: ?String = None,
         outLogFile!: ?String = None,
@@ -274,8 +284,13 @@ public struct CompileTask {
             isMacro: isMacro ?? this.isMacro,
             isLto: isLto ?? this.isLto,
             ltoValue: ltoValue ?? this.ltoValue,
+            ltoFinalOutputValue: ltoFinalOutputValue ?? this.ltoFinalOutputValue,
+            ltoExportFile: ltoExportFile ?? this.ltoExportFile,
+            ltoRootBcListFile: ltoRootBcListFile ?? this.ltoRootBcListFile,
+            ltoRootCJMetadataPrune: ltoRootCJMetadataPrune ?? this.ltoRootCJMetadataPrune,
             prevStageArtifacts: prevStageArtifacts ?? this.prevStageArtifacts,
             isMultiplatform: isMultiplatform ?? this.isMultiplatform,
+            checkDepCjo: checkDepCjo ?? this.checkDepCjo,
             supressed: supressed ?? this.supressed,
             logPath: logPath ?? this.logPath,
             outLogFile: outLogFile ?? this.outLogFile,
@@ -1241,6 +1256,16 @@ func createPackageCompileTasks(r: ResolveItem, buildConfig: BuildConfig, product
 
             let isLto = buildConfig.isLto && (outputType == Static || outputType == Exe)
             let ltoValue = if (isLto) { buildConfig.ltoValue } else { "" }
+            let isRootStaticFinalLto = isLto &&
+                outputType == Static &&
+                product &&
+                fullName == buildConfig.globalConfig.rootName &&
+                !requiredForTests &&
+                !buildConfig.ltoFinalOutputValue.isEmpty()
+            let ltoFinalOutputValue = if (isRootStaticFinalLto) { buildConfig.ltoFinalOutputValue } else { "" }
+            let ltoExportFile = if (isRootStaticFinalLto) { buildConfig.ltoExportFile } else { "" }
+            let ltoRootBcListFile = if (isRootStaticFinalLto) { buildConfig.ltoRootBcListFile } else { "" }
+            let ltoRootCJMetadataPrune = isRootStaticFinalLto && buildConfig.ltoRootCJMetadataPrune
 
             let isSplittable = !isMultiplatform &&
                 !isLto &&
@@ -1361,6 +1386,10 @@ func createPackageCompileTasks(r: ResolveItem, buildConfig: BuildConfig, product
                 isMacro: isMacro,
                 isLto: isLto,
                 ltoValue: ltoValue,
+                ltoFinalOutputValue: ltoFinalOutputValue,
+                ltoExportFile: ltoExportFile,
+                ltoRootBcListFile: ltoRootBcListFile,
+                ltoRootCJMetadataPrune: ltoRootCJMetadataPrune,
                 prevStageArtifacts: prevStageArtifacts,
                 isMultiplatform: isMultiplatform,
                 supressed: supressed,
@@ -1413,7 +1442,6 @@ func createPackageCompileTasks(r: ResolveItem, buildConfig: BuildConfig, product
             if (product) {
                 productOutputTypes.add(fullName, outputType)
             }
-
             compileTasks
         }
 

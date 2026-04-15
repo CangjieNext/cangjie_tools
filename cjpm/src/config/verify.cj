@@ -208,6 +208,17 @@ public func ltoValueCheck(_: String, _: String): Bool {
     return true
 }
 
+public func ltoFinalOutputCheck(text: String, path: String): Bool {
+    if (text.isEmpty()) {
+        return true
+    }
+    if (text != "archive" && text != "object") {
+        eprintln("Error: the 'lto-final-output' field in ${path} is wrong, optional value are 'archive/object'")
+        return false
+    }
+    return true
+}
+
 public func safeCheck(text: String, path: String): Bool {
     safeCheckResult(text, path: path)
         .inspectErr { err => eprintln("Error: ${err}") }

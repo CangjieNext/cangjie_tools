@@ -123,7 +123,8 @@ func dealWithSuperPkg(dm: DepModel, isProjectCombine: Bool): Bool {
             }
         }
         dm.packageDepMap[superPkgName].superPkgCfg = superPkgCfg
-        if (dm.packageDepMap[superPkgName].outputType != Dynamic) {
+        if (dm.packageDepMap[superPkgName].outputType != Dynamic &&
+            !(isProjectCombine && dm.packageDepMap[superPkgName].outputType == Static)) {
             println("Warning: output-type of combined root package '${superPkgName}' in " +
                 "${Path(dm.globalConfig.rootPath).join(CONFIG_FILE_NAME).toString()} is not 'dynamic', " +
                 "final output will be dynamic library")

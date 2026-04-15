@@ -487,6 +487,10 @@ public open class CommandConfig {
     public var customizedOption: HashSet<String> = HashSet<String>()
     public var isLto: Bool = false
     public var ltoValue: String = ""
+    public var ltoFinalOutputValue: String = ""
+    public var ltoExportFile: String = ""
+    public var ltoRootBcListFile: String = ""
+    public var ltoRootCJMetadataPrune: Bool = false
     public var isDebug: Bool = false
     public var memberModule: String = ""
 }
@@ -945,9 +949,14 @@ public func linkPackage(libName: String, libPath: String, isLto: Bool): ArrayLis
     let processdLibName = swapOrgName(libName)
     let res = ArrayList<String>()
     let ltoFile = Path(libPath).join(makeLtoName(processdLibName)).toString()
+    let prefixedLtoFile = Path(libPath).join("lib${processdLibName}.bc").toString()
     if (isLto) {
         if (fileExists(ltoFile)) {
             res.add(ltoFile)
+            return res
+        }
+        if (fileExists(prefixedLtoFile)) {
+            res.add(prefixedLtoFile)
             return res
         }
     }
@@ -959,6 +968,8 @@ public func linkPackage(libName: String, libPath: String, isLto: Bool): ArrayLis
         res.add(all: ["-L", libPath, "-l${processdLibName}"])
     } else if (fileExists(ltoFile)) {
         res.add(ltoFile)
+    } else if (fileExists(prefixedLtoFile)) {
+        res.add(prefixedLtoFile)
     }
 
     return res
@@ -1003,11 +1014,12 @@ public func isPackageExist(fileName: String, filePath: String, logFlag: Bool, pa
 public func isPackageExist(fileName: String, filePath: String, logFlag: Bool, path: String, _: Bool): Bool {
     let processdFileName = swapOrgName(fileName)
     let ltoFile: String = Path(filePath).join("${processdFileName}.bc").toString()
+    let prefixedLtoFile: String = Path(filePath).join("lib${processdFileName}.bc").toString()
     let dylib: String = Path(filePath).join("lib${processdFileName}.so").toString()
     let staticlib: String = Path(filePath).join("lib${processdFileName}.a").toString()
     let winDylib: String = Path(filePath).join("lib${processdFileName}.dll").toString()
     let macDylib: String = Path(filePath).join("lib${processdFileName}.dylib").toString()
-    if (fileExists(dylib) || fileExists(staticlib) || fileExists(winDylib) || fileExists(ltoFile) || fileExists(
+    if (fileExists(dylib) || fileExists(staticlib) || fileExists(winDylib) || fileExists(ltoFile) || fileExists(prefixedLtoFile) || fileExists(
         macDylib)) {
         return true
     }

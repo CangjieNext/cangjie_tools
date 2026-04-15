@@ -62,6 +62,10 @@ public class Profile <: Serializable<Profile> {
 
 public class BuildProfile <: Serializable<BuildProfile> {
     public var ltoValue: String = ""
+    public var ltoFinalOutputValue: String = ""
+    public var ltoExportFile: String = ""
+    public var ltoRootBcListFile: String = ""
+    public var ltoRootCJMetadataPrune: Bool = false
     public var incremental: Bool = false
     public var analysisCompilePerformance: Bool = false
     public var combined: HashMap<String, OutputType> = HashMap<String, OutputType>()
@@ -83,6 +87,14 @@ public class BuildProfile <: Serializable<BuildProfile> {
         result.cjcJobs = Option<Int64>.deserialize(dms.get("cjc-jobs"))
         result.heuristic = Bool.deserialize((dms.get("enable-heuristic-parallelism") as DataModelBool) ?? DataModelBool(false))
         result.ltoValue = String.deserialize((dms.get("lto") as DataModelString) ?? DataModelString(""))
+        result.ltoFinalOutputValue =
+            String.deserialize((dms.get("lto-final-output") as DataModelString) ?? DataModelString(""))
+        result.ltoExportFile =
+            String.deserialize((dms.get("lto-export-file") as DataModelString) ?? DataModelString(""))
+        result.ltoRootBcListFile =
+            String.deserialize((dms.get("lto-root-bc-list") as DataModelString) ?? DataModelString(""))
+        result.ltoRootCJMetadataPrune =
+            Bool.deserialize((dms.get("lto-root-cjmetadata-prune") as DataModelBool) ?? DataModelBool(false))
         result.incremental = Bool.deserialize((dms.get("incremental") as DataModelBool) ?? DataModelBool(false))
         result.analysisCompilePerformance = Bool.deserialize((dms.get("performance_analysis") as DataModelBool) ??
             DataModelBool(false))
@@ -372,10 +384,12 @@ public func verifyCombinedField(cfg: TomlInfo, path: String): Bool {
             flag = false
             continue
         }
-        if (outputType != Dynamic) {
+        let allowStaticRoot = outputType == Static && !cfg.profile.build.ltoFinalOutputValue.isEmpty()
+        if (outputType != Dynamic && !allowStaticRoot) {
             eprintln(
                 "Error: field 'profile.build.combined.${cfg.pkg.name}' in " +
-                    "${Path(path).join(CONFIG_FILE_NAME).toString()} can only configured as 'dynamic'")
+                    "${Path(path).join(CONFIG_FILE_NAME).toString()} can only configured as 'dynamic'" +
+                    " or as 'static' when 'profile.build.lto-final-output' is enabled")
             flag = false
             continue
         }
