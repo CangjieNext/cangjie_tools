@@ -4,6 +4,7 @@
 #
 # See https://cangjie-lang.cn/pages/LICENSE for license information.
 
+# test8
 cmake_minimum_required(VERSION 3.16.3)
 
 project(cjtrace-recover)
@@ -112,3 +113,6 @@ add_cangjie_executable(cjtrace-recover
     COMPILE_OPTIONS ${cj_compile_options}
     DEPENDS demangle_wrapper cangjie-demangle
 )
+
+
+# test5
