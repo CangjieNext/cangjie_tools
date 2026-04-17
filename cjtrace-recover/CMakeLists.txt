@@ -112,3 +112,6 @@ add_cangjie_executable(cjtrace-recover
     COMPILE_OPTIONS ${cj_compile_options}
     DEPENDS demangle_wrapper cangjie-demangle
 )
+
+
+# test3
