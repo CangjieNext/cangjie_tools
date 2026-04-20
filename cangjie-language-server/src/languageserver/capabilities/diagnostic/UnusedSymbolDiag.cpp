@@ -139,7 +139,7 @@ std::unordered_set<SymbolID> UnusedSymbolDiag::CollectExcludedMacroDecls(
                     innerDecl ? innerDecl->astKind : ASTKind::UNKNOWN,
                     innerDecl, result);
             }
-            if (toplevelDecl->TestAttr(Attribute::MACRO_EXPANDED_NODE) && toplevelDecl->curMacroCall) {
+            if (toplevelDecl->curMacroCall && !toplevelDecl->isInMacroCall) {
                 auto* macroExpandDecl = dynamic_cast<MacroExpandDecl*>(toplevelDecl->curMacroCall.get());
                 TryAddMacroDeclSymbol(macroExpandDecl, toplevelDecl->astKind,
                     DynamicCast<Decl*>(toplevelDecl.get()), result);
