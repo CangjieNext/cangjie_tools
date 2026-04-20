@@ -6,6 +6,13 @@
 
 #include "StructuralRuleGNAM03.h"
 #include <regex>
+#include "cangjie/AST/ASTCasting.h"
+#include "cangjie/AST/Nodes/ClassDecl.h"
+#include "cangjie/AST/Nodes/EnumDecl.h"
+#include "cangjie/AST/Nodes/InterfaceDecl.h"
+#include "cangjie/AST/Nodes/StructDecl.h"
+#include "cangjie/AST/Nodes/Type.h"
+#include "cangjie/AST/Nodes/TypeAliasDecl.h"
 #include "common/CommonFunc.h"
 
 using namespace Cangjie;

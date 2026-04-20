@@ -7,9 +7,20 @@
 #ifndef LSPSERVER_INHERITDECLUTIL_H
 #define LSPSERVER_INHERITDECLUTIL_H
 
-#include "cangjie/AST/Node.h"
+#include <map>
+#include <set>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+
 #include "../../../json-rpc/Common.h"
 #include "../../../json-rpc/CompletionType.h"
+#include "cangjie/AST/Nodes/Decl.h"
+#include "cangjie/AST/Nodes/FuncDecl.h"
+#include "cangjie/AST/Nodes/InheritableDecl.h"
+#include "cangjie/AST/Nodes/Node.h"
+#include "cangjie/AST/Nodes/PropDecl.h"
 
 namespace ark {
 class InheritDeclUtil {

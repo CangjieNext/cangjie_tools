@@ -6,10 +6,16 @@
 
 #include "StructuralRuleGERR01.h"
 #include "common/CommonFunc.h"
+#include "cangjie/AST/ASTCasting.h"
+#include "cangjie/AST/Nodes/FuncDecl.h"
+#include "cangjie/AST/Nodes/CallExpr.h"
+#include "cangjie/AST/Nodes/TryExpr.h"
+#include "cangjie/AST/Nodes/Block.h"
 
 namespace Cangjie::CodeCheck {
 using namespace Cangjie;
 using namespace AST;
+using namespace Meta;
 
 void StructuralRuleGERR01::AnalyzeCatchBlock(std::vector<OwnedPtr<Cangjie::AST::Block>>& blocks)
 {

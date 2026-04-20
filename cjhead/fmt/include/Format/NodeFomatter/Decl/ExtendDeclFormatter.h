@@ -7,6 +7,7 @@
 #ifndef CJFMT_EXTENDDECLFORMATTER_H
 #define CJFMT_EXTENDDECLFORMATTER_H
 #include "DeclFormatter.h"
+#include "cangjie/AST/Nodes/ExtendDecl.h"
 
 namespace Cangjie::Format {
 class ExtendDeclFormatter : public DeclFormatter {

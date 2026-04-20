@@ -7,8 +7,8 @@
 #ifndef LSPSERVER_FINDOVERRIDEMETHODSUTILS_H
 #define LSPSERVER_FINDOVERRIDEMETHODSUTILS_H
 
-#include "cangjie/AST/Node.h"
 #include "cangjie/Basic/Utils.h"
+#include "cangjie/AST/Nodes/PropDecl.h"
 
 namespace ark {
 using namespace Cangjie;

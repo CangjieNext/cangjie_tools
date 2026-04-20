@@ -23,7 +23,6 @@
 #include "CJHeadUtil.h"
 #include "HeadFileVisitor.h"
 
-#include "cangjie/AST/Node.h"
 #include "cangjie/Lex/Lexer.h"
 #include "cangjie/Utils/FileUtil.h"
 #include "cangjie/Utils/Utils.h"

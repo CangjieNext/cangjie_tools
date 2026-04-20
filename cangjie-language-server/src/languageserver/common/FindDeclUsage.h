@@ -8,7 +8,7 @@
 #define CANGJIE_FIND_DECL_USAGE
 
 #include <unordered_set>
-#include "cangjie/AST/Node.h"
+#include "cangjie/AST/Nodes/FuncDecl.h"
 #include "cangjie/AST/Walker.h"
 #include "Constants.h"
 

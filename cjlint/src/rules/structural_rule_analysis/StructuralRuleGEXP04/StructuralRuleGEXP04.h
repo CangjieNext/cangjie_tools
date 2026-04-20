@@ -9,10 +9,13 @@
 
 #include "cangjie/AST/Match.h"
 #include "cangjie/AST/Walker.h"
+#include "cangjie/AST/Nodes/Expr.h"
+#include "cangjie/AST/Nodes/FuncDecl.h"
 #include "cangjie/Basic/Match.h"
 #include "rules/structural_rule_analysis/StructuralRule.h"
 
 namespace Cangjie::CodeCheck {
+namespace AST = Cangjie::AST;
 /**
  * 仓颉编程语言通用编程规范
  * G.EXP.04：尽量避免副作用发生依赖于操作符的求值顺序

@@ -8,7 +8,6 @@
 #define DATAFLOW_RULE_VAR_01_CHECK_H
 
 #include "../DataflowRule.h"
-#include "cangjie/AST/Node.h"
 #include "cangjie/Utils/Utils.h"
 #include "common/CommonData.h"
 #include "common/DiagnosticEngine.h"

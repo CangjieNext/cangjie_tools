@@ -8,10 +8,16 @@
 #define LSPSERVER_ITEMRESOLVERUTIL_H
 
 #include "cangjie/AST/ASTContext.h"
+#include "cangjie/AST/Nodes/BuiltInDecl.h"
+#include "cangjie/AST/Nodes/FuncArg.h"
+#include "cangjie/AST/Nodes/FuncParamList.h"
+#include "cangjie/AST/Nodes/Generic.h"
+#include "cangjie/AST/Nodes/MacroInvocation.h"
+#include "cangjie/AST/Nodes/PropDecl.h"
+#include "cangjie/AST/Nodes/Type.h"
 #include "cangjie/AST/Types.h"
 #include "../../json-rpc/CompletionType.h"
 #include "../../json-rpc/Protocol.h"
-#include "cangjie/AST/Node.h"
 #include "cangjie/Basic/SourceManager.h"
 
 namespace ark {

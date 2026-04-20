@@ -8,6 +8,7 @@
 #define CANGJIECODECHECK_STRUCTURALRULEGEXP01_H
 
 #include "cangjie/Basic/Match.h"
+#include "cangjie/AST/Nodes/MatchExpr.h"
 #include "rules/structural_rule_analysis/StructuralRule.h"
 
 namespace Cangjie::CodeCheck {

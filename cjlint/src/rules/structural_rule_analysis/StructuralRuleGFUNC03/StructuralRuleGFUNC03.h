@@ -9,6 +9,7 @@
 #include <set>
 #include <stack>
 #include <utility>
+#include "cangjie/AST/Nodes/Block.h"
 #include "rules/structural_rule_analysis/StructuralRule.h"
 
 namespace Cangjie::CodeCheck {

@@ -21,7 +21,6 @@
 #include "LSPCompilerInstance.h"
 #include "Options.h"
 #include "ThrdPool.h"
-#include "cangjie/AST/Node.h"
 #include "cangjie/Basic/DiagnosticEngine.h"
 #include "cangjie/Frontend/CompilerInvocation.h"
 #include "cangjie/Modules/ImportManager.h"

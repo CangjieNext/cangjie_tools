@@ -9,6 +9,9 @@
 
 #include "rules/structural_rule_analysis/StructuralRule.h"
 
+#include "cangjie/AST/Nodes/FuncParamList.h"
+#include "cangjie/AST/Nodes/LambdaExpr.h"
+#include "cangjie/AST/Nodes/SpawnExpr.h"
 #include "cangjie/AST/Walker.h"
 #include "cangjie/Basic/Match.h"
 

@@ -10,6 +10,7 @@
 #include <fstream>
 #include <iostream>
 #include "cangjie/Basic/Match.h"
+#include "cangjie/AST/Nodes/TokenPart.h"
 #include "rules/structural_rule_analysis/StructuralRule.h"
 
 namespace Cangjie::CodeCheck {

@@ -6,7 +6,6 @@
 
 #include "Format/NodeFomatter/Node/FuncParamListFormatter.h"
 #include "Format/ASTToFormatSource.h"
-#include "cangjie/AST/Node.h"
 #include <vector>
 namespace Cangjie::Format {
 const int MIN_MUL_MEMBERS = 2;

@@ -8,6 +8,8 @@
 #define CANGJIECODECHECK_STRUCTURALRULEP03_H
 
 #include "nlohmann/json.hpp"
+#include "cangjie/AST/Nodes/CallExpr.h"
+#include "cangjie/AST/Nodes/FuncArg.h"
 #include "cangjie/Basic/Match.h"
 #include "rules/structural_rule_analysis/StructuralRule.h"
 

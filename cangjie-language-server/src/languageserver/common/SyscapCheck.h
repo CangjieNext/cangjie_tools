@@ -7,9 +7,14 @@
 #ifndef LSPSERVER_SYSCAPCHECK_H
 #define LSPSERVER_SYSCAPCHECK_H
 
+#include <cstdint>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
-#include "cangjie/AST/Node.h"
+#include <vector>
+
+#include "cangjie/AST/Nodes/Decl.h"
+#include "cangjie/AST/Nodes/Node.h"
 
 namespace ark {
 using SysCapSet = std::unordered_set<std::string>;

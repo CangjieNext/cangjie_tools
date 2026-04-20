@@ -5,6 +5,7 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 #include "StructuralRuleGITF02.h"
+#include "cangjie/AST/ASTCasting.h"
 #include "common/CommonFunc.h"
 
 namespace Cangjie::CodeCheck {

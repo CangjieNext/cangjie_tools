@@ -6,6 +6,8 @@
 
 #include "StructuralRuleGNAM04.h"
 #include <regex>
+#include "cangjie/AST/Nodes/FuncDecl.h"
+#include "cangjie/AST/Nodes/VarDecl.h"
 #include "common/CommonFunc.h"
 
 using namespace Cangjie;

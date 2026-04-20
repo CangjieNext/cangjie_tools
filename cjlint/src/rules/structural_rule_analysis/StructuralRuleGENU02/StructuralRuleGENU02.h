@@ -10,6 +10,8 @@
 #include <fstream>
 #include <iostream>
 #include "rules/structural_rule_analysis/StructuralRule.h"
+#include "cangjie/AST/Types.h"
+#include "cangjie/AST/Nodes/Type.h"
 #include "cangjie/Basic/Match.h"
 
 namespace Cangjie::CodeCheck {

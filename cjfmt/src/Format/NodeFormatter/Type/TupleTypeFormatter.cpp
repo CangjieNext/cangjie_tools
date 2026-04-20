@@ -6,7 +6,8 @@
 
 #include "Format/NodeFormatter/Type/TupleTypeFormatter.h"
 #include "Format/ASTToFormatSource.h"
-#include "cangjie/AST/Node.h"
+#include "cangjie/AST/Nodes/Node.h"
+#include "cangjie/AST/Nodes/Type.h"
 
 namespace Cangjie::Format {
 using namespace Cangjie::AST;

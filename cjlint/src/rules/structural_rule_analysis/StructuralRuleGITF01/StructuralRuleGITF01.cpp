@@ -5,6 +5,8 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 #include "StructuralRuleGITF01.h"
+#include "cangjie/AST/ASTCasting.h"
+#include "cangjie/Sema/TypeManager.h"
 
 namespace Cangjie::CodeCheck {
 using namespace Cangjie;

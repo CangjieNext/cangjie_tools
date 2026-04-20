@@ -9,7 +9,6 @@
 #include <string>
 #include <unordered_set>
 #include <algorithm>
-#include "cangjie/AST/Node.h"
 #include "Format/ASTToFormatSource.h"
 
 namespace Cangjie::Format {

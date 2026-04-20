@@ -7,6 +7,7 @@
 #ifndef CJFMT_PRIMARYCTORDECLFORMATTER_H
 #define CJFMT_PRIMARYCTORDECLFORMATTER_H
 #include "DeclFormatter.h"
+#include "cangjie/AST/Nodes/FuncDecl.h"
 
 namespace Cangjie::Format {
 class PrimaryCtorDeclFormatter : public DeclFormatter {

@@ -7,6 +7,7 @@
 #ifndef CJFMT_MAINDECLFORMATTER_H
 #define CJFMT_MAINDECLFORMATTER_H
 #include "DeclFormatter.h"
+#include "cangjie/AST/Nodes/FuncDecl.h"
 
 namespace Cangjie::Format {
 class MainDeclFormatter : public DeclFormatter {

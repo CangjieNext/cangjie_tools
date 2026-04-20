@@ -6,14 +6,70 @@
 
 #include "LSPDiagObserver.h"
 #include "../../CompilerCangjieProject.h"
+#include <algorithm>
 
 namespace ark {
 using namespace Cangjie;
-const std::unordered_set<DiagKind> IMPORT_FIX_KIND = {DiagKind::sema_undeclared_identifier,
-    DiagKind::sema_undeclared_type_name, DiagKind::macro_undeclared_identifier};
 
-const std::unordered_set<DiagKindRefactor> IMPORT_FIX_RKIND = {DiagKindRefactor::parse_expected_decl,
-    DiagKindRefactor::lex_expected_identifier, DiagKindRefactor::sema_undeclared_identifier};
+static bool IsSameDiagId(DiagId lhs, DiagId rhs)
+{
+    return lhs.Val() == rhs.Val();
+}
+
+static std::string_view GetCategory(DiagCategory category)
+{
+    switch (category) {
+        case DiagCategory::LEX: {
+            return "lex";
+        }
+        case DiagCategory::PARSE: {
+            return "parse";
+        }
+        case DiagCategory::PARSE_QUERY: {
+            return "parse_query";
+        }
+        case DiagCategory::CONDITIONAL_COMPILATION: {
+            return "conditional_compilation";
+        }
+        case DiagCategory::IMPORT_PACKAGE: {
+            return "import";
+        }
+        case DiagCategory::MODULE: {
+            return "module";
+        }
+        case DiagCategory::MACRO_EXPAND: {
+            return "macro";
+        }
+        case DiagCategory::SEMA: {
+            return "sema";
+        }
+        case DiagCategory::CHIR: {
+            return "chir";
+        }
+        case DiagCategory::OTHER:
+        default:
+            return "other";
+    }
+}
+
+static constexpr std::string_view DK_SEMA_UNDECLARED_IDENTIFIER = "sema_undeclared_identifier";
+static constexpr std::string_view DK_SEMA_UNDECLARED_TYPE_NAME = "sema_undeclared_type_name";
+static constexpr std::string_view DK_MACRO_UNDECLARED_IDENTIFIER = "macro_undeclared_identifier";
+static constexpr std::string_view RK_PARSE_EXPECTED_DECL = "parse_expected_decl";
+static constexpr std::string_view RK_LEX_EXPECTED_IDENTIFIER = "lex_expected_identifier";
+static constexpr std::string_view RK_SEMA_UNDECLARED_IDENTIFIER = "sema_undeclared_identifier";
+static constexpr std::string_view RK_MODULE_READ_FILE_TO_BUFFER_FAILED = "module_read_file_to_buffer_failed";
+static constexpr std::string_view RK_SEMA_MISMATCHED_TYPES = "sema_mismatched_types";
+static constexpr std::string_view RK_SEMA_MISMATCHED_TYPES_BECAUSE = "sema_mismatched_types_because";
+static constexpr std::string_view RK_PACKAGE_UNSUPPORT_SAVE = "package_unsupport_save";
+static constexpr std::string_view RK_MODULE_VERSION_NOT_IDENTICAL = "module_version_not_identical";
+static constexpr std::string_view RK_MODULE_LOADED_AST_FAILED = "module_loaded_ast_failed";
+static constexpr std::string_view RK_SEMA_UNUSED_IMPORT = "sema_unused_import";
+
+static bool IsDiagMessage(const Diagnostic& diagnostic, std::string_view key)
+{
+    return diagnostic.diagMessage == key;
+}
 
 LSPDiagObserver::LSPDiagObserver(Callbacks *c, Cangjie::DiagnosticEngine &engine)
     : Cangjie::DiagnosticHandler(engine, Cangjie::DiagHandlerKind::LSP_HANDLER), callback(c)
@@ -40,10 +96,10 @@ DiagLSPSeverity GetSeverity(DiagSeverity l)
 
 void SetDiagMessage(Cangjie::Diagnostic &diagnostic, DiagnosticToken &diagToken)
 {
-    if (diagnostic.rKind == DiagKindRefactor::module_read_file_to_buffer_failed) {
+    if (IsDiagMessage(diagnostic, RK_MODULE_READ_FILE_TO_BUFFER_FAILED)) {
         diagToken.message = "Empty file can not be compiled";
-    } else if (diagnostic.rKind == DiagKindRefactor::sema_mismatched_types ||
-               diagnostic.rKind == DiagKindRefactor::sema_mismatched_types_because) {
+    } else if (IsDiagMessage(diagnostic, RK_SEMA_MISMATCHED_TYPES) ||
+               IsDiagMessage(diagnostic, RK_SEMA_MISMATCHED_TYPES_BECAUSE)) {
         diagToken.message = diagnostic.GetErrorMessage() + " " + diagnostic.mainHint.str;
     } else {
         diagToken.message = diagnostic.GetErrorMessage();
@@ -53,14 +109,14 @@ void SetDiagMessage(Cangjie::Diagnostic &diagnostic, DiagnosticToken &diagToken)
 void LSPDiagObserver::HandleDiagnose(Cangjie::Diagnostic &diagnostic)
 {
     // LSP client can't process negative
-    if (!diagnostic.IsValid() || diagnostic.rKind == DiagKindRefactor::package_unsupport_save) {
+    if (!diagnostic.IsValid() || IsDiagMessage(diagnostic, RK_PACKAGE_UNSUPPORT_SAVE)) {
         return;
     }
 
     // Blocks crashes caused by binary mismatches in Release
 #ifndef DEBUG
-    if (diagnostic.rKind == DiagKindRefactor::module_version_not_identical ||
-        diagnostic.rKind == DiagKindRefactor::module_loaded_ast_failed) {
+    if (IsDiagMessage(diagnostic, RK_MODULE_VERSION_NOT_IDENTICAL) ||
+        IsDiagMessage(diagnostic, RK_MODULE_LOADED_AST_FAILED)) {
         if (!MessageHeaderEndOfLine::GetIsDeveco()) {
             // Ensure that the server can exit normally.
             CompilerCangjieProject::GetInstance()->isIdentical = false;
@@ -88,8 +144,8 @@ void LSPDiagObserver::HandleDiagnose(Cangjie::Diagnostic &diagnostic)
     diagToken.source = "Cangjie";
     diagToken.code = static_cast<int>(diagnostic.GetDiagKind());
     SetDiagMessage(diagnostic, diagToken);
-    diagToken.category = diagnostic.GetDiagKind();
-    if (diagnostic.rKind == DiagKindRefactor::sema_unused_import) {
+    diagToken.category = GetCategory(diagnostic.diagCategory);
+    if (IsDiagMessage(diagnostic, RK_SEMA_UNUSED_IMPORT)) {
         diagToken.tags = {1};
         diagToken.severity = static_cast<int>(DiagLSPSeverity::HINT);
     }
@@ -197,13 +253,17 @@ void LSPDiagObserver::DealMacroDiags(Cangjie::Diagnostic &diagnostic, const Diag
 void LSPDiagObserver::CollectQuickFix(Cangjie::Diagnostic &diagnostic, DiagnosticToken &diagToken)
 {
     // provide add import quick fix
-    bool isRefactor = (!diagnostic.isRefactor && IMPORT_FIX_KIND.count(diagnostic.kind))
-        || (diagnostic.isRefactor && IMPORT_FIX_RKIND.count(diagnostic.rKind));
-    if (isRefactor) {
+    bool needAddImport = IsDiagMessage(diagnostic, DK_SEMA_UNDECLARED_IDENTIFIER) ||
+        IsDiagMessage(diagnostic, DK_SEMA_UNDECLARED_TYPE_NAME) ||
+        IsDiagMessage(diagnostic, DK_MACRO_UNDECLARED_IDENTIFIER) ||
+        IsDiagMessage(diagnostic, RK_PARSE_EXPECTED_DECL) ||
+        IsDiagMessage(diagnostic, RK_LEX_EXPECTED_IDENTIFIER) ||
+        IsDiagMessage(diagnostic, RK_SEMA_UNDECLARED_IDENTIFIER);
+    if (needAddImport) {
         diagToken.diaFix->addImport = true;
     }
     // provide remove unused import quick fix
-    if (diagnostic.isRefactor && diagnostic.rKind == DiagKindRefactor::sema_unused_import) {
+    if (IsDiagMessage(diagnostic, RK_SEMA_UNUSED_IMPORT)) {
         diagToken.diaFix->removeImport = true;
     }
 }

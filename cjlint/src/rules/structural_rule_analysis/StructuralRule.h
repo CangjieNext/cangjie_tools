@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "cangjie/AST/ASTContext.h"
-#include "cangjie/AST/Node.h"
+#include "cangjie/AST/Nodes/Package.h"
 #include "cangjie/AST/Walker.h"
 #include "cangjie/Basic/DiagnosticEngine.h"
 #include "common/CJLintCompilerInstance.h"

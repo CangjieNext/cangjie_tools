@@ -7,7 +7,6 @@
 #ifndef LSPSERVER_POSITIONRESOLVER_H
 #define LSPSERVER_POSITIONRESOLVER_H
 
-#include "cangjie/AST/Node.h"
 #include "../../json-rpc/Common.h"
 #include "../../json-rpc/Protocol.h"
 #include "../ArkAST.h"

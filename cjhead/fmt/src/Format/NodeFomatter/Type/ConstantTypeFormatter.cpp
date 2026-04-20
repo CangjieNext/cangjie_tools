@@ -6,7 +6,6 @@
 
 #include "Format/NodeFomatter/Type/ConstantTypeFormatter.h"
 #include "Format/ASTToFormatSource.h"
-#include "cangjie/AST/Node.h"
 namespace Cangjie::Format {
 using namespace Cangjie::AST;
 void ConstantTypeFormatter::ASTToDoc(Doc& doc, Ptr<Cangjie::AST::Node> node, int level, FuncOptions&)

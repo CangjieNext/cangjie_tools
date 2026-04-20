@@ -51,13 +51,13 @@ void StructuralRuleGEXP03::FindMemberAccess(const MemberAccess& memberAccess)
         end = memberAccess.end;
     }
     // If the accessed symbol is not a function name
-    if (memberAccess.target != nullptr) {
-        auto it = sideEffectSet.find(memberAccess.target->identifier.Begin());
-        if (it != sideEffectSet.end() && it->fileID == memberAccess.target->identifier.Begin().fileID) {
+    if (memberAccess.GetTarget() != nullptr) {
+        auto it = sideEffectSet.find(memberAccess.GetTarget()->identifier.Begin());
+        if (it != sideEffectSet.end() && it->fileID == memberAccess.GetTarget()->identifier.Begin().fileID) {
             Diagnose(start, end, CodeCheckDiagKind::G_EXP_03_side_effect_information, name);
         }
-    } else if (!memberAccess.targets.empty()) { // if the accessed symbol is a function name
-        for (auto& item : memberAccess.targets) {
+    } else if (!memberAccess.GetTargets().empty()) { // if the accessed symbol is a function name
+        for (auto& item : memberAccess.GetTargets()) {
             auto it = sideEffectSet.find(item->identifier.Begin());
             if (it != sideEffectSet.end() && it->fileID == item->identifier.Begin().fileID) {
                 Diagnose(start, end, CodeCheckDiagKind::G_EXP_03_side_effect_information, name);
@@ -131,8 +131,8 @@ void StructuralRuleGEXP03::SideEffectChecker(Ptr<Node> node)
             },
             // find RefExpr, if it is func and its name in sideEffectSet,throw a error.
             [this](const RefExpr& refExpr) {
-                if (refExpr.isBaseFunc && refExpr.ref.target != nullptr) {
-                    if (sideEffectSet.find(refExpr.ref.target->identifier.Begin()) != sideEffectSet.end()) {
+                if (refExpr.isBaseFunc && refExpr.ref.GetTarget() != nullptr) {
+                    if (sideEffectSet.find(refExpr.ref.GetTarget()->identifier.Begin()) != sideEffectSet.end()) {
                         Diagnose(refExpr.begin, refExpr.end,
                             CodeCheckDiagKind::G_EXP_03_side_effect_information, refExpr.ref.identifier.Val());
                     }
@@ -221,7 +221,7 @@ bool StructuralRuleGEXP03::AddRefFuncInfo(Ptr<const Cangjie::AST::Node> node,
 
 void StructuralRuleGEXP03::ProcessRefFuncInfo(const RefExpr& refExpr, const Cangjie::Position originFuncPosition)
 {
-    for (auto& item : refExpr.ref.targets) {
+    for (auto& item : refExpr.ref.GetTargets()) {
         if (auto func = DynamicCast<FuncDecl*>(item.get()); func) {
             if (sideEffectSet.find(func->identifier.Begin()) != sideEffectSet.end()) {
                 (void)sideEffectSet.insert(originFuncPosition);
@@ -248,11 +248,11 @@ void StructuralRuleGEXP03::GlobalRefChecker(
     Ptr<Node> oNode = node;
     Walker walker(node, [this, originFuncPosition, oNode](Ptr<Node> node) -> VisitAction {
         match (*node)([this, originFuncPosition, oNode](const RefExpr& refExpr) {
-            if (refExpr.ref.target) {
+            if (refExpr.ref.GetTarget()) {
                 // check ref of varDecl
-                if (refExpr.ref.target->TestAttr(AST::Attribute::GLOBAL) && !refExpr.isBaseFunc) {
+                if (refExpr.ref.GetTarget()->TestAttr(AST::Attribute::GLOBAL) && !refExpr.isBaseFunc) {
                     SideEffectExprFinder(oNode, originFuncPosition);
-                } else if (!refExpr.ref.targets.empty()) { // check ref of functions
+                } else if (!refExpr.ref.GetTargets().empty()) { // check ref of functions
                     ProcessRefFuncInfo(refExpr, originFuncPosition);
                 }
             }
@@ -265,7 +265,7 @@ void StructuralRuleGEXP03::GlobalRefChecker(
 
 void StructuralRuleGEXP03::ClassRefCheckerDetail(const RefExpr& refExpr, const Cangjie::Position originFuncPosition)
 {
-    for (auto& item : refExpr.ref.targets) {
+    for (auto& item : refExpr.ref.GetTargets()) {
         if (auto func = DynamicCast<FuncDecl*>(item.get()); func) {
             if (sideEffectSet.find(func->identifier.Begin()) != sideEffectSet.end()) {
                 (void)sideEffectSet.insert(originFuncPosition);
@@ -292,14 +292,14 @@ void StructuralRuleGEXP03::ClassRefChecker(
     Ptr<Node> oNode = node;
     Walker walker(node, [this, originFuncPosition, oNode](Ptr<Node> node) -> VisitAction {
         match (*node)([this, originFuncPosition, oNode](const RefExpr& refExpr) {
-            if (refExpr.ref.target) {
+            if (refExpr.ref.GetTarget()) {
                 // the condition that can select refExpr of var which is global, in the class and in the struct.
-                if ((refExpr.ref.target->TestAttr(AST::Attribute::GLOBAL) ||
-                        refExpr.ref.target->TestAttr(AST::Attribute::IN_CLASSLIKE) ||
-                        refExpr.ref.target->TestAttr(AST::Attribute::IN_STRUCT)) &&
+                if ((refExpr.ref.GetTarget()->TestAttr(AST::Attribute::GLOBAL) ||
+                        refExpr.ref.GetTarget()->TestAttr(AST::Attribute::IN_CLASSLIKE) ||
+                        refExpr.ref.GetTarget()->TestAttr(AST::Attribute::IN_STRUCT)) &&
                     !refExpr.isBaseFunc) {
                     SideEffectExprFinder(oNode, originFuncPosition);
-                } else if (!refExpr.ref.targets.empty()) {
+                } else if (!refExpr.ref.GetTargets().empty()) {
                     ClassRefCheckerDetail(refExpr, originFuncPosition);
                 }
             }

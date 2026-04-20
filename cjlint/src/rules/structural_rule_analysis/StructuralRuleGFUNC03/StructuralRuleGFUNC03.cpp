@@ -5,6 +5,7 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 #include "StructuralRuleGFUNC03.h"
+#include "cangjie/AST/ASTCasting.h"
 #include "cangjie/Basic/Match.h"
 
 namespace Cangjie::CodeCheck {

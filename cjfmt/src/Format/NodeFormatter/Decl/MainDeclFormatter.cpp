@@ -5,7 +5,6 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 #include "Format/NodeFormatter/Decl/MainDeclFormatter.h"
-#include "cangjie/AST/Node.h"
 #include "Format/ASTToFormatSource.h"
 
 namespace Cangjie::Format {

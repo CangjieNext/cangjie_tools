@@ -6,6 +6,9 @@
 
 #include "StructuralRuleGFUN02.h"
 #include "cangjie/Basic/Match.h"
+#include "cangjie/AST/Nodes/FuncDecl.h"
+#include "cangjie/AST/Nodes/MacroInvocation.h"
+#include "cangjie/AST/Nodes/RefExpr.h"
 
 namespace Cangjie::CodeCheck {
 using namespace Cangjie;

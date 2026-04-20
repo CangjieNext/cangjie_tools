@@ -476,7 +476,7 @@ struct DiagnosticToken {
 
     std::optional<std::vector<DiagnosticRelatedInformation>> relatedInformation{};
 
-    std::optional<int> category{};
+    std::optional<std::string_view> category{};
 
     std::optional<std::vector<CodeAction>> codeActions{};
 

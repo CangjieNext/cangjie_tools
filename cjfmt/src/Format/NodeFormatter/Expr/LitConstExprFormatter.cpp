@@ -7,7 +7,6 @@
 #include "Format/NodeFormatter/Expr/LitConstExprFormatter.h"
 #include <regex>
 #include "Format/ASTToFormatSource.h"
-#include "cangjie/AST/Node.h"
 
 namespace Cangjie::Format {
 using namespace Cangjie::AST;

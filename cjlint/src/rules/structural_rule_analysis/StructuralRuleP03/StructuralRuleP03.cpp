@@ -5,6 +5,7 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 #include "StructuralRuleP03.h"
+#include "cangjie/AST/Match.h"
 #include "common/CommonFunc.h"
 
 namespace Cangjie::CodeCheck {
@@ -18,10 +19,10 @@ void StructuralRuleP03::MemberAccessProcessor(Ptr<Node> node)
 {
     if (node->astKind == AST::ASTKind::MEMBER_ACCESS) {
         auto pMemberAccess = As<ASTKind::MEMBER_ACCESS>(node);
-        if (!pMemberAccess->target || pMemberAccess->target->astKind != ASTKind::FUNC_DECL) {
+        if (!pMemberAccess->GetTarget() || pMemberAccess->GetTarget()->astKind != ASTKind::FUNC_DECL) {
             return;
         }
-        auto pFuncDecl = As<ASTKind::FUNC_DECL>(pMemberAccess->target);
+        auto pFuncDecl = As<ASTKind::FUNC_DECL>(pMemberAccess->GetTarget());
         if (!pFuncDecl->TestAttr(Attribute::OPEN) || !pFuncDecl->outerDecl ||
             !pFuncDecl->outerDecl->TestAttr(Attribute::OPEN)) {
             return;
@@ -31,7 +32,7 @@ void StructuralRuleP03::MemberAccessProcessor(Ptr<Node> node)
         }
 
         auto ref = As<ASTKind::REF_EXPR>(pMemberAccess->baseExpr);
-        if (ref->ref.target && ref->ref.target->astKind == ASTKind::FUNC_PARAM) {
+    if (ref->ref.GetTarget() && ref->ref.GetTarget()->astKind == ASTKind::FUNC_PARAM) {
             Diagnose(pMemberAccess->field.Begin(), pMemberAccess->field.End(),
                 CodeCheckDiagKind::P_03_func_could_be_overridden, pFuncDecl->outerDecl->identifier.GetRawText(),
                 pFuncDecl->identifier.GetRawText());
@@ -45,10 +46,10 @@ void StructuralRuleP03::RefExprProcessor(Ptr<Cangjie::AST::Node> node)
         return;
     }
     auto pRefExpr = As<ASTKind::REF_EXPR>(node);
-    if (!pRefExpr->ref.target || pRefExpr->ref.target->astKind != ASTKind::VAR_DECL) {
+    if (!pRefExpr->ref.GetTarget() || pRefExpr->ref.GetTarget()->astKind != ASTKind::VAR_DECL) {
         return;
     }
-    auto pVarDecl = As<ASTKind::VAR_DECL>(pRefExpr->ref.target);
+    auto pVarDecl = As<ASTKind::VAR_DECL>(pRefExpr->ref.GetTarget());
     if (!pVarDecl->initializer || pVarDecl->initializer->astKind != ASTKind::CALL_EXPR) {
         return;
     }
@@ -100,10 +101,10 @@ bool StructuralRuleP03::IsSecurityCheckCallExpr(Ptr<Cangjie::AST::CallExpr> pCal
 {
     if (pCallExpr->baseFunc && pCallExpr->baseFunc->astKind == ASTKind::REF_EXPR) {
         auto pRefExpr = As<ASTKind::REF_EXPR>(pCallExpr->baseFunc);
-        return IsSecurityCheckCallExprHelper(pRefExpr->ref.target);
+    return IsSecurityCheckCallExprHelper(pRefExpr->ref.GetTarget());
     } else if (pCallExpr->baseFunc && pCallExpr->baseFunc->astKind == ASTKind::MEMBER_ACCESS) {
         auto pMemberAccess = As<ASTKind::MEMBER_ACCESS>(pCallExpr->baseFunc);
-        return IsSecurityCheckCallExprHelper(pMemberAccess->target);
+        return IsSecurityCheckCallExprHelper(pMemberAccess->GetTarget());
     }
     return false;
 }

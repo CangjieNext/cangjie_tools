@@ -11,7 +11,8 @@
 #include <string>
 #include <vector>
 
-#include "cangjie/Lex/Lexer.h"
+#include <cstddef>
+#include "cangjie/Lex/Token.h"
 #ifdef USE_CXX17_FEATURES
 #include <filesystem>
 namespace fs = std::filesystem;
@@ -21,12 +22,11 @@ namespace fs = std::experimental::filesystem;
 #endif
 
 using namespace Cangjie;
-using namespace Cangjie::AST;
 
 namespace CJHead {
 class CJHeadUtil {
 public:
-    static auto GetComments(const std::string &p) -> std::vector<Token>;
+    static auto GetComments(const std::string &p) -> std::vector<Cangjie::Token>;
 
     static auto SplitStringTolines(const std::string &s) -> std::vector<std::string>;
 

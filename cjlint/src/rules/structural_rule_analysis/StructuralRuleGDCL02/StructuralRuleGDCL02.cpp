@@ -5,6 +5,9 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 #include "StructuralRuleGDCL02.h"
+#include "cangjie/AST/ASTCasting.h"
+#include "cangjie/AST/Nodes/FuncDecl.h"
+#include "cangjie/AST/Nodes/VarDecl.h"
 #include "cangjie/Basic/Match.h"
 
 namespace Cangjie::CodeCheck {

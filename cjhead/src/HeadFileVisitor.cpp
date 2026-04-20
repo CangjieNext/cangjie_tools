@@ -5,6 +5,8 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 #include "HeadFileVisitor.h"
+#include "CJHeadCompilerInstance.h"
+#include "CJHeadUtil.h"
 
 #include <algorithm>
 #include <cassert>
@@ -19,7 +21,6 @@
 
 #include "cangjie/AST/Comment.h"
 #include "cangjie/AST/PrintNode.h"
-#include "cangjie/AST/Node.h"
 #include "cangjie/AST/Walker.h"
 #include "cangjie/AST/Match.h"
 #include "cangjie/Basic/Match.h"
@@ -115,7 +116,7 @@ void HeadFileVisitor::Run()
         decls.end());
 }
 
-auto HeadFileVisitor::VisitFirstComment(const std::vector<Token> &comments) -> bool
+auto HeadFileVisitor::VisitFirstComment(const std::vector<Cangjie::Token> &comments) -> bool
 {
     if (!comments.empty()) {
         if (comments.front().Begin().line == 1 && comments.front().Begin().column == 1) {

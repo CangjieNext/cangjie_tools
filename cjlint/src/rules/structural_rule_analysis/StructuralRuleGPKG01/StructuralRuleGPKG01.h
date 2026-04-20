@@ -10,6 +10,7 @@
 #include <fstream>
 #include <iostream>
 #include <regex>
+#include "cangjie/AST/Nodes/ImportSpec.h"
 #include "cangjie/Basic/Match.h"
 #include "rules/structural_rule_analysis/StructuralRule.h"
 

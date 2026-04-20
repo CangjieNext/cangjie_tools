@@ -9,7 +9,6 @@
 
 #include <string>
 #include <vector>
-#include "cangjie/AST/Node.h"
 #include "cangjie/CHIR/IR/Expression/Terminator.h"
 #include "cangjie/CHIR/IR/Package.h"
 #include "cangjie/CHIR/IR/Type/ClassDef.h"
@@ -21,6 +20,10 @@
 #include "common/ConfigContext.h"
 #include "common/DiagnosticEngine.h"
 #include "nlohmann/json.hpp"
+
+namespace Cangjie::AST {
+struct FuncDecl;
+}
 
 namespace Cangjie::CodeCheck {
 const int OK = 0;

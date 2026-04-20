@@ -8,10 +8,17 @@
 #define CANGJIECODECHECK_STRUCTURALRULEGEXP05_H
 
 #include "cangjie/AST/Walker.h"
+#include "cangjie/AST/Nodes/ArrayLit.h"
+#include "cangjie/AST/Nodes/BinaryExpr.h"
+#include "cangjie/AST/Nodes/Expr.h"
+#include "cangjie/AST/Nodes/ParenExpr.h"
+#include "cangjie/AST/Nodes/TupleLit.h"
+#include "cangjie/AST/Nodes/UnaryExpr.h"
 #include "cangjie/Basic/Match.h"
 #include "rules/structural_rule_analysis/StructuralRule.h"
 
 namespace Cangjie::CodeCheck {
+namespace AST = Cangjie::AST;
 class StructuralRuleGEXP05 : public StructuralRule {
 public:
     explicit StructuralRuleGEXP05(CodeCheckDiagnosticEngine* diagEngine) : StructuralRule(diagEngine){};

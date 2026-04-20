@@ -11,6 +11,7 @@
 #include <iostream>
 #include <regex>
 #include "cangjie/Basic/Match.h"
+#include "cangjie/AST/Nodes/MemberAccess.h"
 #include "rules/structural_rule_analysis/StructuralRule.h"
 
 namespace Cangjie::CodeCheck {

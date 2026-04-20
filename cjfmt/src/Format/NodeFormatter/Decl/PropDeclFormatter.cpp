@@ -6,7 +6,6 @@
 
 #include "Format/NodeFormatter/Decl/PropDeclFormatter.h"
 #include "Format/ASTToFormatSource.h"
-#include "cangjie/AST/Node.h"
 
 namespace Cangjie::Format {
 using namespace Cangjie::AST;

@@ -7,10 +7,17 @@
 #ifndef LSPSERVER_INDEX_SYMBOL_H
 #define LSPSERVER_INDEX_SYMBOL_H
 
+#include <map>
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include "cangjie/AST/Node.h"
+
+#include "cangjie/AST/Comment.h"
+#include "cangjie/Basic/Position.h"
+
+namespace Cangjie::AST {
+enum class ASTKind : uint8_t;
+}
 
 namespace ark {
 namespace lsp {

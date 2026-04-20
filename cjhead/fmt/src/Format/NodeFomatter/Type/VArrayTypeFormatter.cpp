@@ -6,7 +6,6 @@
 
 #include "Format/NodeFomatter/Type/VArrayTypeFormatter.h"
 #include "Format/ASTToFormatSource.h"
-#include "cangjie/AST/Node.h"
 namespace Cangjie::Format {
 using namespace Cangjie::AST;
 void Cangjie::Format::VArrayTypeFormatter::ASTToDoc(Doc& doc, Ptr<Cangjie::AST::Node> node, int level, FuncOptions&)

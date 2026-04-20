@@ -8,7 +8,7 @@
 #define LSPSERVER_DOTCOMPLETERBYPARSE_H
 
 #include <cangjie/AST/ASTContext.h>
-#include <cangjie/AST/Node.h>
+#include <cangjie/AST/Nodes/Node.h>
 #include <cangjie/AST/ScopeManagerApi.h>
 #include <cangjie/AST/Symbol.h>
 #include <cstdint>

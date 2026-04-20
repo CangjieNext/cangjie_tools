@@ -9,6 +9,7 @@
 
 #include <fstream>
 #include <iostream>
+#include "cangjie/AST/Nodes/VarDecl.h"
 #include "rules/structural_rule_analysis/StructuralRule.h"
 #include "cangjie/Basic/Match.h"
 

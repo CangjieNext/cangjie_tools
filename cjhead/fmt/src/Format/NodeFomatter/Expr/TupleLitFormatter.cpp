@@ -6,7 +6,6 @@
 
 #include "Format/NodeFomatter/Expr/TupleLitFormatter.h"
 #include "Format/ASTToFormatSource.h"
-#include "cangjie/AST/Node.h"
 
 namespace Cangjie::Format {
 using namespace Cangjie::AST;

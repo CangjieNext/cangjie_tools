@@ -8,7 +8,9 @@
 #define LSPSERVER_INHERITIMPL_H
 
 #include <queue>
-#include "cangjie/AST/Node.h"
+#include <vector>
+#include "cangjie/AST/Nodes/InheritableDecl.h"
+#include "cangjie/AST/Nodes/Node.h"
 
 namespace ark {
     std::vector<Ptr<Cangjie::AST::InheritableDecl>> GetTopClassDecl(

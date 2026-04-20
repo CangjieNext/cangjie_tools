@@ -5,7 +5,12 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 #include "CommonFunc.h"
-#include "cangjie/AST/Node.h"
+
+#include "cangjie/AST/Nodes/FuncDecl.h"
+#include "cangjie/AST/Nodes/StructDecl.h"
+#include "cangjie/AST/Nodes/EnumDecl.h"
+#include "cangjie/AST/Nodes/ClassLikeDecl.h"
+#include "cangjie/CHIR/Utils/CHIRCasting.h"
 
 namespace Cangjie::CodeCheck {
 using namespace Cangjie::CodeCheck;

@@ -7,10 +7,15 @@
 #ifndef STRUCTURAL_RULE_ANALYSIS_STRUCTURAL_RULE_G_FUN_01_H
 #define STRUCTURAL_RULE_ANALYSIS_STRUCTURAL_RULE_G_FUN_01_H
 
+#include "cangjie/AST/Nodes/Expr.h"
+#include "cangjie/AST/Nodes/FuncDecl.h"
+#include "cangjie/AST/Nodes/LambdaExpr.h"
+#include "cangjie/AST/Nodes/Node.h"
 #include "rules/structural_rule_analysis/StructuralRule.h"
 #include "common/CommonFunc.h"
 
 namespace Cangjie::CodeCheck {
+namespace AST = Cangjie::AST;
 /**
  * 仓颉编程语言通用编程规范的0.1版本
  * G.FUN.01 函数功能要单一

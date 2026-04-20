@@ -5,6 +5,8 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 #include "StructuralRuleGCON01.h"
+#include "cangjie/AST/Walker.h"
+#include "cangjie/AST/Nodes/VarDecl.h"
 
 namespace Cangjie::CodeCheck {
 using namespace Cangjie;

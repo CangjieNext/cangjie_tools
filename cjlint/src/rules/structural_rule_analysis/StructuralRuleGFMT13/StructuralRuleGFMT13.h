@@ -6,9 +6,12 @@
 
 #ifndef STRUCTURAL_RULE_ANALYSIS_STRUCTURAL_RULE_G_FMT_13_H
 #define STRUCTURAL_RULE_ANALYSIS_STRUCTURAL_RULE_G_FMT_13_H
+#include "cangjie/AST/Comment.h"
+#include "cangjie/AST/Nodes/File.h"
 #include "rules/structural_rule_analysis/StructuralRule.h"
 
 namespace Cangjie::CodeCheck {
+namespace AST = Cangjie::AST;
 /**
  * 仓颉编程语言通用编程规范的0.1版本
  * G.FMT.13 文件头注释应该包含版权许可

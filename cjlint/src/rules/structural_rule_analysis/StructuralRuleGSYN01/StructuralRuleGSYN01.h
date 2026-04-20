@@ -9,6 +9,7 @@
 
 #include <fstream>
 #include <iostream>
+#include "cangjie/AST/ASTCasting.h"
 #include "cangjie/Basic/Match.h"
 #include "nlohmann/json.hpp"
 #include "rules/structural_rule_analysis/StructuralRule.h"
@@ -122,7 +123,7 @@ private:
         auto funcDecl = static_cast<const AST::FuncDecl*>(&node);
         for (auto& param : funcDecl->funcBody->paramLists[0]->params) {
             auto& type = param->type;
-            if (auto funcType = dynamic_cast<AST::FuncType*>(type.operator->()); funcType) {
+            if (auto funcType = dynamic_cast<AST::FuncTy*>(type.operator->()); funcType) {
                 Diagnose(param->begin, param->end, CodeCheckDiagKind::G_SYN_01_disable_syntax_information_01,
                     syntaxNameMap[syntax]);
             }
@@ -130,8 +131,9 @@ private:
         if (!funcDecl->funcBody->retType) {
             return;
         }
-        if (auto funcType = dynamic_cast<AST::FuncType*>(funcDecl->funcBody->retType.operator->()); funcType) {
-            Diagnose(funcType->begin, funcType->end, CodeCheckDiagKind::G_SYN_01_disable_syntax_information_01,
+        if (auto funcType = dynamic_cast<AST::FuncTy*>(funcDecl->funcBody->retType.operator->()); funcType) {
+            Diagnose(funcDecl->funcBody->retType->begin, funcDecl->funcBody->retType->end,
+                CodeCheckDiagKind::G_SYN_01_disable_syntax_information_01,
                 syntaxNameMap[syntax]);
         }
     };

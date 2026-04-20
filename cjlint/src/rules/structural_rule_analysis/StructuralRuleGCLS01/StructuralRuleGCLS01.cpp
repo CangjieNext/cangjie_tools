@@ -116,10 +116,10 @@ bool StructuralRuleGCLS01::CheckFuncCall(Ptr<FuncDecl> funcDecl,
         }
         if (callExpr->baseFunc->astKind == ASTKind::MEMBER_ACCESS) {
             auto ma = As<ASTKind::MEMBER_ACCESS>(callExpr->baseFunc.get());
-            if (ma == nullptr || ma->target == nullptr || ma->target->astKind != ASTKind::FUNC_DECL) {
+            if (ma == nullptr || ma->GetTarget() == nullptr || ma->GetTarget()->astKind != ASTKind::FUNC_DECL) {
                 continue;
             }
-            auto func = As<ASTKind::FUNC_DECL>(ma->target);
+            auto func = As<ASTKind::FUNC_DECL>(ma->GetTarget());
             if (func == nullptr) {
                 continue;
             }

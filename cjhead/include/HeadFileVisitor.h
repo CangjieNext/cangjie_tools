@@ -12,14 +12,15 @@
 #include <vector>
 #include <unordered_map>
 #include <functional>
-
-#include "CJHeadCompilerInstance.h"
-#include "CJHeadUtil.h"
-
+#include "cangjie/Lex/Token.h"
+#include "cangjie/AST/Match.h"
+#include "cangjie/Basic/SourceManager.h"
 using namespace Cangjie;
 using namespace Cangjie::AST;
 
 namespace CJHead {
+class CJHeadCompilerInstance; // forward-declare local compiler instance wrapper
+
 class HeadFileVisitor {
 public:
     /* first is a line in output, second indicates whether it belongs to a comment */
@@ -46,7 +47,7 @@ private:
     void InitVisitFuncMap();
 
     /* visit comment, indeed, in here get the first comment */
-    auto VisitFirstComment(const std::vector<Token> &comments) -> bool;
+    auto VisitFirstComment(const std::vector<Cangjie::Token> &comments) -> bool;
 
     /* visit package and import info */
     auto VisitPackage(std::vector<Ptr<AST::Package>> &source_package) -> bool;

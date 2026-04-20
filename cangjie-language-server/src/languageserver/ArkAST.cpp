@@ -46,16 +46,16 @@ Ptr<Decl> ArkAST::FindDeclByNode(Ptr<Node> node) const
     if (!node) { return tmp; }
     return match(*node) (
         [](const MacroExpandDecl &macroExpandDecl) {
-            return macroExpandDecl.invocation.target;
+            return macroExpandDecl.invocation.GetTarget();
         },
         [](Decl &decl) {
             return Ptr(&decl);
         },
         [](const RefType &refType) {
-            return refType.ref.target;
+            return refType.ref.GetTarget();
         },
         [](const RefExpr &refExpr) {
-            return refExpr.ref.target;
+            return refExpr.ref.GetTarget();
         },
         [](const CallExpr &callExpr) {
             return Ptr(RawStaticCast<Decl*>(callExpr.resolvedFunction));
@@ -64,7 +64,7 @@ Ptr<Decl> ArkAST::FindDeclByNode(Ptr<Node> node) const
             return Ptr(RawStaticCast<Decl*>(varPattern.varDecl.get()));
         },
         [](const MemberAccess &mAccess) {
-            return mAccess.target;
+            return mAccess.GetTarget();
         },
         [this](const IfExpr &ifExpr) {
             return FindDeclByNode(ifExpr.condExpr.get());
@@ -73,10 +73,10 @@ Ptr<Decl> ArkAST::FindDeclByNode(Ptr<Node> node) const
             return FindDeclByNode(funcBody.funcDecl);
         },
         [](const QualifiedType &qualifiedType) {
-            return qualifiedType.target;
+            return qualifiedType.GetTarget();
         },
         [](const MacroExpandExpr &macroExpandExpr) {
-            return macroExpandExpr.invocation.target;
+            return macroExpandExpr.invocation.GetTarget();
         },
         [tmp](const OverloadableExpr &overloadableExpr) {
             auto callExpr = dynamic_cast<CallExpr*>(overloadableExpr.desugarExpr.get().get());
@@ -284,7 +284,7 @@ bool ArkAST::IsFilterTokenInHighlight(const Position &pos) const
     }
     if (idx - 1 >= 0) {
         Token preToken = tokens[static_cast<size_t>(idx - 1)];
-        return NAME_TO_ANNO_KIND.count(curToken.Value()) && preToken.kind == TokenKind::AT;
+        return preToken.kind == TokenKind::AT;
     }
     return false;
 }
@@ -412,9 +412,9 @@ std::vector<Ptr<Decl>> ArkAST::FindRealDecl(const ark::ArkAST& nowAst, const std
         node = GetNodeBySymbols(nowAst, node, syms, query, i);
         auto IsAnnoRef = [](const Ptr<Node>& node) {
             if (auto refNode = DynamicCast<RefExpr*>(node.get())) {
-                return refNode->ref.target && refNode->ref.target->IsFunc() &&
-                        refNode->ref.target->identifier == "init" && refNode->ref.target->outerDecl &&
-                        refNode->ref.target->outerDecl->TestAttr(Attribute::IS_ANNOTATION);
+                return refNode->ref.GetTarget() && refNode->ref.GetTarget()->IsFunc() &&
+                        refNode->ref.GetTarget()->identifier == "init" && refNode->ref.GetTarget()->outerDecl &&
+                        refNode->ref.GetTarget()->outerDecl->TestAttr(Attribute::IS_ANNOTATION);
             }
             return false;
         };

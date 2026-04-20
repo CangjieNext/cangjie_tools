@@ -11,7 +11,8 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
-#include "cangjie/AST/Node.h"
+#include <vector>
+#include "cangjie/AST/Nodes/File.h"
 #include "nlohmann/json.hpp"
 #include "MultiModuleCommon.h"
 

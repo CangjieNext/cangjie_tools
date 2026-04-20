@@ -19,7 +19,7 @@ using namespace Cangjie;
 using namespace Cangjie::AST;
 
 namespace CJHead {
-auto CJHeadUtil::GetComments(const std::string &p) -> std::vector<Token>
+auto CJHeadUtil::GetComments(const std::string &p) -> std::vector<Cangjie::Token>
 {
     DiagnosticEngine diag;
     SourceManager sm;

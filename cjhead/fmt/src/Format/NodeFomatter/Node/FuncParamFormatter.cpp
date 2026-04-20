@@ -6,7 +6,6 @@
 
 #include "Format/NodeFomatter/Node/FuncParamFormatter.h"
 #include "Format/ASTToFormatSource.h"
-#include "cangjie/AST/Node.h"
 #include <string>
 #include <exception>
 

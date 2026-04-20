@@ -7,6 +7,8 @@
 #include "StructuralRuleGVAR02.h"
 #include <algorithm>
 #include <set>
+#include "cangjie/AST/Match.h"
+#include "cangjie/AST/Nodes/VarDecl.h"
 
 namespace Cangjie::CodeCheck {
 using namespace Cangjie;
@@ -42,7 +44,7 @@ void StructuralRuleGVAR02::CollectVarDeclMap(Ptr<Node> node, size_t level)
         }
         if (node->astKind == ASTKind::REF_EXPR) {
             auto refExpr = As<ASTKind::REF_EXPR>(node);
-            auto target = refExpr->ref.target;
+            auto target = refExpr->ref.GetTarget();
             if (!target || target->astKind != ASTKind::VAR_DECL) {
                 return VisitAction::SKIP_CHILDREN;
             }

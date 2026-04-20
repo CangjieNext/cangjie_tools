@@ -12,7 +12,6 @@
 #include "KeywordCompleter.h"
 #include "NormalCompleterByParse.h"
 #include "../../common/SyscapCheck.h"
-#include "cangjie/AST/Node.h"
 
 #undef THIS
 using namespace Cangjie;

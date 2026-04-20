@@ -8,6 +8,7 @@
 #define CANGJIECODECHECK_STRUCTURALRULEGEXP06_H
 
 #include "cangjie/AST/Walker.h"
+#include "cangjie/AST/Nodes/BinaryExpr.h"
 #include "cangjie/Basic/Match.h"
 #include "rules/structural_rule_analysis/StructuralRule.h"
 

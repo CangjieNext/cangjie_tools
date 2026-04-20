@@ -12,7 +12,6 @@
 #include "Format/NodeFomatter/NodeFormatter.h"
 #include "cangjie/AST/ASTContext.h"
 #include "cangjie/AST/Match.h"
-#include "cangjie/AST/Node.h"
 #include "cangjie/Basic/Utils.h"
 #include "cangjie/Parse/Parser.h"
 

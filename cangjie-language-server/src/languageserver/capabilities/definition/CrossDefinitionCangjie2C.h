@@ -10,8 +10,8 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include "cangjie/AST/Nodes/FuncDecl.h"
 #include "cangjie/AST/Types.h"
-#include "cangjie/AST/Node.h"
 
 namespace ark {
 

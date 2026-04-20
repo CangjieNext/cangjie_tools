@@ -10,6 +10,8 @@
 #include "nlohmann/json.hpp"
 #include "rules/structural_rule_analysis/StructuralRule.h"
 #include "cangjie/Basic/Match.h"
+#include "cangjie/AST/Nodes/BinaryExpr.h"
+#include "cangjie/AST/Nodes/CallExpr.h"
 
 namespace Cangjie::CodeCheck {
 class StructuralRuleGERR02 : public StructuralRule {

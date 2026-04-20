@@ -13,6 +13,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #endif
+#include "cangjie/AST/Nodes/Package.h"
 
 using namespace Cangjie;
 using namespace Cangjie::CodeCheck;
@@ -226,7 +227,7 @@ bool CJLintCompilerInstance::PerformImportPackage()
         }
 #endif
         if (res != 0) {
-            (void)diag.Diagnose(DiagKind::macro_expand_failed);
+            (void)diag.Diagnose("macro_expand_failed");
             return false;
         }
         (void)macroPath.insert(package + PATH_SEPARATOR + srcPkg->fullPackageName);

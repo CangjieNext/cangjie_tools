@@ -8,7 +8,6 @@
 #include <regex>
 #include <string>
 #include <unordered_set>
-#include "cangjie/AST/Node.h"
 #include "Format/ASTToFormatSource.h"
 
 namespace Cangjie::Format {

@@ -1449,7 +1449,7 @@ void SymbolCollector::CreateImportRef(const File &fileNode)
 
 void SymbolCollector::CreateMacroRef(const Node &node, const MacroInvocation &invocation)
 {
-    if (!invocation.target) {
+    if (!invocation.GetTarget()) {
         return;
     }
     if (invocation.decl && invocation.decl->astKind == ASTKind::MACRO_EXPAND_DECL &&
@@ -1466,7 +1466,7 @@ void SymbolCollector::CreateMacroRef(const Node &node, const MacroInvocation &in
     auto end = begin + CountUnicodeCharacters(invocation.identifier);
     SymbolLocation loc{begin, end, node.curFile->filePath};
     Ref refInfo{.location = loc, .kind = RefKind::REFERENCE, .container = GetContextID()};
-    (void)symbolRefMap[GetDeclSymbolID(*invocation.target)].emplace_back(refInfo);
+    (void)symbolRefMap[GetDeclSymbolID(*invocation.GetTarget())].emplace_back(refInfo);
 
     // for cross language symbol
     if (node.symbol && node.symbol->name != CROSS_ARK_TS_WITH_INTEROP_NAME) {

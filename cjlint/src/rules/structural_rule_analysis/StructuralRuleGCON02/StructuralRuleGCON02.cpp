@@ -6,6 +6,8 @@
 
 #include "StructuralRuleGCON02.h"
 
+#include "cangjie/AST/ASTCasting.h"
+
 namespace Cangjie::CodeCheck {
 using namespace Cangjie;
 using namespace AST;
@@ -56,7 +58,7 @@ void StructuralRuleGCON02::GetLockInfo(const VarDecl& varDecl)
 std::string StructuralRuleGCON02::GetMemberAccessKey(const MemberAccess& memberAccess)
 {
     if (auto refExpr = DynamicCast<RefExpr*>(memberAccess.baseExpr.get().get()); refExpr) {
-        auto varDecl = DynamicCast<VarDecl*>(refExpr->ref.target.get());
+        auto varDecl = DynamicCast<VarDecl*>(refExpr->ref.GetTarget().get());
         if (varDecl == nullptr) {
             return "";
         }
@@ -64,7 +66,7 @@ std::string StructuralRuleGCON02::GetMemberAccessKey(const MemberAccess& memberA
         return GetLockKey(*varDecl);
     } else if (auto memberAccessBaseExpr = DynamicCast<MemberAccess*>(memberAccess.baseExpr.get().get());
                memberAccessBaseExpr) {
-        auto varDecl = DynamicCast<VarDecl*>(memberAccessBaseExpr->target.get());
+        auto varDecl = DynamicCast<VarDecl*>(memberAccessBaseExpr->GetTarget().get());
         if (varDecl == nullptr) {
             return "";
         }

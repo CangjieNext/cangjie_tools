@@ -5,7 +5,7 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 #include "DocumentSymbolImpl.h"
-#include <cangjie/AST/Node.h>
+#include <cangjie/AST/Nodes/Node.h>
 #include "../../common/Utils.h"
 
 using namespace Cangjie;

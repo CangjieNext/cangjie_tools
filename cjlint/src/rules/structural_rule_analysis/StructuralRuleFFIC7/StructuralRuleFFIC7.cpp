@@ -5,6 +5,7 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 #include "StructuralRuleFFIC7.h"
+#include "cangjie/AST/Match.h"
 
 namespace Cangjie::CodeCheck {
 using namespace Cangjie;

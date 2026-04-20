@@ -8,7 +8,6 @@
 #define LSPSERVER_OVERRIDECOMPLETER_H
 
 #include <vector>
-#include "cangjie/AST/Node.h"
 #include "../../common/ItemResolverUtil.h"
 #include "../overrideMethods/FindOverrideMethodsUtils.h"
 #include "CompletionImpl.h"

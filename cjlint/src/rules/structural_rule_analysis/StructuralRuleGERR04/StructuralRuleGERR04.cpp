@@ -6,6 +6,13 @@
 
 #include "StructuralRuleGERR04.h"
 #include "common/CommonFunc.h"
+#include "cangjie/AST/Nodes/FuncDecl.h"
+#include "cangjie/AST/Nodes/LambdaExpr.h"
+#include "cangjie/AST/Nodes/ForInExpr.h"
+#include "cangjie/AST/Nodes/JumpExpr.h"
+#include "cangjie/AST/Nodes/ReturnExpr.h"
+#include "cangjie/AST/Nodes/TryExpr.h"
+#include "cangjie/AST/Nodes/WhileExpr.h"
 
 namespace Cangjie::CodeCheck {
 using namespace Cangjie;

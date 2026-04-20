@@ -7,6 +7,8 @@
 #include "StructuralRuleGERR02.h"
 #include <regex>
 #include "common/CommonFunc.h"
+#include "cangjie/AST/ASTCasting.h"
+#include "cangjie/AST/Nodes/FuncArg.h"
 
 namespace Cangjie::CodeCheck {
 using namespace Cangjie;
@@ -103,14 +105,14 @@ std::string StructuralRuleGERR02::GetBinaryStr(Ptr<BinaryExpr> binaryExpr)
             } else if (auto leftNode = DynamicCast<LitConstExpr*>(memberAccess->baseExpr.get().get()); leftNode) {
                 str = leftNode->stringValue;
             } else if (auto subRefNode = DynamicCast<RefExpr*>(memberAccess->baseExpr.get().get()); subRefNode) {
-                str = GetDeclStr(subRefNode->ref.target);
+                str = GetDeclStr(subRefNode->ref.GetTarget());
             }
         }
 
         if (auto rightNode = DynamicCast<LitConstExpr*>(node->args[0].get()->expr.get().get()); rightNode) {
             str += rightNode->stringValue;
         } else if (auto rightRefNode = DynamicCast<RefExpr*>(node->args[0].get()->expr.get().get()); rightRefNode) {
-            str += GetDeclStr(rightRefNode->ref.target);
+            str += GetDeclStr(rightRefNode->ref.GetTarget());
         }
     }
 
@@ -138,7 +140,7 @@ std::string StructuralRuleGERR02::GetExceptionInfo(Ptr<CallExpr> callExpr)
     } else if (auto binaExpr = DynamicCast<BinaryExpr*>(node); binaExpr) {
         infoStr = GetBinaryStr(binaExpr);
     } else if (auto refExpr = DynamicCast<RefExpr*>(node); refExpr) {
-        infoStr = GetDeclStr(refExpr->ref.target);
+        infoStr = GetDeclStr(refExpr->ref.GetTarget());
     }
 
     return infoStr;

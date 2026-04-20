@@ -7,6 +7,13 @@
 #include "StructuralRuleGENU02.h"
 #include <regex>
 
+#include "cangjie/AST/Nodes/ClassLikeDecl.h"
+#include "cangjie/AST/Nodes/EnumDecl.h"
+#include "cangjie/AST/Nodes/FuncDecl.h"
+#include "cangjie/AST/Nodes/ExtendDecl.h"
+#include "cangjie/AST/Walker.h"
+#include "cangjie/AST/Match.h"
+
 using namespace Cangjie;
 using namespace AST;
 using namespace Meta;

@@ -7,7 +7,7 @@
 #ifndef LSPSERVER_COMPLETIONENV_H
 #define LSPSERVER_COMPLETIONENV_H
 
-#include <cangjie/AST/Node.h>
+#include <cangjie/AST/Nodes/Node.h>
 #include <cangjie/AST/Symbol.h>
 #include <cstdint>
 #include <vector>

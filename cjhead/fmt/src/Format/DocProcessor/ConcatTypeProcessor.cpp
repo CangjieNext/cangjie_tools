@@ -6,7 +6,6 @@
 
 #include "Format/DocProcessor/ConcatTypeProcessor.h"
 #include "Format/ASTToFormatSource.h"
-#include "cangjie/AST/Node.h"
 #include <string>
 #include <utility>
 #include <vector>

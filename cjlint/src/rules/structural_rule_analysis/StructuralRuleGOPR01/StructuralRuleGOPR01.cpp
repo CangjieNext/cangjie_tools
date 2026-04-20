@@ -5,6 +5,7 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 #include "StructuralRuleGOPR01.h"
+#include "cangjie/AST/ASTCasting.h"
 
 using namespace Cangjie;
 using namespace Cangjie::AST;

@@ -12,6 +12,15 @@
 #include "cangjie/AST/Walker.h"
 #include "cangjie/Basic/Match.h"
 
+namespace Cangjie {
+namespace AST {
+struct TryExpr;
+struct MemberAccess;
+struct VarDecl;
+}
+class ASTContext;
+}
+
 namespace Cangjie::CodeCheck {
 using Gcon02Lock = std::map<std::string, std::vector<int>>;
 

@@ -9,7 +9,6 @@
 
 #include "Format/Doc.h"
 #include "cangjie/AST/ASTContext.h"
-#include "cangjie/AST/Node.h"
 #include "cangjie/Basic/Display.h"
 #include "cangjie/Utils/Utils.h"
 #include <string>

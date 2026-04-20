@@ -6,6 +6,7 @@
 
 #include "StructuralRuleGERR03.h"
 #include "common/CommonFunc.h"
+#include "cangjie/AST/Nodes/MemberAccess.h"
 
 namespace Cangjie::CodeCheck {
 using namespace Cangjie;

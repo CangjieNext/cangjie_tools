@@ -6,6 +6,8 @@
 
 #ifndef CANGJIECODECHECK_STRUCTURALRULEGITF03_H
 #define CANGJIECODECHECK_STRUCTURALRULEGITF03_H
+#include "cangjie/AST/Nodes/InheritableDecl.h"
+#include "cangjie/AST/Nodes/Type.h"
 #include "cangjie/Basic/Match.h"
 #include "rules/structural_rule_analysis/StructuralRule.h"
 

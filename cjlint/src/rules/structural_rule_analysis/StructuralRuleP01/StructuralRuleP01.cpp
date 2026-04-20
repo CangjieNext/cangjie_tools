@@ -5,6 +5,7 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 #include "StructuralRuleP01.h"
+#include "cangjie/AST/ASTCasting.h"
 
 namespace Cangjie::CodeCheck {
 using namespace Cangjie;
@@ -149,8 +150,8 @@ void StructuralRuleP01::SynchronizedExprHandler(SynchronizedExpr &expr, const st
             [this, &blockSeq](const SynchronizedExpr& exprInner) {
                 if (auto refExpr = DynamicCast<RefExpr*>(exprInner.mutex.get().get()); refExpr) {
                     auto targetLine = 0;
-                    if (refExpr->ref.target != nullptr) {
-                        targetLine = refExpr->ref.target->identifier.Begin().line;
+                    if (refExpr->ref.GetTarget() != nullptr) {
+                        targetLine = refExpr->ref.GetTarget()->identifier.Begin().line;
                     }
                     blockSeq.push_back(std::make_pair(refExpr->ref.identifier.Val(), targetLine));
                 }

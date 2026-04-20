@@ -9,6 +9,8 @@
 
 #include "StructuralRule.h"
 
+#include "cangjie/AST/ASTCasting.h"
+
 namespace Cangjie::CodeCheck {
 class StructuralRuleGSER : public StructuralRule {
 public:

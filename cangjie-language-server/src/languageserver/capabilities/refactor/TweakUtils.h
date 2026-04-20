@@ -7,7 +7,6 @@
 #ifndef CANGJIE_LSP_TWEAKUTILS_H
 #define CANGJIE_LSP_TWEAKUTILS_H
 
-#include "cangjie/AST/Node.h"
 #include "cangjie/AST/ASTContext.h"
 #include "../../ArkAST.h"
 #include "../../common/Utils.h"

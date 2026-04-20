@@ -6,6 +6,21 @@
 
 #include "StructuralRuleGENU01.h"
 
+#include "cangjie/AST/Nodes/TypeAliasDecl.h"
+#include "cangjie/AST/Nodes/InterfaceDecl.h"
+#include "cangjie/AST/Nodes/StructDecl.h"
+#include "cangjie/AST/Nodes/ClassDecl.h"
+#include "cangjie/AST/Nodes/EnumDecl.h"
+#include "cangjie/AST/Nodes/VarDecl.h"
+#include "cangjie/AST/Nodes/FuncDecl.h"
+#include "cangjie/AST/Nodes/Package.h"
+#include "cangjie/AST/Nodes/PackageSpec.h"
+#include "cangjie/AST/Walker.h"
+#include "cangjie/AST/Match.h"
+
+namespace Cangjie {
+class ASTContext;
+}
 namespace Cangjie::CodeCheck {
 using namespace Cangjie;
 using namespace Cangjie::AST;

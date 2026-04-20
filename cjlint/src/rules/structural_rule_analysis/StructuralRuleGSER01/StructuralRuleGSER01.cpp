@@ -18,7 +18,7 @@ const std::string* StructuralRuleGSER01::GetStringExprVal(Ptr<Expr> expr)
     if (auto constExpr = DynamicCast<LitConstExpr*>(expr.get()); constExpr) {
         return &constExpr->stringValue;
     } else if (auto refExpr = DynamicCast<RefExpr*>(expr.get()); refExpr) {
-        if (auto varDecl = DynamicCast<VarDecl*>(refExpr->ref.target.get()); varDecl) {
+        if (auto varDecl = DynamicCast<VarDecl*>(refExpr->ref.GetTarget().get()); varDecl) {
             return GetStringExprVal(varDecl->initializer.get());
         }
     }

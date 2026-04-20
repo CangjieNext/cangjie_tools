@@ -132,20 +132,20 @@ void GetMemberAccess(
     Range rightRange = {fieldPos, {fieldPos.line, fieldPos.column + static_cast<int>(
                                                                         CountUnicodeCharacters(mAccess->field))}};
 
-    if (mAccess->target != nullptr && mAccess->target->identifier == "init") {
+    if (mAccess->GetTarget() != nullptr && mAccess->GetTarget()->identifier == "init") {
         result.push_back({HighlightKind::CLASS_H, TransformFromChar2IDE(leftRange)});
-    } else if (ark::Is<ClassLikeDecl>(mAccess->target.get()) || ark::Is<EnumDecl>(mAccess->target.get()) ||
-               ark::Is<StructDecl>(mAccess->target.get()) || ark::Is<TypeAliasDecl>(mAccess->target.get())) {
+    } else if (ark::Is<ClassLikeDecl>(mAccess->GetTarget().get()) || ark::Is<EnumDecl>(mAccess->GetTarget().get()) ||
+               ark::Is<StructDecl>(mAccess->GetTarget().get()) || ark::Is<TypeAliasDecl>(mAccess->GetTarget().get())) {
         result.push_back({HighlightKind::CLASS_H, TransformFromChar2IDE(leftRange)});
-    } else if (ark::Is<PackageDecl>(mAccess->target.get())) {
+    } else if (ark::Is<PackageDecl>(mAccess->GetTarget().get())) {
         leftRange = {node->GetBegin(), node->end};
         result.push_back({HighlightKind::PACKAGE_H, TransformFromChar2IDE(leftRange)});
-    } else if (ark::Is<FuncDecl>(mAccess->target.get()) || (!mAccess->field.Empty() && !(mAccess->isAlone))) {
+    } else if (ark::Is<FuncDecl>(mAccess->GetTarget().get()) || (!mAccess->field.Empty() && !(mAccess->isAlone))) {
         /** the if condition contains two cases:
          * case1: access an existing function;
          * case2: access the function that modified externally.
          */
-        if (ark::Is<VarDecl>(mAccess->target.get())) {
+        if (ark::Is<VarDecl>(mAccess->GetTarget().get())) {
             result.push_back({HighlightKind::VARIABLE_H, TransformFromChar2IDE(rightRange)});
         } else {
             result.push_back({HighlightKind::FUNCTION_H, TransformFromChar2IDE(rightRange)});
@@ -175,7 +175,7 @@ bool RefTargetEmpty(const Ptr<Node> node)
     if (!refExpr) {
         return true;
     }
-    Ptr<Decl> decl = refExpr->ref.target;
+    Ptr<Decl> decl = refExpr->ref.GetTarget();
 
     return decl == nullptr;
 }
@@ -183,7 +183,7 @@ bool RefTargetEmpty(const Ptr<Node> node)
 bool SpecialTarget(const Ptr<Node> node)
 {
     auto refExpr = dynamic_cast<RefExpr*>(node.get());
-    Ptr<Decl> decl = refExpr->ref.target;
+    Ptr<Decl> decl = refExpr->ref.GetTarget();
     bool isSpecialDecl = (ark::Is<ClassLikeDecl>(decl.get()) || ark::Is<EnumDecl>(decl.get()) ||
                           ark::Is<StructDecl>(decl.get()) || ark::Is<BuiltInDecl>(decl.get()) ||
                           ark::Is<TypeAliasDecl>(decl.get()));
@@ -227,7 +227,7 @@ void GetRefExpr(Ptr<Node> node, std::vector<SemanticHighlightToken> &result, con
     if (!refExpr) {
         return;
     }
-    decl = refExpr->ref.target;
+    decl = refExpr->ref.GetTarget();
     if (decl == nullptr) {
         return;
     }
@@ -291,17 +291,17 @@ void GetRefType(Ptr<Node> node, std::vector<SemanticHighlightToken> &result, con
     Range range = {pos, {pos.fileID, pos.line,
         pos.column + static_cast<int>(CountUnicodeCharacters(refType->ref.identifier))}};
     UpdateRange(tokens, range, *node);
-    if (refType->ref.target == nullptr) {
+    if (refType->ref.GetTarget() == nullptr) {
         return;
     }
 
     // target isn't null, but target.symbol is null.  for example: systemlib
-    if (refType->ref.target->astKind == ASTKind::PACKAGE_DECL) {
+    if (refType->ref.GetTarget()->astKind == ASTKind::PACKAGE_DECL) {
         result.push_back({HighlightKind::PACKAGE_H, TransformFromChar2IDE(range)});
     }
     // AuthorizeSuccessObj is a class of Systemlib, but AuthorizeSuccessObj is used separately
     // for example: success: Option<(AuthorizeSuccessObj)
-    Ptr<Decl> decl = refType->ref.target;
+    Ptr<Decl> decl = refType->ref.GetTarget();
     if (decl == nullptr) {
         return;
     }
@@ -408,8 +408,8 @@ void GetQualifiedType(Ptr<Node> node, std::vector<SemanticHighlightToken> &resul
         {ASTKind::FUNC_DECL, HighlightKind::FUNCTION_H}
     };
     HighlightKind kind = HighlightKind::VARIABLE_H;
-    if (qualifiedType->target != nullptr && highlightMap.count(qualifiedType->target->astKind)) {
-        kind = highlightMap[qualifiedType->target->astKind];
+    if (qualifiedType->GetTarget() != nullptr && highlightMap.count(qualifiedType->GetTarget()->astKind)) {
+        kind = highlightMap[qualifiedType->GetTarget()->astKind];
     }
     result.push_back({kind, TransformFromChar2IDE(range)});
 }

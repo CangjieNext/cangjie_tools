@@ -8,6 +8,8 @@
 #define STRUCTURAL_RULE_ANALYSIS_STRUCTURAL_RULE_G_EXP_02_H
 
 #include "cangjie/Basic/Match.h"
+#include "cangjie/AST/Nodes/BinaryExpr.h"
+#include "cangjie/AST/Nodes/LitConstExpr.h"
 #include "rules/structural_rule_analysis/StructuralRule.h"
 
 namespace Cangjie::CodeCheck {

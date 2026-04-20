@@ -678,7 +678,7 @@ void CompletionEnv::DealRefExpr(Ptr<Node> node, const Position pos)
 {
     auto re = dynamic_cast<RefExpr*>(node.get());
     if (!re) { return; }
-    DeepComplete(re->ref.target, pos);
+    DeepComplete(re->ref.GetTarget(), pos);
 }
 
 void CompletionEnv::DealTupleLit(Ptr<Node> node, const Position pos)
@@ -1552,20 +1552,20 @@ bool CompletionEnv::RefToDecl(Ptr<Node> node, bool insideFunction, bool deepestF
     }
     if (node->astKind == Cangjie::AST::ASTKind::REF_EXPR && ark::Is<RefExpr>(node.get())) {
         auto ref = dynamic_cast<RefExpr*>(node.get());
-        bool isInvalid = ref == nullptr || ref->ref.target == nullptr || ref->ref.target->symbol == nullptr;
+        bool isInvalid = ref == nullptr || ref->ref.GetTarget() == nullptr || ref->ref.GetTarget()->symbol == nullptr;
         if (isInvalid) {
             return true;
         }
-        InvokedAccessible(ref->ref.target, insideFunction, deepestFunction);
+        InvokedAccessible(ref->ref.GetTarget(), insideFunction, deepestFunction);
         return true;
     }
     if (node->astKind == Cangjie::AST::ASTKind::REF_TYPE && ark::Is<RefType>(node.get())) {
         auto ref = dynamic_cast<RefType*>(node.get());
-        bool isInvalid = ref == nullptr || ref->ref.target == nullptr || ref->ref.target->symbol == nullptr;
+        bool isInvalid = ref == nullptr || ref->ref.GetTarget() == nullptr || ref->ref.GetTarget()->symbol == nullptr;
         if (isInvalid) {
             return true;
         }
-        InvokedAccessible(ref->ref.target, insideFunction, deepestFunction);
+        InvokedAccessible(ref->ref.GetTarget(), insideFunction, deepestFunction);
         return true;
     }
     return false;

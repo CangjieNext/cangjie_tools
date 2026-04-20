@@ -6,6 +6,10 @@
 
 #include "StructuralRuleGFUN01.h"
 #include "cangjie/Basic/Match.h"
+#include "cangjie/AST/Nodes/ForInExpr.h"
+#include "cangjie/AST/Nodes/IfExpr.h"
+#include "cangjie/AST/Nodes/MatchExpr.h"
+#include "cangjie/AST/Nodes/WhileExpr.h"
 
 namespace Cangjie::CodeCheck {
 using namespace Cangjie;

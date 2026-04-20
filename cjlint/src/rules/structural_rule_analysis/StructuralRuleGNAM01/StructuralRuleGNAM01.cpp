@@ -5,6 +5,7 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 #include "StructuralRuleGNAM01.h"
+#include "cangjie/AST/Nodes/PackageSpec.h"
 
 namespace {
 std::string RemoveBackticks(const std::string& name)

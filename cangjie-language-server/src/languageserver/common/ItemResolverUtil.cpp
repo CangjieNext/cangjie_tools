@@ -5,7 +5,6 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 #include <string>
-#include "cangjie/AST/Node.h"
 #include "cangjie/AST/Types.h"
 #include "cangjie/Basic/Match.h"
 #include "../logger/Logger.h"

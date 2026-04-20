@@ -8,6 +8,7 @@
 #include <atomic>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 #include "CjoManager.h"
@@ -55,7 +56,25 @@ const unsigned int HARDWARE_CONCURRENCY_COUNT = std::thread::hardware_concurrenc
 const unsigned int MAX_THREAD_COUNT = HARDWARE_CONCURRENCY_COUNT > EXTRA_THREAD_COUNT ?
                                       HARDWARE_CONCURRENCY_COUNT - EXTRA_THREAD_COUNT : 1;
 const unsigned int PROPER_THREAD_COUNT = MAX_THREAD_COUNT == 1 ? MAX_THREAD_COUNT : (MAX_THREAD_COUNT >> 1);
+const std::string_view LSP_ERROR_CATEGORY = "error";
 const int LSP_ERROR_CODE = 503;
+
+static void ReportPackageNameNotIdentical(Callbacks* callback, const std::string& filePath, const Position& pos,
+    const std::string& expectedPkgName)
+{
+    if (callback == nullptr) {
+        return;
+    }
+    DiagnosticToken dt;
+    dt.category = LSP_ERROR_CATEGORY;
+    dt.code = LSP_ERROR_CODE;
+    dt.message = "package name is not identical, expected '" + expectedPkgName + "'.";
+    dt.range = {{pos.fileID, pos.line - 1, pos.column - 1}, {pos.fileID, pos.line - 1, pos.column}};
+    dt.severity = 1;
+    dt.source = "Cangjie";
+    callback->UpdateDiagnostic(filePath, dt);
+}
+
 CompilerCangjieProject *CompilerCangjieProject::instance = nullptr;
 bool CompilerCangjieProject::useDB = false;
 bool CompilerCangjieProject::incrementalOptimize = true;
@@ -665,8 +684,7 @@ bool CompilerCangjieProject::ParseAndUpdateNotInSrcDep(const std::string &dirPat
         auto userWrittenPackage = file->package == nullptr ? DEFAULT_PACKAGE_NAME : file->curPackage->fullPackageName;
         if (userWrittenPackage != expectedPkgName) {
             auto errPos = getPackageNameErrPos(*file);
-            newCI->diag.DiagnoseRefactor(DiagKindRefactor::package_name_not_identical_lsp, errPos,
-                expectedPkgName);
+            ReportPackageNameNotIdentical(callback, file->filePath, errPos, expectedPkgName);
         }
     }
     return true;
@@ -1468,8 +1486,7 @@ void CompilerCangjieProject::InitPkgInfoAndParseNotInModule()
                     file->package == nullptr ? DEFAULT_PACKAGE_NAME : file->package->packageName;
                 if (userWrittenPackage != expectedPkgName) {
                     auto errPos = getPackageNameErrPos(*file);
-                    (void)pkgCompiler->diag.DiagnoseRefactor(
-                        DiagKindRefactor::package_name_not_identical_lsp, errPos, expectedPkgName);
+                    ReportPackageNameNotIdentical(callback, file->filePath, errPos, expectedPkgName);
                 }
             }
             CIMapNotInSrc[item.first] = std::move(pkgCompiler);
@@ -1960,7 +1977,7 @@ void CompilerCangjieProject::ReportCircularDeps(const std::vector<std::vector<st
             for (const auto &file: files) {
                 const auto &filePath = FileStore::NormalizePath(JoinPath(dirPath, file));
                 DiagnosticToken dt;
-                dt.category = LSP_ERROR_CODE;
+                dt.category = LSP_ERROR_CATEGORY;
                 dt.code = LSP_ERROR_CODE;
                 dt.message = "packages " + circlePkgName + "are in circular dependencies.";
                 dt.range = {{0, 0, 0}, {0, 0, 1}};
@@ -1998,7 +2015,7 @@ void CompilerCangjieProject::ReportCombinedCycles()
         for (const auto &file: files) {
             const auto &filePath = FileStore::NormalizePath(JoinPath(dirPath, file));
             DiagnosticToken dt;
-            dt.category = LSP_ERROR_CODE;
+            dt.category = LSP_ERROR_CATEGORY;
             dt.code = LSP_ERROR_CODE;
             dt.message = diagMessage.str();
             dt.range = {{0, 0, 0}, {0, 0, 1}};
@@ -2092,8 +2109,7 @@ void CompilerCangjieProject::CheckPackageNameByAbsName(const File &needCheckedFi
                 return;
             }
             auto errPos = getPackageNameErrPos(needCheckedFile);
-            ci->diag.DiagnoseRefactor(DiagKindRefactor::package_name_not_identical_lsp,
-                errPos, expectedPkgName);
+            ReportPackageNameNotIdentical(callback, needCheckedFile.filePath, errPos, expectedPkgName);
         }
         return;
     }
@@ -2108,8 +2124,7 @@ void CompilerCangjieProject::CheckPackageNameByAbsName(const File &needCheckedFi
     }
     if (actualPkgName != expectedPkgName) {
         auto errPos = getPackageNameErrPos(needCheckedFile);
-        ci->diag.DiagnoseRefactor(DiagKindRefactor::package_name_not_identical_lsp,
-            errPos, expectedPkgName);
+        ReportPackageNameNotIdentical(callback, needCheckedFile.filePath, errPos, expectedPkgName);
     }
 }
 
@@ -2123,7 +2138,7 @@ bool CompilerCangjieProject::CheckPackageModifier(const File &needCheckedFile, c
             if (curMod != Modifier::UNDEFINED && parentMod != Modifier::UNDEFINED &&
                 static_cast<int>(parentMod) < static_cast<int>(curMod)) {
                 DiagnosticToken dt;
-                dt.category = LSP_ERROR_CODE;
+                dt.category = LSP_ERROR_CATEGORY;
                 dt.code = LSP_ERROR_CODE;
                 dt.message = "the access level of child package can't be higher than that of parent package";
                 Position begin = {needCheckedFile.package->begin.fileID, needCheckedFile.package->begin.line - 1,

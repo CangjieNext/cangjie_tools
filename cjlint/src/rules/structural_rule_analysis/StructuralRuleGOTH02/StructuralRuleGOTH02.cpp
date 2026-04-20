@@ -6,6 +6,9 @@
 
 #include "StructuralRuleGOTH02.h"
 #include "cangjie/Basic/Match.h"
+#include "cangjie/AST/Nodes/LitConstExpr.h"
+#include "cangjie/AST/Nodes/Pattern.h"
+#include "cangjie/AST/Nodes/VarDecl.h"
 #include "common/CommonFunc.h"
 
 /**

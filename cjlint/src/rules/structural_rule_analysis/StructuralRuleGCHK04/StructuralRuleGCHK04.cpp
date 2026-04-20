@@ -7,6 +7,7 @@
 #include "StructuralRuleGCHK04.h"
 #include <regex>
 #include "common/CommonFunc.h"
+#include "cangjie/AST/ASTCasting.h"
 
 namespace Cangjie::CodeCheck {
 using namespace Cangjie;
@@ -19,10 +20,10 @@ const std::string JSONPATH = "/config/structural_rule_G_CHK_04.json";
 void StructuralRuleGCHK04::MemberAccessTargetCheck(Ptr<Cangjie::AST::MemberAccess> memberAccess, const Position start,
     const Position end, const std::string refName, std::string& tmpStr)
 {
-    if (auto pVarDecl = DynamicCast<AST::VarDecl*>(memberAccess->target.get());
+    if (auto pVarDecl = DynamicCast<AST::VarDecl*>(memberAccess->GetTarget().get());
         pVarDecl && pVarDecl->initializer != nullptr) {
         tmpStr += GetLitConstExprHelper(pVarDecl->initializer.get(), start, end, pVarDecl->identifier);
-    } else if (auto pFuncDecl = DynamicCast<AST::FuncDecl*>(memberAccess->target.get()); pFuncDecl) {
+    } else if (auto pFuncDecl = DynamicCast<AST::FuncDecl*>(memberAccess->GetTarget().get()); pFuncDecl) {
         for (auto& param : taintSource) {
             if (pFuncDecl->identifier == param.first.funcName && pFuncDecl->fullPackageName == param.first.pkgName) {
                 Diagnose(start, end, CodeCheckDiagKind::G_CHK_04_untrusted_regular_expressions_external_data,
@@ -36,20 +37,20 @@ void StructuralRuleGCHK04::GetLitConstExprHelperRefExpr(
     Ptr<Cangjie::AST::Expr> expr, const Position start, const Position end, std::string refName, std::string& str)
 {
     auto refExpr = As<ASTKind::REF_EXPR>(expr);
-    if (refExpr->ref.target == nullptr) {
+    if (refExpr->ref.GetTarget() == nullptr) {
         return;
     }
-    if (refExpr->ref.target->astKind == AST::ASTKind::FUNC_PARAM) {
+    if (refExpr->ref.GetTarget()->astKind == AST::ASTKind::FUNC_PARAM) {
         Diagnose(start, end, CodeCheckDiagKind::G_CHK_04_untrusted_regular_expressions_dynamical_regex,
             refName.empty() ? refExpr->ref.identifier.Val() : refName);
         return;
     }
-    if (auto pVarDecl = DynamicCast<AST::VarDecl*>(refExpr->ref.target.get()); pVarDecl) {
+    if (auto pVarDecl = DynamicCast<AST::VarDecl*>(refExpr->ref.GetTarget().get()); pVarDecl) {
         if (pVarDecl->initializer != nullptr) {
             str += GetLitConstExprHelper(
                 pVarDecl->initializer.get(), start, end, refName.empty() ? refExpr->ref.identifier.Val() : refName);
         }
-    } else if (auto pFuncDecl = DynamicCast<AST::FuncDecl*>(refExpr->ref.target.get()); pFuncDecl) {
+    } else if (auto pFuncDecl = DynamicCast<AST::FuncDecl*>(refExpr->ref.GetTarget().get()); pFuncDecl) {
         refName = refName.empty() ? refExpr->ref.identifier.Val() : refName;
         auto parentTy = CommonFunc::GetFuncDeclParentTyName(pFuncDecl);
         for (auto& param : taintSource) {
@@ -167,10 +168,10 @@ void StructuralRuleGCHK04::RegexFinder(Ptr<Cangjie::AST::Node> node)
         return match(*node)(
             [this](const CallExpr& callExpr) {
                 if (auto pRefExpr = DynamicCast<AST::RefExpr*>(callExpr.baseFunc.get().get()); pRefExpr) {
-                    if (pRefExpr->ref.target == nullptr) {
+                    if (pRefExpr->ref.GetTarget() == nullptr) {
                         return VisitAction::WALK_CHILDREN;
                     }
-                    if (pRefExpr->ref.identifier == "Regex" && pRefExpr->ref.target->fullPackageName == "std.regex") {
+                    if (pRefExpr->ref.identifier == "Regex" && pRefExpr->ref.GetTarget()->fullPackageName == "std.regex") {
                         GetLitConstExpr(callExpr);
                     }
                 }

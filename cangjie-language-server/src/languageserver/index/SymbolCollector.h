@@ -14,7 +14,7 @@
 #include "Ref.h"
 #include "Relation.h"
 #include "Symbol.h"
-#include "cangjie/AST/Node.h"
+#include "cangjie/AST/Nodes/Decl.h"
 #include "cangjie/AST/ASTCasting.h"
 #include "cangjie/Utils/Utils.h"
 #include "cangjie/Sema/TypeManager.h"

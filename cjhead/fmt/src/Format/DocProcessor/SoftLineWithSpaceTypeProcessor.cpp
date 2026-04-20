@@ -5,7 +5,6 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 #include "Format/DocProcessor/SoftLineWithSpaceTypeProcessor.h"
-#include "cangjie/AST/Node.h"
 #include "Format/ASTToFormatSource.h"
 #include <string>
 #include <utility>

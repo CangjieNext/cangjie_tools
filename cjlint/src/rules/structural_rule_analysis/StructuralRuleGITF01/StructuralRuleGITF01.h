@@ -9,6 +9,10 @@
 
 #include "rules/structural_rule_analysis/StructuralRule.h"
 
+#include "cangjie/AST/Nodes/AssignExpr.h"
+#include "cangjie/AST/Nodes/FuncDecl.h"
+#include "cangjie/AST/Nodes/InterfaceDecl.h"
+#include "cangjie/AST/Nodes/StructDecl.h"
 #include "cangjie/AST/Walker.h"
 #include "cangjie/Basic/Match.h"
 

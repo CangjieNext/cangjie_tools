@@ -7,7 +7,7 @@
 #include "DotCompleterByParse.h"
 #include <unordered_set>
 #include <vector>
-#include "cangjie/AST/Node.h"
+#include "cangjie/AST/Utils.h"
 #include "cangjie/Utils/CastingTemplate.h"
 
 using namespace Cangjie;
@@ -795,8 +795,8 @@ void DotCompleterByParse::FindRefExpr(Ptr<Node> node, const Position &pos,
 {
     auto re = dynamic_cast<RefExpr*>(node.get());
     if (!re) { return; }
-    if (re->ref.target && Contain(re->ref.target.get(), pos)) {
-        DeepFind(re->ref.target.get(), pos, scopeName, isInclude);
+    if (re->ref.GetTarget() && Contain(re->ref.GetTarget().get(), pos)) {
+        DeepFind(re->ref.GetTarget().get(), pos, scopeName, isInclude);
     }
 
     if (scopeName == "a") {
@@ -1195,10 +1195,10 @@ void DotCompleterByParse::CompleteClassDecl(Ptr<Ty> ty, const Cangjie::Position 
             continue;
         }
         auto refType = dynamic_cast<RefType*>(inheritedType.get().get());
-        if (!refType || !ark::Is<InterfaceDecl>(refType->ref.target.get())) {
+        if (!refType || !ark::Is<InterfaceDecl>(refType->ref.GetTarget().get())) {
             continue;
         }
-        CompleteInterfaceDecl(dynamic_cast<InterfaceDecl*>(refType->ref.target.get()), pos, env);
+        CompleteInterfaceDecl(dynamic_cast<InterfaceDecl*>(refType->ref.GetTarget().get()), pos, env);
     }
     // Complete super class
     if (ark::Is<ClassDecl>(classDecl->GetSuperClassDecl().get())) {
@@ -1230,7 +1230,7 @@ void DotCompleterByParse::CompleteSuperInterface(Ptr<const InterfaceDecl> interf
             continue;
         }
         auto refType = dynamic_cast<RefType*>(inheritedType.get().get());
-        if (Cangjie::Is<InterfaceTy>(refType->GetTy().get()) && !IsHiddenDecl(refType->ref.target)) {
+        if (Cangjie::Is<InterfaceTy>(refType->GetTy().get()) && !IsHiddenDecl(refType->ref.GetTarget())) {
             CompleteFromType("", pos, refType->GetTy(), env);
         }
     }
@@ -1274,10 +1274,10 @@ void DotCompleterByParse::CompleteEnumInterface(Ptr<EnumDecl> enumDecl, const Po
             continue;
         }
         auto refType = dynamic_cast<RefType*>(superClassOrInterfaceType.get().get());
-        if (!refType || !Cangjie::Is<InterfaceDecl>(refType->ref.target.get())) {
+        if (!refType || !Cangjie::Is<InterfaceDecl>(refType->ref.GetTarget().get())) {
             continue;
         }
-        CompleteInterfaceDecl(dynamic_cast<InterfaceDecl*>(refType->ref.target.get()), pos, env);
+        CompleteInterfaceDecl(dynamic_cast<InterfaceDecl*>(refType->ref.GetTarget().get()), pos, env);
     }
 }
 // LCOV_EXCL_STOP
@@ -1303,10 +1303,10 @@ void DotCompleterByParse::CompleteStructDecl(Ptr<Ty> ty, const Cangjie::Position
             continue;
         }
         auto refType = dynamic_cast<RefType*>(inheritedType.get().get());
-        if (!refType || !ark::Is<InterfaceDecl>(refType->ref.target.get())) {
+        if (!refType || !ark::Is<InterfaceDecl>(refType->ref.GetTarget().get())) {
             continue;
         }
-        CompleteInterfaceDecl(dynamic_cast<InterfaceDecl*>(refType->ref.target.get()), pos, env);
+        CompleteInterfaceDecl(dynamic_cast<InterfaceDecl*>(refType->ref.GetTarget().get()), pos, env);
     }
     // struct can not inherit
 }

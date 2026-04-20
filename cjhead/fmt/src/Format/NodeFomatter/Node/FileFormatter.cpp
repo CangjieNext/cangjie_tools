@@ -8,7 +8,6 @@
 #include <map>
 #include <algorithm>
 #include <unordered_map>
-#include "cangjie/AST/Node.h"
 #include "Format/ASTToFormatSource.h"
 #include "Format/NodeFomatter/Node/FileFormatter.h"
 

@@ -9,10 +9,14 @@
 
 #include "cangjie/AST/Match.h"
 #include "cangjie/AST/Walker.h"
+#include "cangjie/AST/Nodes/AssignExpr.h"
+#include "cangjie/AST/Nodes/MemberAccess.h"
+#include "cangjie/AST/Nodes/RefExpr.h"
 #include "cangjie/Basic/Match.h"
 #include "rules/structural_rule_analysis/StructuralRule.h"
 
 namespace Cangjie::CodeCheck {
+namespace AST = Cangjie::AST;
 /**
  * G.EXP.04：&& 、 ||、? 和 ?? 操作符的右侧操作数不要包含副作用
  */

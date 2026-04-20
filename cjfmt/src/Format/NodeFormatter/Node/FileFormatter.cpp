@@ -5,7 +5,6 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 #include <vector>
-#include "cangjie/AST/Node.h"
 #include "Format/ASTToFormatSource.h"
 #include "Format/NodeFormatter/Node/FileFormatter.h"
 

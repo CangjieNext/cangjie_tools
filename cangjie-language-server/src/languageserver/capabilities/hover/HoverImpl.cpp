@@ -426,8 +426,7 @@ int HoverImpl::FindHover(const ArkAST &ast, Hover &result, Cangjie::Position pos
     }
     if (index - 1 >= 0) {
         Token preToken = ast.tokens[static_cast<size_t>(index - 1)];
-        if (NAME_TO_ANNO_KIND.count(ast.tokens[static_cast<size_t>(index)].Value())
-            && preToken.kind == TokenKind::AT) {
+        if (preToken.kind == TokenKind::AT) {
             return -1;
         }
     }

@@ -30,16 +30,16 @@ void StructuralRuleGEXP07::ReferenceExprAnalysis(Ptr<AST::Expr> expr, Ptr<AST::V
 {
     if (expr->astKind == ASTKind::REF_EXPR) {
         auto refExpr = As<ASTKind::REF_EXPR>(expr);
-        if (!refExpr || refExpr->ref.target == nullptr || refExpr->ref.target->astKind != ASTKind::VAR_DECL) {
+        if (!refExpr || refExpr->ref.GetTarget() == nullptr || refExpr->ref.GetTarget()->astKind != ASTKind::VAR_DECL) {
             return;
         }
-        VarDeclDiagnose(refExpr->ref.target, refExpr->begin, refExpr->end, rightVarDecl);
+        VarDeclDiagnose(refExpr->ref.GetTarget(), refExpr->begin, refExpr->end, rightVarDecl);
     } else if (expr->astKind == ASTKind::MEMBER_ACCESS) {
         auto ma = As<ASTKind::MEMBER_ACCESS>(expr);
-        if (!ma || ma->target == nullptr || ma->target->astKind != ASTKind::VAR_DECL) {
+        if (!ma || ma->GetTarget() == nullptr || ma->GetTarget()->astKind != ASTKind::VAR_DECL) {
             return;
         }
-        VarDeclDiagnose(ma->target, ma->begin, ma->end, rightVarDecl);
+        VarDeclDiagnose(ma->GetTarget(), ma->begin, ma->end, rightVarDecl);
     } else if (expr->astKind == ASTKind::LIT_CONST_EXPR && !rightVarDecl->isConst) {
         auto leftExpr = As<ASTKind::LIT_CONST_EXPR>(expr);
         if (!leftExpr) {
@@ -63,10 +63,10 @@ void StructuralRuleGEXP07::BinaryDesugar(const BinaryExpr& binaryExpr)
         return;
     }
     auto ref = As<ASTKind::REF_EXPR>(ce->args[0]->expr);
-    if (ref == nullptr || ref->ref.target == nullptr || ref->ref.target->astKind != ASTKind::VAR_DECL) {
+    if (ref == nullptr || ref->ref.GetTarget() == nullptr || ref->ref.GetTarget()->astKind != ASTKind::VAR_DECL) {
         return;
     }
-    auto vd = As<ASTKind::VAR_DECL>(ref->ref.target);
+    auto vd = As<ASTKind::VAR_DECL>(ref->ref.GetTarget());
     if (!vd || ce->baseFunc == nullptr || ce->baseFunc->astKind != ASTKind::MEMBER_ACCESS) {
         return;
     }
@@ -81,12 +81,12 @@ void StructuralRuleGEXP07::ExprCoverToVarDecl(Ptr<Expr> expr, Ptr<VarDecl> &varD
 {
     auto ref = As<ASTKind::REF_EXPR>(expr);
     auto ma = As<ASTKind::MEMBER_ACCESS>(expr);
-    if (ref && ref->ref.target &&
-        (ref->ref.target->astKind == ASTKind::VAR_DECL || ref->ref.target->astKind == ASTKind::PROP_DECL)) {
-        varDecl = As<ASTKind::VAR_DECL>(ref->ref.target);
-    } else if (ma && ma->target &&
-        (ma->target->astKind == ASTKind::VAR_DECL || ma->target->astKind == ASTKind::PROP_DECL)) {
-        varDecl = As<ASTKind::VAR_DECL>(ma->target);
+    if (ref && ref->ref.GetTarget() &&
+        (ref->ref.GetTarget()->astKind == ASTKind::VAR_DECL || ref->ref.GetTarget()->astKind == ASTKind::PROP_DECL)) {
+        varDecl = As<ASTKind::VAR_DECL>(ref->ref.GetTarget());
+    } else if (ma && ma->GetTarget() &&
+        (ma->GetTarget()->astKind == ASTKind::VAR_DECL || ma->GetTarget()->astKind == ASTKind::PROP_DECL)) {
+        varDecl = As<ASTKind::VAR_DECL>(ma->GetTarget());
     }
 }
 

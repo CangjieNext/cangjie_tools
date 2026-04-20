@@ -5,6 +5,7 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 #include "StructuralRuleGVAR03.h"
+#include "cangjie/AST/Nodes/VarDecl.h"
 
 using namespace Cangjie;
 using namespace Cangjie::AST;

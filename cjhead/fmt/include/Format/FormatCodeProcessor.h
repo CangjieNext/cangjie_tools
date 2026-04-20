@@ -12,7 +12,6 @@
 #include "cangjie/Basic/Print.h"
 #include "cangjie/Parse/Parser.h"
 #include "cangjie/Utils/FileUtil.h"
-#include "cangjie/AST/Node.h"
 
 #include <dirent.h>
 #include <fstream>

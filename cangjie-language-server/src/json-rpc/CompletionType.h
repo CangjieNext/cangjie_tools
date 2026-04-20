@@ -8,6 +8,7 @@
 #define LSPSERVER_COMPLETIONTYPE_H
 
 #include <optional>
+#include <vector>
 #include "Common.h"
 
 /**

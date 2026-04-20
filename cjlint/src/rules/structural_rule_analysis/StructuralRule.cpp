@@ -5,6 +5,7 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 #include "StructuralRule.h"
+#include "cangjie/AST/Nodes/Package.h"
 #include "cangjie/Basic/Print.h"
 
 namespace Cangjie::CodeCheck {

@@ -5,7 +5,13 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 #include "StructuralRuleGFMT13.h"
+#include "cangjie/AST/ASTCasting.h"
+#include "cangjie/AST/Match.h"
 #include "cangjie/Basic/Match.h"
+#include "cangjie/AST/Nodes/File.h"
+#include "cangjie/AST/Nodes/FuncDecl.h"
+#include "cangjie/AST/Nodes/ImportSpec.h"
+#include "cangjie/AST/Nodes/PackageSpec.h"
 
 namespace Cangjie::CodeCheck {
 using namespace Cangjie;
@@ -71,7 +77,10 @@ void StructuralRuleGFMT13::GetTopLevelComments(Ptr<Cangjie::AST::File> pFile)
         return;
     }
     if (!pFile->decls.empty()) {
-        Ptr<Decl> decl = pFile->decls[0]->GetDesugarDecl() ? pFile->decls[0]->GetDesugarDecl() : pFile->decls[0].get();
+        Ptr<Decl> decl = pFile->decls[0].get();
+        if (pFile->decls[0]->GetDesugarDecl()) {
+            decl = pFile->decls[0]->GetDesugarDecl();
+        }
         if (!decl) {
             return;
         }

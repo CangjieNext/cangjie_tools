@@ -13,7 +13,7 @@ using namespace Meta;
 
 static bool CheckRefExpr(Ptr<AST::RefExpr> refExpr)
 {
-    auto target = refExpr->ref.target;
+    auto target = refExpr->ref.GetTarget();
     if (target->astKind == ASTKind::VAR_DECL) {
         auto varDecl = StaticCast<AST::VarDecl*>(target);
         return varDecl->IsStaticOrGlobal();
@@ -81,7 +81,7 @@ bool StructuralRuleGEXP04::CheckSideEffectInExpr(Ptr<AST::Expr> expr)
     }
     if (expr->astKind == ASTKind::REF_EXPR) {
         auto refExpr = StaticCast<AST::RefExpr*>(expr);
-        auto target = refExpr->ref.target;
+        auto target = refExpr->ref.GetTarget();
         if (!target || target->astKind != ASTKind::FUNC_DECL) {
             return false;
         }
@@ -138,7 +138,7 @@ static bool CheckParamsSequence(Ptr<AST::CallExpr> callExpr)
         return false;
     }
     auto refExpr = StaticCast<AST::RefExpr*>(callExpr->baseFunc.get());
-    auto target = refExpr->ref.target;
+    auto target = refExpr->ref.GetTarget();
     if (!target || target->astKind != ASTKind::FUNC_DECL) {
         return false;
     }

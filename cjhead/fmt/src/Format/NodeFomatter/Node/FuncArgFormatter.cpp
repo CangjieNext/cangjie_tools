@@ -6,7 +6,6 @@
 
 #include "Format/NodeFomatter/Node/FuncArgFormatter.h"
 #include "Format/ASTToFormatSource.h"
-#include "cangjie/AST/Node.h"
 #include <exception>
 
 namespace Cangjie::Format {

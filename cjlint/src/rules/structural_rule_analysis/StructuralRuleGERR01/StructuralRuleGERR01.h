@@ -10,6 +10,9 @@
 #include <vector>
 #include <string>
 #include "cangjie/Basic/Match.h"
+#include "cangjie/AST/Match.h"
+#include "cangjie/AST/Nodes/Block.h"
+#include "cangjie/AST/Nodes/TryExpr.h"
 #include "rules/structural_rule_analysis/StructuralRule.h"
 
 namespace Cangjie::CodeCheck {

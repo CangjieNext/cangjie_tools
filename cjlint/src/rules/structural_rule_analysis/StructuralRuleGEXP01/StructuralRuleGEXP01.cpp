@@ -5,7 +5,9 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 #include "StructuralRuleGEXP01.h"
+#include "cangjie/AST/ASTCasting.h"
 #include "cangjie/AST/Types.h"
+#include "cangjie/AST/Nodes/EnumDecl.h"
 
 namespace Cangjie::CodeCheck {
 using namespace Cangjie;

@@ -7,6 +7,7 @@
 #ifndef CJFMT_PROPDECLFORMATTER_H
 #define CJFMT_PROPDECLFORMATTER_H
 #include "DeclFormatter.h"
+#include "cangjie/AST/Nodes/PropDecl.h"
 
 namespace Cangjie::Format {
 class PropDeclFormatter : public DeclFormatter {

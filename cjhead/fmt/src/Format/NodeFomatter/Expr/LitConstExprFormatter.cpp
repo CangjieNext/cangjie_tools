@@ -8,7 +8,6 @@
 #include <regex>
 #include <string>
 #include "Format/ASTToFormatSource.h"
-#include "cangjie/AST/Node.h"
 
 namespace Cangjie::Format {
 using namespace Cangjie::AST;

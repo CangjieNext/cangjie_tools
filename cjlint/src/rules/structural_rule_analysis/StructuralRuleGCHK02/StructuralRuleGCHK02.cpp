@@ -7,6 +7,9 @@
 #include "StructuralRuleGCHK02.h"
 #include <utility>
 #include "common/CommonFunc.h"
+#include "cangjie/AST/ASTCasting.h"
+#include "cangjie/AST/Match.h"
+#include "cangjie/AST/Walker.h"
 
 namespace Cangjie::CodeCheck {
 using namespace Cangjie;
@@ -50,13 +53,13 @@ void StructuralRuleGCHK02::LoggerFinderHelper(Ptr<const Cangjie::AST::MemberAcce
 
 bool StructuralRuleGCHK02::IsLogObject(const Cangjie::AST::MemberAccess &memberAccess)
 {
-    if (memberAccess.target == nullptr) {
+    if (memberAccess.GetTarget() == nullptr) {
         return false;
     }
-    if (memberAccess.target->astKind != ASTKind::FUNC_DECL) {
+    if (memberAccess.GetTarget()->astKind != ASTKind::FUNC_DECL) {
         return false;
     }
-    auto funcDecl = As<ASTKind::FUNC_DECL>(memberAccess.target);
+    auto funcDecl = StaticCast<FuncDecl>(memberAccess.GetTarget());
     if (funcDecl == nullptr || funcDecl->funcBody == nullptr || funcDecl->funcBody->parentClassLike == nullptr) {
         return false;
     }
@@ -99,12 +102,12 @@ void StructuralRuleGCHK02::ObjectFilter(Ptr<Cangjie::AST::Expr> expr, const Posi
                         AddLogInfoToSet(start, end, scopeName, tmpName);
                     }
                 }
-                if (auto pFuncDecl = DynamicCast<AST::FuncDecl*>(refExpr.ref.target.get()); pFuncDecl) {
-                    if (ExternalDateCheckerHelper(*refExpr.ref.target)) {
+                if (auto pFuncDecl = DynamicCast<AST::FuncDecl*>(refExpr.ref.GetTarget().get()); pFuncDecl) {
+                    if (ExternalDateCheckerHelper(*refExpr.ref.GetTarget())) {
                         auto tmpName = refName.empty() ? refExpr.ref.identifier + "()" : refName;
                         AddLogInfoToSet(start, end, scopeName, tmpName);
                     }
-                } else if (auto pVarDecl = DynamicCast<AST::VarDecl*>(refExpr.ref.target.get()); pVarDecl) {
+                } else if (auto pVarDecl = DynamicCast<AST::VarDecl*>(refExpr.ref.GetTarget().get()); pVarDecl) {
                     ObjectFilter(pVarDecl->initializer.get(), start, end, scopeName,
                         refName.empty() ? refExpr.ref.identifier.Val() : refName);
                 }
@@ -120,12 +123,12 @@ void StructuralRuleGCHK02::ObjectFilter(Ptr<Cangjie::AST::Expr> expr, const Posi
                 ObjectFilter(
                     memberAccess.baseExpr.get(), start, end, scopeName, refName.empty() ? memberAccessName : refName);
                 auto tmpName = refName.empty() ? memberAccessName : refName;
-                if (memberAccess.target == nullptr) {
+                if (memberAccess.GetTarget() == nullptr) {
                     return VisitAction::SKIP_CHILDREN;
                 }
-                if (auto pFuncDecl = DynamicCast<AST::FuncDecl*>(memberAccess.target.get()); pFuncDecl) {
+                if (auto pFuncDecl = DynamicCast<AST::FuncDecl*>(memberAccess.GetTarget()); pFuncDecl) {
                     FuncDeclBodyChecker(pFuncDecl, tmpName, start, end, scopeName);
-                } else if (auto pVarDecl = DynamicCast<AST::VarDecl*>(memberAccess.target.get()); pVarDecl) {
+                } else if (auto pVarDecl = DynamicCast<AST::VarDecl*>(memberAccess.GetTarget()); pVarDecl) {
                     ObjectFilter(pVarDecl->initializer.get(), start, end, scopeName, tmpName);
                 }
                 return VisitAction::SKIP_CHILDREN;
@@ -187,13 +190,13 @@ void StructuralRuleGCHK02::TaintVarFinder(Ptr<Cangjie::AST::Node> node)
                     return VisitAction::SKIP_CHILDREN;
                 }
                 auto memberAccess = As<ASTKind::MEMBER_ACCESS>(callExpr.baseFunc.get());
-                if (memberAccess == nullptr || memberAccess->target == nullptr) {
+                if (memberAccess == nullptr || memberAccess->GetTarget() == nullptr) {
                     return VisitAction::SKIP_CHILDREN;
                 }
-                if (memberAccess->target->astKind != ASTKind::FUNC_DECL) {
+                if (memberAccess->GetTarget()->astKind != ASTKind::FUNC_DECL) {
                     return VisitAction::SKIP_CHILDREN;
                 }
-                auto funcDecl = As<ASTKind::FUNC_DECL>(memberAccess->target);
+                auto funcDecl = As<ASTKind::FUNC_DECL>(memberAccess->GetTarget());
                 auto parentName = CommonFunc::GetFuncDeclParentTyName(funcDecl);
                 if (!IsTaintVar(funcDecl, parentName, "ExternalDateFuncPassToVar")) {
                     return VisitAction::SKIP_CHILDREN;
@@ -274,15 +277,15 @@ void StructuralRuleGCHK02::IsExternalInterface(Ptr<Cangjie::AST::Expr> expr)
     Walker walker(expr, [this](Ptr<Node> node) -> VisitAction {
         return match(*node)(
             [this](const RefExpr &refExpr) {
-                if (refExpr.ref.target == nullptr) {
+                if (refExpr.ref.GetTarget() == nullptr) {
                     return VisitAction::SKIP_CHILDREN;
                 }
-                if (auto pFuncDecl = DynamicCast<AST::FuncDecl*>(refExpr.ref.target.get()); pFuncDecl) {
-                    if (ExternalDateCheckerHelper(*refExpr.ref.target)) {
+                if (auto pFuncDecl = DynamicCast<AST::FuncDecl*>(refExpr.ref.GetTarget()); pFuncDecl) {
+                    if (ExternalDateCheckerHelper(*refExpr.ref.GetTarget())) {
                         isExternalInterfaceFlag = true;
                     }
                     return VisitAction::SKIP_CHILDREN;
-                } else if (auto pVarDecl = DynamicCast<AST::VarDecl*>(refExpr.ref.target.get()); pVarDecl) {
+                } else if (auto pVarDecl = DynamicCast<AST::VarDecl*>(refExpr.ref.GetTarget()); pVarDecl) {
                     IsExternalInterface(pVarDecl->initializer.get());
                     return VisitAction::SKIP_CHILDREN;
                 }
