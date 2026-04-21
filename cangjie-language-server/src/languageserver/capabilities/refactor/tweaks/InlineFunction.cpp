@@ -19,7 +19,6 @@ class InlineFunctionSelectionRule : public TweakRule {
     bool Check(const Tweak::Selection &sel, std::map<std::string, std::string> &extraOptions) const override
     {
         auto root = sel.selectionTree.root();
-
         if (!root || root->selected != SelectionTree::Selection::Complete) {
             extraOptions.insert(std::make_pair("ErrorCode",
                 std::to_string(static_cast<int>(TweakRule::TweakError::ERROR_AST))));
@@ -77,14 +76,13 @@ class InlineFunctionNoRecursiveRule : public TweakRule {
         std::string funcName = funcDecl->identifier;
         bool isRecursive = false;
 
-        Walker(funcDecl->funcBody->body.get(), nullptr, [&funcName, &isRecursive](Ptr<Node> node) -> VisitAction {
+        Walker(funcDecl->funcBody->body.get(), nullptr,
+            [&funcName, &isRecursive](Ptr<Node> node) -> VisitAction {
             if (node->astKind == ASTKind::CALL_EXPR) {
                 auto innerCallExpr = DynamicCast<CallExpr*>(node.get());
-                if (innerCallExpr && innerCallExpr->baseFunc) {
-                    if (innerCallExpr->baseFunc->ToString() == funcName) {
-                        isRecursive = true;
-                        return VisitAction::STOP_NOW;
-                    }
+                if (innerCallExpr && innerCallExpr->baseFunc && innerCallExpr->baseFunc->ToString() == funcName) {
+                    isRecursive = true;
+                    return VisitAction::STOP_NOW;
                 }
             }
             return VisitAction::WALK_CHILDREN;
@@ -120,15 +118,13 @@ class InlineFunctionNoPrivateAccessRule : public TweakRule {
 
         bool hasPrivateAccess = false;
 
-        Walker(funcDecl->funcBody->body.get(), nullptr, [&hasPrivateAccess](Ptr<Node> node) -> VisitAction {
+        Walker(funcDecl->funcBody->body.get(),
+            nullptr, [&hasPrivateAccess](Ptr<Node> node) -> VisitAction {
             if (node->astKind == ASTKind::REF_EXPR) {
                 auto refExpr = DynamicCast<RefExpr*>(node.get());
-                if (refExpr) {
-                    auto target = refExpr->GetTarget();
-                    if (target && target->TestAttr(Attribute::PRIVATE)) {
-                        hasPrivateAccess = true;
-                        return VisitAction::STOP_NOW;
-                    }
+                if (refExpr && refExpr->GetTarget() && refExpr->GetTarget()->TestAttr(Attribute::PRIVATE)) {
+                    hasPrivateAccess = true;
+                    return VisitAction::STOP_NOW;
                 }
             }
             return VisitAction::WALK_CHILDREN;
@@ -162,7 +158,7 @@ class InlineFunctionSimpleTypeRule : public TweakRule {
             return false;
         }
 
-        if (funcDecl->funcBody->generic ) {
+        if (funcDecl->funcBody->generic) {
             extraOptions.insert(std::make_pair("ErrorCode",
                 std::to_string(static_cast<int>(InlineFunction::InlineFunctionError::IS_GENERIC_FUNC))));
             return false;
@@ -202,31 +198,31 @@ bool InlineFunction::Prepare(const Selection &sel)
     return ruleEngine.CheckRules(sel, extraOptions);
 }
 
-CallExpr* InlineFunction::GetCallExpr(const Selection &sel)
+CallExpr* InlineFunction::GetCallExpr()
 {
-    auto root = sel.selectionTree.root();
+    auto root = sel_->selectionTree.root();
     if (!root || !root->node || root->node->astKind != ASTKind::CALL_EXPR) {
         return nullptr;
     }
     return DynamicCast<CallExpr*>(root->node.get());
 }
 
-FuncDecl* InlineFunction::GetFuncDecl(CallExpr* callExpr)
+FuncDecl* InlineFunction::GetFuncDecl()
 {
-    if (!callExpr || !callExpr->resolvedFunction) {
+    if (!callExpr_ || !callExpr_->resolvedFunction) {
         return nullptr;
     }
-    return DynamicCast<FuncDecl*>(callExpr->resolvedFunction.get());
+    return DynamicCast<FuncDecl*>(callExpr_->resolvedFunction.get());
 }
 
-bool InlineFunction::HasReturnValue(FuncDecl* funcDecl)
+bool InlineFunction::HasReturnValue()
 {
-    if (!funcDecl || !funcDecl->funcBody) {
+    if (!funcDecl_ || !funcDecl_->funcBody) {
         return false;
     }
 
-    if (funcDecl->funcBody->retType) {
-        auto retTy = funcDecl->funcBody->retType.get();
+    if (funcDecl_->funcBody->retType) {
+        auto retTy = funcDecl_->funcBody->retType.get();
         if (retTy && retTy->ty) {
             auto typeStr = retTy->ty->name;
             return typeStr != "void" && typeStr != "Unit";
@@ -236,21 +232,21 @@ bool InlineFunction::HasReturnValue(FuncDecl* funcDecl)
     return false;
 }
 
-std::string InlineFunction::GetSourceCode(Ptr<Node> node, const Selection &sel)
+std::string InlineFunction::GetSourceCode(Ptr<Node> node)
 {
-    if (!node || !sel.arkAst || !sel.arkAst->sourceManager) {
+    if (!node || !sel_->arkAst || !sel_->arkAst->sourceManager) {
         return "";
     }
-    return sel.arkAst->sourceManager->GetContentBetween(node->begin, node->end);
+    return sel_->arkAst->sourceManager->GetContentBetween(node->begin, node->end);
 }
 
-std::string InlineFunction::GetReturnTypeString(FuncDecl* funcDecl)
+std::string InlineFunction::GetReturnTypeString()
 {
-    if (!funcDecl || !funcDecl->funcBody || !funcDecl->funcBody->retType) {
+    if (!funcDecl_ || !funcDecl_->funcBody || !funcDecl_->funcBody->retType) {
         return "";
     }
 
-    auto retTy = funcDecl->funcBody->retType.get();
+    auto retTy = funcDecl_->funcBody->retType.get();
     if (!retTy || !retTy->ty) {
         return "";
     }
@@ -258,32 +254,8 @@ std::string InlineFunction::GetReturnTypeString(FuncDecl* funcDecl)
     return retTy->ty->name;
 }
 
-std::map<std::string, std::string> InlineFunction::BuildParamMap(CallExpr* callExpr, FuncDecl* funcDecl, const Selection &sel)
-{
-    std::map<std::string, std::string> paramMap;
-
-    if (!callExpr || !funcDecl || !funcDecl->funcBody) {
-        return paramMap;
-    }
-
-    size_t argIndex = 0;
-    for (const auto &paramList : funcDecl->funcBody->paramLists) {
-        for (const auto &param : paramList->params) {
-            if (argIndex < callExpr->args.size()) {
-                auto &arg = callExpr->args[argIndex];
-                if (arg && arg->expr) {
-                    std::string argCode = GetSourceCode(arg->expr, sel);
-                    paramMap[param->identifier] = argCode;
-                }
-            }
-            argIndex++;
-        }
-    }
-
-    return paramMap;
-}
-
-std::string InlineFunction::ReplaceParamsInCode(const std::string &code, const std::map<std::string, std::string> &paramMap)
+std::string InlineFunction::ReplaceParamsInCode(const std::string &code,
+    const std::map<std::string, std::string> &paramMap)
 {
     std::string result = code;
     for (const auto &[paramName, paramValue] : paramMap) {
@@ -333,57 +305,50 @@ std::string InlineFunction::GetParamTypeString(FuncParam* param)
     return param->ty->name;
 }
 
-InlineFunction::ExtractedParams InlineFunction::ExtractParams(CallExpr* callExpr, FuncDecl* funcDecl, const Selection &sel)
+void InlineFunction::ExtractParams()
 {
-    ExtractedParams result;
-
-    if (!callExpr || !funcDecl || !funcDecl->funcBody) {
-        return result;
+    if (!callExpr_ || !funcDecl_ || !funcDecl_->funcBody) {
+        return;
     }
 
-    size_t callArgCount = callExpr->args.size();
-    size_t defaultArgCount = callExpr->defaultArgs.size();
+    size_t callArgCount = callExpr_->args.size();
+    size_t defaultArgCount = callExpr_->defaultArgs.size();
 
     size_t argIndex = 0;
-    for (const auto &paramList : funcDecl->funcBody->paramLists) {
-        for (const auto &param : paramList->params) {
-            std::string paramName = param->identifier;
-            std::string paramType = GetParamTypeString(param.get());
-            std::string paramValue;
-            bool needsExtract = false;
+    for (const auto &param : funcDecl_->funcBody->paramLists[0]->params) {
+        std::string paramName = param->identifier;
+        std::string paramType = GetParamTypeString(param.get());
+        std::string paramValue;
+        bool needsExtract = false;
 
-            if (argIndex < callArgCount) {
-                auto &arg = callExpr->args[argIndex];
-                if (arg && arg->expr) {
-                    paramValue = GetSourceCode(arg->expr, sel);
-                    needsExtract = IsComplexArg(arg->expr.get());
-                }
-            } else if (argIndex < callArgCount + defaultArgCount) {
-                size_t defaultArgIndex = argIndex - callArgCount;
-                auto &defaultArg = callExpr->defaultArgs[defaultArgIndex];
-                if (defaultArg && defaultArg->expr) {
-                    paramValue = GetSourceCode(defaultArg->expr, sel);
-                    needsExtract = true;
-                }
+        if (argIndex < callArgCount) {
+            auto &arg = callExpr_->args[argIndex];
+            if (arg && arg->expr) {
+                paramValue = GetSourceCode(arg->expr);
+                needsExtract = IsComplexArg(arg->expr.get());
             }
-
-            result.params.emplace_back(paramName, paramType, paramValue, needsExtract);
-            argIndex++;
+        } else if (argIndex < callArgCount + defaultArgCount) {
+            size_t defaultArgIndex = argIndex - callArgCount;
+            auto &defaultArg = callExpr_->defaultArgs[defaultArgIndex];
+            if (defaultArg && defaultArg->expr) {
+                paramValue = GetSourceCode(defaultArg->expr);
+                needsExtract = true;
+            }
         }
-    }
 
-    return result;
+        extractedParams_.params.emplace_back(paramName, paramType, paramValue, needsExtract);
+        argIndex++;
+    }
 }
 
-TextEdit InlineFunction::InsertParamDecls(const Selection &sel, CallExpr* callExpr,
-    const ExtractedParams &extractedParams, std::string indent)
+TextEdit InlineFunction::InsertParamDecls()
 {
     TextEdit edit;
 
     std::ostringstream paramDecls;
     bool hasParamDecls = false;
 
-    for (const auto &[paramName, paramType, paramValue, needsExtract] : extractedParams.params) {
+    for (const auto &[paramName, paramType, paramValue, needsExtract] : extractedParams_.params) {
         if (needsExtract && !paramValue.empty()) {
             std::string varName = GenerateParamVarName(paramName);
             paramDecls << "var " << varName;
@@ -400,7 +365,7 @@ TextEdit InlineFunction::InsertParamDecls(const Selection &sel, CallExpr* callEx
     }
 
     std::string fullIndent;
-    Range insertRange = FindInsertPosition(sel, callExpr, fullIndent);
+    Range insertRange = FindInsertPosition(fullIndent);
     if (insertRange.end.IsZero()) {
         return edit;
     }
@@ -422,26 +387,26 @@ TextEdit InlineFunction::InsertParamDecls(const Selection &sel, CallExpr* callEx
     return edit;
 }
 
-Range InlineFunction::FindInsertPosition(const Selection &sel, CallExpr* callExpr, std::string &indent)
+Range InlineFunction::FindInsertPosition(std::string &indent)
 {
     Range insertRange;
-    if (!callExpr || !sel.arkAst || sel.arkAst->tokens.empty()) {
+    if (!callExpr_ || !sel_->arkAst || sel_->arkAst->tokens.empty()) {
         return insertRange;
     }
 
     bool isGlobal = false;
-    Range callRange = {callExpr->begin, callExpr->end};
+    Range callRange = {callExpr_->begin, callExpr_->end};
 
-    if (sel.selectionTree.OuterInterpExpr()) {
-        if (auto expr = DynamicCast<Expr*>(sel.selectionTree.OuterInterpExpr())) {
-            if (sel.arkAst->packageInstance && sel.arkAst->packageInstance->ctx) {
+    if (sel_->selectionTree.OuterInterpExpr()) {
+        if (auto expr = DynamicCast<Expr*>(sel_->selectionTree.OuterInterpExpr())) {
+            if (sel_->arkAst->packageInstance && sel_->arkAst->packageInstance->ctx) {
                 auto block = TweakUtils::FindOuterScopeNode(
-                    *sel.arkAst->packageInstance->ctx, *expr, isGlobal, callRange);
+                    *sel_->arkAst->packageInstance->ctx, *expr, isGlobal, callRange);
                 if (block) {
                     for (const auto &subNode : block->body) {
                         if (subNode && subNode->begin <= callRange.start && subNode->end >= callRange.end) {
                             insertRange = {subNode->begin, subNode->begin};
-                            indent = GetIndent(sel, subNode->begin);
+                            indent = GetIndent(subNode->begin);
                             return insertRange;
                         }
                     }
@@ -450,39 +415,38 @@ Range InlineFunction::FindInsertPosition(const Selection &sel, CallExpr* callExp
         }
     }
 
-    if (isGlobal && sel.arkAst->file) {
-        insertRange = TweakUtils::FindGlobalInsertPos(*sel.arkAst->file, callRange);
+    if (isGlobal && sel_->arkAst->file) {
+        insertRange = TweakUtils::FindGlobalInsertPos(*sel_->arkAst->file, callRange);
         indent = "";
         return insertRange;
     }
 
-    int firstTokenIdx = GetFirstTokenOnCurLine(sel.arkAst->tokens, callExpr->begin.line);
-    if (firstTokenIdx >= 0 && firstTokenIdx < static_cast<int>(sel.arkAst->tokens.size())) {
-        Token firstToken = sel.arkAst->tokens[firstTokenIdx];
+    int firstTokenIdx = GetFirstTokenOnCurLine(sel_->arkAst->tokens, callExpr_->begin.line);
+    if (firstTokenIdx >= 0 && firstTokenIdx < static_cast<int>(sel_->arkAst->tokens.size())) {
+        Token firstToken = sel_->arkAst->tokens[firstTokenIdx];
         insertRange = {firstToken.Begin(), firstToken.Begin()};
-        indent = GetIndent(sel, firstToken.Begin());
+        indent = GetIndent(firstToken.Begin());
     }
 
     return insertRange;
 }
 
-TextEdit InlineFunction::InsertInlineBody(const Selection &sel, CallExpr* callExpr, FuncDecl* funcDecl,
-    const ExtractedParams &extractedParams, const std::string &resultVarName, bool hasReturnValue)
+TextEdit InlineFunction::InsertInlineBody()
 {
     TextEdit edit;
 
-    if (!callExpr || !funcDecl || !funcDecl->funcBody || !funcDecl->funcBody->body) {
+    if (!callExpr_ || !funcDecl_ || !funcDecl_->funcBody || !funcDecl_->funcBody->body) {
         return edit;
     }
 
     std::string indent;
-    Range insertRange = FindInsertPosition(sel, callExpr, indent);
+    Range insertRange = FindInsertPosition(indent);
     if (insertRange.end.IsZero()) {
         return edit;
     }
 
     std::map<std::string, std::string> paramMap;
-    for (const auto &[paramName, paramType, paramValue, needsExtract] : extractedParams.params) {
+    for (const auto &[paramName, paramType, paramValue, needsExtract] : extractedParams_.params) {
         if (needsExtract) {
             paramMap[paramName] = GenerateParamVarName(paramName);
         } else {
@@ -490,15 +454,15 @@ TextEdit InlineFunction::InsertInlineBody(const Selection &sel, CallExpr* callEx
         }
     }
 
-    std::string returnType = GetReturnTypeString(funcDecl);
+    std::string returnType = GetReturnTypeString();
 
     std::string inlinedBody = TransformFunctionBody(
-        funcDecl->funcBody->body.get(), paramMap, resultVarName, hasReturnValue, sel);
+        funcDecl_->funcBody->body.get(), paramMap);
 
     std::ostringstream insertText;
 
-    if (hasReturnValue) {
-        insertText << "var " << resultVarName;
+    if (hasReturnValue_) {
+        insertText << "var " << resultVarName_;
         if (!returnType.empty()) {
             insertText << ": " << returnType;
         }
@@ -524,40 +488,39 @@ TextEdit InlineFunction::InsertInlineBody(const Selection &sel, CallExpr* callEx
     return edit;
 }
 
-TextEdit InlineFunction::ReplaceCallWithVar(const Selection &sel, CallExpr* callExpr, const std::string &resultVarName)
+TextEdit InlineFunction::ReplaceCallWithVar()
 {
     TextEdit edit;
 
-    if (!callExpr) {
+    if (!callExpr_) {
         return edit;
     }
 
-    Range callRange = {callExpr->begin, callExpr->end};
+    Range callRange = {callExpr_->begin, callExpr_->end};
     callRange = TransformFromChar2IDE(callRange);
     edit.range = callRange;
-    edit.newText = resultVarName;
+    edit.newText = resultVarName_;
 
     return edit;
 }
 
-std::string InlineFunction::GetIndent(const Selection &sel, Position pos)
+std::string InlineFunction::GetIndent(Position pos)
 {
-    if (!sel.arkAst || sel.arkAst->tokens.empty()) {
+    if (!sel_->arkAst || sel_->arkAst->tokens.empty()) {
         return "";
     }
 
-    int firstTokenIdx = GetFirstTokenOnCurLine(sel.arkAst->tokens, pos.line);
-    if (firstTokenIdx < 0 || firstTokenIdx >= static_cast<int>(sel.arkAst->tokens.size())) {
+    int firstTokenIdx = GetFirstTokenOnCurLine(sel_->arkAst->tokens, pos.line);
+    if (firstTokenIdx < 0 || firstTokenIdx >= static_cast<int>(sel_->arkAst->tokens.size())) {
         return "";
     }
 
-    Token firstToken = sel.arkAst->tokens[firstTokenIdx];
+    Token firstToken = sel_->arkAst->tokens[firstTokenIdx];
     int column = firstToken.Begin().column;
     return std::string(column > 0 ? column - 1 : 0, ' ');
 }
 
-std::string InlineFunction::TransformFunctionBody(Block* block, const std::map<std::string, std::string> &paramMap,
-    const std::string &resultVarName, bool hasReturnValue, const Selection &sel)
+std::string InlineFunction::TransformFunctionBody(Block* block, const std::map<std::string, std::string> &paramMap)
 {
     if (!block) {
         return "";
@@ -571,17 +534,17 @@ std::string InlineFunction::TransformFunctionBody(Block* block, const std::map<s
             continue;
         }
 
-        std::string stmtCode = GetSourceCode(stmt, sel);
+        std::string stmtCode = GetSourceCode(stmt);
         stmtCode = ReplaceParamsInCode(stmtCode, paramMap);
 
         if (stmt->astKind == ASTKind::RETURN_EXPR) {
             auto returnExpr = DynamicCast<ReturnExpr*>(stmt);
             if (returnExpr && returnExpr->expr) {
-                std::string returnValue = GetSourceCode(returnExpr->expr, sel);
+                std::string returnValue = GetSourceCode(returnExpr->expr);
                 returnValue = ReplaceParamsInCode(returnValue, paramMap);
 
-                if (hasReturnValue && !resultVarName.empty()) {
-                    bodyCode << resultVarName << " = " << returnValue << "\n";
+                if (hasReturnValue_ && !resultVarName_.empty()) {
+                    bodyCode << resultVarName_ << " = " << returnValue << "\n";
                 }
             }
         } else {
@@ -603,36 +566,37 @@ std::optional<Tweak::Effect> InlineFunction::Apply(const Selection &sel)
         return std::nullopt;
     }
 
-    auto callExpr = GetCallExpr(sel);
-    if (!callExpr) {
+    sel_ = &sel;
+    callExpr_ = GetCallExpr();
+    if (!callExpr_) {
         return std::nullopt;
     }
 
-    auto funcDecl = GetFuncDecl(callExpr);
-    if (!funcDecl || !funcDecl->funcBody || !funcDecl->funcBody->body) {
+    funcDecl_ = GetFuncDecl();
+    if (!funcDecl_ || !funcDecl_->funcBody || !funcDecl_->funcBody->body) {
         return std::nullopt;
     }
 
-    bool hasReturnValue = HasReturnValue(funcDecl);
-    std::string resultVarName = GenerateInlineVarName();
+    hasReturnValue_ = HasReturnValue();
+    resultVarName_ = GenerateInlineVarName();
 
-    ExtractedParams extractedParams = ExtractParams(callExpr, funcDecl, sel);
+    ExtractParams();
 
     std::vector<TextEdit> textEdits;
 
-    std::string indent = GetIndent(sel, callExpr->begin);
-    TextEdit paramDeclsEdit = InsertParamDecls(sel, callExpr, extractedParams, indent);
+    indent_ = GetIndent(callExpr_->begin);
+    TextEdit paramDeclsEdit = InsertParamDecls();
     if (!paramDeclsEdit.newText.empty()) {
         textEdits.push_back(paramDeclsEdit);
     }
 
-    TextEdit insertBodyEdit = InsertInlineBody(sel, callExpr, funcDecl, extractedParams, resultVarName, hasReturnValue);
+    TextEdit insertBodyEdit = InsertInlineBody();
     if (!insertBodyEdit.newText.empty()) {
         textEdits.push_back(insertBodyEdit);
     }
 
-    if (hasReturnValue) {
-        TextEdit replaceCallEdit = ReplaceCallWithVar(sel, callExpr, resultVarName);
+    if (hasReturnValue_) {
+        TextEdit replaceCallEdit = ReplaceCallWithVar();
         textEdits.push_back(replaceCallEdit);
     }
 

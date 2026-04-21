@@ -54,19 +54,25 @@ private:
         std::vector<std::tuple<std::string, std::string, std::string, bool>> params;
     };
 
-    CallExpr* GetCallExpr(const Selection &sel);
+    const Selection* sel_ = nullptr;
+    CallExpr* callExpr_ = nullptr;
+    FuncDecl* funcDecl_ = nullptr;
+    ExtractedParams extractedParams_;
+    std::string indent_;
+    std::string resultVarName_;
+    bool hasReturnValue_ = false;
 
-    FuncDecl* GetFuncDecl(CallExpr* callExpr);
+    CallExpr* GetCallExpr();
 
-    bool HasReturnValue(FuncDecl* funcDecl);
+    FuncDecl* GetFuncDecl();
 
-    std::string GetSourceCode(Ptr<Node> node, const Selection &sel);
+    bool HasReturnValue();
 
-    std::string GetReturnTypeString(FuncDecl* funcDecl);
+    std::string GetSourceCode(Ptr<Node> node);
+
+    std::string GetReturnTypeString();
 
     std::string GetParamTypeString(FuncParam* param);
-    
-    std::map<std::string, std::string> BuildParamMap(CallExpr* callExpr, FuncDecl* funcDecl, const Selection &sel);
 
     std::string ReplaceParamsInCode(const std::string &code, const std::map<std::string, std::string> &paramMap);
 
@@ -78,22 +84,19 @@ private:
 
     bool IsComplexArg(Expr* expr);
 
-    ExtractedParams ExtractParams(CallExpr* callExpr, FuncDecl* funcDecl, const Selection &sel);
+    void ExtractParams();
 
-    std::string GetIndent(const Selection &sel, Position pos);
+    std::string GetIndent(Position pos);
 
-    std::string TransformFunctionBody(Block* block, const std::map<std::string, std::string> &paramMap,
-        const std::string &resultVarName, bool hasReturnValue, const Selection &sel);
+    std::string TransformFunctionBody(Block* block, const std::map<std::string, std::string> &paramMap);
 
-    Range FindInsertPosition(const Selection &sel, CallExpr* callExpr, std::string &indent);
+    Range FindInsertPosition(std::string &indent);
 
-    TextEdit InsertParamDecls(const Selection &sel, CallExpr* callExpr,
-        const ExtractedParams &extractedParams, std::string indent);
+    TextEdit InsertParamDecls();
 
-    TextEdit InsertInlineBody(const Selection &sel, CallExpr* callExpr, FuncDecl* funcDecl,
-        const ExtractedParams &extractedParams, const std::string &resultVarName, bool hasReturnValue);
+    TextEdit InsertInlineBody();
 
-    TextEdit ReplaceCallWithVar(const Selection &sel, CallExpr* callExpr, const std::string &resultVarName);
+    TextEdit ReplaceCallWithVar();
 };
 
 } // namespace ark
