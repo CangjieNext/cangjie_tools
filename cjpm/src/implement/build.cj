@@ -40,6 +40,14 @@ public func doBuild(tomlInfo: TomlInfo, buildConfig: BuildConfig, isScriptDep!: 
     (buildConfig.globalConfig.targetDir, buildConfig.globalConfig.nativeDir) = setFinalTargetDirectory(
         buildConfig.globalConfig, buildConfig.isCrossCompile, buildConfig.isDebug, buildConfig.mockSupported)
     prepareBuild(buildConfig, curResolveData)
+    if (let Some(keepPkgs) <- buildConfig.keepPkgVisibility) {
+        for (fullName in keepPkgs) {
+            if (!buildConfig.packageList.all.contains(fullName)) {
+                println("Warning: The package '${fullName}' was not in the project, " +
+                    "which is specified in field 'profile.build.lto.keep-pkg-visibility'")
+            }
+        }
+    }
     appendNativeData(buildConfig, curResolveData)
 
     if (buildConfig.globalConfig.isAnalysisCompilePerformance) {
@@ -266,12 +274,26 @@ func handleCombineAllDeps(buildConfig: BuildConfig, tomlInfo: TomlInfo): Bool {
         return false
     }
 
-    if (!tomlInfo.profile.build.ltoValue.isEmpty()) {
+    if (tomlInfo.profile.build.ltoValue.isEmpty() && tomlInfo.profile.build.lto.level.isEmpty() && tomlInfo.profile.build.lto.keepPkgVisibility.isSome()) {
+        eprintln("Error: lto-visible-pkgs is not supported when lto is disabled")
+        return false
+    }
+
+    if (!tomlInfo.profile.build.ltoValue.isEmpty() || !tomlInfo.profile.build.lto.level.isEmpty()) {
         buildConfig.isLto = supportLto()
         if (!buildConfig.isLto) {
             println("Warning: configuration failed, field 'profile.build.lto' settings only support compilation for Linux/OHOS")
         }
-        buildConfig.ltoValue = tomlInfo.profile.build.ltoValue
+        buildConfig.ltoValue = if (!tomlInfo.profile.build.lto.level.isEmpty()) { tomlInfo.profile.build.lto.level } else { tomlInfo.profile.build.ltoValue }
+        buildConfig.keepPkgVisibility = tomlInfo.profile.build.lto.keepPkgVisibility ?? None
+        if (let Some(keepPkgs) <- buildConfig.keepPkgVisibility) {
+            for (fullName in keepPkgs) {
+                if (!keepPkgVisibilityNameCheck(fullName)) {
+                    println("Warning: configuration failed, field 'profile.build.lto' settings only support compilation for Linux/OHOS")
+                    return false
+                }
+            }
+        }
     }
 
     if (supportLto() && buildConfig.globalConfig.isProjectCombine && buildConfig.ltoValue.isEmpty()) {
@@ -646,8 +668,12 @@ func getTypeCommand(compileTask: CompileTask, ignoreTestFlags!: Bool = false): A
 
 
     if (compileTask.isLto) {
-        assertion { compileTask.outputType == Static || compileTask.outputType == Exe }
         res.add("--lto=${compileTask.ltoValue}")
+    }
+
+    if ((compileTask.outputType == Exe || compileTask.outputType == Dynamic) && compileTask.keepPkgVisibility.isSome()) {
+        let keepPkgVisibilityStr = String.join(compileTask.keepPkgVisibility.getOrThrow(), delimiter: ",")
+        res.add("--visible-pkgs=\"${keepPkgVisibilityStr}\"")
     }
 
     res.add("--output-type=${compileTask.outputType.asCompilerArg}")
@@ -808,20 +834,10 @@ func getLtoCombineBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig):
     let compileTarget = compileTask.target
     addForcedLibArgs(res, otherBinOptions, compileTarget)
 
-    // forced-add std dynamic libs
-    if (let Some(stdLinks) <- addStdLibsLink(compileTarget)) {
-        res.add(all: stdLinks)
-    } else {
-        println("Warning: cannot find std dynamic libraries for target '${compileTarget}' " +
-            "from $CANGJIE_HOME/runtime/lib while compiling combine package ${compileTask.fullName}, " +
-            "output may be invalid if sub packages import std libraries")
-    }
-
     let cLibLinkMap = if (compileTask.isCrossCompile) {
         buildConfig.globalConfig.crossCLibLinkMap
     } else { buildConfig.globalConfig.cLibLinkMap }
     res.add(all: getMinimizedCLibLinkStr(cLibLinkMap, cLibNameList))
-    res.add("--lto=${buildConfig.ltoValue}")
 
     return res
 }

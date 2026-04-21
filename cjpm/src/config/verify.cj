@@ -31,7 +31,9 @@ let EXAMPLE_CJC_VERSION: String = "1.0.0"
 // regexp c library name.
 let REGEXP_C_LIB_NAME: String = "^[A-Za-z0-9\\._\\-#%\\+,=@\\[\\]\\^\\{\\}~]+$"
 // Regexp condition value.
-let REGEXP_CONDITON_VALUE: String = "^_*[a-zA-Z][_a-zA-Z0-9]*$"
+let REGEXP_PKG_VALUE: String = "_*[a-zA-Z][_a-zA-Z0-9]*"
+let REGEXP_CONDITON_VALUE: String = "^${REGEXP_PKG_VALUE}$"
+let REGEXP_FULL_PKG_CONDITION_VALUE: String = "^${REGEXP_PKG_VALUE}(\\.${REGEXP_PKG_VALUE})*$"
 let EXAMPLE_CONDITON_VALUE: String = "cfg_1"
 
 // Regexp command injection.
@@ -91,6 +93,24 @@ public func dependenciesNameCheck(text: String, path: String): Bool {
     }
 
     eprintln("Error: the name of dependency '${text}' in ${path} is wrong, " +
+        "the example is '${EXAMPLE_ROOT_PACKAGE_NAME}' or '${EXAMPLE_NAME_WITH_ORG}'")
+    return false
+}
+
+public func keepPkgVisibilityNameCheck(text: String): Bool {
+    let (org, name) = analyzingPackageName(text)
+    if (name.size == 0) {
+        eprintln("Error: the name of package in field 'profile.build.lto.keep-pkg-visibility' can't be empty")
+        return false
+    }
+
+    let matched = Regex(REGEXP_FULL_PKG_CONDITION_VALUE)
+    if ((org.isEmpty() || matched.find(org).isSome()) && matched.find(name).isSome()) {
+        return true
+    }
+
+    eprintln("Error: the name of organization or package '${text}' in field 'profile.build.lto.keep-pkg-visibility'" +
+        " does not follow naming conventions, " +
         "the example is '${EXAMPLE_ROOT_PACKAGE_NAME}' or '${EXAMPLE_NAME_WITH_ORG}'")
     return false
 }
