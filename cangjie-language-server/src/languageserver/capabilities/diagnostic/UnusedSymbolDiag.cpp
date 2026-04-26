@@ -392,6 +392,9 @@ static void CheckUnusedFuncParam(FuncParam* funcParam, Package& package,
     if (!usages.empty()) {
         return;
     }
+    if (funcParam->isIdentifierCompilerAdd) {
+    	return;
+    }
 
     auto identifierPos = funcParam->GetIdentifierPos();
     SymbolLocation loc{
