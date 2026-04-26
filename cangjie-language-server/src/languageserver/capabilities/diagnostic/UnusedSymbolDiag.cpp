@@ -393,7 +393,7 @@ static void CheckUnusedFuncParam(FuncParam* funcParam, Package& package,
         return;
     }
     if (funcParam->isIdentifierCompilerAdd) {
-    	return;
+        return;
     }
 
     auto identifierPos = funcParam->GetIdentifierPos();
