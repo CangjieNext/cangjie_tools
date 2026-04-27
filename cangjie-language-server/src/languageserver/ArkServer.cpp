@@ -21,13 +21,6 @@
 
 #undef INTERFACE
 
-namespace {
-bool Contains(const Cangjie::StringPart &str, Cangjie::Position pos)
-{
-    return str.begin.column < pos.column < str.begin.column + str.value.size();
-}
-};
-
 namespace ark {
 using namespace Cangjie;
 bool CompareCallHierarchyOutgoingCall(const CallHierarchyOutgoingCall &letf, const CallHierarchyOutgoingCall &right)
@@ -394,7 +387,6 @@ void ArkServer::GetExportsName(
         if (!index) {
             return;
         }
-        int curIdx = ast.GetCurToken(pos, 0, static_cast<int>(ast.tokens.size()) - 1);
         ExportIDItem exportIdItem;
         for (auto &decl : decls) {
             if (decl->astKind == Cangjie::AST::ASTKind::PACKAGE_DECL) {

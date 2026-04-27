@@ -360,7 +360,7 @@ void ExtractVariable::DealMultStatementOnSameLine(const Tweak::Selection &sel, c
         return;
     }
     int selToken = selStart - firstToken4CurLine;
-    if (selToken < 0 || selToken >= curLineTokens.size()) {
+    if (selToken < 0 || static_cast<size_t>(selToken) >= curLineTokens.size()) {
         return;
     }
     int i = selToken;

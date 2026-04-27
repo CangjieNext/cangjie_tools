@@ -594,7 +594,7 @@ std::optional<Tweak::Effect> ExtractFunction::Apply(const Selection &sel)
 
     std::string uri = URI::URIFromAbsolutePath(filePath).ToString();
     effect.applyEdits.emplace(uri, std::move(textEdits));
-    return std::move(effect);
+    return effect;
 }
 
 void ExtractFunction::GetExtractedFunction(const Tweak::Selection &sel, ExtractedFunction &function)
@@ -643,7 +643,7 @@ TextEdit ExtractFunction::InsertDeclaration(const Tweak::Selection &sel, Extract
     }
 
     if (insertPosition.IsZero()) {
-        return std::move(textEdit);
+        return textEdit;
     }
     if (!targetScope || targetScope->astKind == ASTKind::VAR_DECL || targetScope->astKind == ASTKind::FUNC_DECL) {
         textEdit.newText = "\n\n" + function.GetFunctionDeclaration() + "\n";
@@ -653,15 +653,16 @@ TextEdit ExtractFunction::InsertDeclaration(const Tweak::Selection &sel, Extract
     Range insertRange = {insertPosition, insertPosition};
     insertRange = TransformFromChar2IDE(insertRange);
     textEdit.range = insertRange;
-    return std::move(textEdit);
+    return textEdit;
 }
 
 TextEdit ExtractFunction::ReplaceBlockWithCall(const Tweak::Selection &sel, ExtractedFunction &function)
 {
+    (void)sel;
     TextEdit textEdit;
     Range insertRange = function.replacedRange;
     if (function.replacedRange.start.IsZero()) {
-        return std::move(textEdit);
+        return textEdit;
     }
     insertRange = TransformFromChar2IDE(insertRange);
     textEdit.range = insertRange;
@@ -691,7 +692,7 @@ TextEdit ExtractFunction::ReplaceBlockWithCall(const Tweak::Selection &sel, Extr
     } else {
         textEdit.newText = functionCall.str();
     }
-    return std::move(textEdit);
+    return textEdit;
 }
 
 /**
@@ -809,7 +810,7 @@ void ExtractFunction::GetFunctionReturnValue(const Tweak::Selection &sel, Extrac
     const auto& children = root->Children;
     size_t childrenSize = children.size();
 
-    for (int i = 0; i < childrenSize; ++i) {
+    for (size_t i = 0; i < childrenSize; ++i) {
         if (!children[i]->node) {
             return;
         }

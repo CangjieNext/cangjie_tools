@@ -2387,7 +2387,6 @@ void CompilerCangjieProject::UpdateOnDisk(const std::string &path)
         return;
     }
     std::string pkgName = found->second;
-    DataStatus status = cjoManager->GetStatus(pkgName);
     cacheManager->Store(pkgName, Digest(GetPathFromPkg(pkgName)), LSPCompilerInstance::astDataMap[pkgName].first);
 }
 

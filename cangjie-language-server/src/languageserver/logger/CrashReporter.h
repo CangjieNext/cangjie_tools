@@ -20,8 +20,6 @@ public:
 #endif
     static void RegisterHandlers();
 
-private:
-    bool isActive;
 };
 } // namespace ark
 
