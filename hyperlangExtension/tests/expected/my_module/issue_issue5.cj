@@ -19,11 +19,18 @@ import ohos.base.*
     }*/
 
 public open class Item<T> where T <: JSInteropType<T> {
-    
-    protected Item(public var id: Float64,
-    public var name: String,
-    public var category: T) { }
-    
+    public var id: Float64
+    public var name: String
+    public var category: T
+    protected init(
+    id: Float64,
+    name: String,
+    category: T) {
+        this.id = id
+        this.name = name
+        this.category = category
+        
+    }
     
     public open func toJSValue(context: JSContext): JSValue {
         let obj = context.object()
@@ -41,8 +48,8 @@ public open class Item<T> where T <: JSInteropType<T> {
         T.fromJSValue(context, obj["category"])
         )
     }
-    
 }
+
 
 /*interface Item1 {
     id: number;
@@ -51,11 +58,18 @@ public open class Item<T> where T <: JSInteropType<T> {
     }*/
 
 public open class Item1<T, U> where T <: JSInteropType<T>, U <: JSInteropType<U> {
-    
-    protected Item1(public var id: Float64,
-    public var name: U,
-    public var category: T) { }
-    
+    public var id: Float64
+    public var name: U
+    public var category: T
+    protected init(
+    id: Float64,
+    name: U,
+    category: T) {
+        this.id = id
+        this.name = name
+        this.category = category
+        
+    }
     
     public open func toJSValue(context: JSContext): JSValue {
         let obj = context.object()
@@ -73,6 +87,6 @@ public open class Item1<T, U> where T <: JSInteropType<T>, U <: JSInteropType<U>
         T.fromJSValue(context, obj["category"])
         )
     }
-    
 }
+
 
