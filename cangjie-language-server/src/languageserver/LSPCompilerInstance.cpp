@@ -618,9 +618,11 @@ void LSPCompilerInstance::SetBufferCacheForParse(const std::unordered_map<std::s
                 // in changeWatchedfiles, buffercache which may update later than fileStatus
                 this->bufferCache[it.first].state = SrcCodeChangeState::DELETED;
                 fileStatus.erase(it.first);
+                [[fallthrough]];
             }
             case SrcCodeChangeState::UNCHANGED: {
                 this->bufferCache[it.first].state = SrcCodeChangeState::UNCHANGED;
+                [[fallthrough]];
             }
             case SrcCodeChangeState::ADDED: {
                 if (this->bufferCache.find(it.first) != this->bufferCache.end()) {
@@ -629,6 +631,7 @@ void LSPCompilerInstance::SetBufferCacheForParse(const std::unordered_map<std::s
                     this->bufferCache[it.first] = SrcCodeCacheInfo({fileStatus[it.first], it.second});
                 }
                 fileStatus[it.first] = SrcCodeChangeState::UNCHANGED;
+                [[fallthrough]];
             }
             case SrcCodeChangeState::CHANGED:
             default: {
