@@ -21,13 +21,6 @@
 
 #undef INTERFACE
 
-namespace {
-bool Contains(const Cangjie::StringPart &str, Cangjie::Position pos)
-{
-    return str.begin.column < pos.column < str.begin.column + str.value.size();
-}
-};
-
 namespace ark {
 using namespace Cangjie;
 bool CompareCallHierarchyOutgoingCall(const CallHierarchyOutgoingCall &letf, const CallHierarchyOutgoingCall &right)
@@ -332,6 +325,47 @@ void GetCurPkgUseAge(Ptr<Decl> decl, const ArkAST &ast, ReferencesResult &result
     }
 }
 
+void GetExportsNameFromDecls(const std::vector<Ptr<Decl>> &decls, ArkAST &ast, ReferencesResult &result,
+                             const Callback<ValueOrError> &reply)
+{
+    if (!decls.empty()) {
+        // First verify if the downstream package status is stale.
+        auto definedPkg = decls[0]->fullPackageName;
+        auto downPackages = CompilerCangjieProject::GetInstance()->GetDependencyGraph()->GetDependents(definedPkg);
+        auto tasks = CompilerCangjieProject::GetInstance()->GetCjoManager()->CheckStatus(downPackages);
+        CompilerCangjieProject::GetInstance()->SubmitTasksToPool(tasks);
+    }
+
+    lsp::SymbolIndex *index = ark::CompilerCangjieProject::GetInstance()->GetIndex();
+    if (!index) {
+        return;
+    }
+    ExportIDItem exportIdItem;
+    for (auto &decl : decls) {
+        if (decl->astKind == Cangjie::AST::ASTKind::PACKAGE_DECL) {
+            return;
+        }
+        auto id = GetSymbolId(*decl);
+        if (!IsGlobalOrMemberOrItsParam(*decl)) {
+            // For a local variable, maybe a function or a variable.
+            GetCurPkgUseAge(decl, ast, result);
+            continue;
+        }
+        if (id == lsp::INVALID_SYMBOL_ID) {
+            continue;
+        }
+        bool ret = CrossLanguangeDefinition::GetExportSID(GetArrayFromID(id), exportIdItem);
+        if (ret) {
+            nlohmann::json jsonValue;
+            jsonValue["exportName"] = exportIdItem.exportName;
+            jsonValue["containerName"] = exportIdItem.containerName;
+            ValueOrError val(ValueOrErrorCheck::VALUE, jsonValue);
+            reply(val);
+        }
+        break;
+    }
+}
+
 void ArkServer::GetExportsName(
         const std::string &file, const ExportsNameParams &params, const Callback<ValueOrError> &reply) const
 {
@@ -378,47 +412,7 @@ void ArkServer::GetExportsName(
         if (oldDecl->astKind == ASTKind::GENERIC_PARAM_DECL) {
             return;
         }
-
-        if (!decls.empty()) {
-            // First verify if the downstream package status is stale
-            auto definedPkg = decls[0]->fullPackageName;
-            // Find all downstream packages
-            auto downPackages = CompilerCangjieProject::GetInstance()->GetDependencyGraph()->GetDependents(definedPkg);
-            // Check the status of all downstream packages
-            auto tasks = CompilerCangjieProject::GetInstance()->GetCjoManager()->CheckStatus(downPackages);
-            // Compile all downstream packages before searching for references
-            CompilerCangjieProject::GetInstance()->SubmitTasksToPool(tasks);
-        }
-
-        lsp::SymbolIndex *index = ark::CompilerCangjieProject::GetInstance()->GetIndex();
-        if (!index) {
-            return;
-        }
-        int curIdx = ast.GetCurToken(pos, 0, static_cast<int>(ast.tokens.size()) - 1);
-        ExportIDItem exportIdItem;
-        for (auto &decl : decls) {
-            if (decl->astKind == Cangjie::AST::ASTKind::PACKAGE_DECL) {
-                return;
-            }
-            auto id = GetSymbolId(*decl);
-            if (!IsGlobalOrMemberOrItsParam(*decl)) {
-                // For a local variable, maybe a function or a variable
-                GetCurPkgUseAge(decl, ast, result);
-                continue;
-            }
-            if (id == lsp::INVALID_SYMBOL_ID) {
-                continue;
-            }
-            bool ret = CrossLanguangeDefinition::GetExportSID(GetArrayFromID(id), exportIdItem);
-            if (ret) {
-                nlohmann::json jsonValue;
-                jsonValue["exportName"] = exportIdItem.exportName;
-                jsonValue["containerName"] = exportIdItem.containerName;
-                ValueOrError val(ValueOrErrorCheck::VALUE, jsonValue);
-                reply(val);
-            }
-            break;
-        }
+        GetExportsNameFromDecls(decls, ast, result, reply);
     };
     arkScheduler->RunWithAST("GetExportsName", file, action);
 }

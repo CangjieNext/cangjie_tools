@@ -134,7 +134,7 @@ void FindReferencesImpl::FindReferences(const ArkAST &ast, ReferencesResult &res
         index->FindRiddenDown(topId, ids);
         (void)ids.insert(id);
 
-        lsp::RefsRequest req{ids, lsp::RefKind::REFERENCE};
+        lsp::RefsRequest req{ids, lsp::RefKind::REFERENCE, std::nullopt};
         lsp::Ref definition{ {}, {}, 0 };
         index->RefsFindReference(req, definition, [&result, pos, curIdx, ast](const lsp::Ref &ref) {
             if (ref.isCjoRef) {

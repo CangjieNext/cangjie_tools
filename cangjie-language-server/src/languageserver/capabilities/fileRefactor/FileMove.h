@@ -29,6 +29,8 @@ private:
 
     static void DealReExport(const ArkAST *ast, const std::string &file, const std::string &targetPkg, FileRefactor &refactor);
 
+    static std::vector<lsp::Symbol> GetReExportSyms(Ptr<ImportSpec> fileImport, lsp::SymbolIndex *index);
+
     static void DealMoveFilePackageName(const ArkAST *ast, const std::string &targetPkg, const std::string &targetPath, FileRefactorRespParams &result);
 
     static std::string GetFullPkgBySymScope(const std::string &symScope);
