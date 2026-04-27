@@ -5,7 +5,6 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 #include "PositionResolver.h"
-#include <codecvt>
 #include "../CompilerCangjieProject.h"
 
 namespace ark {
@@ -45,19 +44,63 @@ bool IsUTF8(const std::string &str)
 
 std::basic_string<char32_t> UTF8ToChar32(const std::string &str)
 {
-    try {
-        std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> conv;
-        return conv.from_bytes(str);
-    } catch (const std::exception& e) {
-        // deal with illegal utf-8 string
-        return std::u32string();
+    std::u32string result;
+    for (size_t i = 0; i < str.size();) {
+        auto byte = static_cast<unsigned char>(str[i]);
+        char32_t codePoint = 0;
+        size_t length = 0;
+        if (byte <= 0x7F) {
+            codePoint = byte;
+            length = 1;
+        } else if ((byte & 0xE0) == 0xC0) {
+            codePoint = byte & 0x1F;
+            length = 2;
+        } else if ((byte & 0xF0) == 0xE0) {
+            codePoint = byte & 0x0F;
+            length = 3;
+        } else if ((byte & 0xF8) == 0xF0) {
+            codePoint = byte & 0x07;
+            length = 4;
+        } else {
+            return std::u32string();
+        }
+        if (i + length > str.size()) {
+            return std::u32string();
+        }
+        for (size_t offset = 1; offset < length; ++offset) {
+            auto next = static_cast<unsigned char>(str[i + offset]);
+            if ((next & 0xC0) != 0x80) {
+                return std::u32string();
+            }
+            codePoint = (codePoint << 6) | (next & 0x3F);
+        }
+        result.push_back(codePoint);
+        i += length;
     }
+    return result;
 }
 
 std::string Char32ToUTF8(const std::basic_string<char32_t>& str)
 {
-    std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> conv;
-    return conv.to_bytes(str);
+    std::string result;
+    for (auto codePoint : str) {
+        if (codePoint <= 0x7F) {
+            result.push_back(static_cast<char>(codePoint));
+        } else if (codePoint <= 0x7FF) {
+            result.push_back(static_cast<char>(0xC0 | (codePoint >> 6)));
+            result.push_back(static_cast<char>(0x80 | (codePoint & 0x3F)));
+        } else if (codePoint <= 0xFFFF) {
+            result.push_back(static_cast<char>(0xE0 | (codePoint >> 12)));
+            result.push_back(static_cast<char>(0x80 | ((codePoint >> 6) & 0x3F)));
+            result.push_back(static_cast<char>(0x80 | (codePoint & 0x3F)));
+        } else {
+            result.push_back(static_cast<char>(0xF0 | (codePoint >> 18)));
+            result.push_back(static_cast<char>(0x80 | ((codePoint >> 12) & 0x3F)));
+            result.push_back(static_cast<char>(0x80 | ((codePoint >> 6) & 0x3F)));
+            result.push_back(static_cast<char>(0x80 | (codePoint & 0x3F)));
+        }
+    }
+    return result;
 }
 
 int GetFirstTokenOnCurLine(const std::vector<Cangjie::Token> &tokens, int declLine)
