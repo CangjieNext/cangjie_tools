@@ -209,8 +209,8 @@ func fn(a: Int64): Unit { // 符合：跟随声明放行末，前置 1 空格
 // lambda 函数
 let add = {
     base: Int64, bonus: Int64 => // 符合: lambda 表达式中非空块遵循 K&R 风格
-    print("符合 news")
-    base + bonus
+        print("符合 news")
+        base + bonus
 }
 
 ```
@@ -257,13 +257,12 @@ class MyApp <: App {
     // 空行
     // 空行
     // 空行
-    init() {           // 不符合：类型定义内部使用连续空行
+    init() { // 不符合：类型定义内部使用连续空行
         this.page = Router("album", album)
     }
 
     override func onCreate(): Unit {
-
-        println( "album Init." )  // 不符合：大括号内部首尾存在空行
+        println("album Init.") // 不符合：大括号内部首尾存在空行
 
     }
 }
