@@ -209,8 +209,8 @@ func fn(a: Int64): Unit { // Correct: Brace on same line with space
 // Lambda functions
 let add = {
     base: Int64, bonus: Int64 => // Correct: K&R style for lambda
-    print("Correct news")
-    base + bonus
+        print("Correct news")
+        base + bonus
 }
 ```
 
@@ -256,13 +256,12 @@ class MyApp <: App {
     // Blank line
     // Blank line
     // Blank line
-    init() {           // Incorrect: Multiple consecutive blank lines
+    init() { // Incorrect: Multiple consecutive blank lines
         this.page = Router("album", album)
     }
 
     override func onCreate(): Unit {
-
-        println( "album Init." )  // Incorrect: Blank lines inside braces
+        println("album Init.") // Incorrect: Blank lines inside braces
 
     }
 }
