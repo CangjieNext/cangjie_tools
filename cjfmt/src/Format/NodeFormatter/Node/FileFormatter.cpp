@@ -40,7 +40,7 @@ void AddImportSpecs(Doc& doc, const Cangjie::AST::File& file, ASTToFormatSource&
         return;
     }
 
-    if (file.package) {
+    if (file.package || file.feature) {
         doc.members.emplace_back(DocType::SEPARATE, level, "");
         doc.members.emplace_back(DocType::SEPARATE, level, "");
     }
@@ -131,17 +131,28 @@ void EraseModifiersAndAnnotationsForDecl(
 }
 } // namespace
 
+void FileFormatter::AddFeaturesDirective(Doc& doc, const Cangjie::AST::File& file, int level)
+{
+    if (file.feature) {
+        doc.members.emplace_back(astToFormatSource.ASTToDoc(file.feature.get(), level));
+    }
+}
+
 void FileFormatter::AddFile(Doc& doc, const Cangjie::AST::File& file, int level)
 {
     doc.type = DocType::CONCAT;
     doc.indent = level;
+    AddFeaturesDirective(doc, file, level);
+    if (file.feature && file.package) {
+        doc.members.emplace_back(DocType::LINE, level, "");
+    }
     AddPackageSpec(doc, file, astToFormatSource, level);
     AddImportSpecs(doc, file, astToFormatSource, level);
 
     std::unordered_map<Cangjie::Position, int, PositionHasher> modifierOrAnnoToPosMap;
     SetModifierOrAnnoToPosMap(file, modifierOrAnnoToPosMap);
 
-    if (file.package || !file.imports.empty()) {
+    if (file.feature || file.package || !file.imports.empty()) {
         doc.members.emplace_back(DocType::SEPARATE, level, "");
         doc.members.emplace_back(DocType::SEPARATE, level, "");
     }

@@ -25,6 +25,7 @@ public:
 private:
     void SetModifierOrAnnoToPosMap(const Cangjie::AST::File& file,
         std::unordered_map<Cangjie::Position, int, PositionHasher>& modifierOrAnnoToPosMap);
+    void AddFeaturesDirective(Doc& doc, const Cangjie::AST::File& file, int level);
     void AddFile(Doc& doc, const Cangjie::AST::File& file, int level);
 };
 } // namespace Cangjie::Format
