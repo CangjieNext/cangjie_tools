@@ -999,11 +999,9 @@ namespace test::common {
         if (resultBase.empty() || !resultBase.contains("params") || !resultBase["params"].contains("edit")) {
             return;
         }
-        if (resultBase["params"]["edit"]["changes"].empty()) {
-            return;
-        }
-        if (resultBase["params"]["edit"]["changes"].is_object()) {
+        if (resultBase["params"]["edit"].contains("changes") && resultBase["params"]["edit"]["changes"].is_object()) {
             nlohmann::json newJson;
+            newJson["params"]["edit"] = resultBase["params"]["edit"];
             std::map<std::string, nlohmann::json> newMap;
             for (const auto &[key, value] : resultBase["params"]["edit"]["changes"].items()) {
                 std::string newKey = ChangeMessageUrlOfString(projectPath, key, rootUri, isMultiModule);
@@ -1011,6 +1009,17 @@ namespace test::common {
             }
             newJson["params"]["edit"]["changes"] = newMap;
             resultBase = newJson;
+        }
+        if (resultBase["params"]["edit"].contains("documentChanges") &&
+            resultBase["params"]["edit"]["documentChanges"].is_array()) {
+            for (auto &change : resultBase["params"]["edit"]["documentChanges"]) {
+                if (change.contains("uri")) {
+                    ChangeMessageUrlOfTextDocument(projectPath, change["uri"], rootUri, isMultiModule);
+                }
+                if (change.contains("textDocument") && change["textDocument"].contains("uri")) {
+                    ChangeMessageUrlOfTextDocument(projectPath, change["textDocument"]["uri"], rootUri, isMultiModule);
+                }
+            }
         }
     }
 

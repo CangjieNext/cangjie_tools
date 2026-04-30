@@ -225,6 +225,18 @@ void SelectionTree::MatchSelectedScope(Ptr<Node> node, Position start, Position 
             targetDecl = node;
             return;
         }
+        case ASTKind::CLASS_DECL:
+        case ASTKind::STRUCT_DECL:
+        case ASTKind::INTERFACE_DECL:
+        case ASTKind::ENUM_DECL:
+        case ASTKind::EXTEND_DECL: {
+            if (start < node->begin || end > node->end) {
+                return;
+            }
+            scope = Scope::TYPE_DECL;
+            targetDecl = node;
+            return;
+        }
         default:
             return;
     }
