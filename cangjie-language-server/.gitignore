@@ -27,3 +27,4 @@ third_party
 **.macrocall
 
 **/syscap_api_config.json
+/src/languageserver/capabilities/refactor/java/
