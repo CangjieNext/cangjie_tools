@@ -178,15 +178,12 @@ public class TransObject {
         )
     }
 
-    private func genConstructor(tm: TransMethod, arkMethod: MethodType, constructorToken: Tokens) {
+    private func genConstructor(tm: TransMethod, constructorToken: Tokens) {
         var superCall = false
         if (arkParentsMethods.size > 0 || arkParentsCategories.contains("class")) {
             superCall = true
         }
         constructorToken.append(tm.generateConstructor(arkName, superCall))
-        if (arkMethod.parameters.size != 0) {
-            constructorToken.append(tm.generateEmptyParamConstructor(arkName, superCall))
-        }
     }
 
     private func processArkMethod(constructorToken: Tokens, methodToken: Tokens) {
@@ -231,7 +228,7 @@ public class TransObject {
                 arkMethod.parameters = param
                 let tm = TransMethod(arkMethod, arkName, gconfig)
                 if (arkMethod.isConstructor) {
-                    genConstructor(tm, arkMethod, constructorToken)
+                    genConstructor(tm, constructorToken)
                 } else if (arkMethod.isStatic()) {
                     methodToken.append(tm.generateFunc())
                 } else {
