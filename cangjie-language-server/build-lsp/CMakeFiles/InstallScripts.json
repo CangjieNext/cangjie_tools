@@ -1,0 +1,10 @@
+{
+	"InstallScripts" : 
+	[
+		"D:/CppProjects/dev/cangjie_tools/cangjie-language-server/build-lsp/cmake_install.cmake",
+		"D:/CppProjects/dev/cangjie_tools/cangjie-language-server/build-lsp/src/cmake_install.cmake",
+		"D:/CppProjects/dev/cangjie_tools/cangjie-language-server/build-lsp/src/languageserver/cmake_install.cmake",
+		"D:/CppProjects/dev/cangjie_tools/cangjie-language-server/build-lsp/src/json-rpc/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
