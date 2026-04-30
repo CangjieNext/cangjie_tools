@@ -1,0 +1,2894 @@
+// Copyright (c) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+// This source file is part of the Cangjie project, licensed under Apache-2.0
+// with Runtime Library Exception.
+//
+// See https://cangjie-lang.cn/pages/LICENSE for license information.
+
+#include "ExtractInterface.h"
+#include "../../../CompilerCangjieProject.h"
+#include "../../../capabilities/reference/FindReferencesImpl.h"
+#include "../../../common/FindDeclUsage.h"
+#include "../../../common/ItemResolverUtil.h"
+#include "../../../common/Utils.h"
+#include "../TweakUtils.h"
+#include "../TweakRule.h"
+#include "cangjie/Utils/FileUtil.h"
+#include <algorithm>
+#include <cctype>
+#include <nlohmann/json.hpp>
+#include <optional>
+
+namespace ark {
+using namespace Cangjie;
+using namespace AST;
+
+namespace {
+
+enum class TargetKind {
+    CLASS,
+    STRUCT,
+    INTERFACE,
+    ENUM,
+    EXTEND
+};
+
+struct TargetDecl {
+    TargetKind kind;
+    Cangjie::AST::InheritableDecl *inheritableDecl = nullptr;
+    Cangjie::AST::ClassDecl *classDecl = nullptr;
+    Cangjie::AST::StructDecl *structDecl = nullptr;
+    Cangjie::AST::InterfaceDecl *interfaceDecl = nullptr;
+    Cangjie::AST::EnumDecl *enumDecl = nullptr;
+    Cangjie::AST::ExtendDecl *extendDecl = nullptr;
+    std::string name;
+};
+
+struct InterfaceInfo {
+    struct MemberMeta {
+        std::string signature;
+        bool isStatic = false;
+        bool isMut = false;
+        bool isOperator = false;
+        std::string visibility;
+    };
+
+    std::string name;
+    std::string typeComment;
+    std::string genericParams;
+    std::string genericWhereClause;
+    std::vector<std::string> inheritedTypes;
+    std::vector<std::string> members;
+    std::vector<MemberMeta> metas;
+    std::unordered_map<std::string, std::string> implBodies;
+    std::unordered_map<std::string, std::string> memberComments;
+};
+
+struct SelectedEditsRequest {
+    const Tweak::Selection &sel;
+    const std::unordered_set<std::string> &chosen;
+    std::vector<TextEdit> &edits;
+    bool addOverride = false;
+};
+
+struct TypeReplacementContext {
+    const Tweak::Selection &sel;
+    Cangjie::AST::Decl &targetDecl;
+    std::string interfaceName;
+    std::string targetPath;
+    std::unordered_set<std::string> allowedMemberNames;
+    std::map<std::string, std::vector<TextEdit>> &applyEdits;
+};
+
+struct ApplyContext {
+    const Tweak::Selection &sel;
+    const TargetDecl &target;
+    Tweak::Effect effect;
+    InterfaceInfo info;
+    std::string sourceUri;
+    std::string targetPath;
+    std::string implementationTargetPath;
+    std::string implementationClassName;
+    std::unordered_set<std::string> chosen;
+    std::unordered_set<std::string> selectedInheritedTypes;
+    bool renameOriginalClass = false;
+    bool hasExplicitInterfaceName = false;
+    bool withImplementation = true;
+    bool useInterfaceWherePossible = true;
+};
+
+void CollectTypeReferenceReplacementEdits(TypeReplacementContext &context);
+
+bool IsPublicMember(const Cangjie::AST::Decl &decl)
+{
+    (void)decl;
+    return true;
+}
+
+std::string GetVisibility(const Cangjie::AST::Decl &decl)
+{
+    using Attr = Cangjie::AST::Attribute;
+    if (decl.TestAttr(Attr::PUBLIC)) return "public";
+    if (decl.TestAttr(Attr::PROTECTED)) return "protected";
+    if (decl.TestAttr(Attr::INTERNAL)) return "internal";
+    if (decl.TestAttr(Attr::PRIVATE)) return "private";
+    return "public";
+}
+
+std::string EscapeJsonString(const std::string &input)
+{
+    std::string escaped;
+    escaped.reserve(input.size() + 4);
+    for (char ch : input) {
+        if (ch == '\"') {
+            escaped += "\\\"";
+        } else if (ch == '\\') {
+            escaped += "\\\\";
+        } else {
+            escaped.push_back(ch);
+        }
+    }
+    return escaped;
+}
+
+bool StartsWithText(const std::string &text, const std::string &prefix)
+{
+    return text.size() >= prefix.size() && text.compare(0, prefix.size(), prefix) == 0;
+}
+
+std::string NormalizeSignature(const std::string &signature)
+{
+    std::string normalized;
+    normalized.reserve(signature.size());
+    for (char ch : signature) {
+        if (ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n') {
+            continue;
+        }
+        normalized.push_back(ch);
+    }
+    return normalized;
+}
+
+std::string ResolveFuncSignature(const FuncDecl &func, SourceManager *sm)
+{
+    std::string signature = ItemResolverUtil::ResolveSignatureByNode(func, sm);
+    if (func.funcBody && func.funcBody->retType) {
+        std::string ret = ItemResolverUtil::FetchTypeString(*func.funcBody->retType);
+        if (!ret.empty()) {
+            signature += ": " + ret;
+        }
+    }
+    return signature;
+}
+
+std::string ExtractFuncBodyText(const FuncDecl &func, SourceManager *sm)
+{
+    if (!sm) {
+        return "";
+    }
+    std::string whole = sm->GetContentBetween(func.GetBegin(), func.GetEnd());
+    size_t brace = whole.find('{');
+    if (brace != std::string::npos) {
+        size_t rightBrace = whole.rfind('}');
+        if (rightBrace != std::string::npos && rightBrace >= brace) {
+            return whole.substr(brace, rightBrace - brace + 1);
+        }
+        return "";
+    }
+    size_t arrow = whole.find("=>");
+    if (arrow != std::string::npos) {
+        return whole.substr(arrow);
+    }
+    return "";
+}
+
+std::string ExtractDeclCommentText(const Cangjie::AST::Decl &decl)
+{
+    const auto &groups = decl.comments;
+    if (groups.IsEmpty()) {
+        return "";
+    }
+
+    std::string result;
+    auto appendGroup = [&](const std::vector<CommentGroup> &groupList) {
+        for (const auto &group : groupList) {
+            for (const auto &comment : group.cms) {
+                std::string text = comment.info.Value();
+                if (text.empty()) {
+                    continue;
+                }
+                if (!result.empty() && result.back() != '\n') {
+                    result.push_back('\n');
+                }
+                result += text;
+                if (!result.empty() && result.back() != '\n') {
+                    result.push_back('\n');
+                }
+            }
+        }
+    };
+    appendGroup(groups.leadingComments);
+    appendGroup(groups.innerComments);
+    appendGroup(groups.trailingComments);
+    if (!result.empty() && result.back() == '\n') {
+        result.pop_back();
+    }
+    return result;
+}
+
+std::string IndentTextBlock(const std::string &text, const std::string &indent)
+{
+    if (text.empty()) {
+        return "";
+    }
+    std::string normalized = text;
+    normalized.erase(std::remove(normalized.begin(), normalized.end(), '\r'), normalized.end());
+    std::string indented;
+    indented.reserve(normalized.size() + indent.size() * 2);
+    size_t start = 0;
+    while (start <= normalized.size()) {
+        size_t end = normalized.find('\n', start);
+        std::string line = end == std::string::npos
+            ? normalized.substr(start)
+            : normalized.substr(start, end - start);
+        indented += indent + line;
+        if (end == std::string::npos) {
+            break;
+        }
+        indented.push_back('\n');
+        start = end + 1;
+    }
+    return indented;
+}
+
+std::optional<TextEdit> BuildRemoveLeadingCommentsEdit(const Cangjie::AST::Decl &decl)
+{
+    if (decl.comments.leadingComments.empty()) {
+        return std::nullopt;
+    }
+    Cangjie::Position begin = Cangjie::INVALID_POSITION;
+    Cangjie::Position end = Cangjie::INVALID_POSITION;
+    for (const auto &group : decl.comments.leadingComments) {
+        for (const auto &comment : group.cms) {
+            const auto &cBegin = comment.info.Begin();
+            const auto &cEnd = comment.info.End();
+            if (begin.IsZero() || cBegin < begin) {
+                begin = cBegin;
+            }
+            if (end.IsZero() || end < cEnd) {
+                end = cEnd;
+            }
+        }
+    }
+    if (begin.IsZero() || end.IsZero()) {
+        return std::nullopt;
+    }
+    Range removeRange{begin, end};
+    removeRange = TransformFromChar2IDE(removeRange);
+    return TextEdit{removeRange, ""};
+}
+
+std::optional<std::pair<Cangjie::Position, Cangjie::Position>> FindLeadingCommentsRange(const Cangjie::AST::Decl &decl)
+{
+    if (decl.comments.leadingComments.empty()) {
+        return std::nullopt;
+    }
+    Cangjie::Position begin = Cangjie::INVALID_POSITION;
+    Cangjie::Position end = Cangjie::INVALID_POSITION;
+    for (const auto &group : decl.comments.leadingComments) {
+        for (const auto &comment : group.cms) {
+            const auto &cBegin = comment.info.Begin();
+            const auto &cEnd = comment.info.End();
+            if (begin.IsZero() || cBegin < begin) {
+                begin = cBegin;
+            }
+            if (end.IsZero() || end < cEnd) {
+                end = cEnd;
+            }
+        }
+    }
+    if (begin.IsZero() || end.IsZero()) {
+        return std::nullopt;
+    }
+    return std::make_pair(begin, end);
+}
+
+std::optional<TargetDecl> BuildTargetDecl(Cangjie::AST::Decl *decl)
+{
+    if (auto *classDecl = dynamic_cast<Cangjie::AST::ClassDecl *>(decl)) {
+        return TargetDecl{
+            TargetKind::CLASS,
+            static_cast<Cangjie::AST::InheritableDecl *>(classDecl),
+            classDecl,
+            nullptr,
+            nullptr,
+            nullptr,
+            nullptr,
+            classDecl->identifier
+        };
+    }
+    if (auto *structDecl = dynamic_cast<Cangjie::AST::StructDecl *>(decl)) {
+        return TargetDecl{
+            TargetKind::STRUCT,
+            static_cast<Cangjie::AST::InheritableDecl *>(structDecl),
+            nullptr,
+            structDecl,
+            nullptr,
+            nullptr,
+            nullptr,
+            structDecl->identifier
+        };
+    }
+    if (auto *interfaceDecl = dynamic_cast<Cangjie::AST::InterfaceDecl *>(decl)) {
+        return TargetDecl{
+            TargetKind::INTERFACE,
+            static_cast<Cangjie::AST::InheritableDecl *>(interfaceDecl),
+            nullptr,
+            nullptr,
+            interfaceDecl,
+            nullptr,
+            nullptr,
+            interfaceDecl->identifier
+        };
+    }
+    if (auto *enumDecl = dynamic_cast<Cangjie::AST::EnumDecl *>(decl)) {
+        return TargetDecl{
+            TargetKind::ENUM,
+            static_cast<Cangjie::AST::InheritableDecl *>(enumDecl),
+            nullptr,
+            nullptr,
+            nullptr,
+            enumDecl,
+            nullptr,
+            enumDecl->identifier
+        };
+    }
+    if (auto *extendDecl = dynamic_cast<Cangjie::AST::ExtendDecl *>(decl)) {
+        std::string extendName;
+        if (extendDecl->extendedType) {
+            extendName = Trim(extendDecl->extendedType->ToString());
+            auto genericPos = extendName.find('<');
+            if (genericPos != std::string::npos) {
+                extendName = extendName.substr(0, genericPos);
+            }
+        }
+        if (extendName.empty() && extendDecl->extendedType && extendDecl->extendedType->ty) {
+            extendName = Trim(extendDecl->extendedType->ty->name);
+        }
+        return TargetDecl{
+            TargetKind::EXTEND,
+            nullptr,
+            nullptr,
+            nullptr,
+            nullptr,
+            nullptr,
+            extendDecl,
+            extendName
+        };
+    }
+    return std::nullopt;
+}
+
+bool ContainsSelectionRange(const Cangjie::AST::Decl &decl, const Range &selection)
+{
+    return decl.begin <= selection.start && decl.end >= selection.end;
+}
+
+std::optional<TargetDecl> FindTargetDeclInDeclTree(Cangjie::AST::Decl &decl, const Range &selection)
+{
+    if (!ContainsSelectionRange(decl, selection)) {
+        return std::nullopt;
+    }
+
+    for (auto &member : decl.GetMemberDecls()) {
+        if (!member) {
+            continue;
+        }
+        auto nestedTarget = FindTargetDeclInDeclTree(*member.get(), selection);
+        if (nestedTarget.has_value()) {
+            return nestedTarget;
+        }
+    }
+    return BuildTargetDecl(&decl);
+}
+
+std::optional<TargetDecl> ResolveTargetDecl(const Tweak::Selection &sel)
+{
+    auto top = sel.selectionTree.TopDecl();
+    if (top) {
+        auto *topDecl = dynamic_cast<Cangjie::AST::Decl *>(top.get());
+        if (topDecl) {
+            auto target = BuildTargetDecl(topDecl);
+            if (target.has_value()) {
+                return target;
+            }
+        }
+    }
+
+    const auto *root = sel.selectionTree.root();
+    if (!root || !root->node) {
+        return std::nullopt;
+    }
+
+    auto *decl = dynamic_cast<Cangjie::AST::Decl *>(root->node.get());
+    while (decl) {
+        auto target = BuildTargetDecl(decl);
+        if (target.has_value()) {
+            return target;
+        }
+        decl = decl->outerDecl;
+    }
+
+    if (sel.arkAst && sel.arkAst->file) {
+        for (auto &topDecl : sel.arkAst->file->decls) {
+            if (!topDecl) {
+                continue;
+            }
+            auto target = FindTargetDeclInDeclTree(*topDecl.get(), sel.range);
+            if (target.has_value()) {
+                return target;
+            }
+        }
+    }
+    return std::nullopt;
+}
+
+bool ParseBoolOption(const std::map<std::string, std::string> &options,
+                     const std::string &key,
+                     bool defaultValue)
+{
+    auto it = options.find(key);
+    if (it == options.end()) {
+        return defaultValue;
+    }
+    std::string value = it->second;
+    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    return value == "true" || value == "1" || value == "yes";
+}
+
+bool ParseRenameOriginalClassOption(const std::map<std::string, std::string> &options)
+{
+    return ParseBoolOption(options, "renameOriginalClassAndUseInterfaceWherePossible", false);
+}
+
+std::string ResolveImplementationClassName(const std::map<std::string, std::string> &options,
+                                           const std::string &fallback)
+{
+    auto it = options.find("implementationClassName");
+    if (it != options.end()) {
+        std::string implName = Trim(it->second);
+        if (!implName.empty()) {
+            return implName;
+        }
+    }
+    return Trim(fallback);
+}
+
+template <typename DeclType>
+std::string GetGenericListForDecl(DeclType *decl)
+{
+    if (decl == nullptr) {
+        return "";
+    }
+    return ItemResolverUtil::GetGenericParamByDecl(decl->generic.get());
+}
+
+template <typename DeclType>
+std::string GetGenericWhereClauseForDecl(DeclType *decl, SourceManager *sm)
+{
+    if (decl == nullptr || decl->generic == nullptr || sm == nullptr) {
+        return "";
+    }
+    const auto &constraints = decl->generic->genericConstraints;
+    if (constraints.empty()) {
+        return "";
+    }
+
+    std::string clause;
+    bool first = true;
+    for (const auto &constraint : constraints) {
+        if (!constraint) {
+            continue;
+        }
+        std::string text = Trim(sm->GetContentBetween(constraint->GetBegin(), constraint->GetEnd()));
+        if (text.empty()) {
+            continue;
+        }
+        if (first) {
+            clause += " where ";
+            first = false;
+        } else {
+            clause += ", ";
+        }
+        if (StartsWithText(text, "where")) {
+            text = Trim(text.substr(std::string("where").size()));
+        }
+        clause += text;
+    }
+    return clause;
+}
+
+std::string ResolveTargetGenericParams(const TargetDecl &target)
+{
+    switch (target.kind) {
+        case TargetKind::CLASS:
+            return GetGenericListForDecl(target.classDecl);
+        case TargetKind::STRUCT:
+            return GetGenericListForDecl(target.structDecl);
+        case TargetKind::INTERFACE:
+            return GetGenericListForDecl(target.interfaceDecl);
+        case TargetKind::ENUM:
+            return GetGenericListForDecl(target.enumDecl);
+        case TargetKind::EXTEND:
+            return GetGenericListForDecl(target.extendDecl);
+        default:
+            return "";
+    }
+}
+
+std::string ResolveTargetGenericWhereClause(const TargetDecl &target, SourceManager *sm)
+{
+    switch (target.kind) {
+        case TargetKind::CLASS:
+            return GetGenericWhereClauseForDecl(target.classDecl, sm);
+        case TargetKind::STRUCT:
+            return GetGenericWhereClauseForDecl(target.structDecl, sm);
+        case TargetKind::INTERFACE:
+            return GetGenericWhereClauseForDecl(target.interfaceDecl, sm);
+        case TargetKind::ENUM:
+            return GetGenericWhereClauseForDecl(target.enumDecl, sm);
+        case TargetKind::EXTEND:
+            return GetGenericWhereClauseForDecl(target.extendDecl, sm);
+        default:
+            return "";
+    }
+}
+
+std::string BuildInterfaceTypeName(const std::string &name, const std::string &genericParams)
+{
+    return name + genericParams;
+}
+
+std::unordered_set<std::string> ParseSelectedMembers(const std::map<std::string, std::string> &options)
+{
+    std::unordered_set<std::string> chosen;
+    auto it = options.find("selectedMembers");
+    if (it == options.end()) {
+        return chosen;
+    }
+
+    const std::string &raw = it->second;
+    bool parsed = false;
+    if (!raw.empty() && (raw.front() == '[' || raw.front() == '{')) {
+        nlohmann::json json = nlohmann::json::parse(raw, nullptr, false);
+        if (!json.is_discarded() && json.is_array()) {
+            for (auto &entry : json) {
+                if (!entry.is_string()) {
+                    continue;
+                }
+                std::string sig = Trim(entry.get<std::string>());
+                if (sig.empty()) {
+                    continue;
+                }
+                chosen.insert(sig);
+                chosen.insert(NormalizeSignature(sig));
+            }
+            parsed = true;
+        }
+    }
+
+    if (!parsed) {
+        std::vector<std::string> entries = Split(raw, "\n");
+        if (entries.size() == 1) {
+            auto csvEntries = Split(raw, ",");
+            if (csvEntries.size() > 1) {
+                entries = std::move(csvEntries);
+            }
+        }
+        for (auto &entry : entries) {
+            std::string sig = Trim(entry);
+            if (sig.empty()) {
+                continue;
+            }
+            chosen.insert(sig);
+            chosen.insert(NormalizeSignature(sig));
+        }
+    }
+    return chosen;
+}
+
+std::string NormalizeUriString(const std::string &uri)
+{
+    if (uri.empty()) {
+        return uri;
+    }
+    if (uri.rfind("file:/", 0) == 0) {
+        return URI::URIFromAbsolutePath(FileStore::NormalizePath(URI::Resolve(uri))).ToString();
+    }
+    return URI::URIFromAbsolutePath(FileStore::NormalizePath(uri)).ToString();
+}
+
+std::optional<Location> ParseSelectedTypeReferenceEntry(const nlohmann::json &entry)
+{
+    if (!entry.is_object() || !entry.contains("uri") || !entry.contains("start") || !entry.contains("end")) {
+        return std::nullopt;
+    }
+    const auto &start = entry["start"];
+    const auto &end = entry["end"];
+    if (!start.is_object() || !end.is_object()) {
+        return std::nullopt;
+    }
+    if (!start.contains("line") || !start.contains("character") || !end.contains("line") || !end.contains("character")) {
+        return std::nullopt;
+    }
+
+    Location location;
+    location.uri.file = NormalizeUriString(entry.value("uri", ""));
+    location.range.start = {0, start.value("line", 0), start.value("character", 0)};
+    location.range.end = {0, end.value("line", 0), end.value("character", 0)};
+    return location;
+}
+
+bool IsSameSelectedTypeReference(const Location &lhs, const Location &rhs)
+{
+    return NormalizeUriString(lhs.uri.file) == NormalizeUriString(rhs.uri.file) &&
+           lhs.range.start.line == rhs.range.start.line &&
+           lhs.range.start.column == rhs.range.start.column &&
+           lhs.range.end.line == rhs.range.end.line &&
+           lhs.range.end.column == rhs.range.end.column;
+}
+
+bool IsSelectedSignature(const std::unordered_set<std::string> &chosen, const std::string &signature)
+{
+    return chosen.count(signature) || chosen.count(NormalizeSignature(signature));
+}
+
+constexpr const char *INHERITED_MEMBER_PREFIX = "<:";
+
+std::optional<std::string> ParseInheritedMemberSignature(const std::string &signature)
+{
+    std::string text = Trim(signature);
+    if (text.rfind(INHERITED_MEMBER_PREFIX, 0) != 0) {
+        return std::nullopt;
+    }
+    std::string typeName = Trim(text.substr(2));
+    if (typeName.empty()) {
+        return std::nullopt;
+    }
+    return typeName;
+}
+
+std::string NormalizeTypeNameForCompare(std::string name)
+{
+    name = Trim(name);
+    if (name.empty()) {
+        return name;
+    }
+    size_t genericPos = name.find('<');
+    if (genericPos != std::string::npos) {
+        name = name.substr(0, genericPos);
+    }
+    size_t dotPos = name.rfind('.');
+    if (dotPos != std::string::npos && dotPos + 1 < name.size()) {
+        name = name.substr(dotPos + 1);
+    }
+    return Trim(name);
+}
+
+bool IsSameTypeName(const std::string &lhs, const std::string &rhs)
+{
+    std::string lhsTrim = Trim(lhs);
+    std::string rhsTrim = Trim(rhs);
+    if (lhsTrim == rhsTrim) {
+        return true;
+    }
+    return NormalizeTypeNameForCompare(lhsTrim) == NormalizeTypeNameForCompare(rhsTrim);
+}
+
+std::string ResolveInheritedTypeText(const Ptr<Type> &inherited, SourceManager *sm)
+{
+    if (!inherited) {
+        return "";
+    }
+    std::string typeName;
+    if (sm) {
+        typeName = Trim(sm->GetContentBetween(inherited->GetBegin(), inherited->GetEnd()));
+    }
+    if (typeName.empty() && inherited->ty) {
+        typeName = Trim(inherited->ty->String());
+    }
+    return typeName;
+}
+
+bool IsInterfaceInheritedType(const Ptr<Type> &inherited)
+{
+    if (!inherited || !inherited->ty || inherited->ty->IsObject()) {
+        return false;
+    }
+    auto decl = Ty::GetDeclPtrOfTy(inherited->ty);
+    return DynamicCast<InterfaceDecl *>(decl) != nullptr;
+}
+
+std::vector<InterfaceDecl *> CollectDirectInheritedInterfaceDecls(InheritableDecl &decl)
+{
+    std::vector<InterfaceDecl *> inheritedInterfaces;
+    std::unordered_set<InterfaceDecl *> seen;
+    for (auto &inherited : decl.inheritedTypes) {
+        if (!inherited || !inherited->ty || inherited->ty->IsObject()) {
+            continue;
+        }
+        auto interfaceDecl = DynamicCast<InterfaceDecl *>(Ty::GetDeclPtrOfTy(inherited->ty));
+        if (!interfaceDecl || !seen.insert(interfaceDecl).second) {
+            continue;
+        }
+        inheritedInterfaces.push_back(interfaceDecl);
+    }
+    return inheritedInterfaces;
+}
+
+std::unordered_set<std::string> ParseSelectedInheritedMemberTypes(const std::unordered_set<std::string> &chosen)
+{
+    std::unordered_set<std::string> selectedTypes;
+    for (const auto &member : chosen) {
+        auto parsedType = ParseInheritedMemberSignature(member);
+        if (!parsedType.has_value()) {
+            continue;
+        }
+        selectedTypes.insert(NormalizeTypeNameForCompare(*parsedType));
+    }
+    return selectedTypes;
+}
+
+void CollectInheritedTypesForExtract(const Cangjie::AST::InheritableDecl &decl,
+                                     const Tweak::Selection &sel,
+                                     std::vector<std::string> &inheritedTypes)
+{
+    SourceManager *sm = sel.arkAst ? sel.arkAst->sourceManager : nullptr;
+    if (!sm) {
+        return;
+    }
+    std::unordered_set<std::string> seen;
+    for (const auto &inherited : decl.inheritedTypes) {
+        if (!inherited) {
+            continue;
+        }
+        if (inherited->ty && inherited->ty->IsObject()) {
+            continue;
+        }
+        std::string typeName = Trim(sm->GetContentBetween(inherited->GetBegin(), inherited->GetEnd()));
+        if (typeName.empty()) {
+            continue;
+        }
+        if (seen.insert(typeName).second) {
+            inheritedTypes.push_back(std::move(typeName));
+        }
+    }
+}
+
+void CollectInheritedTypesForExtract(const Cangjie::AST::ExtendDecl &decl,
+                                     const Tweak::Selection &sel,
+                                     std::vector<std::string> &inheritedTypes)
+{
+    SourceManager *sm = sel.arkAst ? sel.arkAst->sourceManager : nullptr;
+    if (!sm) {
+        return;
+    }
+    std::unordered_set<std::string> seen;
+    for (const auto &inherited : decl.inheritedTypes) {
+        if (!inherited) {
+            continue;
+        }
+        if (inherited->ty && inherited->ty->IsObject()) {
+            continue;
+        }
+        std::string typeName = Trim(sm->GetContentBetween(inherited->GetBegin(), inherited->GetEnd()));
+        if (typeName.empty()) {
+            continue;
+        }
+        if (seen.insert(typeName).second) {
+            inheritedTypes.push_back(std::move(typeName));
+        }
+    }
+}
+
+std::string NormalizeTargetPath(const std::map<std::string, std::string> &options)
+{
+    auto it = options.find("targetPath");
+    if (it == options.end()) {
+        return "";
+    }
+    std::string targetPath = Trim(it->second);
+    if (targetPath.empty()) {
+        return "";
+    }
+    if (targetPath.rfind("file://", 0) == 0) {
+        targetPath = URI::Resolve(targetPath);
+    }
+    return FileStore::NormalizePath(targetPath);
+}
+
+bool IsCjFilePath(const std::string &path)
+{
+    return Cangjie::FileUtil::GetFileExtension(path) == "cj";
+}
+
+std::string ResolveTargetFilePath(const std::string &targetPath, const std::string &interfaceName)
+{
+    if (targetPath.empty()) {
+        return "";
+    }
+    if (IsCjFilePath(targetPath)) {
+        return targetPath;
+    }
+    if (interfaceName.empty()) {
+        return targetPath;
+    }
+    return FileStore::NormalizePath(
+        Cangjie::FileUtil::JoinPath(targetPath, interfaceName + ".cj"));
+}
+
+bool IsValidPackageName(const std::string &packageName)
+{
+    if (packageName.empty()) {
+        return false;
+    }
+    return packageName.find('/') == std::string::npos &&
+           packageName.find('\\') == std::string::npos &&
+           packageName.find(':') == std::string::npos &&
+           packageName != "default";
+}
+
+std::string ResolveTargetPackageName(const std::string &targetPath)
+{
+    if (targetPath.empty()) {
+        return "";
+    }
+    auto *project = CompilerCangjieProject::GetInstance();
+    if (!project) {
+        return "";
+    }
+
+    std::string targetDir = Cangjie::FileUtil::GetDirPath(targetPath);
+    std::string fullPkgName = project->GetFullPkgByDir(targetDir);
+    if (fullPkgName.empty()) {
+        fullPkgName = project->GetFullPkgName(targetPath);
+    }
+    if (fullPkgName.empty()) {
+        return "";
+    }
+    std::string packageName = project->GetRealPackageName(fullPkgName);
+    return IsValidPackageName(packageName) ? packageName : "";
+}
+
+std::string ToLowerAscii(std::string text)
+{
+    std::transform(text.begin(), text.end(), text.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    return text;
+}
+
+std::string ResolveRenameImplementationTargetPath(const Tweak::Selection &sel,
+                                                  const std::string &targetPath,
+                                                  const std::string &implementationClassName)
+{
+    std::string baseDir;
+    if (!targetPath.empty()) {
+        baseDir = IsCjFilePath(targetPath) ? Cangjie::FileUtil::GetDirPath(targetPath) : targetPath;
+    } else if (sel.arkAst && sel.arkAst->file) {
+        baseDir = Cangjie::FileUtil::GetDirPath(sel.arkAst->file->filePath);
+    }
+    if (baseDir.empty() || implementationClassName.empty()) {
+        return "";
+    }
+    return FileStore::NormalizePath(
+        Cangjie::FileUtil::JoinPath(baseDir, ToLowerAscii(implementationClassName) + ".cj"));
+}
+
+void CollectClassInterfaceInheritedTypesForRename(const Cangjie::AST::ClassDecl &decl,
+                                                  const Tweak::Selection &sel,
+                                                  std::vector<std::string> &inheritedTypes)
+{
+    SourceManager *sm = sel.arkAst ? sel.arkAst->sourceManager : nullptr;
+    if (!sm) {
+        return;
+    }
+
+    std::unordered_set<std::string> seen;
+    for (const auto &inherited : decl.inheritedTypes) {
+        if (!IsInterfaceInheritedType(inherited)) {
+            continue;
+        }
+        std::string typeName = ResolveInheritedTypeText(inherited, sm);
+        if (typeName.empty()) {
+            continue;
+        }
+        if (seen.insert(typeName).second) {
+            inheritedTypes.push_back(std::move(typeName));
+        }
+    }
+}
+
+std::string NormalizePathForCompare(std::string path)
+{
+    path = FileStore::NormalizePath(path);
+    std::replace(path.begin(), path.end(), '\\', '/');
+#ifdef _WIN32
+    std::transform(path.begin(), path.end(), path.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+#endif
+    while (!path.empty() && path.back() == '/') {
+        path.pop_back();
+    }
+    return path;
+}
+
+std::string BuildImportFullSymWithoutAlias(const ImportContent &importContent)
+{
+    std::stringstream ss;
+    for (size_t i = 0; i < importContent.prefixPaths.size(); ++i) {
+        ss << importContent.prefixPaths[i];
+        if (i + 1 < importContent.prefixPaths.size()) {
+            ss << ".";
+        }
+    }
+    if (importContent.kind != ImportKind::IMPORT_MULTI) {
+        if (!importContent.prefixPaths.empty()) {
+            ss << ".";
+        }
+        ss << importContent.identifier.Val();
+    }
+    return ss.str();
+}
+
+bool HasImportForInterface(const File &file, const std::string &fullSym, const std::string &pkgName)
+{
+    const std::string pkgAll = pkgName + ".*";
+    for (const auto &importSpec : file.imports) {
+        if (!importSpec) {
+            continue;
+        }
+        const auto &content = importSpec->content;
+        if (content.kind == ImportKind::IMPORT_MULTI) {
+            continue;
+        }
+        std::string importSym = BuildImportFullSymWithoutAlias(content);
+        if (importSym == fullSym || importSym == pkgAll) {
+            return true;
+        }
+    }
+    return false;
+}
+
+std::optional<TextEdit> BuildImportInterfaceEdit(const Tweak::Selection &sel,
+                                                 const std::string &targetPath,
+                                                 const std::string &interfaceName)
+{
+    if (!sel.arkAst || !sel.arkAst->file || interfaceName.empty() || targetPath.empty()) {
+        return std::nullopt;
+    }
+
+    std::string sourceDir = NormalizePathForCompare(Cangjie::FileUtil::GetDirPath(sel.arkAst->file->filePath));
+    std::string targetDir = NormalizePathForCompare(Cangjie::FileUtil::GetDirPath(targetPath));
+    if (sourceDir.empty() || targetDir.empty() || sourceDir == targetDir) {
+        return std::nullopt;
+    }
+
+    std::string targetPkgName = ResolveTargetPackageName(targetPath);
+    if (targetPkgName.empty()) {
+        return std::nullopt;
+    }
+    std::string importSym = targetPkgName + "." + interfaceName;
+    if (HasImportForInterface(*sel.arkAst->file, importSym, targetPkgName)) {
+        return std::nullopt;
+    }
+
+    Position pos = Cangjie::INVALID_POSITION;
+    if (sel.arkAst->file->package) {
+        pos = FindLastImportPos(*sel.arkAst->file);
+    } else if (!sel.arkAst->file->decls.empty() && sel.arkAst->file->decls.front()) {
+        pos = sel.arkAst->file->decls.front()->GetBegin();
+    } else {
+        pos = sel.arkAst->file->begin;
+    }
+    Range insertRange = {pos, pos};
+    insertRange = TransformFromChar2IDE(insertRange);
+    return TextEdit{insertRange, "import " + importSym + "\n"};
+}
+
+std::optional<TextEdit> BuildImportInterfaceEditForFile(const File &sourceFile,
+                                                        const std::string &targetPath,
+                                                        const std::string &interfaceName)
+{
+    if (interfaceName.empty() || targetPath.empty()) {
+        return std::nullopt;
+    }
+
+    std::string sourceDir = NormalizePathForCompare(Cangjie::FileUtil::GetDirPath(sourceFile.filePath));
+    std::string targetDir = NormalizePathForCompare(Cangjie::FileUtil::GetDirPath(targetPath));
+    if (sourceDir.empty() || targetDir.empty() || sourceDir == targetDir) {
+        return std::nullopt;
+    }
+
+    std::string targetPkgName = ResolveTargetPackageName(targetPath);
+    if (targetPkgName.empty()) {
+        return std::nullopt;
+    }
+    std::string importSym = targetPkgName + "." + interfaceName;
+    if (HasImportForInterface(sourceFile, importSym, targetPkgName)) {
+        return std::nullopt;
+    }
+
+    Position pos = Cangjie::INVALID_POSITION;
+    if (sourceFile.package) {
+        pos = FindLastImportPos(sourceFile);
+    } else if (!sourceFile.decls.empty() && sourceFile.decls.front()) {
+        pos = sourceFile.decls.front()->GetBegin();
+    } else {
+        pos = sourceFile.begin;
+    }
+    Range insertRange = {pos, pos};
+    insertRange = TransformFromChar2IDE(insertRange);
+    return TextEdit{insertRange, "import " + importSym + "\n"};
+}
+
+bool ContainsPosition(const Position &begin, const Position &end, const Position &pos)
+{
+    return begin <= pos && pos <= end;
+}
+
+bool NodeContainsPosition(const Node &node, const Position &pos)
+{
+    return ContainsPosition(node.GetBegin(), node.GetEnd(), pos);
+}
+
+bool RangeContainsRange(const Range &outer, const Range &inner)
+{
+    return outer.start <= inner.start && inner.end <= outer.end;
+}
+
+bool RangeEqualsRange(const Range &lhs, const Range &rhs)
+{
+    return lhs.start == rhs.start && lhs.end == rhs.end;
+}
+
+std::optional<Range> GetTypeReferenceRange(const Type &type)
+{
+    if (auto qualifiedType = DynamicCast<const QualifiedType*>(&type)) {
+        Position pos = {qualifiedType->GetBegin().fileID, qualifiedType->GetBegin().line,
+            qualifiedType->end.column - static_cast<int>(qualifiedType->field.Val().size())};
+        return Range{pos, {pos.fileID, pos.line,
+            pos.column + static_cast<int>(CountUnicodeCharacters(qualifiedType->field))}};
+    }
+    if (auto refType = DynamicCast<const RefType*>(&type)) {
+        Position pos = refType->ref.identifier.Begin();
+        if (pos.IsZero()) {
+            return std::nullopt;
+        }
+        return Range{pos, {pos.fileID, pos.line,
+            pos.column + static_cast<int>(CountUnicodeCharacters(refType->ref.identifier))}};
+    }
+    return std::nullopt;
+}
+
+bool TypeTargetsDecl(const Type &type, const Decl &targetDecl)
+{
+    auto target = type.GetTarget();
+    return target && CheckDeclEqual(*target, targetDecl);
+}
+
+bool NameReferenceTargetsDecl(const NameReferenceExpr &expr, const Decl &targetDecl)
+{
+    if (auto refExpr = DynamicCast<const RefExpr*>(&expr)) {
+        auto target = refExpr->ref.target;
+        return target && CheckDeclEqual(*target, targetDecl);
+    }
+    if (auto memberAccess = DynamicCast<const MemberAccess*>(&expr)) {
+        auto target = memberAccess->target;
+        return target && CheckDeclEqual(*target, targetDecl);
+    }
+    return false;
+}
+
+std::unordered_set<std::string> BuildAllowedMemberNames(const std::vector<std::string> &members)
+{
+    std::unordered_set<std::string> names;
+    for (const auto &member : members) {
+        auto parenPos = member.find('(');
+        if (parenPos == std::string::npos) {
+            continue;
+        }
+        std::string name = Trim(member.substr(0, parenPos));
+        if (!name.empty()) {
+            names.insert(name);
+        }
+    }
+    return names;
+}
+
+bool IsTypeReferenceMatch(const Type &type, const Decl &targetDecl, const Range &referenceRange)
+{
+    if (!TypeTargetsDecl(type, targetDecl)) {
+        return false;
+    }
+    auto typeRange = GetTypeReferenceRange(type);
+    return typeRange.has_value() && RangeContainsRange(referenceRange, *typeRange);
+}
+
+bool IsReferenceRangeTypeOnly(const Node &node, const Decl &targetDecl, const Range &referenceRange)
+{
+    bool foundTypeMatch = false;
+    bool foundNonTypeRefMatch = false;
+    ConstWalker(&node, [&foundTypeMatch, &foundNonTypeRefMatch, &targetDecl, &referenceRange](Ptr<const Node> child) {
+        if (!child) {
+            return VisitAction::WALK_CHILDREN;
+        }
+        if (!NodeContainsPosition(*child, referenceRange.start) && !NodeContainsPosition(*child, referenceRange.end)) {
+            return VisitAction::WALK_CHILDREN;
+        }
+        if (auto type = DynamicCast<const Type*>(child.get())) {
+            if (IsTypeReferenceMatch(*type, targetDecl, referenceRange)) {
+                foundTypeMatch = true;
+                return VisitAction::WALK_CHILDREN;
+            }
+        }
+        if (auto refExpr = DynamicCast<const NameReferenceExpr*>(child.get())) {
+            if (NameReferenceTargetsDecl(*refExpr, targetDecl)) {
+                Position begin = Cangjie::INVALID_POSITION;
+                size_t nameLength = 0;
+                if (auto ref = DynamicCast<const RefExpr*>(refExpr)) {
+                    begin = ref->GetIdentifierPos();
+                    nameLength = CountUnicodeCharacters(ref->ref.identifier);
+                } else if (auto memberAccess = DynamicCast<const MemberAccess*>(refExpr)) {
+                    begin = memberAccess->GetFieldPos();
+                    nameLength = CountUnicodeCharacters(memberAccess->field);
+                }
+                if (!begin.IsZero()) {
+                    Range exprRange{begin, begin};
+                    exprRange.end.column += static_cast<int>(nameLength);
+                    if (RangeEqualsRange(exprRange, referenceRange)) {
+                        foundNonTypeRefMatch = true;
+                    }
+                }
+            }
+        }
+        return VisitAction::WALK_CHILDREN;
+    }).Walk();
+    return foundTypeMatch && !foundNonTypeRefMatch;
+}
+
+bool IsParamTypeReferenceRange(const FuncParam &param, const Range &referenceRange)
+{
+    if (!param.type) {
+        return false;
+    }
+    auto typeRange = GetTypeReferenceRange(*param.type);
+    return typeRange.has_value() && RangeEqualsRange(*typeRange, referenceRange);
+}
+
+bool IsFuncParamUsedInBody(const FuncParam &param, const FuncBody &funcBody)
+{
+    bool used = false;
+    if (!funcBody.body) {
+        return false;
+    }
+    ConstWalker(funcBody.body.get(), [&used, &param](Ptr<const Node> child) {
+        if (used || !child) {
+            return VisitAction::STOP_NOW;
+        }
+        auto refExpr = DynamicCast<const RefExpr*>(child.get());
+        if (!refExpr) {
+            return VisitAction::WALK_CHILDREN;
+        }
+        auto target = refExpr->ref.target;
+        if (target && CheckDeclEqual(*target, param)) {
+            used = true;
+            return VisitAction::STOP_NOW;
+        }
+        return VisitAction::WALK_CHILDREN;
+    }).Walk();
+    return used;
+}
+
+bool UsesDisallowedMembers(const Decl &decl, const std::unordered_set<std::string> &allowedMemberNames)
+{
+    if (allowedMemberNames.empty()) {
+        return false;
+    }
+
+    bool disallowed = false;
+    ConstWalker(&decl, [&decl, &allowedMemberNames, &disallowed](Ptr<const Node> child) {
+        if (disallowed || !child) {
+            return VisitAction::STOP_NOW;
+        }
+        auto memberAccess = DynamicCast<const MemberAccess*>(child.get());
+        if (!memberAccess || !memberAccess->baseExpr) {
+            return VisitAction::WALK_CHILDREN;
+        }
+        auto baseRef = DynamicCast<const RefExpr*>(memberAccess->baseExpr.get());
+        if (!baseRef || !baseRef->ref.target || !CheckDeclEqual(*baseRef->ref.target, decl)) {
+            return VisitAction::WALK_CHILDREN;
+        }
+        if (!allowedMemberNames.count(memberAccess->field.Val())) {
+            disallowed = true;
+            return VisitAction::STOP_NOW;
+        }
+        return VisitAction::WALK_CHILDREN;
+    }).Walk();
+    return disallowed;
+}
+
+bool ShouldKeepConcreteTypeReference(const Node &node,
+                                     const Range &referenceRange,
+                                     const std::unordered_set<std::string> &allowedMemberNames)
+{
+    bool keepConcrete = false;
+    ConstWalker(&node, [&referenceRange, &allowedMemberNames, &keepConcrete](Ptr<const Node> child) {
+        if (keepConcrete || !child) {
+            return VisitAction::STOP_NOW;
+        }
+        auto varDecl = DynamicCast<const VarDeclAbstract*>(child.get());
+        auto decl = DynamicCast<const Decl*>(child.get());
+        if (!varDecl || !decl || !varDecl->type) {
+            return VisitAction::WALK_CHILDREN;
+        }
+        auto typeRange = GetTypeReferenceRange(*varDecl->type);
+        if (!typeRange.has_value() || !RangeEqualsRange(*typeRange, referenceRange)) {
+            return VisitAction::WALK_CHILDREN;
+        }
+        keepConcrete = UsesDisallowedMembers(*decl, allowedMemberNames);
+        return VisitAction::STOP_NOW;
+    }).Walk();
+    return keepConcrete;
+}
+
+bool ShouldExcludeTypeReferenceReplacement(const Node &node, const Range &referenceRange)
+{
+    bool shouldExclude = false;
+    ConstWalker(&node, [&shouldExclude, &referenceRange](Ptr<const Node> child) {
+        if (shouldExclude || !child) {
+            return VisitAction::STOP_NOW;
+        }
+        auto funcParam = DynamicCast<const FuncParam*>(child.get());
+        if (!funcParam || !IsParamTypeReferenceRange(*funcParam, referenceRange)) {
+            return VisitAction::WALK_CHILDREN;
+        }
+        auto outerFunc = DynamicCast<const FuncDecl*>(funcParam->outerDecl);
+        if (!outerFunc || !outerFunc->funcBody) {
+            return VisitAction::STOP_NOW;
+        }
+        shouldExclude = IsFuncParamUsedInBody(*funcParam, *outerFunc->funcBody);
+        return VisitAction::STOP_NOW;
+    }).Walk();
+    return shouldExclude;
+}
+
+char PreviousNonWhitespaceChar(const std::string &text)
+{
+    for (auto it = text.rbegin(); it != text.rend(); ++it) {
+        if (!std::isspace(static_cast<unsigned char>(*it))) {
+            return *it;
+        }
+    }
+    return '\0';
+}
+
+char NextNonWhitespaceChar(const std::string &text)
+{
+    for (char ch : text) {
+        if (!std::isspace(static_cast<unsigned char>(ch))) {
+            return ch;
+        }
+    }
+    return '\0';
+}
+
+bool IsLikelyTypeReferenceText(const ArkAST &ast, const Range &referenceRange)
+{
+    if (!ast.sourceManager || !ast.file) {
+        return false;
+    }
+
+    std::string prefix = ast.sourceManager->GetContentBetween(ast.file->GetBegin(), referenceRange.start);
+    std::string suffix = ast.sourceManager->GetContentBetween(referenceRange.end, ast.file->GetEnd());
+    char left = PreviousNonWhitespaceChar(prefix);
+    char right = NextNonWhitespaceChar(suffix);
+
+    auto isLeftTypeContext = [](char ch) {
+        return ch == ':' || ch == '<' || ch == '&' || ch == ',' || ch == '(';
+    };
+    auto isRightTypeContext = [](char ch) {
+        return ch == '>' || ch == '&' || ch == ',' || ch == ')' || ch == '=' || ch == '{';
+    };
+
+    return isLeftTypeContext(left) || isRightTypeContext(right);
+}
+
+std::optional<TextEdit> BuildTypeReplacementEditForLocation(const Location &location,
+                                                            const TypeReplacementContext &context,
+                                                            std::optional<TextEdit> &importEdit)
+{
+    auto *project = CompilerCangjieProject::GetInstance();
+    if (!project) {
+        return std::nullopt;
+    }
+
+    std::string path = FileStore::NormalizePath(URI::Resolve(location.uri.file));
+    SetHeadByFilePath(path);
+    ArkAST *refAst = project->GetArkAST(path);
+    if (!refAst || !refAst->file) {
+        return std::nullopt;
+    }
+
+    Range refRange = TransformFromIDE2Char(location.range);
+    PositionIDEToUTF8(refAst->tokens, refRange.start, *refAst->file);
+    PositionIDEToUTF8(refAst->tokens, refRange.end, *refAst->file);
+    bool found = false;
+    bool shouldExclude = false;
+    ConstWalker(refAst->file.get(), [&found, &shouldExclude, &context, &refRange]
+        (Ptr<const Node> node) {
+        if (found || !node) {
+            return VisitAction::STOP_NOW;
+        }
+        if (!NodeContainsPosition(*node, refRange.start) && !NodeContainsPosition(*node, refRange.end)) {
+            return VisitAction::WALK_CHILDREN;
+        }
+        if (IsReferenceRangeTypeOnly(*node, context.targetDecl, refRange)) {
+            found = true;
+            shouldExclude = ShouldExcludeTypeReferenceReplacement(*node, refRange) ||
+                            ShouldKeepConcreteTypeReference(*node, refRange, context.allowedMemberNames);
+            return VisitAction::STOP_NOW;
+        }
+        return VisitAction::WALK_CHILDREN;
+    }).Walk();
+    if (!found && !IsLikelyTypeReferenceText(*refAst, refRange)) {
+        return std::nullopt;
+    }
+    if (shouldExclude) {
+        return std::nullopt;
+    }
+
+    std::string normalizedTargetPath = FileStore::NormalizePath(context.targetPath);
+    if (!normalizedTargetPath.empty() && normalizedTargetPath != path) {
+        importEdit = BuildImportInterfaceEditForFile(*refAst->file, normalizedTargetPath, context.interfaceName);
+    }
+    return TextEdit{location.range, context.interfaceName};
+}
+
+std::optional<TextEdit> BuildProtectedToPublicEdit(const FuncDecl &func, SourceManager *sm)
+{
+    if (!sm || !func.TestAttr(Cangjie::AST::Attribute::PROTECTED)) {
+        return std::nullopt;
+    }
+
+    Cangjie::Position headerBegin = func.GetBegin();
+    Cangjie::Position nameBegin = func.identifier.Begin();
+    std::string header = sm->GetContentBetween(headerBegin, nameBegin);
+    size_t pos = header.find("protected");
+    if (pos == std::string::npos) {
+        return std::nullopt;
+    }
+
+    auto isIdentifierChar = [](char ch) {
+        return std::isalnum(static_cast<unsigned char>(ch)) || ch == '_';
+    };
+    bool leftBoundary = (pos == 0) || !isIdentifierChar(header[pos - 1]);
+    size_t endPos = pos + std::string("protected").size();
+    bool rightBoundary = endPos >= header.size() || !isIdentifierChar(header[endPos]);
+    if (!leftBoundary || !rightBoundary) {
+        return std::nullopt;
+    }
+
+    Cangjie::Position start = headerBegin;
+    size_t offset = 0;
+    while (offset < pos) {
+        size_t newline = header.find('\n', offset);
+        if (newline == std::string::npos || newline >= pos) {
+            int advance = static_cast<int>(CountUnicodeCharacters(header.substr(offset, pos - offset)));
+            start.column += advance;
+            break;
+        }
+        int advance = static_cast<int>(CountUnicodeCharacters(header.substr(offset, newline - offset)));
+        start.column += advance;
+        start.line += 1;
+        start.column = 1;
+        offset = newline + 1;
+    }
+
+    Cangjie::Position end = start;
+    end.column += static_cast<int>(CountUnicodeCharacters(std::string("protected")));
+    Range range{start, end};
+    range = TransformFromChar2IDE(range);
+    return TextEdit{range, "public"};
+}
+
+std::optional<TextEdit> BuildDefaultVisibilityToPublicEdit(const FuncDecl &func, SourceManager *sm)
+{
+    if (!sm) {
+        return std::nullopt;
+    }
+    Cangjie::Position headerBegin = func.GetBegin();
+    Cangjie::Position nameBegin = func.identifier.Begin();
+    std::string header = sm->GetContentBetween(headerBegin, nameBegin);
+
+    auto isIdentifierChar = [](char ch) {
+        return std::isalnum(static_cast<unsigned char>(ch)) || ch == '_';
+    };
+    auto findTokenBoundaryPos = [&](const std::string &token) -> size_t {
+        size_t searchPos = 0;
+        while (searchPos < header.size()) {
+            size_t pos = header.find(token, searchPos);
+            if (pos == std::string::npos) {
+                return std::string::npos;
+            }
+            bool leftBoundary = (pos == 0) || !isIdentifierChar(header[pos - 1]);
+            size_t endPos = pos + token.size();
+            bool rightBoundary = endPos >= header.size() || !isIdentifierChar(header[endPos]);
+            if (leftBoundary && rightBoundary) {
+                return pos;
+            }
+            searchPos = pos + token.size();
+        }
+        return std::string::npos;
+    };
+
+    size_t funcPos = findTokenBoundaryPos("func");
+    if (funcPos == std::string::npos) {
+        return std::nullopt;
+    }
+    size_t overridePos = findTokenBoundaryPos("override");
+    size_t insertTokenPos = (overridePos != std::string::npos && overridePos < funcPos) ? overridePos : funcPos;
+
+    // Use textual visibility detection so `func test()` can still be upgraded to `public func test()`
+    // even when semantic attrs treat default visibility as internal.
+    if (findTokenBoundaryPos("public") != std::string::npos ||
+        findTokenBoundaryPos("protected") != std::string::npos ||
+        findTokenBoundaryPos("internal") != std::string::npos ||
+        findTokenBoundaryPos("private") != std::string::npos) {
+        return std::nullopt;
+    }
+
+    Cangjie::Position insertPos = headerBegin;
+    size_t offset = 0;
+    while (offset < insertTokenPos) {
+        size_t newline = header.find('\n', offset);
+        if (newline == std::string::npos || newline >= insertTokenPos) {
+            int advance = static_cast<int>(CountUnicodeCharacters(header.substr(offset, insertTokenPos - offset)));
+            insertPos.column += advance;
+            break;
+        }
+        int advance = static_cast<int>(CountUnicodeCharacters(header.substr(offset, newline - offset)));
+        insertPos.column += advance;
+        insertPos.line += 1;
+        insertPos.column = 1;
+        offset = newline + 1;
+    }
+
+    Range range{insertPos, insertPos};
+    range = TransformFromChar2IDE(range);
+    return TextEdit{range, "public "};
+}
+
+std::optional<TextEdit> BuildRemoveVisibilityEdit(const FuncDecl &func, SourceManager *sm)
+{
+    if (!sm) {
+        return std::nullopt;
+    }
+    Cangjie::Position headerBegin = func.GetBegin();
+    Cangjie::Position nameBegin = func.identifier.Begin();
+    std::string header = sm->GetContentBetween(headerBegin, nameBegin);
+
+    auto isIdentifierChar = [](char ch) {
+        return std::isalnum(static_cast<unsigned char>(ch)) || ch == '_';
+    };
+    auto findTokenBoundaryPos = [&](const std::string &token) -> size_t {
+        size_t searchPos = 0;
+        while (searchPos < header.size()) {
+            size_t pos = header.find(token, searchPos);
+            if (pos == std::string::npos) {
+                return std::string::npos;
+            }
+            bool leftBoundary = (pos == 0) || !isIdentifierChar(header[pos - 1]);
+            size_t endPos = pos + token.size();
+            bool rightBoundary = endPos >= header.size() || !isIdentifierChar(header[endPos]);
+            if (leftBoundary && rightBoundary) {
+                return pos;
+            }
+            searchPos = pos + token.size();
+        }
+        return std::string::npos;
+    };
+
+    std::vector<std::string> visTokens = {"public", "protected", "internal", "private"};
+    size_t visPos = std::string::npos;
+    size_t visLen = 0;
+    for (const auto &token : visTokens) {
+        size_t pos = findTokenBoundaryPos(token);
+        if (pos == std::string::npos) {
+            continue;
+        }
+        if (visPos == std::string::npos || pos < visPos) {
+            visPos = pos;
+            visLen = token.size();
+        }
+    }
+    if (visPos == std::string::npos) {
+        return std::nullopt;
+    }
+
+    size_t visEnd = visPos + visLen;
+    while (visEnd < header.size() && (header[visEnd] == ' ' || header[visEnd] == '\t')) {
+        ++visEnd;
+    }
+
+    auto advancePos = [](Cangjie::Position &pos, const std::string &text, size_t from, size_t to) {
+        size_t offset = from;
+        while (offset < to) {
+            size_t newline = text.find('\n', offset);
+            if (newline == std::string::npos || newline >= to) {
+                int advance = static_cast<int>(CountUnicodeCharacters(text.substr(offset, to - offset)));
+                pos.column += advance;
+                break;
+            }
+            int advance = static_cast<int>(CountUnicodeCharacters(text.substr(offset, newline - offset)));
+            pos.column += advance;
+            pos.line += 1;
+            pos.column = 1;
+            offset = newline + 1;
+        }
+    };
+
+    Cangjie::Position start = headerBegin;
+    advancePos(start, header, 0, visPos);
+    Cangjie::Position end = start;
+    advancePos(end, header, visPos, visEnd);
+
+    Range range{start, end};
+    range = TransformFromChar2IDE(range);
+    return TextEdit{range, ""};
+}
+
+std::optional<TextEdit> BuildOverrideBeforeFuncEdit(const FuncDecl &func, SourceManager *sm)
+{
+    if (!sm) {
+        return std::nullopt;
+    }
+    Cangjie::Position headerBegin = func.GetBegin();
+    Cangjie::Position nameBegin = func.identifier.Begin();
+    std::string header = sm->GetContentBetween(headerBegin, nameBegin);
+
+    auto isIdentifierChar = [](char ch) {
+        return std::isalnum(static_cast<unsigned char>(ch)) || ch == '_';
+    };
+    auto findTokenBoundaryPos = [&](const std::string &token) -> size_t {
+        size_t searchPos = 0;
+        while (searchPos < header.size()) {
+            size_t pos = header.find(token, searchPos);
+            if (pos == std::string::npos) {
+                return std::string::npos;
+            }
+            bool leftBoundary = (pos == 0) || !isIdentifierChar(header[pos - 1]);
+            size_t endPos = pos + token.size();
+            bool rightBoundary = endPos >= header.size() || !isIdentifierChar(header[endPos]);
+            if (leftBoundary && rightBoundary) {
+                return pos;
+            }
+            searchPos = pos + token.size();
+        }
+        return std::string::npos;
+    };
+
+    size_t funcPos = findTokenBoundaryPos("func");
+    if (funcPos == std::string::npos) {
+        return std::nullopt;
+    }
+    size_t operatorPos = findTokenBoundaryPos("operator");
+    size_t insertTokenPos = (operatorPos != std::string::npos && operatorPos < funcPos) ? operatorPos : funcPos;
+    size_t overridePos = findTokenBoundaryPos("override");
+    if (overridePos != std::string::npos && overridePos < insertTokenPos) {
+        return std::nullopt;
+    }
+
+    Cangjie::Position insertPos = headerBegin;
+    size_t offset = 0;
+    while (offset < insertTokenPos) {
+        size_t newline = header.find('\n', offset);
+        if (newline == std::string::npos || newline >= insertTokenPos) {
+            int advance = static_cast<int>(CountUnicodeCharacters(header.substr(offset, insertTokenPos - offset)));
+            insertPos.column += advance;
+            break;
+        }
+        int advance = static_cast<int>(CountUnicodeCharacters(header.substr(offset, newline - offset)));
+        insertPos.column += advance;
+        insertPos.line += 1;
+        insertPos.column = 1;
+        offset = newline + 1;
+    }
+
+    Range range{insertPos, insertPos};
+    range = TransformFromChar2IDE(range);
+    return TextEdit{range, "override "};
+}
+
+std::optional<TextEdit> BuildRedefAfterStaticEdit(const FuncDecl &func, SourceManager *sm)
+{
+    if (!sm) {
+        return std::nullopt;
+    }
+    Cangjie::Position headerBegin = func.GetBegin();
+    Cangjie::Position nameBegin = func.identifier.Begin();
+    std::string header = sm->GetContentBetween(headerBegin, nameBegin);
+
+    auto isIdentifierChar = [](char ch) {
+        return std::isalnum(static_cast<unsigned char>(ch)) || ch == '_';
+    };
+    auto findTokenBoundaryPos = [&](const std::string &token) -> size_t {
+        size_t searchPos = 0;
+        while (searchPos < header.size()) {
+            size_t pos = header.find(token, searchPos);
+            if (pos == std::string::npos) {
+                return std::string::npos;
+            }
+            bool leftBoundary = (pos == 0) || !isIdentifierChar(header[pos - 1]);
+            size_t endPos = pos + token.size();
+            bool rightBoundary = endPos >= header.size() || !isIdentifierChar(header[endPos]);
+            if (leftBoundary && rightBoundary) {
+                return pos;
+            }
+            searchPos = pos + token.size();
+        }
+        return std::string::npos;
+    };
+
+    size_t funcPos = findTokenBoundaryPos("func");
+    size_t staticPos = findTokenBoundaryPos("static");
+    if (funcPos == std::string::npos || staticPos == std::string::npos || staticPos > funcPos) {
+        return std::nullopt;
+    }
+
+    size_t redefPos = findTokenBoundaryPos("redef");
+    if (redefPos != std::string::npos && redefPos > staticPos && redefPos < funcPos) {
+        return std::nullopt;
+    }
+
+    size_t insertTokenPos = staticPos + std::string("static").size();
+    while (insertTokenPos < header.size() && std::isspace(static_cast<unsigned char>(header[insertTokenPos]))) {
+        ++insertTokenPos;
+    }
+
+    Cangjie::Position insertPos = headerBegin;
+    size_t offset = 0;
+    while (offset < insertTokenPos) {
+        size_t newline = header.find('\n', offset);
+        if (newline == std::string::npos || newline >= insertTokenPos) {
+            int advance = static_cast<int>(CountUnicodeCharacters(header.substr(offset, insertTokenPos - offset)));
+            insertPos.column += advance;
+            break;
+        }
+        int advance = static_cast<int>(CountUnicodeCharacters(header.substr(offset, newline - offset)));
+        insertPos.column += advance;
+        insertPos.line += 1;
+        insertPos.column = 1;
+        offset = newline + 1;
+    }
+
+    Range range{insertPos, insertPos};
+    range = TransformFromChar2IDE(range);
+    return TextEdit{range, "redef "};
+}
+
+std::optional<size_t> FindRedefInsertOffsetAfterStatic(const Cangjie::AST::ClassDecl &decl,
+                                                       const FuncDecl &func,
+                                                       SourceManager *sm)
+{
+    if (!sm) {
+        return std::nullopt;
+    }
+
+    std::string prefixText = sm->GetContentBetween(decl.GetBegin(), func.GetBegin());
+    std::string header = sm->GetContentBetween(func.GetBegin(), func.identifier.Begin());
+    if (header.empty()) {
+        return std::nullopt;
+    }
+
+    auto isIdentifierChar = [](char ch) {
+        return std::isalnum(static_cast<unsigned char>(ch)) || ch == '_';
+    };
+    auto findTokenBoundaryPos = [&](const std::string &token) -> size_t {
+        size_t searchPos = 0;
+        while (searchPos < header.size()) {
+            size_t pos = header.find(token, searchPos);
+            if (pos == std::string::npos) {
+                return std::string::npos;
+            }
+            bool leftBoundary = (pos == 0) || !isIdentifierChar(header[pos - 1]);
+            size_t endPos = pos + token.size();
+            bool rightBoundary = endPos >= header.size() || !isIdentifierChar(header[endPos]);
+            if (leftBoundary && rightBoundary) {
+                return pos;
+            }
+            searchPos = pos + token.size();
+        }
+        return std::string::npos;
+    };
+
+    size_t funcPos = findTokenBoundaryPos("func");
+    size_t staticPos = findTokenBoundaryPos("static");
+    if (funcPos == std::string::npos || staticPos == std::string::npos || staticPos > funcPos) {
+        return std::nullopt;
+    }
+
+    size_t redefPos = findTokenBoundaryPos("redef");
+    if (redefPos != std::string::npos && redefPos > staticPos && redefPos < funcPos) {
+        return std::nullopt;
+    }
+
+    size_t insertPos = staticPos + std::string("static").size();
+    while (insertPos < header.size() && std::isspace(static_cast<unsigned char>(header[insertPos]))) {
+        ++insertPos;
+    }
+    return prefixText.size() + insertPos;
+}
+
+size_t FindHeaderClauseInsertOffset(const std::string &headerText)
+{
+    auto isIdentifierChar = [](char ch) {
+        return std::isalnum(static_cast<unsigned char>(ch)) || ch == '_';
+    };
+    auto findTokenBoundaryPos = [&](const std::string &token) -> size_t {
+        size_t searchPos = 0;
+        while (searchPos < headerText.size()) {
+            size_t pos = headerText.find(token, searchPos);
+            if (pos == std::string::npos) {
+                return std::string::npos;
+            }
+            bool leftBoundary = (pos == 0) || !isIdentifierChar(headerText[pos - 1]);
+            size_t endPos = pos + token.size();
+            bool rightBoundary = endPos >= headerText.size() || !isIdentifierChar(headerText[endPos]);
+            if (leftBoundary && rightBoundary) {
+                return pos;
+            }
+            searchPos = pos + token.size();
+        }
+        return std::string::npos;
+    };
+
+    size_t wherePos = findTokenBoundaryPos("where");
+    if (wherePos != std::string::npos) {
+        size_t insertOffset = wherePos;
+        while (insertOffset > 0 && std::isspace(static_cast<unsigned char>(headerText[insertOffset - 1]))) {
+            --insertOffset;
+        }
+        return insertOffset;
+    }
+
+    size_t bodyPos = headerText.find('{');
+    if (bodyPos != std::string::npos) {
+        size_t insertOffset = bodyPos;
+        while (insertOffset > 0 && std::isspace(static_cast<unsigned char>(headerText[insertOffset - 1]))) {
+            --insertOffset;
+        }
+        return insertOffset;
+    }
+    return headerText.size();
+}
+
+std::optional<Cangjie::Position> FindHeaderClauseInsertPosition(const Cangjie::AST::Decl &decl,
+                                                                SourceManager *sm)
+{
+    if (!sm) {
+        return std::nullopt;
+    }
+    std::string declText = sm->GetContentBetween(decl.GetBegin(), decl.GetEnd());
+    if (declText.empty()) {
+        return std::nullopt;
+    }
+
+    size_t insertOffset = FindHeaderClauseInsertOffset(declText);
+    Cangjie::Position insertPos = decl.GetBegin();
+    size_t offset = 0;
+    while (offset < insertOffset) {
+        size_t newline = declText.find('\n', offset);
+        if (newline == std::string::npos || newline >= insertOffset) {
+            insertPos.column += static_cast<int>(CountUnicodeCharacters(declText.substr(offset, insertOffset - offset)));
+            break;
+        }
+        insertPos.column += static_cast<int>(CountUnicodeCharacters(declText.substr(offset, newline - offset)));
+        insertPos.line += 1;
+        insertPos.column = 1;
+        offset = newline + 1;
+    }
+    return insertPos;
+}
+
+template <typename TypeDecl>
+void CollectMembersFromType(TypeDecl &decl, const Tweak::Selection &sel, InterfaceInfo &info)
+{
+    SourceManager *sm = sel.arkAst ? sel.arkAst->sourceManager : nullptr;
+    auto &memberDecls = decl.GetMemberDecls();
+    for (auto &member : memberDecls) {
+        if (!member || member->astKind != ASTKind::FUNC_DECL) {
+            continue;
+        }
+        auto *func = dynamic_cast<FuncDecl *>(member.get().get());
+        if (!func || func->identifier.Val() == "init") {
+            continue;
+        }
+        if (!IsPublicMember(*func)) {
+            continue;
+        }
+
+        std::string signature = ResolveFuncSignature(*func, sm);
+        bool isStatic = func->TestAttr(Cangjie::AST::Attribute::STATIC);
+        info.members.push_back(signature);
+        info.metas.push_back({
+            signature,
+            isStatic,
+            func->TestAttr(Cangjie::AST::Attribute::MUT),
+            func->TestAttr(Cangjie::AST::Attribute::OPERATOR),
+            GetVisibility(*func)
+        });
+
+        std::string comments = ExtractDeclCommentText(*func);
+        if (!comments.empty()) {
+            info.memberComments[signature] = std::move(comments);
+        }
+        if (func->TestAttr(Cangjie::AST::Attribute::PRIVATE) || func->TestAttr(Cangjie::AST::Attribute::STATIC)) {
+            std::string body = ExtractFuncBodyText(*func, sm);
+            if (!body.empty()) {
+                info.implBodies[signature] = std::move(body);
+            }
+        }
+    }
+}
+
+template <typename TypeDecl>
+size_t CountMembersFromType(TypeDecl &decl)
+{
+    size_t count = 0;
+    for (auto &member : decl.GetMemberDecls()) {
+        if (!member || member->astKind != ASTKind::FUNC_DECL) {
+            continue;
+        }
+        auto *func = dynamic_cast<FuncDecl *>(member.get().get());
+        if (func && func->identifier.Val() != "init" && IsPublicMember(*func)) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+size_t CountExtractableMembers(const TargetDecl &target, const Tweak::Selection &sel)
+{
+    (void)sel;
+    switch (target.kind) {
+        case TargetKind::CLASS:
+            return CountMembersFromType(*target.classDecl);
+        case TargetKind::STRUCT:
+            return CountMembersFromType(*target.structDecl);
+        case TargetKind::INTERFACE:
+            return CountMembersFromType(*target.interfaceDecl);
+        case TargetKind::ENUM:
+            return CountMembersFromType(*target.enumDecl);
+        case TargetKind::EXTEND:
+            return CountMembersFromType(*target.extendDecl);
+        default:
+            return 0;
+    }
+}
+
+class ExtractInterfaceSelectionRule : public TweakRule {
+public:
+    bool Check(const Tweak::Selection &sel, std::map<std::string, std::string> &extraOptions) const override
+    {
+        auto target = ResolveTargetDecl(sel);
+        if (!target.has_value()) {
+            extraOptions.insert(std::make_pair(
+                "ErrorCode",
+                std::to_string(static_cast<int>(ExtractInterface::ExtractInterfaceError::INVALID_TARGET))));
+            return false;
+        }
+
+        std::vector<std::string> inheritedTypeMembers;
+        if (target->inheritableDecl) {
+            CollectInheritedTypesForExtract(*target->inheritableDecl, sel, inheritedTypeMembers);
+        } else if (target->extendDecl) {
+            CollectInheritedTypesForExtract(*target->extendDecl, sel, inheritedTypeMembers);
+        }
+
+        if (CountExtractableMembers(*target, sel) == 0 && inheritedTypeMembers.empty()) {
+            extraOptions.insert(std::make_pair(
+                "ErrorCode",
+                std::to_string(static_cast<int>(ExtractInterface::ExtractInterfaceError::EMPTY_METHODS))));
+            return false;
+        }
+        return true;
+    }
+};
+
+template <typename TypeDecl>
+void CollectSelectedEditsFromType(TypeDecl &decl,
+                                  const SelectedEditsRequest &request,
+                                  bool fromInterface = false,
+                                  bool allowRedef = true)
+{
+    SourceManager *sm = request.sel.arkAst ? request.sel.arkAst->sourceManager : nullptr;
+    auto &memberDecls = decl.GetMemberDecls();
+    for (auto &member : memberDecls) {
+        if (!member || member->astKind != ASTKind::FUNC_DECL) {
+            continue;
+        }
+        auto *func = dynamic_cast<FuncDecl *>(member.get().get());
+        if (!func || func->identifier.Val() == "init") {
+            continue;
+        }
+
+        if (!IsSelectedSignature(request.chosen, ResolveFuncSignature(*func, sm))) {
+            continue;
+        }
+        auto removeLeadingComments = BuildRemoveLeadingCommentsEdit(*func);
+        if (removeLeadingComments.has_value()) {
+            request.edits.push_back(std::move(*removeLeadingComments));
+        }
+
+        bool isStatic = func->TestAttr(Cangjie::AST::Attribute::STATIC);
+        if (func->TestAttr(Cangjie::AST::Attribute::PRIVATE)) {
+            Range removeRange = {func->GetBegin(), func->GetEnd()};
+            removeRange = TransformFromChar2IDE(removeRange);
+            request.edits.push_back({removeRange, ""});
+            continue;
+        }
+
+        if (fromInterface) {
+            auto removeVisibilityEdit = BuildRemoveVisibilityEdit(*func, sm);
+            if (removeVisibilityEdit.has_value()) {
+                removeVisibilityEdit->newText = isStatic ? "" : "override ";
+                request.edits.push_back(std::move(*removeVisibilityEdit));
+                if (!isStatic) {
+                    continue;
+                }
+            }
+        }
+
+        bool handledDefaultVisibility = false;
+        if (!fromInterface) {
+            auto protectedEdit = BuildProtectedToPublicEdit(*func, sm);
+            if (protectedEdit.has_value()) {
+                request.edits.push_back(std::move(*protectedEdit));
+            } else {
+                auto defaultVisibilityEdit = BuildDefaultVisibilityToPublicEdit(*func, sm);
+                if (defaultVisibilityEdit.has_value()) {
+                    if (isStatic) {
+                        defaultVisibilityEdit->newText = "public ";
+                    } else if (request.addOverride) {
+                        auto overrideEdit = BuildOverrideBeforeFuncEdit(*func, sm);
+                        if (overrideEdit.has_value()) {
+                            defaultVisibilityEdit->newText = "public override ";
+                        }
+                    }
+                    request.edits.push_back(std::move(*defaultVisibilityEdit));
+                    handledDefaultVisibility = true;
+                }
+            }
+        } else {
+            auto defaultVisibilityEdit = BuildDefaultVisibilityToPublicEdit(*func, sm);
+            if (defaultVisibilityEdit.has_value()) {
+                defaultVisibilityEdit->newText = "override ";
+                request.edits.push_back(std::move(*defaultVisibilityEdit));
+                handledDefaultVisibility = true;
+            }
+        }
+
+        if (isStatic && allowRedef) {
+            auto redefEdit = BuildRedefAfterStaticEdit(*func, sm);
+            if (redefEdit.has_value()) {
+                request.edits.push_back(std::move(*redefEdit));
+            }
+        } else if (request.addOverride && !handledDefaultVisibility) {
+            auto overrideEdit = BuildOverrideBeforeFuncEdit(*func, sm);
+            if (overrideEdit.has_value()) {
+                request.edits.push_back(std::move(*overrideEdit));
+            }
+        }
+    }
+}
+
+void CollectMembersFromTarget(const TargetDecl &target, const Tweak::Selection &sel, InterfaceInfo &info)
+{
+    switch (target.kind) {
+        case TargetKind::CLASS:
+            CollectMembersFromType(*target.classDecl, sel, info);
+            return;
+        case TargetKind::STRUCT:
+            CollectMembersFromType(*target.structDecl, sel, info);
+            return;
+        case TargetKind::INTERFACE:
+            CollectMembersFromType(*target.interfaceDecl, sel, info);
+            return;
+        case TargetKind::ENUM:
+            CollectMembersFromType(*target.enumDecl, sel, info);
+            return;
+        case TargetKind::EXTEND:
+            CollectMembersFromType(*target.extendDecl, sel, info);
+            return;
+        default:
+            return;
+    }
+}
+
+void CollectInheritedTypesFromTarget(const TargetDecl &target,
+                                     const Tweak::Selection &sel,
+                                     std::vector<std::string> &inheritedTypes)
+{
+    if (target.extendDecl) {
+        CollectInheritedTypesForExtract(*target.extendDecl, sel, inheritedTypes);
+        return;
+    }
+    if (target.inheritableDecl) {
+        CollectInheritedTypesForExtract(*target.inheritableDecl, sel, inheritedTypes);
+    }
+}
+
+void CollectSelectedEditsFromTarget(const TargetDecl &target, SelectedEditsRequest &request)
+{
+    switch (target.kind) {
+        case TargetKind::CLASS:
+            CollectSelectedEditsFromType(*target.classDecl, request);
+            return;
+        case TargetKind::STRUCT:
+            CollectSelectedEditsFromType(*target.structDecl, request);
+            return;
+        case TargetKind::INTERFACE:
+            CollectSelectedEditsFromType(*target.interfaceDecl, request, true);
+            return;
+        case TargetKind::ENUM:
+            CollectSelectedEditsFromType(*target.enumDecl, request);
+            return;
+        case TargetKind::EXTEND:
+            request.addOverride = false;
+            CollectSelectedEditsFromType(*target.extendDecl, request, false, false);
+            return;
+        default:
+            return;
+    }
+}
+
+} // namespace
+
+bool ExtractInterface::Prepare(const Tweak::Selection &sel)
+{
+    TweakRuleEngine ruleEngine;
+    ruleEngine.AddRule(std::make_unique<ExtractInterfaceSelectionRule>());
+    if (!ruleEngine.CheckRules(sel, extraOptions)) {
+        return true;
+    }
+
+    auto target = ResolveTargetDecl(sel);
+    if (!target.has_value()) {
+        return true;
+    }
+
+    InterfaceInfo info;
+    extraOptions["suggestName"] = target->name;
+    CollectMembersFromTarget(*target, sel, info);
+
+    std::vector<std::string> inheritedTypeMembers;
+    CollectInheritedTypesFromTarget(*target, sel, inheritedTypeMembers);
+
+    std::string membersJson = "[";
+    bool first = true;
+    auto appendMemberJson = [&](const std::string &signature, bool isStatic, const std::string &visibility) {
+        if (!first) {
+            membersJson.push_back(',');
+        }
+        first = false;
+        membersJson += "{\"signature\":\"" + EscapeJsonString(signature) + "\",";
+        membersJson += "\"isStatic\":" + std::string(isStatic ? "true" : "false") + ",";
+        membersJson += "\"visibility\":\"" + EscapeJsonString(visibility) + "\"}";
+    };
+    for (const auto &typeName : inheritedTypeMembers) {
+        appendMemberJson("<: " + typeName, false, "public");
+    }
+    for (const auto &meta : info.metas) {
+        appendMemberJson(meta.signature, meta.isStatic, meta.visibility);
+    }
+    membersJson.push_back(']');
+    extraOptions["members"] = std::move(membersJson);
+    return true;
+}
+std::string BuildInterfaceDeclText(const InterfaceInfo &info,
+                                   const std::string &packageName,
+                                   bool withMethodBodies)
+{
+    std::string text;
+    if (!packageName.empty()) {
+        text += "package " + packageName + "\n\n";
+    }
+    if (!info.typeComment.empty()) {
+        text += info.typeComment;
+        if (text.back() != '\n') {
+            text += "\n";
+        }
+    }
+    text += "public interface " + BuildInterfaceTypeName(info.name, info.genericParams);
+    if (!info.inheritedTypes.empty()) {
+        text += " <: ";
+        for (size_t i = 0; i < info.inheritedTypes.size(); ++i) {
+            text += info.inheritedTypes[i];
+            if (i + 1 < info.inheritedTypes.size()) {
+                text += " & ";
+            }
+        }
+    }
+    text += info.genericWhereClause;
+    text += " {\n";
+
+    std::unordered_map<std::string, const InterfaceInfo::MemberMeta *> metaMap;
+    metaMap.reserve(info.metas.size());
+    for (const auto &meta : info.metas) {
+        metaMap.emplace(meta.signature, &meta);
+    }
+
+    for (const auto &member : info.members) {
+        const InterfaceInfo::MemberMeta *meta = nullptr;
+        auto it = metaMap.find(member);
+        if (it != metaMap.end()) {
+            meta = it->second;
+        }
+        auto commentIt = info.memberComments.find(member);
+        if (commentIt != info.memberComments.end() && !commentIt->second.empty()) {
+            text += IndentTextBlock(commentIt->second, "    ");
+            text += "\n";
+        }
+        std::string header = "    ";
+        if (meta && meta->isStatic) {
+            header += "static ";
+        }
+        if (meta && meta->isMut) {
+            header += "mut ";
+        }
+        if (meta && meta->isOperator) {
+            header += "operator ";
+        }
+        header += "func " + member;
+
+        auto bodyIt = info.implBodies.find(member);
+        if (withMethodBodies && bodyIt != info.implBodies.end() && !bodyIt->second.empty()) {
+            text += header + " " + bodyIt->second + "\n";
+        } else {
+            text += header + "\n";
+        }
+    }
+    text += "}\n";
+    return text;
+}
+
+std::string BuildImplementationClassText(const ApplyContext &context)
+{
+    if (!context.sel.arkAst || !context.sel.arkAst->sourceManager || !context.target.classDecl) {
+        return "";
+    }
+
+    auto &decl = *context.target.classDecl;
+    const auto &info = context.info;
+    SourceManager *sm = context.sel.arkAst->sourceManager;
+    std::string classText = sm->GetContentBetween(decl.GetBegin(), decl.GetEnd());
+    if (classText.empty()) {
+        return "";
+    }
+
+    struct TextMutation {
+        size_t start = 0;
+        size_t end = 0;
+        std::string text;
+    };
+
+    std::vector<TextMutation> mutations;
+    auto addLeadingCommentRemoval = [&](const Cangjie::AST::Decl &commentedDecl) {
+        auto commentRange = FindLeadingCommentsRange(commentedDecl);
+        if (!commentRange.has_value()) {
+            return;
+        }
+
+        std::string prefixText = sm->GetContentBetween(decl.GetBegin(), commentRange->first);
+        std::string commentText = sm->GetContentBetween(commentRange->first, commentRange->second);
+        if (commentText.empty()) {
+            return;
+        }
+
+        size_t start = prefixText.size();
+        size_t end = start + commentText.size();
+        std::string gapText = sm->GetContentBetween(commentRange->second, commentedDecl.GetBegin());
+        bool whitespaceOnly = std::all_of(gapText.begin(), gapText.end(), [](unsigned char ch) {
+            return std::isspace(ch) != 0;
+        });
+        if (whitespaceOnly) {
+            end += gapText.size();
+        }
+        if (start < end && end <= classText.size()) {
+            mutations.push_back({start, end, ""});
+        }
+    };
+
+    addLeadingCommentRemoval(decl);
+
+    std::unordered_set<std::string> extractedMembers;
+    for (const auto &member : info.members) {
+        extractedMembers.insert(member);
+        extractedMembers.insert(NormalizeSignature(member));
+    }
+
+    for (auto &member : decl.GetMemberDecls()) {
+        if (!member || member->astKind != ASTKind::FUNC_DECL) {
+            continue;
+        }
+        auto *func = dynamic_cast<FuncDecl *>(member.get().get());
+        if (!func || func->identifier.Val() == "init") {
+            continue;
+        }
+        std::string signature = ResolveFuncSignature(*func, sm);
+        if (!IsSelectedSignature(extractedMembers, signature)) {
+            continue;
+        }
+        addLeadingCommentRemoval(*func);
+        if (func->TestAttr(Cangjie::AST::Attribute::STATIC)) {
+            auto redefInsertOffset = FindRedefInsertOffsetAfterStatic(decl, *func, sm);
+            if (redefInsertOffset.has_value() && *redefInsertOffset <= classText.size()) {
+                mutations.push_back({*redefInsertOffset, *redefInsertOffset, "redef "});
+            }
+        }
+    }
+
+    std::sort(mutations.begin(), mutations.end(), [](const auto &lhs, const auto &rhs) {
+        if (lhs.start != rhs.start) {
+            return lhs.start > rhs.start;
+        }
+        return lhs.end > rhs.end;
+    });
+    for (const auto &mutation : mutations) {
+        if (mutation.start > mutation.end || mutation.end > classText.size()) {
+            continue;
+        }
+        classText.replace(mutation.start, mutation.end - mutation.start, mutation.text);
+    }
+
+    size_t bracePos = classText.find('{');
+    size_t headerEnd = bracePos == std::string::npos ? classText.size() : bracePos;
+    size_t namePos = classText.substr(0, headerEnd).find(decl.identifier.Val());
+    if (namePos != std::string::npos) {
+        classText.replace(namePos, decl.identifier.Val().size(), context.implementationClassName);
+    }
+
+    bracePos = classText.find('{');
+    headerEnd = bracePos == std::string::npos ? classText.size() : bracePos;
+    std::string header = classText.substr(0, headerEnd);
+    std::string interfaceTypeName = BuildInterfaceTypeName(info.name, info.genericParams);
+    if (header.find(interfaceTypeName) == std::string::npos) {
+        size_t insertPos = FindHeaderClauseInsertOffset(classText);
+        std::string appendText = header.find("<:") == std::string::npos
+            ? " <: " + interfaceTypeName
+            : " & " + interfaceTypeName;
+        classText.insert(insertPos, appendText);
+    }
+
+    std::string text;
+    std::string targetPackageName = ResolveTargetPackageName(context.implementationTargetPath);
+    if (!targetPackageName.empty()) {
+        text += "package " + targetPackageName + "\n\n";
+    }
+
+    std::string sourcePackageName = context.sel.arkAst && context.sel.arkAst->file
+        ? ResolveTargetPackageName(context.sel.arkAst->file->filePath)
+        : "";
+    if (!info.name.empty() && !sourcePackageName.empty() && sourcePackageName != targetPackageName) {
+        text += "import " + sourcePackageName + "." + info.name + "\n\n";
+    }
+
+    text += classText;
+    if (text.empty() || text.back() != '\n') {
+        text += "\n";
+    }
+    return text;
+}
+
+TextEdit InsertInterfaceDecl(const Tweak::Selection &sel, const InterfaceInfo &info)
+{
+    TextEdit edit;
+    if (!sel.arkAst || !sel.arkAst->file) {
+        return edit;
+    }
+
+    Range insertRange = TweakUtils::FindGlobalInsertPos(*sel.arkAst->file, sel.range);
+    insertRange = TransformFromChar2IDE(insertRange);
+    edit.range = insertRange;
+    edit.newText = "\n\n" + BuildInterfaceDeclText(info, "", true);
+    return edit;
+}
+
+TextEdit InsertImplementsClause(Cangjie::AST::InheritableDecl &decl,
+                                const Tweak::Selection &sel,
+                                const InterfaceInfo &info)
+{
+    TextEdit edit;
+    if (!sel.arkAst) {
+        return edit;
+    }
+    auto *sm = sel.arkAst->sourceManager;
+
+    auto buildInsertAtDeclTail = [&](const std::string &appendText) -> TextEdit {
+        TextEdit tailEdit;
+        auto insertPos = FindHeaderClauseInsertPosition(decl, sm);
+        if (!insertPos.has_value()) {
+            std::string sig = ItemResolverUtil::ResolveInsertByNode(decl, sm, false);
+            int length = static_cast<int>(CountUnicodeCharacters(sig));
+            if (length <= 0) {
+                length = static_cast<int>(CountUnicodeCharacters(decl.identifier.Val()));
+            }
+            Range anchor = GetDeclRange(decl, length);
+            insertPos = anchor.end;
+        }
+
+        Range insertRange = {*insertPos, *insertPos};
+        insertRange = TransformFromChar2IDE(insertRange);
+        tailEdit.range = insertRange;
+        tailEdit.newText = appendText;
+        return tailEdit;
+    };
+
+    if (dynamic_cast<Cangjie::AST::ClassDecl *>(&decl) != nullptr) {
+        bool hasRealInherited = false;
+        Cangjie::Position first = Cangjie::INVALID_POSITION;
+        Cangjie::Position last = Cangjie::INVALID_POSITION;
+        std::vector<std::string> keptTypes;
+        std::unordered_set<std::string> keptNormalized;
+        for (auto &ty : decl.inheritedTypes) {
+            if (!ty || (ty->ty && ty->ty->IsObject())) {
+                continue;
+            }
+            hasRealInherited = true;
+            if (first.IsZero()) {
+                first = ty->GetBegin();
+            }
+            last = ty->GetEnd();
+
+            if (IsInterfaceInheritedType(ty)) {
+                continue;
+            }
+            std::string name = ResolveInheritedTypeText(ty, sm);
+            if (name.empty()) {
+                continue;
+            }
+            std::string normalized = NormalizeTypeNameForCompare(name);
+            if (!keptNormalized.insert(normalized).second) {
+                continue;
+            }
+            keptTypes.push_back(std::move(name));
+        }
+
+        std::string interfaceTypeName = BuildInterfaceTypeName(info.name, info.genericParams);
+        std::string newNameNorm = NormalizeTypeNameForCompare(interfaceTypeName);
+        if (!newNameNorm.empty() && keptNormalized.insert(newNameNorm).second) {
+            keptTypes.push_back(interfaceTypeName);
+        }
+        if (keptTypes.empty()) {
+            keptTypes.push_back(interfaceTypeName);
+        }
+
+        if (!hasRealInherited || first.IsZero() || last.IsZero()) {
+            return buildInsertAtDeclTail(" <: " + interfaceTypeName);
+        }
+
+        std::string replacedText;
+        for (size_t i = 0; i < keptTypes.size(); ++i) {
+            replacedText += keptTypes[i];
+            if (i + 1 < keptTypes.size()) {
+                replacedText += " & ";
+            }
+        }
+        Range where = {first, last};
+        where = TransformFromChar2IDE(where);
+        edit.range = where;
+        edit.newText = std::move(replacedText);
+        return edit;
+    }
+
+    auto hasRealInherited = [&]() -> bool {
+        for (auto &ty : decl.inheritedTypes) {
+            if (!ty) {
+                continue;
+            }
+            if (!ty->ty || !ty->ty->IsObject()) {
+                return true;
+            }
+        }
+        return false;
+    }();
+
+    for (auto &ty : decl.inheritedTypes) {
+        if (!ty || (ty->ty && ty->ty->IsObject())) {
+            continue;
+        }
+        std::string interfaceTypeName = BuildInterfaceTypeName(info.name, info.genericParams);
+        if (IsSameTypeName(ResolveInheritedTypeText(ty, sm), interfaceTypeName)) {
+            return edit;
+        }
+    }
+
+    if (!hasRealInherited) {
+        return buildInsertAtDeclTail(" <: " + BuildInterfaceTypeName(info.name, info.genericParams));
+    }
+
+    Cangjie::Position tail = Cangjie::INVALID_POSITION;
+    for (auto &ty : decl.inheritedTypes) {
+        if (!ty) {
+            continue;
+        }
+        if (ty->ty && ty->ty->IsObject()) {
+            continue;
+        }
+        tail = ty->GetEnd();
+    }
+
+    if (tail.IsZero()) {
+        return buildInsertAtDeclTail(" <: " + BuildInterfaceTypeName(info.name, info.genericParams));
+    } else {
+        Range where = {tail, tail};
+        where = TransformFromChar2IDE(where);
+        edit.range = where;
+        edit.newText = " & " + BuildInterfaceTypeName(info.name, info.genericParams);
+    }
+    return edit;
+}
+
+TextEdit InsertImplementsClause(Cangjie::AST::ExtendDecl &decl,
+                                const Tweak::Selection &sel,
+                                const InterfaceInfo &info)
+{
+    TextEdit edit;
+    if (!sel.arkAst || !sel.arkAst->sourceManager) {
+        return edit;
+    }
+    auto *sm = sel.arkAst->sourceManager;
+    std::string interfaceTypeName = BuildInterfaceTypeName(info.name, info.genericParams);
+    for (auto &ty : decl.inheritedTypes) {
+        if (!ty || (ty->ty && ty->ty->IsObject())) {
+            continue;
+        }
+        if (IsSameTypeName(ResolveInheritedTypeText(ty, sm), interfaceTypeName)) {
+            return edit;
+        }
+    }
+
+    auto buildInsertAtDeclTail = [&](const std::string &appendText) -> TextEdit {
+        TextEdit tailEdit;
+        auto insertPos = FindHeaderClauseInsertPosition(decl, sm);
+        if (!insertPos.has_value()) {
+            return tailEdit;
+        }
+        Range insertRange = {*insertPos, *insertPos};
+        insertRange = TransformFromChar2IDE(insertRange);
+        tailEdit.range = insertRange;
+        tailEdit.newText = appendText;
+        return tailEdit;
+    };
+
+    bool hasRealInherited = false;
+    Cangjie::Position tail = Cangjie::INVALID_POSITION;
+    for (auto &ty : decl.inheritedTypes) {
+        if (!ty || (ty->ty && ty->ty->IsObject())) {
+            continue;
+        }
+        hasRealInherited = true;
+        tail = ty->GetEnd();
+    }
+
+    if (!hasRealInherited || tail.IsZero()) {
+        return buildInsertAtDeclTail(" <: " + interfaceTypeName);
+    }
+
+    Range where = {tail, tail};
+    where = TransformFromChar2IDE(where);
+    edit.range = where;
+    edit.newText = " & " + interfaceTypeName;
+    return edit;
+}
+
+TextEdit InsertInterfaceDeclToTargetFile(const std::string &targetPath, const InterfaceInfo &info)
+{
+    TextEdit edit;
+    Range insertRange;
+    insertRange.start = {0, 0, 0};
+    insertRange.end = insertRange.start;
+
+    edit.range = insertRange;
+    edit.newText = BuildInterfaceDeclText(info, ResolveTargetPackageName(targetPath), true);
+    return edit;
+}
+
+TextEdit InsertImplementationDeclToTargetFile(const ApplyContext &context)
+{
+    TextEdit edit;
+    Range insertRange;
+    insertRange.start = {0, 0, 0};
+    insertRange.end = insertRange.start;
+    edit.range = insertRange;
+    edit.newText = BuildImplementationClassText(context);
+    return edit;
+}
+
+void AppendCreateFileDocumentChange(Tweak::Effect &effect, const std::string &targetPath, const TextEdit &edit)
+{
+    if (targetPath.empty()) {
+        return;
+    }
+
+    std::string targetUri = URI::URIFromAbsolutePath(targetPath).ToString();
+
+    CreateFile createFile;
+    createFile.uri = targetUri;
+    nlohmann::json createFileJson;
+    ToJSON(createFile, createFileJson);
+    effect.documentChanges.push_back(std::move(createFileJson));
+
+    TextDocumentEdit textDocumentEdit;
+    textDocumentEdit.textDocument.uri.file = targetUri;
+    textDocumentEdit.textDocument.version = -1;
+    textDocumentEdit.textEdits.push_back(edit);
+    nlohmann::json textEditJson;
+    ToJSON(textDocumentEdit, textEditJson);
+    effect.documentChanges.push_back(std::move(textEditJson));
+}
+
+void InitializeApplyContext(ApplyContext &context)
+{
+    context.info.genericParams = ResolveTargetGenericParams(context.target);
+    context.info.genericWhereClause =
+        ResolveTargetGenericWhereClause(context.target, context.sel.arkAst->sourceManager);
+    context.renameOriginalClass = (context.target.kind == TargetKind::CLASS) &&
+                                  ParseRenameOriginalClassOption(context.sel.extraOptions);
+    context.targetPath = NormalizeTargetPath(context.sel.extraOptions);
+    std::string requestedName;
+    auto itName = context.sel.extraOptions.find("interfaceName");
+    if (itName != context.sel.extraOptions.end()) {
+        requestedName = Trim(itName->second);
+        context.hasExplicitInterfaceName = !requestedName.empty();
+    } else if ((itName = context.sel.extraOptions.find("suggestName")) != context.sel.extraOptions.end()) {
+        requestedName = Trim(itName->second);
+    }
+
+    if (context.renameOriginalClass) {
+        context.info.name = context.target.name;
+        context.implementationClassName = ResolveImplementationClassName(context.sel.extraOptions, requestedName);
+        if (context.implementationClassName.empty()) {
+            context.implementationClassName = context.target.name + "Impl";
+        }
+        context.hasExplicitInterfaceName = true;
+    } else {
+        context.info.name = requestedName.empty() ? context.target.name : requestedName;
+    }
+
+    if (context.renameOriginalClass) {
+        context.implementationTargetPath = ResolveRenameImplementationTargetPath(
+            context.sel, context.targetPath, context.implementationClassName);
+        context.targetPath.clear();
+    } else {
+        context.targetPath = ResolveTargetFilePath(context.targetPath, context.info.name);
+    }
+    if (!context.hasExplicitInterfaceName && !context.targetPath.empty() && IsCjFilePath(context.targetPath)) {
+        std::string targetFileName = Cangjie::FileUtil::GetFileNameWithoutExtension(context.targetPath);
+        if (!targetFileName.empty()) {
+            context.info.name = targetFileName;
+        }
+    }
+    context.chosen = ParseSelectedMembers(context.sel.extraOptions);
+    context.selectedInheritedTypes = ParseSelectedInheritedMemberTypes(context.chosen);
+    context.withImplementation = ParseBoolOption(context.sel.extraOptions, "withImplementation", true);
+    context.useInterfaceWherePossible = ParseBoolOption(context.sel.extraOptions, "useInterfaceWherePossible", true);
+    if (context.renameOriginalClass) {
+        context.withImplementation = true;
+    }
+}
+
+void CollectApplyInterfaceInfo(ApplyContext &context)
+{
+    CollectMembersFromTarget(context.target, context.sel, context.info);
+
+    if (context.renameOriginalClass && context.target.classDecl) {
+        context.info.typeComment = ExtractDeclCommentText(*context.target.classDecl);
+        CollectClassInterfaceInheritedTypesForRename(*context.target.classDecl, context.sel, context.info.inheritedTypes);
+    } else if (context.target.kind != TargetKind::CLASS) {
+        CollectInheritedTypesFromTarget(context.target, context.sel, context.info.inheritedTypes);
+    }
+}
+
+void FilterSelectedMembers(ApplyContext &context)
+{
+    if (!context.chosen.empty()) {
+        std::vector<std::string> filteredMembers;
+        filteredMembers.reserve(context.info.members.size());
+        for (auto &member : context.info.members) {
+            if (IsSelectedSignature(context.chosen, member)) {
+                filteredMembers.push_back(member);
+            }
+        }
+        context.info.members.swap(filteredMembers);
+    }
+}
+
+bool ApplyRenameOriginalClassEdits(ApplyContext &context)
+{
+    if (!context.renameOriginalClass || !context.target.classDecl) {
+        return false;
+    }
+
+    Range sourceDeclRange{context.target.classDecl->GetBegin(), context.target.classDecl->GetEnd()};
+    sourceDeclRange = TransformFromChar2IDE(sourceDeclRange);
+    context.effect.applyEdits[context.sourceUri].push_back(
+        TextEdit{sourceDeclRange, BuildInterfaceDeclText(context.info, "", false)});
+
+    if (!context.implementationTargetPath.empty()) {
+        AppendCreateFileDocumentChange(
+            context.effect,
+            context.implementationTargetPath,
+            InsertImplementationDeclToTargetFile(context));
+    }
+    return true;
+}
+
+void AddInterfaceDeclarationEdits(ApplyContext &context)
+{
+    if (context.targetPath.empty()) {
+        context.effect.applyEdits.emplace(
+            context.sourceUri, std::vector<TextEdit>{InsertInterfaceDecl(context.sel, context.info)});
+        return;
+    }
+    AppendCreateFileDocumentChange(
+        context.effect,
+        context.targetPath,
+        InsertInterfaceDeclToTargetFile(context.targetPath, context.info));
+}
+
+void AddImplementationImportsAndInheritance(ApplyContext &context)
+{
+    auto importEdit = BuildImportInterfaceEdit(context.sel, context.targetPath, context.info.name);
+    if (importEdit.has_value()) {
+        context.effect.applyEdits[context.sourceUri].push_back(std::move(*importEdit));
+    }
+
+    TextEdit targetImplementsEdit;
+    if (context.target.extendDecl) {
+        targetImplementsEdit = InsertImplementsClause(*context.target.extendDecl, context.sel, context.info);
+    } else if (context.target.inheritableDecl) {
+        targetImplementsEdit = InsertImplementsClause(*context.target.inheritableDecl, context.sel, context.info);
+    }
+    if (!targetImplementsEdit.newText.empty()) {
+        context.effect.applyEdits[context.sourceUri].push_back(std::move(targetImplementsEdit));
+    }
+}
+
+void AddInheritedInterfaceEdits(ApplyContext &context)
+{
+    if (context.target.kind != TargetKind::CLASS) {
+        return;
+    }
+
+    auto inheritedInterfaces = CollectDirectInheritedInterfaceDecls(*context.target.classDecl);
+    for (auto *inheritedInterface : inheritedInterfaces) {
+        if (!inheritedInterface || inheritedInterface->identifier.Val() == context.info.name) {
+            continue;
+        }
+        if (!context.selectedInheritedTypes.empty()) {
+            std::string inheritedName = NormalizeTypeNameForCompare(inheritedInterface->identifier.Val());
+            if (!context.selectedInheritedTypes.count(inheritedName)) {
+                continue;
+            }
+        }
+        if (!inheritedInterface->curFile || inheritedInterface->curFile->filePath.empty()) {
+            continue;
+        }
+        auto interfaceEdit = InsertImplementsClause(*inheritedInterface, context.sel, context.info);
+        if (interfaceEdit.newText.empty()) {
+            continue;
+        }
+        std::string inheritedUri = URI::URIFromAbsolutePath(inheritedInterface->curFile->filePath).ToString();
+        context.effect.applyEdits[inheritedUri].push_back(std::move(interfaceEdit));
+    }
+}
+
+void AddSelectedMemberEdits(ApplyContext &context)
+{
+    if (context.chosen.empty()) {
+        return;
+    }
+
+    SelectedEditsRequest request{
+        context.sel,
+        context.chosen,
+        context.effect.applyEdits[context.sourceUri],
+        context.target.kind != TargetKind::EXTEND
+    };
+    CollectSelectedEditsFromTarget(context.target, request);
+}
+
+void AddTypeReferenceReplacementEdits(ApplyContext &context)
+{
+    if (context.target.kind != TargetKind::CLASS || !context.target.classDecl ||
+        context.info.name.empty() || !context.useInterfaceWherePossible) {
+        return;
+    }
+
+    TypeReplacementContext replacementContext{
+        context.sel,
+        *context.target.classDecl,
+        context.info.name,
+        context.targetPath.empty() ? context.sel.arkAst->file->filePath : context.targetPath,
+        BuildAllowedMemberNames(context.info.members),
+        context.effect.applyEdits
+    };
+    CollectTypeReferenceReplacementEdits(replacementContext);
+}
+
+std::optional<Tweak::Effect> ExtractInterface::Apply(const Tweak::Selection &sel)
+{
+    if (!sel.arkAst || !sel.arkAst->sourceManager || !sel.arkAst->file) {
+        return std::nullopt;
+    }
+
+    auto target = ResolveTargetDecl(sel);
+    if (!target.has_value()) {
+        return std::nullopt;
+    }
+
+    ApplyContext context{
+        sel,
+        *target,
+        Tweak::Effect{},
+        InterfaceInfo{},
+        "",
+        "",
+        "",
+        "",
+        {},
+        {},
+        false,
+        false,
+        true,
+        true
+    };
+    context.sourceUri = URI::URIFromAbsolutePath(sel.arkAst->file->filePath).ToString();
+
+    InitializeApplyContext(context);
+    CollectApplyInterfaceInfo(context);
+    FilterSelectedMembers(context);
+
+    if (ApplyRenameOriginalClassEdits(context)) {
+        return context.effect;
+    }
+
+    AddInterfaceDeclarationEdits(context);
+    if (!context.withImplementation) {
+        return context.effect;
+    }
+
+    AddImplementationImportsAndInheritance(context);
+    AddInheritedInterfaceEdits(context);
+    AddSelectedMemberEdits(context);
+    AddTypeReferenceReplacementEdits(context);
+    return context.effect;
+}
+
+namespace {
+
+std::set<Location> ParseSelectedTypeReferences(const std::map<std::string, std::string> &options)
+{
+    std::set<Location> selectedReferences;
+    auto it = options.find("selectedTypeReferences");
+    if (it == options.end()) {
+        return selectedReferences;
+    }
+
+    const std::string &raw = it->second;
+    if (raw.empty() || raw.front() != '[') {
+        return selectedReferences;
+    }
+
+    nlohmann::json json = nlohmann::json::parse(raw, nullptr, false);
+    if (json.is_discarded() || !json.is_array()) {
+        return selectedReferences;
+    }
+
+    for (const auto &entry : json) {
+        auto location = ParseSelectedTypeReferenceEntry(entry);
+        if (!location.has_value() || location->uri.file.empty()) {
+            continue;
+        }
+        selectedReferences.insert(std::move(*location));
+    }
+    return selectedReferences;
+}
+
+bool HasSelectedTypeReferencesFilter(const std::map<std::string, std::string> &options)
+{
+    auto it = options.find("hasSelectedTypeReferences");
+    if (it == options.end()) {
+        return false;
+    }
+    return ParseBoolOption(options, "hasSelectedTypeReferences", false);
+}
+
+bool HasSelectedReferenceMatch(const std::set<Location> &selectedReferences, const Location &location)
+{
+    return std::any_of(selectedReferences.begin(), selectedReferences.end(),
+                       [&location](const Location &selected) {
+                           return IsSameSelectedTypeReference(selected, location);
+                       });
+}
+
+void CollectTypeReferenceReplacementEdits(TypeReplacementContext &context)
+{
+    if (!context.sel.arkAst || !context.sel.arkAst->file || context.interfaceName.empty()) {
+        return;
+    }
+
+    ReferencesResult result;
+    if (IsGlobalOrMemberOrItsParam(context.targetDecl)) {
+        FindReferencesImpl::CompileDownStreamPackage({&context.targetDecl});
+        auto index = CompilerCangjieProject::GetInstance()->GetIndex();
+        auto id = GetSymbolId(context.targetDecl);
+        if (!index || id == lsp::INVALID_SYMBOL_ID) {
+            return;
+        }
+        std::unordered_set<lsp::SymbolID> ids;
+        lsp::SymbolID topId = id;
+        index->FindRiddenUp(id, ids, topId);
+        index->FindRiddenDown(topId, ids);
+        (void)ids.insert(id);
+
+        lsp::RefsRequest req{ids, lsp::RefKind::REFERENCE, std::nullopt};
+        lsp::Ref definition{{}, {}, 0};
+        index->RefsFindReference(req, definition, [&result](const lsp::Ref &ref) {
+            if (ref.isCjoRef || ref.location.IsZeroLoc()) {
+                return;
+            }
+            auto realPath = ref.location.fileUri;
+            if (EndsWith(realPath, ".macrocall")) {
+                return;
+            }
+            CompilerCangjieProject::GetInstance()->GetRealPath(realPath);
+            Location loc{{URI::URIFromAbsolutePath(realPath).ToString()},
+                         TransformFromChar2IDE({ref.location.begin, ref.location.end})};
+            (void)result.References.emplace(loc);
+        });
+    } else {
+        FindReferencesImpl::GetCurPkgUesage(&context.targetDecl, *context.sel.arkAst, result);
+    }
+
+    bool hasSelectedReferencesFilter = HasSelectedTypeReferencesFilter(context.sel.extraOptions);
+    std::set<Location> selectedReferences = ParseSelectedTypeReferences(context.sel.extraOptions);
+
+    for (const auto &location : result.References) {
+        Location normalizedLocation = location;
+        normalizedLocation.uri.file = NormalizeUriString(location.uri.file);
+        if (hasSelectedReferencesFilter && !HasSelectedReferenceMatch(selectedReferences, normalizedLocation)) {
+            continue;
+        }
+        std::optional<TextEdit> importEdit;
+        auto edit = BuildTypeReplacementEditForLocation(normalizedLocation, context, importEdit);
+        if (!edit.has_value()) {
+            continue;
+        }
+        auto &edits = context.applyEdits[normalizedLocation.uri.file];
+        if (importEdit.has_value() && std::find(edits.begin(), edits.end(), *importEdit) == edits.end()) {
+            edits.push_back(std::move(*importEdit));
+        }
+        if (std::find(edits.begin(), edits.end(), *edit) == edits.end()) {
+            edits.push_back(std::move(*edit));
+        }
+    }
+}
+
+} // namespace
+
+} // namespace ark
