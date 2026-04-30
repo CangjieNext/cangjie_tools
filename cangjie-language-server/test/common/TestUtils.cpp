@@ -232,23 +232,24 @@ bool CheckCodeActionResult(const nlohmann::json& expect, const nlohmann::json& a
 ark::ApplyWorkspaceEditParams CreateApplyEditStruct(const nlohmann::json& exp)
 {
     ark::ApplyWorkspaceEditParams result;
-    if (!exp.contains("params")) {
+    if (!exp.contains("params") || !exp["params"].contains("edit")) {
         return result;
     }
 
-    if (exp["params"]["edit"]["changes"].empty()) {
-        return result;
-    }
-
-    for (const auto &[key, value] : exp["params"]["edit"]["changes"].items()) {
-        std::vector<ark::TextEdit> textEdits;
-        for (const auto& item : value) {
-            ark::TextEdit textEdit;
-            textEdit.range = CreateRangeStruct(item["range"]);
-            textEdit.newText = item["newText"];
-            textEdits.push_back(std::move(textEdit));
+    if (exp["params"]["edit"].contains("changes") && exp["params"]["edit"]["changes"].is_object()) {
+        for (const auto &[key, value] : exp["params"]["edit"]["changes"].items()) {
+            std::vector<ark::TextEdit> textEdits;
+            for (const auto& item : value) {
+                ark::TextEdit textEdit;
+                textEdit.range = CreateRangeStruct(item["range"]);
+                textEdit.newText = item["newText"];
+                textEdits.push_back(std::move(textEdit));
+            }
+            result.edit.changes[key] = textEdits;
         }
-        result.edit.changes[key] = textEdits;
+    }
+    if (exp["params"]["edit"].contains("documentChanges") && exp["params"]["edit"]["documentChanges"].is_array()) {
+        result.edit.documentChanges = exp["params"]["edit"]["documentChanges"].get<std::vector<nlohmann::json>>();
     }
     return result;
 }
@@ -283,6 +284,10 @@ bool CheckApplyEditResult(const nlohmann::json& expect, const nlohmann::json& ac
                 return false;
             }
         }
+    }
+    if (exp.edit.documentChanges != act.edit.documentChanges) {
+        reason = "the expect and actual documentChanges is different";
+        return false;
     }
     return true;
 }

@@ -1942,7 +1942,7 @@ void ArkLanguageServer::OnCommandApplyTweak(const TweakArgs &args, nlohmann::jso
     };
 
     auto action = [this, reply = std::move(reply)](Tweak::Effect effect) mutable {
-        if (effect.applyEdits.empty()) {
+        if (effect.applyEdits.empty() && effect.documentChanges.empty()) {
             ValueOrError value(ValueOrErrorCheck::VALUE, nullptr);
             reply(value);
             return;
@@ -1952,6 +1952,7 @@ void ArkLanguageServer::OnCommandApplyTweak(const TweakArgs &args, nlohmann::jso
 
         ApplyWorkspaceEditParams editParams;
         editParams.edit.changes = std::move(effect.applyEdits);
+        editParams.edit.documentChanges = std::move(effect.documentChanges);
         nlohmann::json res;
         ToJSON(editParams, res);
 
