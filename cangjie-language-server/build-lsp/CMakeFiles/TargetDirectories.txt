@@ -1,0 +1,13 @@
+D:/CppProjects/dev/cangjie_tools/cangjie-language-server/build-lsp/CMakeFiles/edit_cache.dir
+D:/CppProjects/dev/cangjie_tools/cangjie-language-server/build-lsp/CMakeFiles/rebuild_cache.dir
+D:/CppProjects/dev/cangjie_tools/cangjie-language-server/build-lsp/src/CMakeFiles/sqlite3.dir
+D:/CppProjects/dev/cangjie_tools/cangjie-language-server/build-lsp/src/CMakeFiles/LSPServer.dir
+D:/CppProjects/dev/cangjie_tools/cangjie-language-server/build-lsp/src/CMakeFiles/LSPServerlib.dir
+D:/CppProjects/dev/cangjie_tools/cangjie-language-server/build-lsp/src/CMakeFiles/edit_cache.dir
+D:/CppProjects/dev/cangjie_tools/cangjie-language-server/build-lsp/src/CMakeFiles/rebuild_cache.dir
+D:/CppProjects/dev/cangjie_tools/cangjie-language-server/build-lsp/src/languageserver/CMakeFiles/LSP.dir
+D:/CppProjects/dev/cangjie_tools/cangjie-language-server/build-lsp/src/languageserver/CMakeFiles/edit_cache.dir
+D:/CppProjects/dev/cangjie_tools/cangjie-language-server/build-lsp/src/languageserver/CMakeFiles/rebuild_cache.dir
+D:/CppProjects/dev/cangjie_tools/cangjie-language-server/build-lsp/src/json-rpc/CMakeFiles/JsonRPC.dir
+D:/CppProjects/dev/cangjie_tools/cangjie-language-server/build-lsp/src/json-rpc/CMakeFiles/edit_cache.dir
+D:/CppProjects/dev/cangjie_tools/cangjie-language-server/build-lsp/src/json-rpc/CMakeFiles/rebuild_cache.dir

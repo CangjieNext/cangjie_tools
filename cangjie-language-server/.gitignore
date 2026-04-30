@@ -25,5 +25,3 @@ third_party
 .clangd
 .cache
 **.macrocall
-
-**/syscap_api_config.json
