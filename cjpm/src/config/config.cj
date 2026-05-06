@@ -40,6 +40,55 @@ public var maxParallelSize: Int64 = getCpus()
 public let CUR_PARALLEL_SIZE: AtomicInt64 = AtomicInt64(0)
 public var crossCompileTarget: String = ""
 public var targetConfigName: String = ""
+
+@Derive[Equatable]
+public enum PlanFormat {
+    | Json
+    | Ninja
+}
+
+public struct PlanOption {
+    public PlanOption(
+        public let format!: PlanFormat = PlanFormat.Json,
+        public let outputPath!: Option<String> = None
+    ) {}
+}
+
+@Derive[Equatable]
+public enum LinkMode {
+    | AsNeeded   // Only add if artifact exists (current behavior)
+    | Always     // Always add flags regardless of artifact existence
+}
+
+public struct CompilerInvocationMetadata {
+    public CompilerInvocationMetadata(
+        public let fullName!: String = "",
+        public let target!: String = "",
+        public let debug!: Bool = false,
+        public let mock!: Bool = false,
+        public let outputType!: OutputType = OutputType.Unknown(""),
+        public let sourceSetDir!: String = "",
+        public let artifacts!: Array<String> = [],
+        public let features!: Array<String> = []
+    ) {}
+}
+
+public struct CompilerInvocation {
+    public CompilerInvocation(
+        public let envBuilder!: EnvironmentBuilder = EnvironmentBuilder(),
+        public let pkgPath!: Option<String> = None,
+        public let objPath!: Option<String> = None,
+        public let importPaths!: Array<String> = [],
+        public let cjcFlags!: Array<String> = [],
+        public let linkArgs!: Array<String> = [],
+        public let customOptions!: Array<String> = [],
+        public let linkOptions!: Array<String> = [],
+        public let outputConfigFlags!: Array<String> = [],
+        public let output!: Option<String> = None,
+        public let metadata!: CompilerInvocationMetadata = CompilerInvocationMetadata()
+    ) {}
+}
+
 private let outputTypeToEnum: HashMap<String, OutputType> = HashMap(
     [
         ("static", Static),
@@ -49,6 +98,16 @@ private let outputTypeToEnum: HashMap<String, OutputType> = HashMap(
         ("obj", Obj)
     ]
 )
+
+private var currentLinkMode: LinkMode = LinkMode.AsNeeded
+
+public func setLinkMode(mode: LinkMode): Unit {
+    currentLinkMode = mode
+}
+
+public func getLinkMode(): LinkMode {
+    currentLinkMode
+}
 
 @Derive[Equatable, Hashable]
 public enum OutputType <: Serializable<OutputType> & ToString {
@@ -627,6 +686,9 @@ public class BuildConfig <: CommandConfig {
     public var targetMacroPkgs: HashSet<String> = HashSet<String>() // used by cross compile
     public var targetMacroMods: HashSet<String> = HashSet<String>() // used by cross compile
     public var hasSubPkgs: HashSet<String> = HashSet<String>() // record the lib packages that have subPkgs.
+    public var plans: ArrayList<PlanOption> = ArrayList<PlanOption>()
+    public var envConfig: HashMap<String, EnvInfo> = HashMap<String, EnvInfo>()
+    public var linkMode: LinkMode = LinkMode.AsNeeded
 
     // External config
     public var scriptConfig: ScriptConfig = ScriptConfig()
@@ -943,26 +1005,37 @@ public class GlobalConfig {
 }
 
 public func linkPackage(libName: String, libPath: String, isLto: Bool): ArrayList<String> {
-    let processdLibName = swapOrgName(libName)
+    let effectiveMode = getLinkMode()
+    let processedLibName = swapOrgName(libName)
     let res = ArrayList<String>()
-    let ltoFile = Path(libPath).join(makeLtoName(processdLibName)).toString()
-    if (isLto) {
-        if (fileExists(ltoFile)) {
-            res.add(ltoFile)
+    let ltoFile = Path(libPath).join(makeLtoName(processedLibName)).toString()
+    
+    match (effectiveMode) {
+        case LinkMode.Always =>
+            if (isLto) {
+                res.add(ltoFile)
+            } else {
+                res.add(all: ["-L", libPath, "-l${processedLibName}"])
+            }
             return res
-        }
+        case LinkMode.AsNeeded =>
+            if (isLto) {
+                if (fileExists(ltoFile)) {
+                    res.add(ltoFile)
+                    return res
+                }
+            }
+            let hasArtifact = fileExists(Path(libPath).join(makeCangjieStaticlibName(processedLibName))) || 
+                fileExists(Path(libPath).join("lib${processedLibName}.so")) || 
+                fileExists(Path(libPath).join("lib${processedLibName}.dll")) || 
+                fileExists(Path(libPath).join("lib${processedLibName}.dylib"))
+            if (hasArtifact) {
+                res.add(all: ["-L", libPath, "-l${processedLibName}"])
+            } else if (fileExists(ltoFile)) {
+                res.add(ltoFile)
+            }
+            return res
     }
-
-    if (fileExists(Path(libPath).join(makeCangjieStaticlibName(processdLibName))) || 
-        fileExists(Path(libPath).join("lib${processdLibName}.so")) || 
-        fileExists(Path(libPath).join("lib${processdLibName}.dll")) || 
-        fileExists(Path(libPath).join("lib${processdLibName}.dylib"))) {
-        res.add(all: ["-L", libPath, "-l${processdLibName}"])
-    } else if (fileExists(ltoFile)) {
-        res.add(ltoFile)
-    }
-
-    return res
 }
 
 @When[os == "Linux" || os == "Windows"]

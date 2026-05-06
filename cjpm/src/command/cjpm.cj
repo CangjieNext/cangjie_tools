@@ -27,6 +27,7 @@ Available subcommands:
   clean            Clean up the target directory
   bundle           Make distributable tarball of current module
   publish          Publish a module to central repository
+  plan             Generate build plan without executing
   install          Install a cangjie binary
   uninstall        Uninstall a cangjie binary
 
