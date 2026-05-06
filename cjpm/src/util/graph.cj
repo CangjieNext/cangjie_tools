@@ -7,7 +7,6 @@
 package cjpm.util
 
 import std.collection.*
-import std.deriving.*
 
 import stdx.serialization.serialization.*
 
@@ -115,8 +114,6 @@ public class DAG<K, V> where K <: Hashable & Equatable<K> {
      * Remove verticies of the graph while preserving connectivity of unaffected verticies
      */
     public func filterVertices(cond: (K, V) -> Bool): DAG<K, V> {
-        let _roots = _roots.iterator().filter { it => cond(it, this._data[it]) } |> collectHashSet
-        let _data = _data.iterator().filter { it => cond(it[0], it[1]) } |> collectHashMap
         let removed = HashSet<K>()
 
         for (id in this.toposort) {
@@ -124,8 +121,6 @@ public class DAG<K, V> where K <: Hashable & Equatable<K> {
                 removed.add(id)
             }
         }
-
-        let size = this.toposort.size
 
         let adj = graph.iterator().map { it => (it[0], it[1].outdeg |> collectHashSet) } |> collectHashMap
         for (k in removed) {

@@ -8,7 +8,6 @@ package cjpm.implement
 
 import std.deriving.{Derive, DeriveExclude}
 import std.collection.*
-import std.collection.concurrent.*
 import std.sync.*
 import std.fs.*
 import std.env.getVariables
