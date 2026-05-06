@@ -341,10 +341,9 @@ public struct Feature <: ToString & Serializable<Feature> {
         }
     }
 
-    public static func fromString(value: String): Result<Feature, CJMPError> {
+    public static func fromString(value: String): Result<Feature, String> {
         QName.fromString(value)
-            .mapErr{ e => ErrorWrapper(None, e) }
-            .flatMap { value => create(value, loc: None) }
+            .flatMap { value => create(value, loc: None).mapErr { e => e.toString() } }
     }
 
     public func serialize(): DataModel {
