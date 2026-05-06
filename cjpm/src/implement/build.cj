@@ -519,28 +519,64 @@ func sortCompileCost(compilePerformancePath : String): Unit {
     return
 }
 
-func constructCjcInvocation(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList<String> {
-    let res: ArrayList<String> = ArrayList<String>()
+func constructCompilerInvocation(
+    compileTask: CompileTask,
+    buildConfig: BuildConfig,
+    ldPath: Iterable<String>
+): CompilerInvocation {
+    let envBuilder = EnvironmentBuilder()
+    envBuilder.prepend(LD_PATH, ldPath)
 
-    if (let Some(obj) <- compileTask.prevStageObj) {
-        res.add(obj)
+    let (pkgPath, objPath) = if (let Some(prevStageObj) <- compileTask.prevStageObj) {
+        (None<String>, compileTask.prevStageObj)
     } else {
-        res.add(all: ["-p", compileTask.packagePath])
+        (Some(compileTask.packagePath), None<String>)
     }
 
-    res.add(all: appendImportPaths(compileTask, buildConfig))
-    res.add(all: appendCommandOptions(compileTask))
-    res.add(all: getDepLinkCommand(compileTask, buildConfig))
+    let importPaths = appendImportPaths(compileTask, buildConfig)
 
-    for (option in compileTask.customizedOption) {
-        res.add(all: extractOptionByString(option))
+    let cjcFlags = appendCommandOptions(compileTask)
+
+    let linkArgs = getDepLinkCommand(compileTask, buildConfig)
+
+    let customOptions = ArrayList<String>()
+    for (opt in compileTask.customizedOption) {
+        customOptions.add(all: extractOptionByString(opt))
     }
+    customOptions.add(all: extractOptionByString(compileTask.compileOption))
+    customOptions.add(all: extractOptionByString(compileTask.overrideOption))
 
-    res.add(all: extractOptionByString(compileTask.compileOption))
-    res.add(all: extractOptionByString(compileTask.overrideOption))
-    res.add(all: appendLinkOption(compileTask))
-    res.add(all: getTypeCommand(compileTask))
-    return res
+    let linkOptions = appendLinkOption(compileTask)
+
+    let outputConfigFlags = getTypeCommand(compileTask)
+    let outputVal = getOutput(compileTask)
+    let artifacts = expectedArtifacts(compileTask)
+
+    // Extract metadata from compileTask
+    let metadata = CompilerInvocationMetadata(
+        fullName: compileTask.fullName,
+        target: compileTask.target,
+        debug: compileTask.isDebug,
+        mock: compileTask.mockSupported,
+        outputType: compileTask.outputType,
+        sourceSetDir: compileTask.sourceSetDir,
+        artifacts: artifacts,
+        features: compileTask.sourceSetFeatures.toArray().map { it => it.toString() }
+    )
+
+    CompilerInvocation(
+        envBuilder: envBuilder,
+        pkgPath: pkgPath,
+        objPath: objPath,
+        importPaths: importPaths.toArray(),
+        cjcFlags: cjcFlags.toArray(),
+        linkArgs: linkArgs.toArray(),
+        customOptions: customOptions.toArray(),
+        linkOptions: linkOptions,
+        outputConfigFlags: outputConfigFlags.toArray(),
+        output: outputVal,
+        metadata: metadata
+    )
 }
 
 func appendImportPaths(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList<String> {
@@ -554,7 +590,7 @@ func appendImportPaths(compileTask: CompileTask, buildConfig: BuildConfig): Arra
 
     for (p in buildConfig.globalConfig.cjPathList) {
         if (directoryExists(p)) {
-            res.add("--import-path=${p}")
+            res.add(p)
         }
     }
 
@@ -568,7 +604,7 @@ func appendImportPaths(compileTask: CompileTask, buildConfig: BuildConfig): Arra
             CJMPPathSet.add(libPath)
         }
     }
-    res.add(all: CJMPPathSet |> map { p => "--import-path=${p}"} |> collectArray)
+    res.add(all: CJMPPathSet)
     return res
 }
 
@@ -596,14 +632,14 @@ func appendCommandOptions(compileTask: CompileTask, ignoreTestFlags!: Bool = fal
     res
 }
 
-func appendLinkOption(compileTask: CompileTask, ignoreTestFlags!: Bool = false): ArrayList<String> {
+func appendLinkOption(compileTask: CompileTask, ignoreTestFlags!: Bool = false): Array<String> {
     if (compileTask.linkOption.isEmpty()) {
-        return ArrayList<String>()
+        return []
     }
     if (compileTask.outputType == Static && (!ignoreTestFlags && !compileTask.requiredForTests)) {
-        return ArrayList<String>()
+        return []
     }
-    return ArrayList<String>(["--link-options", compileTask.linkOption])
+    return ["--link-options", compileTask.linkOption]
 }
 
 func getDepLinkCommand(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList<String> {
@@ -635,9 +671,9 @@ func getOutput(compileTask: CompileTask): Option<String> {
             } else {
                 makeCangjieStaticlibName(compileTask.filename)
             }
-        case Dynamic => makeTargetDylibName(compileTask.filename, compileTask.target)
+        case Dynamic where !compileTask.isMacro => makeTargetDylibName(compileTask.filename, compileTask.target)
         case Exe => makeTargetExeName(compileTask.filename, compileTask.target)
-        case Obj => "${swapOrgName(compileTask.filename)}.o"
+        case Obj => makeTargetObjName(compileTask.filename, compileTask.target)
         case _ => None
     }
 }
@@ -681,10 +717,6 @@ func getTypeCommand(compileTask: CompileTask, ignoreTestFlags!: Bool = false): A
 
     if (let Some(v) <- compileTask.compileTargetOutput) {
         res.add("--compile-target=${v.asCompilerArg}")
-    }
-
-    if (let Some(output) <- getOutput(compileTask)) {
-        res.add("-o=${output}")
     }
 
     res.add(all: compileTask.supressed)
