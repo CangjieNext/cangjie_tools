@@ -9,7 +9,6 @@ package cjpm.config
 import std.collection.*
 import std.deriving.*
 import std.convert.Parsable
-import std.sort.sort
 import std.fs.*
 import std.regex.Regex
 
