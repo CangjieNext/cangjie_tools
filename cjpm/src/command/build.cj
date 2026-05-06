@@ -8,117 +8,77 @@ package cjpm.command
 
 import std.collection.*
 import std.convert.*
-import std.regex.*
 import cjpm.implement.*
 import cjpm.config.*
 
-let BUILD_LONG_OPTION: Array<String> = ["verbose", "coverage", "output=", "target=", "enable-features=",
-    "no-feature-deduce", "incremental", "target-dir=", "jobs=", "lint", "mock", "member=", "skip-script"]
-let BUILD_USAGE: String = """
-Compile a local module and all of its dependencies.
+let buildOptions: Array<CliOptionBase> = [
+    CliOption(name: "incremental", short: "i", action: Action.SetTrue, category: "build",
+        help: "enable incremental compilation"),
+    CliOption<Int32>(name: "jobs", short: "j", action: Action.Set, category: "build", helpValue: "<N>",
+        help: "the number of jobs to spawn in parallel during the build process", validator: jobsValidator),
+    CliOption(name: "verbose", short: "V", action: Action.SetTrue,
+        help: "enable verbose", category: "build"),
+    CliOption(name: "g", short: "g", action: Action.SetTrue,
+        help: "enable compile debug version target", category: "build"),
+    CliOption(name: "coverage", action: Action.SetTrue,
+        help: "enable coverage", category: "build"),
+    CliOption(name: "cfg", action: Action.Set, 
+        help: "enable the customized option 'cfg'", category: "build"),
+    CliOption<Feature>(name: "enable-features", action: Action.Append, delimiter: ",", category: "build",
+        help: "explicitly specify comma-separated list of features to be enabled", validator: featureValidator),
+    CliOption(name: "no-feature-deduce", action: Action.SetTrue,
+        help: "disables auto-enabling of features, deduced from other options, machine properties, etc.", category: "build"),
+    CliOption(name: "member", short: "m", action: Action.Set,
+        help: "specify a member module of the workspace", category: "build"),
+    CliOption(name: "target", action: Action.Set, category: "build",
+        help: "generate code for the given target platform", validator: targetValidator),
+    CliOption(name: "target-dir", action: Action.Set, category: "build",
+        help: "specify target directory", validator: targetDirValidator),
+    CliOption(name: "output", short: "o", action: Action.Set, category: "build",
+        help: "specify product name when compiling an executable file", validator: outputValidator),
+    CliOption(name: "lint", short: "l", action: Action.SetTrue,
+        help: "enable cjlint code check", category: "build"),
+    CliOption(name: "mock", action: Action.SetTrue,
+        help: "enable support of mocking classes in tests", category: "build"),
+    CliOption(name: "skip-script", action: Action.SetTrue,
+        help: "disable script 'build.cj'", category: "build")
+]
 
-Usage:
-  cjpm build [option]
-
-Available options:
-  -h, --help                    help for build
-  -i, --incremental             enable incremental compilation
-  -j, --jobs <N>                the number of jobs to spawn in parallel during the build process
-  -V, --verbose                 enable verbose
-  -g                            enable compile debug version target
-  --coverage                    enable coverage
-  --cfg                         enable the customized option 'cfg'
-  --enable-features <value>     explicitly specify comma-separated list of features to be enabled
-  --no-feature-deduce           disables auto-enabling of features, deduced from other options, machine properties, etc.
-  -m, --member <value>          specify a member module of the workspace
-  --target <value>              generate code for the given target platform
-  --target-dir <value>          specify target directory
-  -o, --output <value>          specify product name when compiling an executable file
-  -l, --lint                    enable cjlint code check
-  --mock                        enable support of mocking classes in tests
-  --skip-script                 disable script 'build.cj'."""
-@When[os == "Windows"]
-let EXAMPLE_OUTPUT_NAME = "main.exe"
-@When[os != "Windows"]
-let EXAMPLE_OUTPUT_NAME = "main"
+let buildScope = CliScope(name: "build", description: "Compile a local module and all of its dependencies.", allowLateBinding: true)
+    .addOptions(buildOptions)
 
 // BuildCommand represents the build command
 class BuildCommand <: Handle {
-    private let BUILD_SHORT_OPTION: String = "Vo:gij:lm:"
+    private let buildParser: CliParser
+    private let parseResult: ParseResult
 
     init(args: Array<String>) {
         this.cmdName = args[0]
-        this.arguments = args[1..] // remove build itself
+        this.arguments = args
+        this.buildParser = CliParser(CliScope(name: "cjpm", description: "").addSubScope(buildScope))
+        this.parseResult = buildParser.parse(args) 
     }
 
+    public override func isHelp(): Bool {
+        parseResult.namespace.helpText.isSome()
+    }
+    
     public override func printHelp(): Unit {
-        println(BUILD_USAGE)
+        println(parseResult.namespace.helpText.getOrDefault { "" })
         return
     }
 
-    // Check output name for the executable file.
-    func outputNameCheck(name: String, buildConfig: BuildConfig): Bool {
-        if (name.size == 0) {
-            eprintln("Error: the '--output' option needs a value")
-            return false
-        }
-        // Regexp output name.
-        let REGEXP_OUTPUT_NAME = "^([a-zA-Z]+[-._a-zA-Z0-9]*)$"
-        var matched = Regex(REGEXP_OUTPUT_NAME)
-        match (matched.find(name)) {
-            case Some(_) =>
-                buildConfig.exeName = name
-                return true
-            case None => eprintln("Error: the output name '${name}' is wrong, the example is '${EXAMPLE_OUTPUT_NAME}'")
-        }
-        return false
-    }
-
-    func handleOutputName(argMap: HashMap<String, String>, buildConfig: BuildConfig): Bool {
-        let (newName, nameFlag) = getArgValue(argMap, "--output", "-o")
-        if (nameFlag) {
-            if (!outputNameCheck(newName, buildConfig)) {
-                return false
-            }
-        }
-        return true
-    }
-
-    func handleUnparseArgs(unparseArgs: Array<String>, buildConfig: BuildConfig): Bool {
-        if (unparseArgs.isEmpty()) {
+    public override func handleCommand(): Bool {
+        if (let Some(helpText) <- parseResult.namespace.helpText) {
+            println(helpText)
             return true
         }
 
-        if (unparseArgs.contains("-j") || unparseArgs.contains("--jobs")) {
-            eprintln("Error: the '-j/--jobs' option requires a positive integer argument, " +
-                "its valid range is (0, 2147483647]")
+        if (!parseResult.errors.isEmpty()) {
+            printCliErrors(parseResult)
             return false
         }
 
-        let options = ["-o", "--output", "--target", "--target-dir", "-m", "--member"]
-        for (val in options) {
-            if (unparseArgs.contains(val)) {
-                eprintln("Error: the '${val}' option needs a value")
-                return false
-            }
-        }
-
-        for (arg in unparseArgs) {
-            if (!arg.startsWith("--")) {
-                eprintln("Error: unknown command '${arg}' for cjpm build")
-                return false
-            }
-            let option: String = arg[2..] // remove -- prefix
-            if (!customizedOptionCheck(option, "")) {
-                return false
-            }
-            buildConfig.customizedOption.add(option)
-        }
-
-        return true
-    }
-
-    public override func handleCommand(): Bool {
         if (this.arguments.size == 0) {
             let buildConfig = BuildConfig()
             buildConfig.globalConfig.resolveType = RESOLVE_BUILD
@@ -126,54 +86,30 @@ class BuildCommand <: Handle {
             return doBuild(buildConfig)
         }
 
-        let (argMap, unparseArgs) = getParseOption(this.arguments, BUILD_SHORT_OPTION, BUILD_LONG_OPTION)
-        let buildConfig = BuildConfig()
-        buildConfig.isVerbose = getBoolOption(argMap, "-V", "--verbose")
-        buildConfig.isIncremental = getBoolOption(argMap, "-i", "--incremental")
-        buildConfig.isCov = getBoolOption(argMap, "--coverage")
-        buildConfig.isDebug = getBoolOption(argMap, "-g")
-        buildConfig.isLint = getBoolOption(argMap, "-l", "--lint")
-        buildConfig.mockSupported = getBoolOption(argMap, "--mock")
-        buildConfig.globalConfig.isSkipScript = getBoolOption(argMap, "--skip-script")
-        buildConfig.globalConfig.enabledFeatures = handleEnableFeaturesOption(argMap)
-            .inspectErr { errs => for (err in errs) { eprintln("Error: ${err}") } }
-            .ok ?? return false
-        buildConfig.globalConfig.noFeatureDeduce = getBoolOption(argMap, "--no-feature-deduce")
-        if (!handleOutputName(argMap, buildConfig)) {
-            return false
-        }
-
-        if (let Some(dir) <- handleTargetDirOption(argMap)) {
-            buildConfig.targetDir = dir
-        } else {
-            return false
-        }
-
-        buildConfig.isCrossCompile = handleCrossTarget(argMap) ?? return false
-
-        if (!handleParallelSize(argMap)) {
-            return false
-        }
-
-        if (let Some(val) <- handleMemberOption(argMap)) {
-            buildConfig.memberModule = val
-        } else {
-            return false
-        }
-
-        if (!handleUnparseArgs(unparseArgs, buildConfig)) {
-            return false
-        }
-
-        buildConfig.globalConfig.isVerbose = buildConfig.isVerbose
-        buildConfig.globalConfig.isDebug = buildConfig.isDebug
-        buildConfig.globalConfig.isCross = buildConfig.isCrossCompile
-        buildConfig.globalConfig.isIncremental = buildConfig.isIncremental
-        buildConfig.globalConfig.resolveType = RESOLVE_BUILD
-        buildConfig.globalConfig.isPureBuild = true
+        let buildConfig = constructBuildConfig(parseResult) ?? return false
 
         return doBuild(buildConfig)
     }
+}
+
+private func setCrossCompileTarget(target: String): Bool {
+    if (target == targetConfigName) {
+        eprintln("Warning: the current platform is '${target}', the '--target' option will be ignored")
+        false
+    } else {
+        crossCompileTarget = target
+        true
+    }
+} 
+
+private func setMaxParallelSize(jobs: Int32): Unit {
+    let newSize = Int64(jobs)
+    if (newSize > 2 * getCpus()) {
+        println(
+            "Warning: the number of jobs '-j${newSize}' exceeds limit '${2 * getCpus()}', the number of jobs will be set to '-j${2 * getCpus()}'"
+        )
+    }
+    maxParallelSize = min(newSize, 2 * getCpus())
 }
 
 public func handleParallelSize(argMap: HashMap<String, String>): Bool {
@@ -193,17 +129,61 @@ public func handleParallelSize(argMap: HashMap<String, String>): Bool {
                 "its valid range is (0, 2147483647]")
             return false
         } else {
-            let newSize = Int64(size)
-            if (newSize > 2 * getCpus()) {
-                println(
-                    "Warning: the number of jobs '-j${newSize}' exceeds limit '${2 * getCpus()}', the number of jobs will be set to '-j${2 * getCpus()}'"
-                )
-                maxParallelSize = 2 * getCpus()
-            } else {
-                maxParallelSize = newSize
-            }
+            setMaxParallelSize(size)
             return true
         }
     }
     return true
+}
+
+private func handleUnresolvedOptions(result: ParseResult, buildConfig: BuildConfig): Bool {
+    for (raw in result.unresolvedOptions) {
+        let option = raw[2..]
+        if (!customizedOptionCheck(option, "")) {
+            return false
+        }
+        buildConfig.customizedOption.add(option)
+    }
+    return true
+}
+
+public func constructBuildConfig(parseResult: ParseResult): ?BuildConfig {
+        let buildConfig = BuildConfig()
+        buildConfig.isVerbose = parseResult.namespace.get<Bool>(key: "verbose") ?? false
+        buildConfig.isIncremental = parseResult.namespace.get<Bool>(key: "incremental") ?? false
+        buildConfig.isCov = parseResult.namespace.get<Bool>(key: "coverage") ?? false
+        buildConfig.isDebug = parseResult.namespace.get<Bool>(key: "g") ?? false
+        buildConfig.isLint = parseResult.namespace.get<Bool>(key: "lint") ?? false
+        buildConfig.mockSupported = parseResult.namespace.get<Bool>(key: "mock") ?? false
+        buildConfig.globalConfig.isSkipScript = parseResult.namespace.get<Bool>(key: "skip-script") ?? false
+
+        buildConfig.globalConfig.enabledFeatures = parseResult.namespace.getArray<Feature>(key: "enable-features") ?? []
+        buildConfig.globalConfig.noFeatureDeduce = parseResult.namespace.get<Bool>(key: "no-feature-deduce") ?? false
+
+        buildConfig.exeName = parseResult.namespace.get<String>(key: "output") ?? "main"
+        buildConfig.targetDir = parseResult.namespace.get<String>(key: "target-dir") ?? ""
+
+        let target = parseResult.namespace.get<String>(key: "target")
+        if (let Some(target) <- target) {
+            buildConfig.isCrossCompile = setCrossCompileTarget(target)
+        }
+
+        let jobs = parseResult.namespace.get<Int32>(key: "jobs") ?? Int32(maxParallelSize)
+        setMaxParallelSize(jobs)
+
+        buildConfig.memberModule = parseResult.namespace.get<String>(key: "member") ?? ""
+
+        // Adding/removing any `CLI` options is a breaking change
+        if (!handleUnresolvedOptions(parseResult, buildConfig)) {
+            return None
+        }
+
+        buildConfig.globalConfig.isVerbose = buildConfig.isVerbose
+        buildConfig.globalConfig.isDebug = buildConfig.isDebug
+        buildConfig.globalConfig.isCross = buildConfig.isCrossCompile
+        buildConfig.globalConfig.isIncremental = buildConfig.isIncremental
+        buildConfig.globalConfig.resolveType = RESOLVE_BUILD
+        buildConfig.globalConfig.isPureBuild = true
+
+        return buildConfig
 }
