@@ -10,7 +10,8 @@ import std.collection.*
 import std.collection.concurrent.*
 import std.convert.*
 import std.deriving.Derive
-import std.env.getVariables
+import std.env.*
+import std.io.*
 import std.fs.*
 import std.regex.*
 import std.sync.*
@@ -299,8 +300,16 @@ func parallelBuild(module: ModuleResolve, buildConfig: BuildConfig): Bool {
     registerCompileTasks(
         compileTasksData, typeInfoOnlyDeps, buildConfig, engine
     )
-    
+
     engine.askAll()
+
+    if (!dumpBuildPlan(engine, buildConfig)) {
+        return false
+    }
+
+    if (!buildConfig.plans.isEmpty()) {
+        return true
+    }
 
     let result = executeWithFileWatcher(buildConfig) { =>
         engine.execute()
@@ -316,6 +325,26 @@ func parallelBuild(module: ModuleResolve, buildConfig: BuildConfig): Bool {
         case Rebuild | Cached => true
         case Fatal => false
     }
+}
+
+private func dumpBuildPlan(engine: IncrementalEngine, buildConfig: BuildConfig): Bool {
+    for (planOption in buildConfig.plans) {
+        let output: OutputStream = match (planOption.outputPath) {
+            case Some(path) => File(path, OpenMode.Write)
+            case None => getStdOut()
+        }
+
+        let serializer: PlanSerializer = match (planOption.format) {
+            case PlanFormat.Ninja => NinjaPlanSerializer(buildConfig, output)
+            case PlanFormat.Json => JsonPlanSerializer(buildConfig, output)
+        }
+
+        let success = PlanEmitter.emit(buildConfig, engine, serializer)
+        if (!success) {
+            return false
+        }
+    }
+    return true
 }
 
 private func executeWithFileWatcher<T>(buildConfig: BuildConfig, body: () -> T): T {
@@ -395,8 +424,8 @@ private func registerCompileTasks(
     }
 
     for (compileTask in compileTasksData) {
-        registerReadSourceTask(engine, compileTask, buildConfig)
-        registerReadCompilerOptionsTask(engine, compileTask, buildConfig)
+        registerReadSourceTask(engine, compileTask)
+        registerReadCompilerOptionsTask(engine, compileTask)
 
         let taskDeps = if (!buildConfig.isCompilePipelineParallel && compileTask.requiresOnlyTypeInfo) {
             let mappedDepTasks = ArrayList<TaskId>()
@@ -425,7 +454,7 @@ private func registerCompileTasks(
         if (typeInfoOnlyDeps.contains(monitorId)) {
             let channel = MonitorChannel()
             monitorChannels.add(compileTask.id, channel)
-            registerMonitorTask(engine, compileTask, monitorId, buildConfig, channel)
+            registerMonitorTask(engine, compileTask, monitorId, channel)
         }
 
         if (!buildConfig.isCompilePipelineParallel && typeInfoOnlyDeps.contains(compileTask.id)) {
@@ -443,12 +472,12 @@ private func collectRebuildList(engine: IncrementalEngine): HashSet<String> {
     } |> collectHashSet
 }
 
-private func createArtifactGroup(compileTask: CompileTask, buildConfig: BuildConfig): ArtifactGroup {
-    func cjo(): Artifact { 
-        Artifact(Path(compileTask.targetPath).join("${swapOrgName(compileTask.fullName)}.cjo").toString(), CheckTimestamp) 
+public func expectedArtifacts(compileTask: CompileTask): Array<String> {
+    func cjo(): String { 
+        Path(compileTask.targetPath).join("${swapOrgName(compileTask.fullName)}.cjo").toString()
     }
-    func artifact(name: String, checkKind: ArtifactCheckKind): Artifact { 
-        Artifact(Path(compileTask.targetPath).join(name).toString(), checkKind) 
+    func artifact(name: String): String { 
+        Path(compileTask.targetPath).join(name).toString()
     }
 
     match (compileTask.outputType) {
@@ -456,30 +485,45 @@ private func createArtifactGroup(compileTask: CompileTask, buildConfig: BuildCon
             let name = if (compileTask.isLto) { 
                 makeLtoName(compileTask.filename) 
             } else { makeCangjieStaticlibName(compileTask.filename) }
-            ArtifactGroup(artifact(name, CheckExists), cjo())
+            [artifact(name), cjo()]
         case Dynamic =>
             let name = if (compileTask.isMacro) { 
                 makeTargetMacroName(compileTask.filename, compileTask.target) 
             } else {
                 makeTargetDylibName(compileTask.filename, compileTask.target)
             }
-            let checkKind = if (compileTask.isMacro) { CheckTimestamp } else { CheckExists }
-            ArtifactGroup(artifact(name, checkKind), cjo())
+            [artifact(name), cjo()]
         case Exe => 
             let name = makeTargetExeName(compileTask.filename, compileTask.target)
-            ArtifactGroup(artifact(name, CheckExists), cjo())
+            [artifact(name), cjo()]
         case Chir => 
             let name = "${swapOrgName(compileTask.fullName)}.chir"
-            ArtifactGroup(artifact(name, CheckTimestamp), cjo())
+            [artifact(name), cjo()]
         case Obj => 
             let name = makeTargetObjName(swapOrgName(compileTask.fullName), compileTask.target)
-            ArtifactGroup(artifact(name, CheckTimestamp), cjo())
-        case Unknown(_) => ArtifactGroup(Artifact("", CheckExists), cjo())
+            [artifact(name), cjo()]
+        case Unknown(_) => ["", cjo()]
     }
 }
 
+private func createArtifactGroup(compileTask: CompileTask, invocation: CompilerInvocation): ArtifactGroup {
+    let artifacts = invocation.metadata.artifacts
+
+    func checkKind(): ArtifactCheckKind {
+        match (compileTask.outputType) {
+            case Static => CheckExists
+            case Dynamic => if (compileTask.isMacro) { CheckTimestamp } else { CheckExists }
+            case Exe => CheckExists
+            case Chir => CheckTimestamp
+            case Obj => CheckTimestamp
+            case Unknown(_) => CheckExists
+        }
+    }
+    return ArtifactGroup(Artifact(artifacts[0], checkKind()), Artifact(artifacts[1], CheckTimestamp))
+}
+
 // Create task which computes the hash of source files in the directory without `*_test.cj` files
-private func registerReadSourceTask(engine: IncrementalEngine, compileTask: CompileTask, buildConfig: BuildConfig): Unit {
+private func registerReadSourceTask(engine: IncrementalEngine, compileTask: CompileTask): Unit {
     let id = TaskId.ReadPackageSource(compileTask.fullName, compileTask.sourceSetDir)
     // In case of macro package cross compilation this task can be added twice
     if (engine.taskContext.taskStorage.contains(id)) {
@@ -494,7 +538,7 @@ private func registerReadSourceTask(engine: IncrementalEngine, compileTask: Comp
 }
 
 // Create task which stores the hash code of compiler options, which are not affecting the stored location of the binary
-private func registerReadCompilerOptionsTask(engine: IncrementalEngine, compileTask: CompileTask, buildConfig: BuildConfig): Unit {
+private func registerReadCompilerOptionsTask(engine: IncrementalEngine, compileTask: CompileTask): Unit {
     let id = TaskId.ReadCompilerOptions(compileTask.fullName, compileTask.target, compileTask.isDebug, compileTask.mockSupported, compileTask.sourceSetDir)
 
     if (engine.taskContext.taskStorage.contains(id)) {
@@ -515,6 +559,7 @@ private func registerReadCompilerOptionsTask(engine: IncrementalEngine, compileT
         res.add(all: extractOptionByString(compileTask.overrideOption))
         res.add(all: appendLinkOption(compileTask, ignoreTestFlags: compileTask.requiredForTests))
         res.add(all: getTypeCommand(compileTask, ignoreTestFlags: compileTask.requiredForTests))
+        res.add(getOutput(compileTask) ?? "")
         CompilerOptions.fromString(res |> collectString(delimiter: " "))
     }
     engine.taskContext.createTask(
@@ -528,7 +573,6 @@ private func registerReadCompilerOptionsTask(engine: IncrementalEngine, compileT
 // Create task of compiler call, which returns the locations of expected to be produced artifacts
 private func registerCompilerCallTaskWithDeps(engine: IncrementalEngine, compileTask: CompileTask, deps: Array<TaskId>, buildConfig: BuildConfig) {
     let id = compileTask.id
-    let artifacts = createArtifactGroup(compileTask, buildConfig)
     
     let comp: () -> ArtifactGroup = { => 
         if (!createDirectory(compileTask.targetPath)) {
@@ -537,13 +581,14 @@ private func registerCompilerCallTaskWithDeps(engine: IncrementalEngine, compile
         if (!createDirectory(compileTask.logPath)) {
             throw Exception("Failed to create directory: `${compileTask.logPath}`")
         }
-        let cjcCall = constructCjcInvocation(compileTask, buildConfig)
-        let envBuilder = EnvironmentBuilder()
-        envBuilder.prepend(LD_PATH, buildConfig.globalConfig.ldPath)
-        if (!callCompiler(compileTask, cjcCall, envBuilder, buildConfig)) {
+
+        // Here the linker arguments are set based on presence to-be-linked binary artifact
+        let invocation = constructCompilerInvocation(compileTask, buildConfig, buildConfig.globalConfig.ldPath)
+
+        if (!callCompiler(compileTask, invocation, buildConfig)) {
             throw Exception("Failed to run task: `${compileTask.id}`")
         }
-        artifacts
+        createArtifactGroup(compileTask, invocation)
     }
     let task = engine.taskContext.createTask(
         id: id,
@@ -552,10 +597,11 @@ private func registerCompilerCallTaskWithDeps(engine: IncrementalEngine, compile
         cache: engine.cache
     )
     task.logFiles = (compileTask.outLogFile, compileTask.errLogFile)
+    engine.taskContext.compileTasks.add(id, compileTask)
 }
 
 // Create monitor task that receives notification from compile task
-private func registerMonitorTask(engine: IncrementalEngine, compileTask: CompileTask, monitorId: TaskId, buildConfig: BuildConfig, channel: MonitorChannel) {
+private func registerMonitorTask(engine: IncrementalEngine, compileTask: CompileTask, monitorId: TaskId, channel: MonitorChannel) {
     let upstreamId = compileTask.id
 
     let cjoPath = Path(compileTask.targetPath).join("${swapOrgName(compileTask.fullName)}.cjo").toString()
@@ -598,7 +644,7 @@ private func registerMonitorTask(engine: IncrementalEngine, compileTask: Compile
 }
 
 // TASK OUTPUTS
-private struct PackageSource <: Serializable<PackageSource> {
+struct PackageSource <: Serializable<PackageSource> {
     PackageSource(
         let dirpath: Path
     ) { }
@@ -627,7 +673,7 @@ extend PackageSource <: SerializableIncData<PackageSource> {
     }
 }
 
-private struct CompilerOptions <: Serializable<CompilerOptions> {
+struct CompilerOptions <: Serializable<CompilerOptions> {
     CompilerOptions(
         let optionsHash: Hash
     ) {}
@@ -651,7 +697,7 @@ extend CompilerOptions <: SerializableIncData<CompilerOptions> {
     }
 }
 
-private enum ArtifactCheckKind <: ToString & Serializable<ArtifactCheckKind> {
+enum ArtifactCheckKind <: ToString & Serializable<ArtifactCheckKind> {
     | CheckExists
     | CheckTimestamp
 
@@ -684,7 +730,7 @@ private enum ArtifactCheckKind <: ToString & Serializable<ArtifactCheckKind> {
 }
 
 @Derive[ToString]
-private struct Artifact <: Serializable<Artifact> {
+struct Artifact <: Serializable<Artifact> {
     private static let PATH_FIELD = "path"
     private static let CHECK_KIND_FIELD = "checkKind"
     Artifact(
@@ -728,7 +774,7 @@ extend Artifact <: SerializableIncData<Artifact> {
 }
 
 @Derive[ToString]
-private struct ArtifactGroup <: Serializable<ArtifactGroup> {
+struct ArtifactGroup <: Serializable<ArtifactGroup> {
     ArtifactGroup(
         let primary: Artifact,
         let cjo: Artifact
@@ -885,13 +931,14 @@ public enum TaskId <: Serializable<TaskId> & ToString {
 }
 
 // TASKS
-private class TaskContext {
+class TaskContext {
     private var finalizedChecker: () -> Unit = { => }
     private var idCounter: UInt64 = 0
 
     public TaskContext(
         let taskGraphBuilder!: DAGBuilder<TaskId, Unit>,
         let taskStorage!: HashMap<TaskId, ErasedTask>,
+        let compileTasks!: HashMap<TaskId, CompileTask>,
         private let cache!: IncrementalCache
     ) { }
 
@@ -920,7 +967,7 @@ private class TaskContext {
     }
 }
 
-private abstract class ErasedTask {
+abstract class ErasedTask {
     var _value: Option<IncData> = None
     var logFiles: ?(String, String) = None
 
@@ -943,7 +990,7 @@ private abstract class ErasedTask {
     protected func readValidCachedValue(): Bool
 }
 
-private class Task<T> <: ErasedTask where T <: SerializableIncData<T> {
+class Task<T> <: ErasedTask where T <: SerializableIncData<T> {
     private let computation: Option<() -> T>
     private let context: TaskContext
 
@@ -1040,7 +1087,7 @@ class EngineConfig {
     ) { }
 }
 
-private class IncrementalEngine {
+class IncrementalEngine {
     let dirtyTasks = HashSet<TaskId>()
     let rebuiltTasks = HashSet<TaskId>()
     let cache: IncrementalCache
@@ -1064,6 +1111,7 @@ private class IncrementalEngine {
         this.taskContext = TaskContext(
             taskGraphBuilder: DAG<TaskId, Unit>.builder(),
             taskStorage: storage,
+            compileTasks: HashMap<TaskId, CompileTask>(),
             cache: cache
         )
         this.taskContext.setFinalizedChecker { 
@@ -1297,7 +1345,7 @@ func createPackageCompileTasks(r: ResolveItem, buildConfig: BuildConfig, product
                     !isMacroName &&
                     (buildConfig.packageList.isDyLib(name) || buildConfig.packageList.isExe(name))
 
-                let depTask = if (requiresOnlyTypeInfo) {
+                let depTask = if (requiresOnlyTypeInfo && buildConfig.plans.isEmpty()) {
                     if (buildConfig.isCompilePipelineParallel && !isMacroName) {
                         TaskId.Monitor(name, waitTarget, isDebug, mockSupported, depSourceSetDir)
                     } else {
@@ -1490,7 +1538,7 @@ private func notifyMonitor(taskId: TaskId, notification: MonitorNotification): U
     }
 }
 
-private class Rebuilder {
+class Rebuilder {
     private let futureMap: HashMap<TaskId, Future<TaskResult>>
     private let logger: BoundedFileLogger
     private let verbose: Bool
@@ -1693,7 +1741,7 @@ interface SerializableIncData<T> <: IncData where T <: Serializable<T> {
     func incHash(): ?Hash
 }
 
-private class CacheItem <: Serializable<CacheItem> {
+class CacheItem <: Serializable<CacheItem> {
     private static let VALUE = "value"
     private static let INPUT_HASH = "inputHash"
     private static let OUTPUT_HASH = "outputHash"
@@ -1723,7 +1771,7 @@ private class CacheItem <: Serializable<CacheItem> {
     }
 }
 
-private class IncrementalCache {
+class IncrementalCache {
     private let inMemoryCache = ConcurrentHashMap<TaskId, Hash>()
     private let persistentCache: ConcurrentHashMap<TaskId, CacheItem>
 
@@ -1829,11 +1877,35 @@ private func getCompilePackageDesc(compileTask: CompileTask): String {
     }
 }
 
-private func callCompiler(compileTask: CompileTask, args: ArrayList<String>, envBuilder: EnvironmentBuilder, buildConfig: BuildConfig): Bool {
+private func buildCompilerArgs(invocation: CompilerInvocation): ArrayList<String> {
+    let args = ArrayList<String>()
+    assertion { !(invocation.pkgPath.isSome() && invocation.objPath.isSome()) }
+    if (let Some(pkg) <- invocation.pkgPath) {
+        args.add("-p")
+        args.add(pkg)
+    }
+    if (let Some(obj) <- invocation.objPath) {
+        args.add(obj)
+    }
+    args.add(all: invocation.importPaths.map { p => "--import-path=${p}" })
+    args.add(all: invocation.cjcFlags)
+    args.add(all: invocation.linkArgs)
+    args.add(all: invocation.customOptions)
+    args.add(all: invocation.linkOptions)
+    args.add(all: invocation.outputConfigFlags)
+    if (let Some(out) <- invocation.output) {
+        args.add("-o=${out}")
+    }
+    args
+}
+
+private func callCompiler(compileTask: CompileTask, invocation: CompilerInvocation, buildConfig: BuildConfig): Bool {
     var execCmdFlag: Bool = true
 
+    let args = buildCompilerArgs(invocation)
     specifyCjcJobs(args, buildConfig.cjcJobs)
 
+    let envBuilder = invocation.envBuilder
     let env = getVariables()
     let commandStr = getCmdStr(envBuilder.asCliStrings(env), COMPILE_TOOL, args)
     let pkgDesc = getCompilePackageDesc(compileTask)
@@ -2036,37 +2108,37 @@ private abstract class IncrementalEngineException <: Exception {
     IncrementalEngineException(msg: String) { super(msg) }
 }
 
-private class TaskNotFoundException <: IncrementalEngineException {
+class TaskNotFoundException <: IncrementalEngineException {
     TaskNotFoundException(id: TaskId) {
         super("Couldn't find task with id `${id}`")
     }
 }
 
-private class FinalizedBuildException <: IncrementalEngineException {
+class FinalizedBuildException <: IncrementalEngineException {
     FinalizedBuildException() {
         super("IncrementalEngine object is finalized and cannot be changed")
     }
 }
 
-private class DataMistypeException <: IncrementalEngineException {
+class DataMistypeException <: IncrementalEngineException {
     DataMistypeException(id: TaskId) {
         super("Task `${id}` stores the value of wrong type")
     }
 }
 
-private class NotComputedInputException <: IncrementalEngineException {
+class NotComputedInputException <: IncrementalEngineException {
     NotComputedInputException(id: TaskId) {
         super("Tried to get value from task `${id}` before calling `engine.execute()`")
     }
 }
 
-private class MissingArtifactException <: IncrementalEngineException {
+class MissingArtifactException <: IncrementalEngineException {
     MissingArtifactException(id: TaskId) {
         super("Task `${id}` was executed, but artifact didn't get produced or got missing")
     }
 }
 
-private class TaskComputeException <: IncrementalEngineException {
+class TaskComputeException <: IncrementalEngineException {
     TaskComputeException(id: TaskId, error: Exception) {
         super("Task `${id}` threw an exception:\n${error}")
     }
