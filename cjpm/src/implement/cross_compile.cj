@@ -7,7 +7,6 @@
 package cjpm.implement
 
 import std.collection.*
-import std.fs.*
 import cjpm.config.*
 
 // Append native data for cross-compile.
