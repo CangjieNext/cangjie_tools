@@ -64,6 +64,45 @@ std::string Char32ToUTF8(const std::basic_string<char32_t>& str)
     return conv.to_bytes(str);
 }
 
+static int GetUTF8PrefixBytesByColumns(const std::string &str, int columns)
+{
+    if (columns <= 0) {
+        return 0;
+    }
+    int bytes = 0;
+    int consumedColumns = 0;
+    while (bytes < static_cast<int>(str.size()) && consumedColumns < columns) {
+        auto ch = static_cast<unsigned char>(str[static_cast<size_t>(bytes)]);
+        int charBytes = 1;
+        int charColumns = 1;
+        unsigned int codepoint = ch;
+        if ((ch & 0xE0) == 0xC0 && bytes + 1 < static_cast<int>(str.size())) {
+            charBytes = 2;
+            codepoint = ((ch & 0x1F) << 6) | (static_cast<unsigned char>(str[bytes + 1]) & 0x3F);
+        } else if ((ch & 0xF0) == 0xE0 && bytes + 2 < static_cast<int>(str.size())) {
+            charBytes = 3;
+            codepoint = ((ch & 0x0F) << 12) |
+                        ((static_cast<unsigned char>(str[bytes + 1]) & 0x3F) << 6) |
+                        (static_cast<unsigned char>(str[bytes + 2]) & 0x3F);
+        } else if ((ch & 0xF8) == 0xF0 && bytes + 3 < static_cast<int>(str.size())) {
+            charBytes = 4;
+            codepoint = ((ch & 0x07) << 18) |
+                        ((static_cast<unsigned char>(str[bytes + 1]) & 0x3F) << 12) |
+                        ((static_cast<unsigned char>(str[bytes + 2]) & 0x3F) << 6) |
+                        (static_cast<unsigned char>(str[bytes + 3]) & 0x3F);
+        }
+        if (codepoint > 0xFFFF) {
+            charColumns = 2;
+        }
+        if (consumedColumns + charColumns > columns) {
+            break;
+        }
+        bytes += charBytes;
+        consumedColumns += charColumns;
+    }
+    return bytes;
+}
+
 int GetFirstTokenOnCurLine(const std::vector<Cangjie::Token> &tokens, int declLine)
 {
     if (tokens.empty()) {
@@ -265,23 +304,20 @@ void PositionIDEToUTF8(const std::vector<Cangjie::Token> &tokens, Cangjie::Posit
         if (!IsUTF8(tokens[begin].Value())) {
             break;
         }
-        if (tokens[begin].Begin().column - redundantCharacters > pos.column) {
-            if (begin - 1 >= 0 &&
-                tokens[begin - 1].Begin().column + static_cast<int>(tokens[begin - 1].Value().size()) >
-                pos.column + redundantCharacters) {
-                // token end > trigger pos, the trigger position in on the [begin - 1] token
-                auto offset = static_cast<int>(static_cast<int>(tokens[begin - 1].Value().size()) -
-                                               CountUnicodeCharacters(tokens[begin - 1].Value()));
-                auto validStr = tokens[begin - 1].Value().substr(0,  pos.column - tokens[begin - 1].Begin().column +
-                                                                      redundantCharacters);
-                redundantCharacters = redundantCharacters - offset +
-                                      static_cast<int>(
-                                          static_cast<int>(validStr.size()) - CountUnicodeCharacters(validStr));
-            }
+        int tokenBeginColumn = tokens[begin].Begin().column - redundantCharacters;
+        int tokenColumns = CountUnicodeCharacters(tokens[begin].Value());
+        if (tokenBeginColumn > pos.column) {
+            break;
+        }
+        if (!IsMultiLine(tokens[begin]) && tokens[begin].Begin().line == pos.line &&
+            pos.column <= tokenBeginColumn + tokenColumns) {
+            int prefixColumns = pos.column - tokenBeginColumn;
+            int prefixBytes = GetUTF8PrefixBytesByColumns(tokens[begin].Value(), prefixColumns);
+            redundantCharacters += prefixBytes - prefixColumns;
             break;
         }
         auto offset = static_cast<int>(static_cast<int>(tokens[begin].Value().size()) -
-                                       CountUnicodeCharacters(tokens[begin].Value()));
+                                       tokenColumns);
         redundantCharacters += offset;
         begin++;
     }

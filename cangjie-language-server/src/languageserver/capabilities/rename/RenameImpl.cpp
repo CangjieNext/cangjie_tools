@@ -101,6 +101,14 @@ void RenameImpl::GetLocalVarUesage(Ptr<Decl> decl, const ArkAST &ast, ark::Docum
     }
 }
 
+Range GetLocalDefineRange(const ArkAST &ast, Ptr<Decl> defineDecl, Position definePos)
+{
+    Range range{definePos, definePos + CountUnicodeCharacters(defineDecl->identifier)};
+    PositionUTF8ToIDE(ast.tokens, range.start, *defineDecl);
+    range.end.column = range.start.column + static_cast<int>(CountUnicodeCharacters(defineDecl->identifier));
+    return TransformFromChar2IDE(range);
+}
+
 void RenameImpl::HandleGeneric(Ptr<Decl> defineDecl, const ArkAST &ast, DocumentChanges &documentChanges,
                                const std::string &newName, const std::vector<Symbol *> &syms)
 {
@@ -251,8 +259,7 @@ std::string RenameImpl::Rename(const ArkAST &ast, std::vector<TextDocumentEdit> 
                 definePos = inv->macroCallDiagInfo.new2originPosMap[defineDecl->identifier.Begin().column];
             }
         }
-        TextEdit t{TransformFromChar2IDE({definePos, definePos + CountUnicodeCharacters(defineDecl->identifier)}),
-                   newName};
+        TextEdit t{GetLocalDefineRange(ast, defineDecl, definePos), newName};
         UpdateDefineMap(documentChanges, curFilePath, t);
         GetLocalVarUesage(defineDecl, ast, documentChanges, newName);
         return GetRealName(result, cb, documentChanges);
