@@ -173,19 +173,19 @@ void Hprof::ParseHeapDump(bool verbose)
         { ROOT_GLOBAL, std::bind(&Hprof::ParseHeapDumpRootGlobal, this, std::placeholders::_1) },
         { ROOT_LOCAL, std::bind(&Hprof::ParseHeapDumpRootLocal, this, std::placeholders::_1) },
         { CLASS_DUMP, std::bind(&Hprof::ParseHeapDumpClassDump, this, std::placeholders::_1) },
-        { INSTANCE_DUMP, std::bind(&Hprof::ParseHeapDumpInstanceDump, this, std::placeholders::_1) },
-        { OBJECT_ARRAY_DUMP, std::bind(&Hprof::ParseHeapDumpObjectArrayDump, this, std::placeholders::_1) },
-        { PRIMITIVE_ARRAY_DUMP, std::bind(&Hprof::ParseHeapDumpPrimitiveArrayDump, this, std::placeholders::_1) },
-        { STRUCT_ARRAY_DUMP, std::bind(&Hprof::ParseHeapDumpStructArrayDump, this, std::placeholders::_1) },
-        { PINNED_INSTANCE_DUMP, std::bind(&Hprof::ParseHeapDumpInstanceDump, this, std::placeholders::_1) },
-        { LARGE_INSTANCE_DUMP, std::bind(&Hprof::ParseHeapDumpInstanceDump, this, std::placeholders::_1) },
-        { LARGE_OBJECT_ARRAY_DUMP, std::bind(&Hprof::ParseHeapDumpObjectArrayDump, this, std::placeholders::_1) },
-        { LARGE_PRIMITIVE_ARRAY_DUMP, std::bind(&Hprof::ParseHeapDumpPrimitiveArrayDump, this, std::placeholders::_1) },
-        { LARGE_STRUCT_ARRAY_DUMP, std::bind(&Hprof::ParseHeapDumpStructArrayDump, this, std::placeholders::_1) },
-        { UNMOVABLE_INSTANCE_DUMP, std::bind(&Hprof::ParseHeapDumpInstanceDump, this, std::placeholders::_1) },
-        { UNMOVABLE_OBJECT_ARRAY_DUMP, std::bind(&Hprof::ParseHeapDumpObjectArrayDump, this, std::placeholders::_1) },
-        { UNMOVABLE_PRIMITIVE_ARRAY_DUMP, std::bind(&Hprof::ParseHeapDumpPrimitiveArrayDump, this, std::placeholders::_1) },
-        { UNMOVABLE_STRUCT_ARRAY_DUMP, std::bind(&Hprof::ParseHeapDumpStructArrayDump, this, std::placeholders::_1) },
+        { INSTANCE_DUMP, [this](bool v){ ParseHeapDumpInstanceDump(v, INSTANCE_OBJECT); } },
+        { OBJECT_ARRAY_DUMP, [this](bool v){ ParseHeapDumpObjectArrayDump(v, INSTANCE_OBJECT); } },
+        { PRIMITIVE_ARRAY_DUMP, [this](bool v){ ParseHeapDumpPrimitiveArrayDump(v, INSTANCE_OBJECT); } },
+        { STRUCT_ARRAY_DUMP, [this](bool v){ ParseHeapDumpStructArrayDump(v, INSTANCE_OBJECT); } },
+        { PINNED_INSTANCE_DUMP, [this](bool v){ ParseHeapDumpInstanceDump(v, PINNED_OBJECT); } },
+        { LARGE_INSTANCE_DUMP, [this](bool v){ ParseHeapDumpInstanceDump(v, LARGE_OBJECT); } },
+        { LARGE_OBJECT_ARRAY_DUMP, [this](bool v){ ParseHeapDumpObjectArrayDump(v, LARGE_OBJECT); } },
+        { LARGE_PRIMITIVE_ARRAY_DUMP, [this](bool v){ ParseHeapDumpPrimitiveArrayDump(v, LARGE_OBJECT); } },
+        { LARGE_STRUCT_ARRAY_DUMP, [this](bool v){ ParseHeapDumpStructArrayDump(v, LARGE_OBJECT); } },
+        { UNMOVABLE_INSTANCE_DUMP, [this](bool v){ ParseHeapDumpInstanceDump(v, UNMOVABLE_OBJECT); } },
+        { UNMOVABLE_OBJECT_ARRAY_DUMP, [this](bool v){ ParseHeapDumpObjectArrayDump(v, UNMOVABLE_OBJECT); } },
+        { UNMOVABLE_PRIMITIVE_ARRAY_DUMP, [this](bool v){ ParseHeapDumpPrimitiveArrayDump(v, UNMOVABLE_OBJECT); } },
+        { UNMOVABLE_STRUCT_ARRAY_DUMP, [this](bool v){ ParseHeapDumpStructArrayDump(v, UNMOVABLE_OBJECT); } },
         { ROOT_UNKNOWN, std::bind(&Hprof::ParseHeapDumpRootUnknown, this, std::placeholders::_1) }
     };
     auto header = ReadAs<RecordHeader>();
@@ -280,7 +280,7 @@ void Hprof::ParseHeapDumpClassDump(bool verbose)
     m_curPos += sizeof(ClassDump);
 }
 
-void Hprof::ParseHeapDumpInstanceDump(bool verbose)
+void Hprof::ParseHeapDumpInstanceDump(bool verbose, ObjectCategory category)
 {
     struct InstanceDump {
         u1 tag;
@@ -303,6 +303,7 @@ void Hprof::ParseHeapDumpInstanceDump(bool verbose)
 
     ID id = SwapEndian(rec->id);
     m_instances[id].cls = SwapEndian(rec->cls);
+    m_objectCategories[id] = category;
     for (size_t i = 0; i < num; i++) {
         m_instances[id].fields.push_back(SwapEndian(rec->values[i]));
     }
@@ -321,7 +322,7 @@ void Hprof::ParseHeapDumpInstanceDump(bool verbose)
     m_curPos += size;
 }
 
-void Hprof::ParseHeapDumpObjectArrayDump(bool verbose)
+void Hprof::ParseHeapDumpObjectArrayDump(bool verbose, ObjectCategory category)
 {
     struct ObjectArrayDump {
         u1 tag;
@@ -346,6 +347,7 @@ void Hprof::ParseHeapDumpObjectArrayDump(bool verbose)
     m_arrays[id].type = OBJECT;
     m_arrays[id].cls = SwapEndian(rec->cls);
     m_arrays[id].num = num;
+    m_objectCategories[id] = category == INSTANCE_OBJECT ? OBJECT_ARRAY : category;
     for (size_t i = 0; i < num; i++) {
         m_arrays[id].elements.push_back(SwapEndian(rec->elements[i]));
     }
@@ -364,7 +366,7 @@ void Hprof::ParseHeapDumpObjectArrayDump(bool verbose)
     m_curPos += size;
 }
 
-void Hprof::ParseHeapDumpStructArrayDump(bool verbose)
+void Hprof::ParseHeapDumpStructArrayDump(bool verbose, ObjectCategory category)
 {
     struct StructArrayDump {
         u1 tag;
@@ -390,6 +392,7 @@ void Hprof::ParseHeapDumpStructArrayDump(bool verbose)
     m_arrays[id].type = OBJECT;
     m_arrays[id].cls = SwapEndian(rec->cls);
     m_arrays[id].num = num;
+    m_objectCategories[id] = category == INSTANCE_OBJECT ? STRUCT_ARRAY : category;
     m_componentNums[id] = SwapEndian(rec->componentNum);
     for (size_t i = 0; i < num; i++) {
         m_arrays[id].elements.push_back(SwapEndian(rec->elements[i]));
@@ -409,7 +412,7 @@ void Hprof::ParseHeapDumpStructArrayDump(bool verbose)
     m_curPos += size;
 }
 
-void Hprof::ParseHeapDumpPrimitiveArrayDump(bool verbose)
+void Hprof::ParseHeapDumpPrimitiveArrayDump(bool verbose, ObjectCategory category)
 {
     struct PrimitiveArrayDump {
         u1 tag;
@@ -427,6 +430,7 @@ void Hprof::ParseHeapDumpPrimitiveArrayDump(bool verbose)
     m_arrays[id].type = BasicType(rec->type);
     m_arrays[id].cls = 0;
     m_arrays[id].num = SwapEndian(rec->num);
+    m_objectCategories[id] = category == INSTANCE_OBJECT ? PRIMITIVE_ARRAY : category;
     if (verbose) {
         printf("[PRIMITIVE ARRAY DUMP@0x%zx] id = 0x%" PRIx64 ", num = %u, type = %u\n",
             m_curPos, id, m_arrays[id].num, m_arrays[id].type);

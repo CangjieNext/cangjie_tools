@@ -176,6 +176,21 @@ public:
         return m_fileTime;
     }
 
+    enum ObjectCategory : uint8_t {
+        INSTANCE_OBJECT = 0,
+        OBJECT_ARRAY = 1,
+        STRUCT_ARRAY = 2,
+        PRIMITIVE_ARRAY = 3,
+        PINNED_OBJECT = 4,
+        LARGE_OBJECT = 5,
+        UNMOVABLE_OBJECT = 6
+    };
+
+    const std::unordered_map<ID, ObjectCategory> &GetObjectCategories() const
+    {
+        return m_objectCategories;
+    }
+
 private:
     enum Tag : u1 {
         STRING = 0x01,
@@ -270,10 +285,10 @@ private:
     void ParseHeapDumpRootGlobal(bool verbose);
     void ParseHeapDumpRootLocal(bool verbose);
     void ParseHeapDumpClassDump(bool verbose);
-    void ParseHeapDumpInstanceDump(bool verbose);
-    void ParseHeapDumpObjectArrayDump(bool verbose);
-    void ParseHeapDumpPrimitiveArrayDump(bool verbose);
-    void ParseHeapDumpStructArrayDump(bool verbose);
+    void ParseHeapDumpInstanceDump(bool verbose, ObjectCategory category = INSTANCE_OBJECT);
+    void ParseHeapDumpObjectArrayDump(bool verbose, ObjectCategory category = INSTANCE_OBJECT);
+    void ParseHeapDumpPrimitiveArrayDump(bool verbose, ObjectCategory category = INSTANCE_OBJECT);
+    void ParseHeapDumpStructArrayDump(bool verbose, ObjectCategory category = INSTANCE_OBJECT);
     void ParseHeapDumpRootUnknown(bool verbose);
     void ParseCpuSamples(bool verbose);
     void GenString(ID id, const std::string &str);
@@ -359,6 +374,7 @@ private:
     std::map<StackTrace, u4> m_stackTracesMap;
     std::map<u4, Sample> m_cpuSamples;
     std::unordered_map<ID, u4> m_componentNums;
+    std::unordered_map<ID, ObjectCategory> m_objectCategories;
     u8 m_fileTime;
 };
 
