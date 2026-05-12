@@ -176,6 +176,11 @@ public:
         return m_fileTime;
     }
 
+    const u4 GetIdSize() const
+    {
+        return m_idSize;
+    }
+
 private:
     enum Tag : u1 {
         STRING = 0x01,
@@ -220,14 +225,18 @@ private:
         u8 length;
     };
 
-    struct StringRecord : RecordHeader {
-        ID id;      // ID for this string
+    struct StringRecord {
+        Tag tag;
+        u4 length;
+        u4 id;      // ID for this string
         char str[]; // UTF8 characters for string (NOT NULL terminated)
     };
 
-    struct LoadClassRecord : RecordHeader {
-        ID id;      // class object ID
-        ID name;    // class name string ID
+    struct LoadClassRecord {
+        Tag tag;
+        u4 id;      // class uuid
+        u4 name;    // class name string ID
+        u4 size;    // instance size
     };
 
     struct StackFrameRecord : RecordHeader {
@@ -293,6 +302,22 @@ private:
         m_data.append(std::string((const char *)&data, sizeof(T)));
     }
 
+    ID ReadId()
+    {
+        if (m_data.size() - m_curPos < m_idSize) {
+            return 0;
+        }
+        if (m_idSize == 4) {
+            u4 val = *(u4 *)(m_data.data() + m_curPos);
+            m_curPos += 4;
+            return SwapEndian(val);
+        } else {
+            u8 val = *(u8 *)(m_data.data() + m_curPos);
+            m_curPos += 8;
+            return SwapEndian(val);
+        }
+    }
+
     inline u2 SwapEndian(u2 val)
     {
         return static_cast<short unsigned int>((val & 0xff00U) >> 8)
@@ -341,7 +366,7 @@ private:
     }
 
 private:
-    static constexpr char m_headerFlag[] = "CANGJIE PROFILE 1.0.1";
+    static constexpr char m_headerFlag[] = "CANGJIE PROFILE 1.0.2";
     std::string m_data;
     size_t m_curPos;
     std::map<ID, std::string> m_strings;
@@ -360,6 +385,7 @@ private:
     std::map<u4, Sample> m_cpuSamples;
     std::unordered_map<ID, u4> m_componentNums;
     u8 m_fileTime;
+    u4 m_idSize;
 };
 
 #endif // HPROF_H
