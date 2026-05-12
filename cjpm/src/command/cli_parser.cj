@@ -16,10 +16,7 @@ public class CliNamespace {
     public var helpText: ?String = None
     
     public func get<T>(key!: String): ?T {
-        match (storage.get(key)) {
-            case Some(v: T) => Some(v)
-            case _ => None<T>
-        }
+        storage.get(key).map { it => (it as T).getOrThrow() }
     }
 
     public func set<T>(key!: String, value!: T): Unit {
@@ -29,11 +26,7 @@ public class CliNamespace {
     public func getArray<T>(key!: String): ?Array<T> {
         match (storage.get(key)) {
             case Some(v: ArrayList<Any>) => 
-                try {
-                    Some(v.iterator().map { it => (it as T).getOrThrow() } |> collectArray)
-                } catch (_: Exception) {
-                    return None<Array<T>>
-                }
+                v.iterator().map { it => (it as T).getOrThrow() } |> collectArray
             case _ => None<Array<T>>
         }
     }
@@ -114,8 +107,8 @@ public class OptionSpec {
     ) { }
 }
 
-public class ParseResult {
-    public ParseResult(
+public class CliParseResult {
+    public CliParseResult(
         // subcommand relatively to which option resolution occured
         public let scope: Array<String>,
         // resolved name-value bindings for options
@@ -147,7 +140,7 @@ public class CliParser {
         this.currentPath.add(rootScope.name)
     }
 
-    public func parse(args: Array<String>): ParseResult {
+    public func parse(args: Array<String>): CliParseResult {
         this.args = args
 
         resolveScope()
@@ -156,7 +149,7 @@ public class CliParser {
             parseOptions()
         }
 
-        let result = ParseResult(
+        let result = CliParseResult(
             currentPath.toArray(),
             applyOptions(),
             this.positionals.toArray(),
@@ -510,7 +503,7 @@ extend String {
     }
 }
 
-func printCliErrors(parseResult: ParseResult): Unit {
+func printCliErrors(parseResult: CliParseResult): Unit {
     for (err in parseResult.errors) {
         let errName = err.name
         let errHint = err.hint
