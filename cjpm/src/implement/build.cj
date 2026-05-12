@@ -723,13 +723,13 @@ func getTypeCommand(compileTask: CompileTask, ignoreTestFlags!: Bool = false): A
     return res
 }
 
-func appendOptionForBindep(binDepMap: HashMap<String, BinDeps>, linkPkgs: HashSet<String>, isLto: Bool): ArrayList<String> {
-    let (libPathOptions, _) = getLinkOptionForBindep(binDepMap, linkPkgs, isLto)
+func appendOptionForBindep(binDepMap: HashMap<String, BinDeps>, linkPkgs: HashSet<String>, isLto: Bool, linkMode: LinkMode): ArrayList<String> {
+    let (libPathOptions, _) = getLinkOptionForBindep(binDepMap, linkPkgs, isLto, linkMode)
     libPathOptions
 }
 
 // add bin-dependencies links to build arguments
-func getLinkOptionForBindep(binDepMap: HashMap<String, BinDeps>, linkPkgs: HashSet<String>, isLto: Bool): (ArrayList<String>, StdDeps) {
+func getLinkOptionForBindep(binDepMap: HashMap<String, BinDeps>, linkPkgs: HashSet<String>, isLto: Bool, linkMode: LinkMode): (ArrayList<String>, StdDeps) {
     let linkerOptions = ArrayList<String>()     // -l or lto libs
     let libPathOptions = ArrayList<String>()    // -L path
     let moduleLinkerSet = HashSet<String>()
@@ -746,7 +746,7 @@ func getLinkOptionForBindep(binDepMap: HashMap<String, BinDeps>, linkPkgs: HashS
                 continue
             }
             stdDeps.add(all: info.stdRequires)
-            let linkArray: ArrayList<String> = linkPackage(info.libName, info.libPath, isLto)
+            let linkArray: ArrayList<String> = linkPackage(info.libName, info.libPath, isLto, linkMode)
 
             // size == 1 when isLto
             if (linkArray.size <= 1) {
@@ -837,7 +837,7 @@ func getLtoCombineBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig):
 
         var libPath = Path(compileTask.targetDir).join(swapOrgName(depRootName)).toString()
 
-        let linkArray: ArrayList<String> = linkPackage(depName, libPath, compileTask.isLto)
+        let linkArray: ArrayList<String> = linkPackage(depName, libPath, compileTask.isLto, buildConfig.linkMode)
         if (linkArray.size <= 1) {
             allOptions.add(all: linkArray)
             binDepSet.add(all: getDepSet(depName, buildConfig))
@@ -855,8 +855,8 @@ func getLtoCombineBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig):
 
     // link all binary dependecies depended by root package
     let binOptions = ArrayList<String>()
-    binOptions.add(all: appendOptionForBindep(buildConfig.binDepMap, linkSort, compileTask.isLto), at: 0)
-    binOptions.add(all: appendOptionForBindep(buildConfig.crossBinDepMap, linkSort, compileTask.isLto), at: 0)
+    binOptions.add(all: appendOptionForBindep(buildConfig.binDepMap, linkSort, compileTask.isLto, buildConfig.linkMode), at: 0)
+    binOptions.add(all: appendOptionForBindep(buildConfig.crossBinDepMap, linkSort, compileTask.isLto, buildConfig.linkMode), at: 0)
     res.add(all: binOptions)
 
     // link all binary dependencies depended by other packages which are not depended by root package
@@ -925,7 +925,7 @@ func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList
             Path(compileTask.targetDir).join(swapOrgName(depRootName)).toString()
         }
 
-        let linkArray: ArrayList<String> = linkPackage(depName, libPath, compileTask.isLto)
+        let linkArray: ArrayList<String> = linkPackage(depName, libPath, compileTask.isLto, buildConfig.linkMode)
         if (linkArray.size <= 1) {
             allOptions.add(all: linkArray)
             continue
@@ -939,8 +939,8 @@ func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList
     }
 
     res.add(all: allOptions)
-    let (libPathOptions, binStdDeps) = getLinkOptionForBindep(buildConfig.binDepMap, linkSort, compileTask.isLto)
- 	let (crosslibPathOptions, crossbinStdDeps) = getLinkOptionForBindep(buildConfig.crossBinDepMap, linkSort, compileTask.isLto)
+    let (libPathOptions, binStdDeps) = getLinkOptionForBindep(buildConfig.binDepMap, linkSort, compileTask.isLto, buildConfig.linkMode)
+ 	let (crosslibPathOptions, crossbinStdDeps) = getLinkOptionForBindep(buildConfig.crossBinDepMap, linkSort, compileTask.isLto, buildConfig.linkMode)
     let binOptions = ArrayList<String>()
     binOptions.add(all: libPathOptions, at: 0)
     binOptions.add(all: crosslibPathOptions, at: 0)
@@ -982,7 +982,7 @@ func getForcedLibArgs(compileTask: CompileTask, buildConfig: BuildConfig): Array
             continue
         }
         let libPath = Path(compileTask.targetDir).join(depRootName).toString()
-        let linkArray: ArrayList<String> = forcedLinkPackage(depName, libPath, compileTask.isLto)
+        let linkArray: ArrayList<String> = forcedLinkPackage(depName, libPath, compileTask.isLto, buildConfig.linkMode)
         if (linkArray.size <= 1 || libPathSet.add(libPath)) {
             allOptions.add(all: linkArray)
         } else {
@@ -1027,8 +1027,8 @@ func getForcedBinDep(compileTask: CompileTask, buildConfig: BuildConfig, binDepS
 func getForcedBinDepForLinuxOrWin(compileTask: CompileTask, buildConfig: BuildConfig, binDepSet: HashSet<String>,
     cLibNameList: ArrayList<String>): ArrayList<String> {
     var binOptions = ArrayList<String>()
-    binOptions.add(all: appendOptionForBindep(buildConfig.binDepMap, binDepSet, compileTask.isLto), at: 0)
-    binOptions.add(all: appendOptionForBindep(buildConfig.crossBinDepMap, binDepSet, compileTask.isLto), at: 0)
+    binOptions.add(all: appendOptionForBindep(buildConfig.binDepMap, binDepSet, compileTask.isLto, buildConfig.linkMode), at: 0)
+    binOptions.add(all: appendOptionForBindep(buildConfig.crossBinDepMap, binDepSet, compileTask.isLto, buildConfig.linkMode), at: 0)
     let cLibLinkMap = if (compileTask.isCrossCompile) {
         buildConfig.globalConfig.crossCLibLinkMap
     } else { buildConfig.globalConfig.cLibLinkMap }
@@ -1045,12 +1045,12 @@ func getForcedBinDepForMac(compileTask: CompileTask, buildConfig: BuildConfig, b
     } else { buildConfig.globalConfig.cLibLinkMap }
 
     if (crossCompileTarget.contains("linux") && !crossCompileTarget.contains("android")) {
-        binOptions.add(all: appendOptionForBindep(buildConfig.binDepMap, binDepSet, compileTask.isLto), at: 0)
-        binOptions.add(all: appendOptionForBindep(buildConfig.crossBinDepMap, binDepSet, compileTask.isLto), at: 0)
+        binOptions.add(all: appendOptionForBindep(buildConfig.binDepMap, binDepSet, compileTask.isLto, buildConfig.linkMode), at: 0)
+        binOptions.add(all: appendOptionForBindep(buildConfig.crossBinDepMap, binDepSet, compileTask.isLto, buildConfig.linkMode), at: 0)
         binOptions.add(all: getMinimizedCLibLinkStr(cLibLinkMap, cLibNameList))
     } else {
-        binOptions.add(all: getForcedBinDepPath(buildConfig.binDepMap, binDepSet, compileTask.isLto), at: 0)
-        binOptions.add(all: getForcedBinDepPath(buildConfig.crossBinDepMap, binDepSet, compileTask.isLto), at: 0)
+        binOptions.add(all: getForcedBinDepPath(buildConfig.binDepMap, binDepSet, compileTask.isLto, buildConfig.linkMode), at: 0)
+        binOptions.add(all: getForcedBinDepPath(buildConfig.crossBinDepMap, binDepSet, compileTask.isLto, buildConfig.linkMode), at: 0)
         let cLibLinkStr = getCLibLinkStr(cLibLinkMap, cLibNameList)
 
         var libName = ""
@@ -1064,7 +1064,7 @@ func getForcedBinDepForMac(compileTask: CompileTask, buildConfig: BuildConfig, b
                 libPath = part
             }
             if (!libName.isEmpty() && !libPath.isEmpty()) {
-                binOptions.add(all: forcedLinkPackage(libName, libPath, false))
+                binOptions.add(all: forcedLinkPackage(libName, libPath, false, buildConfig.linkMode))
                 libName = ""
                 libPath = ""
             }
@@ -1073,7 +1073,7 @@ func getForcedBinDepForMac(compileTask: CompileTask, buildConfig: BuildConfig, b
     return binOptions
 }
 
-func getForcedBinDepPath(binDepMap: HashMap<String, BinDeps>, binDepSet: HashSet<String>, isLto: Bool): ArrayList<String> {
+func getForcedBinDepPath(binDepMap: HashMap<String, BinDeps>, binDepSet: HashSet<String>, isLto: Bool, linkMode: LinkMode): ArrayList<String> {
     let libPathSet = ArrayList<String>()
     for ((_, eachModuleDepMap) in binDepMap) {
         for (index in (eachModuleDepMap.packageRequiresSort.size - 1)..=0 : -1) {
@@ -1085,7 +1085,7 @@ func getForcedBinDepPath(binDepMap: HashMap<String, BinDeps>, binDepSet: HashSet
             if (info.isMacroPackage) {
                 continue
             }
-            let linkArray: ArrayList<String> = forcedLinkPackage(info.libName, info.libPath, isLto)
+            let linkArray: ArrayList<String> = forcedLinkPackage(info.libName, info.libPath, isLto, linkMode)
             libPathSet.add(all: linkArray)
         }
     }
