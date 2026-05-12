@@ -99,16 +99,6 @@ private let outputTypeToEnum: HashMap<String, OutputType> = HashMap(
     ]
 )
 
-private var currentLinkMode: LinkMode = LinkMode.AsNeeded
-
-public func setLinkMode(mode: LinkMode): Unit {
-    currentLinkMode = mode
-}
-
-public func getLinkMode(): LinkMode {
-    currentLinkMode
-}
-
 @Derive[Equatable, Hashable]
 public enum OutputType <: Serializable<OutputType> & ToString {
     | Static
@@ -686,6 +676,7 @@ public class BuildConfig <: CommandConfig {
     public var targetMacroPkgs: HashSet<String> = HashSet<String>() // used by cross compile
     public var targetMacroMods: HashSet<String> = HashSet<String>() // used by cross compile
     public var hasSubPkgs: HashSet<String> = HashSet<String>() // record the lib packages that have subPkgs.
+    public var linkMode: LinkMode = LinkMode.AsNeeded
     public var plans: ArrayList<PlanOption> = ArrayList<PlanOption>()
 
     // External config
@@ -739,6 +730,7 @@ public class TestConfig <: CommandConfig {
     public var testPkgs: HashSet<String> = HashSet<String>()
     public var packageDepMap: HashMap<String, ResolveItem> = HashMap<String, ResolveItem>()
     public var incrementalCache: HashMap<String, HashMap<String, String>> = HashMap<String, HashMap<String, String>>()
+    public var linkMode: LinkMode = LinkMode.AsNeeded
 
     // dynamic progress
     public var isProgressReportDisabled: Bool = false
@@ -1002,13 +994,12 @@ public class GlobalConfig {
     }
 }
 
-public func linkPackage(libName: String, libPath: String, isLto: Bool): ArrayList<String> {
-    let effectiveMode = getLinkMode()
+public func linkPackage(libName: String, libPath: String, isLto: Bool, linkMode: LinkMode): ArrayList<String> {
     let processedLibName = swapOrgName(libName)
     let res = ArrayList<String>()
     let ltoFile = Path(libPath).join(makeLtoName(processedLibName)).toString()
     
-    match (effectiveMode) {
+    match (linkMode) {
         case LinkMode.Always =>
             if (isLto) {
                 res.add(ltoFile)
@@ -1036,7 +1027,7 @@ public func linkPackage(libName: String, libPath: String, isLto: Bool): ArrayLis
     }
 }
 
-public func forcedLinkPackage(libName: String, libPath: String, isLto: Bool): ArrayList<String> {
+public func forcedLinkPackage(libName: String, libPath: String, isLto: Bool, linkMode: LinkMode): ArrayList<String> {
     
     let compileTarget = if (crossCompileTarget.isEmpty()) {
         targetConfigName
@@ -1044,24 +1035,24 @@ public func forcedLinkPackage(libName: String, libPath: String, isLto: Bool): Ar
         crossCompileTarget
     }
     if (compileTarget.contains("darwin") || compileTarget.contains("apple")) {
-        return forcedLinkPackageForMac(libName, libPath, isLto)
+        return forcedLinkPackageForMac(libName, libPath, isLto, linkMode)
     } else {
-        return forcedLinkPackageForLinuxOrWin(libName, libPath, isLto)
+        return forcedLinkPackageForLinuxOrWin(libName, libPath, isLto, linkMode)
     }
 }
 
-public func forcedLinkPackageForLinuxOrWin(libName: String, libPath: String, isLto: Bool): ArrayList<String> {
-    return linkPackage(libName, libPath, isLto)
+public func forcedLinkPackageForLinuxOrWin(libName: String, libPath: String, isLto: Bool, linkMode: LinkMode): ArrayList<String> {
+    return linkPackage(libName, libPath, isLto, linkMode)
 }
 
-public func forcedLinkPackageForMac(libName: String, libPath: String, isLto: Bool): ArrayList<String> {
+public func forcedLinkPackageForMac(libName: String, libPath: String, isLto: Bool, linkMode: LinkMode): ArrayList<String> {
     var res = ArrayList<String>()
     let staticLibPath = Path(libPath).join(makeCangjieStaticlibName(libName)).toString()
     let dyLibPath = Path(libPath).join("lib${libName}.dylib").toString()
     if (fileExists(staticLibPath)) {
         res.add(staticLibPath)
     } else if (fileExists(dyLibPath)) {
-        res.add(all: linkPackage(libName, libPath, isLto))
+        res.add(all: linkPackage(libName, libPath, isLto, linkMode))
     }
     return res
 }

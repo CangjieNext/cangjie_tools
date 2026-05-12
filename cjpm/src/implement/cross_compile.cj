@@ -33,7 +33,7 @@ func appendNativeData(buildConfig: BuildConfig, data: ModuleResolve): Unit {
     return
 }
 
-func appendBinOptionForTest(res: ModuleResolve, requires: HashSet<String>, isLto: Bool): ArrayList<String> {
+func appendBinOptionForTest(res: ModuleResolve, requires: HashSet<String>, isLto: Bool, linkMode: LinkMode): ArrayList<String> {
     let binOptions = ArrayList<String>()
     for ((_, eachModuleDepMap) in res.binDeps) {
         for (depName in eachModuleDepMap.packageRequiresSort) {
@@ -44,7 +44,7 @@ func appendBinOptionForTest(res: ModuleResolve, requires: HashSet<String>, isLto
             if (info.isMacroPackage) {
                 continue
             }
-            binOptions.add(all: linkPackage(info.libName, info.libPath, isLto), at: 0)
+            binOptions.add(all: linkPackage(info.libName, info.libPath, isLto, linkMode), at: 0)
         }
     }
     for ((_, eachModuleDepMap) in res.crossBinDeps) {
@@ -56,7 +56,7 @@ func appendBinOptionForTest(res: ModuleResolve, requires: HashSet<String>, isLto
             if (info.isMacroPackage) {
                 continue
             }
-            binOptions.add(all: linkPackage(info.libName, info.libPath, isLto), at: 0)
+            binOptions.add(all: linkPackage(info.libName, info.libPath, isLto, linkMode), at: 0)
         }
     }
     return binOptions

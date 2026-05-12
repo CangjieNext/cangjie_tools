@@ -526,7 +526,7 @@ func getLinkList(res: ModuleResolve, fullName: String, requires: HashSet<String>
     let cLibNameList = HashSet<String>()
     let validCommand = ArrayList<String>()
 
-    validCommand.add(all: appendBinOptionForTest(res, requires, testConfig.isLto))
+    validCommand.add(all: appendBinOptionForTest(res, requires, testConfig.isLto, testConfig.linkMode))
 
     for (r in res.resolves) {
         if (!requires.contains(r.fullName) && r.fullName != fullName) {
@@ -552,7 +552,7 @@ func getLinkList(res: ModuleResolve, fullName: String, requires: HashSet<String>
             continue
         }
         let libPath = Path(testConfig.globalConfig.targetDir).join(swapOrgName(r.rootPkgName)).toString()
-        validCommand.add(all: linkPackage(r.fullName, libPath, testConfig.isLto), at: 0)
+        validCommand.add(all: linkPackage(r.fullName, libPath, testConfig.isLto, testConfig.linkMode), at: 0)
     }
 
     for (k in cLibNameList) {
