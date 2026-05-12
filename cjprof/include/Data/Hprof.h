@@ -1,5 +1,5 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2025-2026. All rights reserved.
-// This source file is part of the Cangjie project, licensed under Apache-2.0 
+// This source file is part of the Cangjie project, licensed under Apache-2.0
 // with Runtime Library Exception.
 //
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
@@ -13,6 +13,7 @@
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
+#include "Data/HprofParser.h"
 
 class Hprof {
 public:
@@ -22,158 +23,93 @@ public:
     using u8 = uint64_t;
     using ID = uint64_t;
 
-    enum BasicType : u1 {
-        OBJECT = 2,
-        BOOLEAN = 4,
-        SHORT = 9,
-        INT = 10,
-        LONG = 11
-    };
+    // BasicType is now defined in HprofParserBase
+    using BasicType = HprofParserBase::BasicType;
 
-    struct Class {
-        ID name;
-        u4 size;
-    };
-
-    struct Instance {
-        ID cls;
-        std::vector<ID> fields;
-    };
-
-    struct Array {
-        BasicType type;
-        ID cls;
-        u4 num;
-        std::vector<ID> elements;
-
-        /* Fixed members ('_typeinfo', 'size') size of a raw array. */
-        u4 GetFixedSize()
-        {
-            /* 16 bytes */
-            return 16;
-        }
-    };
-
-    struct Frame {
-        ID name;
-        ID fileName;
-        u4 line;
-
-        bool operator<(const Frame &rhs) const
-        {
-            if (name != rhs.name) return name < rhs.name;
-            if (fileName != rhs.fileName) return fileName < rhs.fileName;
-            return line < rhs.line;
-        };
-    };
-
-    struct StackTrace {
-        u4 thread;
-        std::vector<ID> frames;
-
-        bool operator<(const StackTrace &rhs) const
-        {
-            if (thread != rhs.thread) {
-                return thread < rhs.thread;
-            }
-
-            if (frames.size() != rhs.frames.size()) {
-                return frames.size() < rhs.frames.size();
-            }
-
-            for (size_t i = 0; i < frames.size() && i < rhs.frames.size(); i++) {
-                if (frames[i] != rhs.frames[i]) {
-                    return frames[i] < rhs.frames[i];
-                }
-            }
-
-            return false;
-        };
-    };
-
-    struct Thread {
-        ID name;
-        u4 idx;
-        u4 stackTraceIdx;
-    };
-
-    struct Local {
-        u4 thread;
-        u4 frame;
-    };
-
-    struct Sample {
-        std::map<u4, u4> stackTraces;
-    };
+    // Type aliases for compatibility
+    using Class = HprofParserBase::Class;
+    using Instance = HprofParserBase::Instance;
+    using Array = HprofParserBase::Array;
+    using Frame = HprofParserBase::Frame;
+    using StackTrace = HprofParserBase::StackTrace;
+    using Thread = HprofParserBase::Thread;
+    using Local = HprofParserBase::Local;
+    using Sample = HprofParserBase::Sample;
 
     Hprof() = default;
     bool Parse(const std::string &data, bool verbose = false);
     const std::string &GenData();
     void PutCpuSample(const std::vector<std::string> &callChain, u4 period);
 
+    // Getters - delegate to parser
     const std::map<ID, std::string> &GetStrings() const
     {
-        return m_strings;
+        return m_parser ? m_parser->m_strings : m_emptyStrings;
     }
 
     const std::map<ID, Frame> &GetFrames() const
     {
-        return m_frames;
+        return m_parser ? m_parser->m_frames : m_emptyFrames;
     }
 
     const std::map<u4, StackTrace> &GetStackTraces() const
     {
-        return m_stackTraces;
+        return m_parser ? m_parser->m_stackTraces : m_emptyStackTraces;
     }
 
     const std::map<ID, Thread> &GetThreads() const
     {
-        return m_threads;
+        return m_parser ? m_parser->m_threads : m_emptyThreads;
     }
 
     const std::map<ID, Class> &GetClasses() const
     {
-        return m_classes;
+        return m_parser ? m_parser->m_classes : m_emptyClasses;
     }
 
     const std::map<ID, Instance> &GetInstances() const
     {
-        return m_instances;
+        return m_parser ? m_parser->m_instances : m_emptyInstances;
     }
 
     const std::unordered_map<ID, Array> &GetArrays() const
     {
-        return m_arrays;
+        return m_parser ? m_parser->m_arrays : m_emptyArrays;
     }
 
     const std::unordered_map<ID, Local> &GetLocalsRoots() const
     {
-        return m_locals;
+        return m_parser ? m_parser->m_locals : m_emptyLocals;
     }
 
     const std::unordered_set<ID> &GetGlobalsRoots() const
     {
-        return m_globals;
+        return m_parser ? m_parser->m_globals : m_emptyGlobals;
     }
 
     const std::unordered_set<ID> &GetUnknownRoots() const
     {
-        return m_unknown;
+        return m_parser ? m_parser->m_unknown : m_emptyUnknown;
     }
 
     const std::map<u4, Sample> &GetCpuSamples() const
     {
-        return m_cpuSamples;
+        return m_parser ? m_parser->m_cpuSamples : m_emptyCpuSamples;
     }
 
     const std::unordered_map<ID, u4> &GetComponentNums() const
     {
-        return m_componentNums;
+        return m_parser ? m_parser->m_componentNums : m_emptyComponentNums;
     }
 
     const u8 GetFileTime() const
     {
-        return m_fileTime;
+        return m_parser ? m_parser->m_fileTime : 0;
+    }
+
+    const u4 GetIdSize() const
+    {
+        return m_parser ? m_parser->m_idSize : 0;
     }
 
 private:
@@ -219,50 +155,9 @@ private:
         Tag tag;
         u8 length;
     };
-
-    struct StringRecord : RecordHeader {
-        ID id;      // ID for this string
-        char str[]; // UTF8 characters for string (NOT NULL terminated)
-    };
-
-    struct LoadClassRecord : RecordHeader {
-        ID id;      // class object ID
-        ID name;    // class name string ID
-    };
-
-    struct StackFrameRecord : RecordHeader {
-        ID id;          // stack frame ID
-        ID name;        // method name string ID
-        ID fileName;    // source file name string ID
-        u4 line;        // line number
-    };
-
-    struct StackTraceRecord : RecordHeader {
-        u4 idx;         // stack trace serial number
-        u4 thread;      // thread serial number
-        u4 frameNum;    // number of frames
-        ID frames[];    // series of stack frame ID's
-    };
-
-    struct StartThreadRecord : RecordHeader {
-        u4 idx;             // thread serial number
-        ID id;              // thread object ID
-        u4 stackTraceIdx;   // stack trace serial number
-        ID name;            // thread name string ID
-    };
-
-    struct CpuSamplesRecord : RecordHeader {
-        u4 period;              // 采样周期
-        u4 num;                 // 样本个数
-        struct {
-            u4 num;             // 采样次数
-            u4 stackTraceIdx;   // 调用栈序号
-        } samples[];
-    };
 #pragma pack(pop)
 
-    void ParseString(bool verbose);
-    void ParseClass(bool verbose);
+    // Common parsing methods (format-independent)
     void ParseStackFrame(bool verbose);
     void ParseStackTrace(bool verbose);
     void ParseStartThread(bool verbose);
@@ -276,22 +171,12 @@ private:
     void ParseHeapDumpStructArrayDump(bool verbose);
     void ParseHeapDumpRootUnknown(bool verbose);
     void ParseCpuSamples(bool verbose);
+
+    // Generation methods
     void GenString(ID id, const std::string &str);
     void GenStackFrame(ID id, const Frame &frame);
     void GenStackTrace(u4 idx, const StackTrace &stackTrace);
     void GenCpuSample(u4 period, const Sample &sample);
-
-    template <typename T>
-    T *ReadAs()
-    {
-        return m_data.size() - m_curPos >= sizeof(T) ? (T *)(m_data.data() + m_curPos) : nullptr;
-    }
-
-    template <typename T>
-    void WriteAs(const T &data)
-    {
-        m_data.append(std::string((const char *)&data, sizeof(T)));
-    }
 
     inline u2 SwapEndian(u2 val)
     {
@@ -314,17 +199,6 @@ private:
     }
 
     template <typename T1, typename T2>
-    std::shared_ptr<T1> GetValue(std::map<T2, std::shared_ptr<T1>> &container, T2 key)
-    {
-        auto &val = container[key];
-        if (!val) {
-            val = std::make_shared<T1>();
-        }
-
-        return val;
-    }
-
-    template <typename T1, typename T2>
     T2 GetMapValue(std::map<T1, T2> &map, const T1 &key)
     {
         static T2 val = 1;
@@ -341,25 +215,31 @@ private:
     }
 
 private:
-    static constexpr char m_headerFlag[] = "CANGJIE PROFILE 1.0.1";
+    static constexpr char m_headerFlagV2[] = "CANGJIE PROFILE 1.0.2";
+    static constexpr char m_headerFlagV1[] = "CANGJIE PROFILE 1.0.1";
+
+    // Strategy pattern: parser selected based on format version
+    std::unique_ptr<HprofParserBase> m_parser;
+
+    // Data for generation (not parsed from file)
     std::string m_data;
-    size_t m_curPos;
-    std::map<ID, std::string> m_strings;
-    std::map<ID, Frame> m_frames;
-    std::map<u4, StackTrace> m_stackTraces;
-    std::map<ID, Thread> m_threads;
-    std::map<ID, Class> m_classes;
-    std::map<ID, Instance> m_instances;
-    std::unordered_map<ID, Array> m_arrays;
-    std::unordered_map<ID, Local> m_locals;
-    std::unordered_set<ID> m_globals;
-    std::unordered_set<ID> m_unknown;
     std::map<std::string, ID> m_stringsMap;
     std::map<Frame, ID> m_framesMap;
     std::map<StackTrace, u4> m_stackTracesMap;
-    std::map<u4, Sample> m_cpuSamples;
-    std::unordered_map<ID, u4> m_componentNums;
-    u8 m_fileTime;
+
+    // Empty containers for when parser is null
+    static const std::map<ID, std::string> m_emptyStrings;
+    static const std::map<ID, Frame> m_emptyFrames;
+    static const std::map<u4, StackTrace> m_emptyStackTraces;
+    static const std::map<ID, Thread> m_emptyThreads;
+    static const std::map<ID, Class> m_emptyClasses;
+    static const std::map<ID, Instance> m_emptyInstances;
+    static const std::unordered_map<ID, Array> m_emptyArrays;
+    static const std::unordered_map<ID, Local> m_emptyLocals;
+    static const std::unordered_set<ID> m_emptyGlobals;
+    static const std::unordered_set<ID> m_emptyUnknown;
+    static const std::map<u4, Sample> m_emptyCpuSamples;
+    static const std::unordered_map<ID, u4> m_emptyComponentNums;
 };
 
 #endif // HPROF_H
