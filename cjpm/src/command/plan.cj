@@ -18,7 +18,7 @@ let planOptions: Array<CliOptionBase> = [
 ]
 
 let planScope = CliScope(
-        name: "plan", description: "Generate build plan for given profile wihout executing",
+        name: "plan", description: "Generate build plan for given profile without executing",
         helpNoArgs: true
     )
     .addSubScope(CliScope(name: "build", description: "Generate `build` plan",
@@ -26,20 +26,11 @@ let planScope = CliScope(
         .addOptions(planOptions)
         .addOptions(buildOptions)
     )
-    .addSubScope(CliScope(name: "test", description: "Generate `test` plan",
-        allowPositionals: true, allowLateBinding: true, helpNoArgs: true, autoHelp: "plan")
-        .addOptions(planOptions)
-        .addOptions(testOptions)
-    )
-    .addSubScope(CliScope(name: "bench", description: "Generate `bench` plan",
-        allowPositionals: true, allowLateBinding: true, helpNoArgs: true, autoHelp: "plan")
-        .addOptions(planOptions)
-        .addOptions(benchOptions)
-    )
 
 public class PlanCommand <: Handle {
     private let planParser: CliParser
-    private let parseResult: ParseResult
+    private let parseResult: CliParseResult
+    private var hasStdoutOutput: Bool = false
 
     
     init(args: Array<String>) {
@@ -73,28 +64,35 @@ public class PlanCommand <: Handle {
         match (parseResult.scope.last) {
             case Some("build") => 
                 return handlePlanBuild(parseResult)
-            case Some("test") => 
-                eprintln("Error: 'cjpm plan test' is not yet supported")
-                return false
-            case Some("bench") =>
-                eprintln("Error: 'cjpm plan bench' is not yet supported")
-                return false
             case _ => return false // should be unreachable
         }
     }
     
-    private func handlePlanBuild(result: ParseResult): Bool {
+    public override func printPass(): Unit {
+        if (!hasStdoutOutput) {
+            println("cjpm ${cmdName} success")
+        }
+    }
+
+    private func handlePlanBuild(result: CliParseResult): Bool {
+        hasStdoutOutput = false
         setLinkMode(LinkMode.Always)
 
         let buildConfig = constructBuildConfig(parseResult) ?? return false
 
         for (output in result.namespace.getArray<String>(key: "json") ?? []) {
             let outputPath: ?String = if (output == "-") { None } else { output }
+            if (outputPath.isNone()) {
+                hasStdoutOutput = true
+            }
             buildConfig.plans.add(PlanOption(format: PlanFormat.Json, outputPath: outputPath))
         }
 
         for (output in result.namespace.getArray<String>(key: "ninja") ?? []) {
             let outputPath: ?String = if (output == "-") { None } else { output }
+            if (outputPath.isNone()) {
+                hasStdoutOutput = true
+            }
             buildConfig.plans.add(PlanOption(format: PlanFormat.Ninja, outputPath: outputPath))
         }
 
