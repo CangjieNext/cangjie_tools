@@ -50,7 +50,7 @@ let buildScope = CliScope(name: "build", description: "Compile a local module an
 // BuildCommand represents the build command
 class BuildCommand <: Handle {
     private let buildParser: CliParser
-    private let parseResult: ParseResult
+    private let parseResult: CliParseResult
 
     init(args: Array<String>) {
         this.cmdName = args[0]
@@ -136,7 +136,7 @@ public func handleParallelSize(argMap: HashMap<String, String>): Bool {
     return true
 }
 
-private func handleUnresolvedOptions(result: ParseResult, buildConfig: BuildConfig): Bool {
+private func handleUnresolvedOptions(result: CliParseResult, buildConfig: BuildConfig): Bool {
     for (raw in result.unresolvedOptions) {
         let option = raw[2..]
         if (!customizedOptionCheck(option, "")) {
@@ -147,7 +147,7 @@ private func handleUnresolvedOptions(result: ParseResult, buildConfig: BuildConf
     return true
 }
 
-public func constructBuildConfig(parseResult: ParseResult): ?BuildConfig {
+public func constructBuildConfig(parseResult: CliParseResult): ?BuildConfig {
         let buildConfig = BuildConfig()
         buildConfig.isVerbose = parseResult.namespace.get<Bool>(key: "verbose") ?? false
         buildConfig.isIncremental = parseResult.namespace.get<Bool>(key: "incremental") ?? false

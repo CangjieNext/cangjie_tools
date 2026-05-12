@@ -40,7 +40,7 @@ let runScope = CliScope(name: "run", description: "Compile and run an executable
 class RunCommand <: Handle {
 
     private let runParser: CliParser
-    private let parseResult: ParseResult
+    private let parseResult: CliParseResult
 
     init(args: Array<String>) {
         this.cmdName = args[0]

@@ -18,7 +18,7 @@ let planOptions: Array<CliOptionBase> = [
 ]
 
 let planScope = CliScope(
-        name: "plan", description: "Generate build plan for given profile wihout executing",
+        name: "plan", description: "Generate build plan for given profile without executing",
         helpNoArgs: true
     )
     .addSubScope(CliScope(name: "build", description: "Generate `build` plan",
@@ -26,20 +26,10 @@ let planScope = CliScope(
         .addOptions(planOptions)
         .addOptions(buildOptions)
     )
-    .addSubScope(CliScope(name: "test", description: "Generate `test` plan",
-        allowPositionals: true, allowLateBinding: true, helpNoArgs: true, autoHelp: "plan")
-        .addOptions(planOptions)
-        .addOptions(testOptions)
-    )
-    .addSubScope(CliScope(name: "bench", description: "Generate `bench` plan",
-        allowPositionals: true, allowLateBinding: true, helpNoArgs: true, autoHelp: "plan")
-        .addOptions(planOptions)
-        .addOptions(benchOptions)
-    )
 
 public class PlanCommand <: Handle {
     private let planParser: CliParser
-    private let parseResult: ParseResult
+    private let parseResult: CliParseResult
 
     
     init(args: Array<String>) {
@@ -73,17 +63,11 @@ public class PlanCommand <: Handle {
         match (parseResult.scope.last) {
             case Some("build") => 
                 return handlePlanBuild(parseResult)
-            case Some("test") => 
-                eprintln("Error: 'cjpm plan test' is not yet supported")
-                return false
-            case Some("bench") =>
-                eprintln("Error: 'cjpm plan bench' is not yet supported")
-                return false
             case _ => return false // should be unreachable
         }
     }
     
-    private func handlePlanBuild(result: ParseResult): Bool {
+    private func handlePlanBuild(result: CliParseResult): Bool {
         setLinkMode(LinkMode.Always)
 
         let buildConfig = constructBuildConfig(parseResult) ?? return false

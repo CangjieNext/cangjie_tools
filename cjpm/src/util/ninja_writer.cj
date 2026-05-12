@@ -76,7 +76,7 @@ public class NinjaWriter {
         inputs!: Option<Array<String>> = None,
         implicit!: Option<Array<String>> = None,
         variables!: Option<HashMap<String, String>> = None,
-    ): Array<String> {
+    ): Unit {
         let escapedOutputs = outputs.map { x => escapePath(x) }
         var allInputs = ArrayList<String>()
         
@@ -111,8 +111,6 @@ public class NinjaWriter {
                 variable(k, v, indent: 1)
             }
         }
-
-        return outputs
     }
 
     public func defaultTargets(paths: Array<String>): Unit {
@@ -144,7 +142,7 @@ public class NinjaWriter {
                 flush()
                 out.write(bytes)
             } else {
-                if (curPos + size > DEFAULT_BUFFER_SIZE - 1) {
+                if (curPos + size > DEFAULT_BUFFER_SIZE) {
                     flush()
                 }
                 bytes.copyTo(buffer, 0, curPos, size)
@@ -154,7 +152,7 @@ public class NinjaWriter {
     }
 
     private func writeChar(c: UInt8): Unit {
-        if (curPos + 1 > DEFAULT_BUFFER_SIZE - 1) {
+        if (curPos + 1 > DEFAULT_BUFFER_SIZE) {
             flush()
         }
         buffer[curPos] = c

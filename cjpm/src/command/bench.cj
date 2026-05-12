@@ -12,53 +12,6 @@ let BENCH_LONG_OPTION: Array<String> = ["filter=", "include-tags=", "exclude-tag
     "target=", "target-dir=", "jobs=", "no-color", "random-seed=", "member=", "report-format=", "report-path=",
     "baseline-path=", "skip-script", "module=", "incremental", "dry-run", "show-tags"]
 
-let benchOptions: Array<CliOptionBase> = [
-    CliOption(name: "jobs", short: "j", action: Action.Set,
-        help: "the number of jobs to spawn in parallel during the test process", category: "bench"),
-    CliOption(name: "verbose", short: "V", action: Action.SetTrue,
-        help: "enable verbose", category: "bench"),
-    CliOption(name: "g", short: "g", action: Action.SetTrue,
-        help: "enable compile debug version tests", category: "bench"),
-    CliOption(name: "incremental", short: "i", action: Action.SetTrue,
-        help: "enable incremental compilation", category: "bench"),
-    CliOption(name: "no-run", action: Action.SetTrue,
-        help: "compile, but don't run tests", category: "bench"),
-    CliOption(name: "skip-build", action: Action.SetTrue,
-        help: "skip compile, only run tests", category: "bench"),
-    CliOption(name: "cfg", action: Action.Set,
-        help: "enable the customized option 'cfg'", category: "bench"),
-    CliOption(name: "module", action: Action.Set,
-        help: "specify modules to test, default as current module", category: "bench"),
-    CliOption(name: "member", short: "m", action: Action.Set,
-        help: "specify a member module of the workspace", category: "bench"),
-    CliOption(name: "target", action: Action.Set,
-        help: "unittest for the given target platform", category: "bench"),
-    CliOption(name: "target-dir", action: Action.Set,
-        help: "specify target directory", category: "bench"),
-    CliOption(name: "dry-run", action: Action.SetTrue,
-        help: "print benchmarks without execution", category: "bench"),
-    CliOption(name: "filter", action: Action.Set,
-        help: "enable filter test", category: "bench"),
-    CliOption(name: "include-tags", action: Action.Set,
-        help: "run tests with specified tags", category: "bench"),
-    CliOption(name: "exclude-tags", action: Action.Set,
-        help: "run tests without specified tags", category: "bench"),
-    CliOption(name: "no-color", action: Action.SetTrue,
-        help: "enable colorless result output", category: "bench"),
-    CliOption(name: "show-tags", action: Action.SetTrue,
-        help: "print tags in text report", category: "bench"),
-    CliOption(name: "random-seed", action: Action.Set,
-        help: "enable random seed", category: "bench"),
-    CliOption(name: "report-path", action: Action.Set,
-        help: "specify path to directory of report", category: "bench"),
-    CliOption(name: "report-format", action: Action.Set,
-        help: "specify format of report", category: "bench"),
-    CliOption(name: "baseline-path", action: Action.Set,
-        help: "specify path to directory of report to compare the results with", category: "bench"),
-    CliOption(name: "skip-script", action: Action.SetTrue,
-        help: "disable script 'build.cj'", category: "bench")
-]
-
 let BENCH_USAGE: String = """
 Build and run benchmarks for all packages.
 If you specify some package paths, it will only execute benchmarks in those specified packages.
