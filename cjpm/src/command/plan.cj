@@ -68,9 +68,8 @@ public class PlanCommand <: Handle {
     }
     
     private func handlePlanBuild(result: CliParseResult): Bool {
-        setLinkMode(LinkMode.Always)
-
         let buildConfig = constructBuildConfig(parseResult) ?? return false
+        buildConfig.linkMode = LinkMode.Always
 
         for (output in result.namespace.getArray<String>(key: "json") ?? []) {
             let outputPath: ?String = if (output == "-") { None } else { output }
