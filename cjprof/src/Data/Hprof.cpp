@@ -24,6 +24,7 @@ bool Hprof::Parse(const std::string &data, bool verbose)
         return false;
     }
 
+    m_idSize = SwapEndian(header->idSize);
     m_fileTime = header->timeHigh;
     m_fileTime = (m_fileTime << 32) + header->timeLow;
 
@@ -43,6 +44,12 @@ bool Hprof::Parse(const std::string &data, bool verbose)
         if (!record) {
             fprintf(stderr, "error: Record was truncated at offset 0x%zx\n", m_curPos);
             return false;
+        }
+
+        // CLASS record has no length field, handle separately
+        if (record->tag == CLASS) {
+            ParseClass(verbose);
+            continue;
         }
 
         auto size = SwapEndian(record->length);
@@ -89,7 +96,7 @@ void Hprof::ParseString(bool verbose)
         printf("[STRING@0x%zx] id = 0x%" PRIx64 ", str = \"%s\"\n", m_curPos, id, m_strings[id].c_str());
     }
 
-    m_curPos += sizeof(RecordHeader) + SwapEndian(rec->length);
+    m_curPos += sizeof(rec->tag) + sizeof(rec->length) + length;
 }
 
 void Hprof::ParseClass(bool verbose)
@@ -104,7 +111,7 @@ void Hprof::ParseClass(bool verbose)
         printf("[LOAD CLASS@0x%zx] id = 0x%" PRIx64 ", name id = 0x%" PRIx64 "\n", m_curPos, id, m_classes[id].name);
     }
 
-    m_curPos += sizeof(RecordHeader) + SwapEndian(rec->length);
+    m_curPos += sizeof(LoadClassRecord);
 }
 
 void Hprof::ParseStackFrame(bool verbose)
@@ -255,60 +262,50 @@ void Hprof::ParseHeapDumpRootLocal(bool verbose)
 
 void Hprof::ParseHeapDumpClassDump(bool verbose)
 {
-    struct ClassDump {
-        u1 tag;
-        ID id;              // class object ID
-        u4 size;            // instance size (in bytes)
-    } *rec = ReadAs<ClassDump>();
+    auto rec = ReadAs<LoadClassRecord>();
     if (!rec) {
-        m_curPos += sizeof(ClassDump);
-        return;
-    }
-
-    auto size = sizeof(ClassDump);
-    if (m_curPos + size > m_data.size()) {
-        m_curPos += size;
+        m_curPos += sizeof(LoadClassRecord);
         return;
     }
 
     ID id = SwapEndian(rec->id);
-    m_classes[id].size = SwapEndian(rec->size);
+    m_classes[id].name = SwapEndian(rec->name);
     if (verbose) {
-        printf("[CLASS DUMP@0x%zx] id = 0x%" PRIx64 ", inst size = %u\n", m_curPos, id, m_classes[id].size);
+        printf("[CLASS DUMP@0x%zx] id = 0x%" PRIx64 ", name id = 0x%" PRIx64 "\n", m_curPos, id, m_classes[id].name);
     }
 
-    m_curPos += sizeof(ClassDump);
+    m_curPos += sizeof(LoadClassRecord);
 }
 
 void Hprof::ParseHeapDumpInstanceDump(bool verbose)
 {
-    struct InstanceDump {
-        u1 tag;
-        ID id;          // object ID
-        ID cls;         // class object ID
-        u4 num;         // number of bytes that follow
-        u8 values[];    // instance field values
-    } *rec = ReadAs<InstanceDump>();
-    if (!rec) {
-        m_curPos += sizeof(InstanceDump);
+    size_t startPos = m_curPos;
+    m_curPos += sizeof(u1);  // skip tag
+
+    ID id = ReadId();
+    ID cls = ReadId();
+
+    auto numRec = ReadAs<u4>();
+    if (!numRec) {
+        m_curPos = startPos + sizeof(u1) + 2 * m_idSize + sizeof(u4);
         return;
     }
+    auto num = SwapEndian(*numRec);
+    m_curPos += sizeof(u4);
 
-    auto num = SwapEndian(rec->num);
-    auto size = sizeof(InstanceDump) + sizeof(u8) * num;
-    if (m_curPos + size > m_data.size()) {
-        m_curPos += size;
-        return;
-    }
-
-    ID id = SwapEndian(rec->id);
-    m_instances[id].cls = SwapEndian(rec->cls);
     for (size_t i = 0; i < num; i++) {
-        m_instances[id].fields.push_back(SwapEndian(rec->values[i]));
+        auto val = ReadAs<u8>();
+        if (!val) {
+            m_curPos = startPos + sizeof(u1) + 2 * m_idSize + sizeof(u4) + i * sizeof(u8);
+            return;
+        }
+        m_instances[id].fields.push_back(SwapEndian(*val));
+        m_curPos += sizeof(u8);
     }
+    m_instances[id].cls = cls;
 
     if (verbose) {
-        printf("[INSTANCE DUMP@0x%zx] id = 0x%" PRIx64 ", class = 0x%" PRIx64 ", value = [", m_curPos, id, m_instances[id].cls);
+        printf("[INSTANCE DUMP@0x%zx] id = 0x%" PRIx64 ", class = 0x%" PRIx64 ", value = [", startPos, id, cls);
 
         auto fields = m_instances[id].fields;
         for (size_t i = 0; i < fields.size(); i++) {
@@ -317,8 +314,6 @@ void Hprof::ParseHeapDumpInstanceDump(bool verbose)
 
         printf("]\n");
     }
-
-    m_curPos += size;
 }
 
 void Hprof::ParseHeapDumpObjectArrayDump(bool verbose)
@@ -528,8 +523,8 @@ void Hprof::GenString(ID id, const std::string &str)
 {
     StringRecord rec;
     rec.tag = STRING;
-    rec.length = SwapEndian((u8)(sizeof(StringRecord) + str.size() - sizeof(RecordHeader)));
-    rec.id = SwapEndian(id);
+    rec.length = SwapEndian((u4)(sizeof(rec.tag) + sizeof(rec.length) + sizeof(rec.id) + str.size()));
+    rec.id = SwapEndian(static_cast<u4>(id));
     WriteAs(rec);
     m_data.append(str);
 }
@@ -538,7 +533,7 @@ void Hprof::GenStackFrame(ID id, const Frame &frame)
 {
     StackFrameRecord rec;
     rec.tag = STACK_FRAME;
-    rec.length = SwapEndian((u8)(sizeof(StackFrameRecord)) - sizeof(RecordHeader));
+    rec.length = SwapEndian((u8)(sizeof(StackFrameRecord) - sizeof(RecordHeader)));
     rec.id = SwapEndian(id);
     rec.name = SwapEndian(frame.name);
     rec.fileName = SwapEndian(frame.fileName);
@@ -551,7 +546,7 @@ void Hprof::GenStackTrace(u4 idx, const StackTrace &stackTrace)
     StackTraceRecord rec;
     rec.tag = STACK_TRACE;
     rec.length = SwapEndian(
-        (u8)(sizeof(StackTraceRecord) + sizeof(ID) * stackTrace.frames.size()) - sizeof(RecordHeader));
+        (u8)(sizeof(StackTraceRecord) + sizeof(ID) * stackTrace.frames.size() - sizeof(RecordHeader)));
     rec.idx = SwapEndian(idx);
     rec.thread = SwapEndian(stackTrace.thread);
     rec.frameNum = SwapEndian((u4)stackTrace.frames.size());
@@ -566,7 +561,7 @@ void Hprof::GenCpuSample(u4 period, const Sample &sample)
     CpuSamplesRecord rec;
     rec.tag = CPU_SAMPLES;
     rec.length = SwapEndian(
-        (u8)(sizeof(CpuSamplesRecord) + sizeof(rec.samples[0]) * sample.stackTraces.size()) - sizeof(RecordHeader));
+        (u8)(sizeof(CpuSamplesRecord) + sizeof(rec.samples[0]) * sample.stackTraces.size() - sizeof(RecordHeader)));
     rec.period = SwapEndian(period);
     rec.num = SwapEndian((u4)sample.stackTraces.size());
     WriteAs(rec);
