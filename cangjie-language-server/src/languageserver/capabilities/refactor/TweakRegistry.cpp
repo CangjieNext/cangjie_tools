@@ -8,6 +8,8 @@
 #include "../../logger/Logger.h"
 #include "Tweak.h"
 #include "tweaks/ExtractFunction.h"
+#include "tweaks/IntroduceField.h"
+#include "tweaks/IntroduceParameter.h"
 #include "tweaks/ExtractVariable.h"
 #include "tweaks/IntroduceConstant.h"
 #include "tweaks/InlineFunction.h"
@@ -27,12 +29,28 @@ namespace ark {
     [[maybe_unused]] TweakClass##Registrar TweakClass##_registrar; \
     }
 
+#define REGISTER_TWEAK_ALIAS(AliasId, TweakClass) \
+    namespace { \
+    struct TweakClass##AliasRegistrar { \
+        TweakClass##AliasRegistrar() noexcept { \
+            TweakRegistry::RegisterTweak(AliasId, []{ \
+                return std::make_unique<TweakClass>(); \
+            }); \
+        } \
+    }; \
+    [[maybe_unused]] TweakClass##AliasRegistrar TweakClass##_alias_registrar; \
+    }
+
 REGISTER_TWEAK(ExtractFunction)
 REGISTER_TWEAK(ExtractVariable)
 REGISTER_TWEAK(IntroduceConstant)
 REGISTER_TWEAK(InlineFunction)
 REGISTER_TWEAK(InlineVariable)
 REGISTER_TWEAK(ExtractInterface)
+REGISTER_TWEAK(IntroduceField)
+REGISTER_TWEAK(IntroduceParameter)
+REGISTER_TWEAK_ALIAS("ExtractField", IntroduceField)
+REGISTER_TWEAK_ALIAS("ExtractParameter", IntroduceParameter)
 
 std::unordered_map<std::string, TweakRegistry::Creator>& TweakRegistry::GetRegistry()
 {
