@@ -7,14 +7,43 @@
 #include "LSPDiagObserver.h"
 #include "../../CompilerCangjieProject.h"
 
-namespace ark {
-using namespace Cangjie;
-const std::unordered_set<DiagKind> IMPORT_FIX_KIND = {DiagKind::sema_undeclared_identifier,
-    DiagKind::sema_undeclared_type_name, DiagKind::macro_undeclared_identifier};
+#include <functional>
+#include <unordered_set>
 
-const std::unordered_set<DiagKindRefactor> IMPORT_FIX_RKIND = {DiagKindRefactor::parse_expected_decl,
-    DiagKindRefactor::lex_expected_identifier, DiagKindRefactor::sema_undeclared_identifier,
-    DiagKindRefactor::sema_use_expr_without_import};
+namespace std {
+template <>
+struct hash<Cangjie::DiagId> {
+    std::size_t operator()(Cangjie::DiagId d) const noexcept
+    {
+        return static_cast<std::size_t>(d.Val());
+    }
+};
+template <>
+struct hash<Cangjie::DiagIdOld> {
+    std::size_t operator()(Cangjie::DiagIdOld d) const noexcept
+    {
+        return static_cast<std::size_t>(d.Val());
+    }
+};
+} // namespace std
+
+namespace ark {
+namespace {
+const std::unordered_set<Cangjie::DiagIdOld> kImportFixKind = {
+    Cangjie::LookupDiagKind("sema_undeclared_identifier"),
+    Cangjie::LookupDiagKind("sema_undeclared_type_name"),
+    Cangjie::LookupDiagKind("macro_undeclared_identifier"),
+};
+
+const std::unordered_set<Cangjie::DiagId> kImportFixRKind = {
+    Cangjie::LookupDiagKindRefactor("parse_expected_decl"),
+    Cangjie::LookupDiagKindRefactor("lex_expected_identifier"),
+    Cangjie::LookupDiagKindRefactor("sema_undeclared_identifier"),
+    Cangjie::LookupDiagKindRefactor("sema_use_expr_without_import"),
+};
+} // namespace
+
+using namespace Cangjie;
 
 LSPDiagObserver::LSPDiagObserver(Callbacks *c, Cangjie::DiagnosticEngine &engine)
     : Cangjie::DiagnosticHandler(engine, Cangjie::DiagHandlerKind::LSP_HANDLER), callback(c)
@@ -41,10 +70,10 @@ DiagLSPSeverity GetSeverity(DiagSeverity l)
 
 void SetDiagMessage(Cangjie::Diagnostic &diagnostic, DiagnosticToken &diagToken)
 {
-    if (diagnostic.rKind == DiagKindRefactor::module_read_file_to_buffer_failed) {
+    if (diagnostic.rKind == LookupDiagKindRefactor("module_read_file_to_buffer_failed")) {
         diagToken.message = "Empty file can not be compiled";
-    } else if (diagnostic.rKind == DiagKindRefactor::sema_mismatched_types ||
-               diagnostic.rKind == DiagKindRefactor::sema_mismatched_types_because) {
+    } else if (diagnostic.rKind == LookupDiagKindRefactor("sema_mismatched_types") ||
+               diagnostic.rKind == LookupDiagKindRefactor("sema_mismatched_types_because")) {
         diagToken.message = diagnostic.GetErrorMessage() + " " + diagnostic.mainHint.str;
     } else {
         diagToken.message = diagnostic.GetErrorMessage();
@@ -54,14 +83,14 @@ void SetDiagMessage(Cangjie::Diagnostic &diagnostic, DiagnosticToken &diagToken)
 void LSPDiagObserver::HandleDiagnose(Cangjie::Diagnostic &diagnostic)
 {
     // LSP client can't process negative
-    if (!diagnostic.IsValid() || diagnostic.rKind == DiagKindRefactor::package_unsupport_save) {
+    if (!diagnostic.IsValid() || diagnostic.rKind == LookupDiagKindRefactor("package_unsupport_save")) {
         return;
     }
 
     // Blocks crashes caused by binary mismatches in Release
 #ifndef DEBUG
-    if (diagnostic.rKind == DiagKindRefactor::module_version_not_identical ||
-        diagnostic.rKind == DiagKindRefactor::module_loaded_ast_failed) {
+    if (diagnostic.rKind == LookupDiagKindRefactor("module_version_not_identical") ||
+        diagnostic.rKind == LookupDiagKindRefactor("module_loaded_ast_failed")) {
         if (!MessageHeaderEndOfLine::GetIsDeveco()) {
             // Ensure that the server can exit normally.
             CompilerCangjieProject::GetInstance()->isIdentical = false;
@@ -90,7 +119,7 @@ void LSPDiagObserver::HandleDiagnose(Cangjie::Diagnostic &diagnostic)
     diagToken.code = static_cast<int>(diagnostic.GetDiagKind());
     SetDiagMessage(diagnostic, diagToken);
     diagToken.category = diagnostic.GetDiagKind();
-    if (diagnostic.rKind == DiagKindRefactor::sema_unused_import) {
+    if (diagnostic.rKind == LookupDiagKindRefactor("sema_unused_import")) {
         diagToken.tags = {1};
         diagToken.severity = static_cast<int>(DiagLSPSeverity::HINT);
     }
@@ -198,13 +227,13 @@ void LSPDiagObserver::DealMacroDiags(Cangjie::Diagnostic &diagnostic, const Diag
 void LSPDiagObserver::CollectQuickFix(Cangjie::Diagnostic &diagnostic, DiagnosticToken &diagToken)
 {
     // provide add import quick fix
-    bool isRefactor = (!diagnostic.isRefactor && IMPORT_FIX_KIND.count(diagnostic.kind))
-        || (diagnostic.isRefactor && IMPORT_FIX_RKIND.count(diagnostic.rKind));
+    bool isRefactor = (!diagnostic.isRefactor && kImportFixKind.count(diagnostic.kind) != 0) ||
+        (diagnostic.isRefactor && kImportFixRKind.count(diagnostic.rKind) != 0);
     if (isRefactor) {
         diagToken.diaFix->addImport = true;
     }
     // provide remove unused import quick fix
-    if (diagnostic.isRefactor && diagnostic.rKind == DiagKindRefactor::sema_unused_import) {
+    if (diagnostic.isRefactor && diagnostic.rKind == LookupDiagKindRefactor("sema_unused_import")) {
         diagToken.diaFix->removeImport = true;
     }
 }
