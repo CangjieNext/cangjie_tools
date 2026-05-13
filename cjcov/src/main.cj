@@ -141,6 +141,7 @@ func checkOutputOption(options: Command, curPath: String): Bool {
 public func initCmdOptions(options: Command): (Bool, Command) {
     var curPath = toCanonical(".")
 
+
     if (!checkRootOption(options, curPath) || !checkSourceOption(options) || !checkIncludeAndExclude(options) ||
         !checkOutputOption(options, curPath)) {
         return (false, options)
