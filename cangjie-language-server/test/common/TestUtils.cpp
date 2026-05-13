@@ -27,7 +27,7 @@ bool CheckCommandArguments(std::vector<ark::CodeAction> &exp, std::vector<ark::C
         }
     }
     return true;
-}                           
+}
 
 bool CheckCodeActionCommand(std::vector<ark::CodeAction> &exp, std::vector<ark::CodeAction>& act,
                             std::string &reason, int i)
