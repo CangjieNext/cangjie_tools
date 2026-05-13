@@ -55,6 +55,11 @@ def resolve_path(path):
     if os.path.isabs(path):
         return path
     return os.path.abspath(path)
+
+def safe_copy(src, dst):
+    if Path(src).resolve() == Path(dst).resolve():
+        return
+    shutil.copy(src, dst)
 def download_json():
     cmd = ["git", "clone", "-b", "OpenHarmony-v6.0-Release", "--depth=1", JSON_GIT, "json-v3.11.3"]
     subprocess.run(cmd, cwd=THIRDPARTY_DIR, check=True)
@@ -140,11 +145,11 @@ def prepare_cangjie(args):
         if IS_WINDOWS or TARGET_SYSTEM == TARGET_SYSTEM_TYPE.WINDOWS_X86_64:
             cangjie_lib_path = os.path.join(tools_bin_dir, "libcangjie-lsp." + file_extension)
         new_lib_path = os.path.join(CANGJIE_LIB_DIR, "libcangjie-lsp." + file_extension)
-        shutil.copy(cangjie_lib_path, new_lib_path)
+        safe_copy(cangjie_lib_path, new_lib_path)
         if IS_WINDOWS or TARGET_SYSTEM == TARGET_SYSTEM_TYPE.WINDOWS_X86_64:
             cangjie_lib_path = os.path.join(tools_lib_dir, "libcangjie-lsp.dll.a")
             new_lib_path = os.path.join(CANGJIE_LIB_DIR, "libcangjie-lsp.dll.a")
-            shutil.copy(cangjie_lib_path, new_lib_path)
+            safe_copy(cangjie_lib_path, new_lib_path)
 
 def prepare_build(args):
     prepare_cangjie(args)

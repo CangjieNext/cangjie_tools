@@ -669,8 +669,7 @@ bool CompilerCangjieProject::ParseAndUpdateNotInSrcDep(const std::string &dirPat
         auto userWrittenPackage = file->package == nullptr ? DEFAULT_PACKAGE_NAME : file->curPackage->fullPackageName;
         if (userWrittenPackage != expectedPkgName) {
             auto errPos = getPackageNameErrPos(*file);
-            newCI->diag.DiagnoseRefactor(DiagKindRefactor::package_name_not_identical_lsp, errPos,
-                expectedPkgName);
+            newCI->diag.DiagnoseRefactor("package_name_not_identical_lsp", errPos, expectedPkgName);
         }
     }
     return true;
@@ -1471,7 +1470,7 @@ void CompilerCangjieProject::InitPkgInfoAndParseNotInModule()
                 if (userWrittenPackage != expectedPkgName) {
                     auto errPos = getPackageNameErrPos(*file);
                     (void)pkgCompiler->diag.DiagnoseRefactor(
-                        DiagKindRefactor::package_name_not_identical_lsp, errPos, expectedPkgName);
+                        "package_name_not_identical_lsp", errPos, expectedPkgName);
                 }
             }
             CIMapNotInSrc[item.first] = std::move(pkgCompiler);
@@ -2094,8 +2093,7 @@ void CompilerCangjieProject::CheckPackageNameByAbsName(const File &needCheckedFi
                 return;
             }
             auto errPos = getPackageNameErrPos(needCheckedFile);
-            ci->diag.DiagnoseRefactor(DiagKindRefactor::package_name_not_identical_lsp,
-                errPos, expectedPkgName);
+            ci->diag.DiagnoseRefactor("package_name_not_identical_lsp", errPos, expectedPkgName);
         }
         return;
     }
@@ -2110,8 +2108,7 @@ void CompilerCangjieProject::CheckPackageNameByAbsName(const File &needCheckedFi
     }
     if (actualPkgName != expectedPkgName) {
         auto errPos = getPackageNameErrPos(needCheckedFile);
-        ci->diag.DiagnoseRefactor(DiagKindRefactor::package_name_not_identical_lsp,
-            errPos, expectedPkgName);
+        ci->diag.DiagnoseRefactor("package_name_not_identical_lsp", errPos, expectedPkgName);
     }
 }
 
