@@ -18,7 +18,7 @@ As shown in the diagram, this warehouse provides the following cangjie tools:
 - Cangjie Languager Server （Abbreviated as `lsp`）: the server backend that provides Cangjie language services on the DevEco Studio needs to be used in conjunction with the DevEco Studio client.
 - Cangjie Lint Tool (abbreviated as `cjlint`): A static analysis tool developed based on the Cangjie language coding standards. It helps developers identify issues that violate coding conventions, detect vulnerabilities in code, and write compliant Cangjie code.
 - Cangjie Coverage Tool (abbreviated as `cjcov`): A code coverage tool developed based on the Cangjie language programming standards.
-- Cangjie Exception Stack Trace Recovery Tool (referred to as `cjtrace-recover`): Assists developers in restoring obfuscated exception stack trace information, enabling better issue localization and root cause analysis.
+- Cangjie Profile Tool (Abbreviated as `cjprof`): A performance profiling tool for the Cangjie language.
 
 Cangjie Language CLI Toolchain currently supports the following platforms: Windows x86-64, Linux x86-64/AArch64, Mac x86/arm64. OpenHarmony platform is under development.
 
@@ -59,6 +59,10 @@ Cangjie Language CLI Toolchain currently supports the following platforms: Windo
 │   ├── build    # build script
 │   ├── doc      # construction and usage guidelines
 │   └── src      # source code
+├── cjprof
+│   ├── build    # build script
+│   ├── doc      # construction and usage guidelines
+│   └── src      # source code
 └── hyperlangExtension
     ├── build            # build script
     ├── doc              # construction and usage guidelines
@@ -77,6 +81,7 @@ Please refer to the following software architecture diagrams for the command-lin
 - [software architecture diagram for `cjcov`](./cjcov/doc/developer_guide_zh.md#开源项目介绍)
 - [software architecture diagram for `cjlint`](./cjlint/doc/developer_guide_zh.md#开源项目介绍)
 - [software architecture diagram for `cjtrace-recover`](./cjtrace-recover/doc/developer_guide_zh.md#开源项目介绍)
+- [software architecture diagram for `cjprof`](./cjprof/doc/developer_guide.md#开源项目介绍)
 
 ## Construction Dependencies
 
