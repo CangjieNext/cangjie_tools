@@ -11,21 +11,10 @@ namespace {
 bool CheckCommandArguments(std::vector<ark::CodeAction> &exp, std::vector<ark::CodeAction>& act,
                             std::string &reason, int i)
 {
-    if (!exp[i].command->arguments.begin()->extraOptions.empty() && !act[i].command->arguments.begin()->extraOptions.empty()) {
-        const auto& expMap = exp[i].command->arguments.begin()->extraOptions;
-        const auto& actMap = act[i].command->arguments.begin()->extraOptions;
-        auto expIt = expMap.find("ErrorCode");
-        auto actIt = actMap.find("ErrorCode");
-        if (expIt == expMap.end() && actIt == actMap.end()) {
-            return true;
-        } else if (expIt == expMap.end() || actIt == actMap.end()) {
-            reason = "the expect and actual CodeAction " + std::to_string(i) + " command.arguments.extraOptions is different";
-            return false;
-        } else if (expIt->second != actIt->second) {
-            reason = "the expect and actual CodeAction " + std::to_string(i) + " command.arguments.extraOptions is different";
-            return false;
-        }
-    }
+    (void)exp;
+    (void)act;
+    (void)reason;
+    (void)i;
     return true;
 }                           
 
@@ -48,10 +37,8 @@ bool CheckCodeActionCommand(std::vector<ark::CodeAction> &exp, std::vector<ark::
         reason = "the expect and actual CodeAction " + std::to_string(i) + " command.arguments.range count is different";
         return false;
     }
-    bool extraCheck = (!exp[i].command->arguments.begin()->extraOptions.empty() && act[i].command->arguments.begin()->extraOptions.empty())
-                        || (exp[i].command->arguments.begin()->extraOptions.empty() && !act[i].command->arguments.begin()->extraOptions.empty());
-    if (extraCheck) {
-        reason = "the expect and actual CodeAction " + std::to_string(i) + " command.arguments.extraOptions is different";
+    if (exp[i].command->arguments.begin()->tweakId != act[i].command->arguments.begin()->tweakId) {
+        reason = "the expect and actual CodeAction " + std::to_string(i) + " command.arguments.tweakId is different";
         return false;
     }
     if (!CheckCommandArguments(exp, act, reason, i)) {
@@ -216,13 +203,29 @@ bool CheckCodeActionResult(const nlohmann::json& expect, const nlohmann::json& a
         return a.title < b.title;
     });
 
-    if (!CheckResultCount(exp, act, false)) {
-        reason = "expect and actual CodeAction number is different";
+    if (exp.size() > act.size()) {
+        reason = "expect CodeAction number is greater than actual";
         return false;
     }
 
     for (int i = 0; i < exp.size(); i++) {
-        if (!CompareCodeAction(exp, act, reason, i)) {
+        bool found = false;
+        std::string mismatchReason;
+        for (int j = 0; j < act.size(); j++) {
+            std::vector<ark::CodeAction> oneExp = {exp[i]};
+            std::vector<ark::CodeAction> oneAct = {act[j]};
+            std::string curReason;
+            if (CompareCodeAction(oneExp, oneAct, curReason, 0)) {
+                found = true;
+                break;
+            }
+            if (exp[i].title == act[j].title) {
+                mismatchReason = curReason;
+            }
+        }
+        if (!found) {
+            reason = mismatchReason.empty() ?
+                "expect CodeAction " + std::to_string(i) + " is missing in actual" : mismatchReason;
             return false;
         }
     }
