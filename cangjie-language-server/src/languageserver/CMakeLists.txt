@@ -4,7 +4,7 @@
 #
 # See https://cangjie-lang.cn/pages/LICENSE for license information.
 
-file(GLOB_RECURSE LSP_SRC
+file(GLOB_RECURSE LSP_SRC CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
 )
