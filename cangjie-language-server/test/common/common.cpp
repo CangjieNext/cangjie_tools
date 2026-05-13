@@ -1003,14 +1003,24 @@ namespace test::common {
             return;
         }
         if (resultBase["params"]["edit"]["changes"].is_object()) {
-            nlohmann::json newJson;
             std::map<std::string, nlohmann::json> newMap;
             for (const auto &[key, value] : resultBase["params"]["edit"]["changes"].items()) {
                 std::string newKey = ChangeMessageUrlOfString(projectPath, key, rootUri, isMultiModule);
-                newMap[newKey] = value;
+                newMap[newKey.empty() ? key : newKey] = value;
             }
-            newJson["params"]["edit"]["changes"] = newMap;
-            resultBase = newJson;
+            resultBase["params"]["edit"]["changes"] = newMap;
+        }
+        if (!resultBase["params"]["edit"].contains("documentChanges") ||
+            !resultBase["params"]["edit"]["documentChanges"].is_array()) {
+            return;
+        }
+        for (auto &change : resultBase["params"]["edit"]["documentChanges"]) {
+            if (change.contains("uri")) {
+                ChangeMessageUrlOfTextDocument(projectPath, change["uri"], rootUri, isMultiModule);
+            }
+            if (change.contains("textDocument") && change["textDocument"].contains("uri")) {
+                ChangeMessageUrlOfTextDocument(projectPath, change["textDocument"]["uri"], rootUri, isMultiModule);
+            }
         }
     }
 
