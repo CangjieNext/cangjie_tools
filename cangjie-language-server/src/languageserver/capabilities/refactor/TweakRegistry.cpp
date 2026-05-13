@@ -8,6 +8,8 @@
 #include "../../logger/Logger.h"
 #include "Tweak.h"
 #include "tweaks/ExtractFunction.h"
+#include "tweaks/IntroduceField.h"
+#include "tweaks/IntroduceParameter.h"
 #include "tweaks/ExtractVariable.h"
 #include "tweaks/IntroduceConstant.h"
 #include "tweaks/InlineFunction.h"
@@ -33,6 +35,24 @@ REGISTER_TWEAK(IntroduceConstant)
 REGISTER_TWEAK(InlineFunction)
 REGISTER_TWEAK(InlineVariable)
 REGISTER_TWEAK(ExtractInterface)
+REGISTER_TWEAK(IntroduceField)
+REGISTER_TWEAK(IntroduceParameter)
+
+namespace {
+[[maybe_unused]] const bool INTRODUCE_FIELD_ALIAS_REGISTERED = [] {
+    TweakRegistry::RegisterTweak("ExtractField", [] {
+        return std::make_unique<IntroduceField>();
+    });
+    return true;
+}();
+
+[[maybe_unused]] const bool INTRODUCE_PARAMETER_ALIAS_REGISTERED = [] {
+    TweakRegistry::RegisterTweak("ExtractParameter", [] {
+        return std::make_unique<IntroduceParameter>();
+    });
+    return true;
+}();
+}
 
 std::unordered_map<std::string, TweakRegistry::Creator>& TweakRegistry::GetRegistry()
 {
