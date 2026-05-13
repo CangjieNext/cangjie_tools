@@ -49,7 +49,7 @@ namespace TestLspApplyEditTest {
             std::cout << "the false reason is : " << info << std::endl;
             ShowDiff(expLines, result, param, p->messagePath);
         }
-        return true;
+        return showErr;
     }
 
     class ApplyEditTest : public testing::TestWithParam<struct TestParam> {
