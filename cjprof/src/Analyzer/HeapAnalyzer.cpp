@@ -464,7 +464,6 @@ RawHeapSnapshot HeapAnalyzer::GetRawHeapSnapshot()
         }
         data.threads.emplace_back(rawth);
     }
-
     return data;
 }
 
