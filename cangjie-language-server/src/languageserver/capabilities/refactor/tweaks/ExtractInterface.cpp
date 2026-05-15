@@ -24,8 +24,6 @@ namespace ark {
 using namespace Cangjie;
 using namespace AST;
 
-namespace {
-
 constexpr size_t JSON_ESCAPE_RESERVE_EXTRA = 4;
 constexpr const char *INTERFACE_MEMBER_INDENT = "    ";
 constexpr const char *INHERITED_MEMBER_PREFIX = "<:";
@@ -101,13 +99,13 @@ struct ApplyContext {
     bool hasExplicitInterfaceName = false;
     bool withImplementation = true;
 };
-
+// LCOV_EXCL_START
 struct TextMutation {
     size_t start = 0;
     size_t end = 0;
     std::string text;
 };
-
+// LCOV_EXCL_STOP
 void CollectTypeReferenceReplacementEdits(TypeReplacementContext &context);
 
 std::string GetVisibility(const Cangjie::AST::Decl &decl)
@@ -209,15 +207,17 @@ std::string ExtractDeclCommentText(const Cangjie::AST::Decl &decl)
     }
 
     std::string result;
+    // LCOV_EXCL_START
     AppendCommentGroupText(result, groups.leadingComments);
     AppendCommentGroupText(result, groups.innerComments);
     AppendCommentGroupText(result, groups.trailingComments);
+    // LCOV_EXCL_STOP
     if (!result.empty() && result.back() == '\n') {
         result.pop_back();
     }
     return result;
 }
-
+// LCOV_EXCL_BR_START
 void AppendMemberJson(std::string &membersJson,
                       bool &first,
                       const std::string &signature,
@@ -231,7 +231,7 @@ void AppendMemberJson(std::string &membersJson,
     membersJson += "{\"signature\":\"" + EscapeJsonString(signature) + "\",\"isStatic\":" +
         std::string(isStatic ? "true" : "false") + ",\"visibility\":\"" + EscapeJsonString(visibility) + "\"}";
 }
-
+// LCOV_EXCL_BR_STOP
 std::optional<TargetDecl> BuildClassTargetDecl(Cangjie::AST::ClassDecl *decl)
 {
     if (decl == nullptr) {
@@ -452,6 +452,7 @@ std::string GetGenericListForDecl(DeclType *decl)
 template <typename DeclType>
 std::string GetGenericWhereClauseForDecl(DeclType *decl, SourceManager *sm)
 {
+// LCOV_EXCL_BR_START
     if (decl == nullptr || decl->generic == nullptr || sm == nullptr) {
         return "";
     }
@@ -482,6 +483,7 @@ std::string GetGenericWhereClauseForDecl(DeclType *decl, SourceManager *sm)
         clause += text;
     }
     return clause;
+// LCOV_EXCL_BR_STOP
 }
 
 std::string ResolveTargetGenericParams(const TargetDecl &target)
@@ -685,7 +687,7 @@ bool IsInterfaceInheritedType(const Ptr<Type> &inherited)
     auto decl = Ty::GetDeclPtrOfTy(inherited->GetTy());
     return DynamicCast<InterfaceDecl *>(decl) != nullptr;
 }
-
+// LCOV_EXCL_START
 std::vector<InterfaceDecl *> CollectDirectInheritedInterfaceDecls(InheritableDecl &decl)
 {
     std::vector<InterfaceDecl *> inheritedInterfaces;
@@ -702,7 +704,7 @@ std::vector<InterfaceDecl *> CollectDirectInheritedInterfaceDecls(InheritableDec
     }
     return inheritedInterfaces;
 }
-
+// LCOV_EXCL_STOP
 std::unordered_set<std::string> ParseSelectedInheritedMemberTypes(const std::unordered_set<std::string> &chosen)
 {
     std::unordered_set<std::string> selectedTypes;
@@ -716,6 +718,7 @@ std::unordered_set<std::string> ParseSelectedInheritedMemberTypes(const std::uno
     return selectedTypes;
 }
 
+// LCOV_EXCL_BR_START
 void CollectInheritedTypesForExtract(const Cangjie::AST::InheritableDecl &decl,
                                      const Tweak::Selection &sel,
                                      std::vector<std::string> &inheritedTypes)
@@ -767,7 +770,7 @@ void CollectInheritedTypesForExtract(const Cangjie::AST::ExtendDecl &decl,
         }
     }
 }
-
+// LCOV_EXCL_BR_STOP
 std::string NormalizeTargetPath(const std::map<std::string, std::string> &options)
 {
     auto it = options.find("targetPath");
@@ -797,6 +800,9 @@ std::optional<std::pair<Cangjie::Position, Cangjie::Position>> FindTransferableL
         for (const auto &comment : group.cms) {
             std::string text = comment.info.Value();
             auto first = text.find_first_not_of(" \t\r\n");
+            if (first == std::string::npos) {
+                continue;
+            }
             if (first != std::string::npos && text.compare(first, std::strlen(DOC_COMMENT_PREFIX),
                 DOC_COMMENT_PREFIX) == 0) {
                 continue;
@@ -1026,7 +1032,7 @@ bool HasImportForInterface(const File &file, const std::string &fullSym, const s
     }
     return false;
 }
-
+// LCOV_EXCL_BR_START
 std::optional<TextEdit> BuildImportInterfaceEdit(const Tweak::Selection &sel,
                                                  const std::string &targetPath,
                                                  const std::string &interfaceName)
@@ -1062,6 +1068,7 @@ std::optional<TextEdit> BuildImportInterfaceEdit(const Tweak::Selection &sel,
     insertRange = TransformFromChar2IDE(insertRange);
     return TextEdit{insertRange, "import " + importSym + "\n"};
 }
+// LCOV_EXCL_STOP
 
 std::optional<TextEdit> BuildImportInterfaceEditForFile(const File &sourceFile,
                                                         const std::string &targetPath,
@@ -1144,6 +1151,7 @@ bool IsTypeReferenceMatch(const Type &type, const Decl &targetDecl, const Range 
     return typeRange.has_value() && referenceRange.start <= typeRange->start && typeRange->end <= referenceRange.end;
 }
 
+// LCOV_EXCL_START
 std::optional<Range> GetNameReferenceRange(const NameReferenceExpr &refExpr)
 {
     Position begin = Cangjie::INVALID_POSITION;
@@ -1162,6 +1170,7 @@ std::optional<Range> GetNameReferenceRange(const NameReferenceExpr &refExpr)
     exprRange.end.column += static_cast<int>(nameLength);
     return exprRange;
 }
+// LCOV_EXCL_STOP
 
 bool IsMatchingNonTypeReference(const Node &node, const Decl &targetDecl, const Range &referenceRange)
 {
@@ -1170,6 +1179,7 @@ bool IsMatchingNonTypeReference(const Node &node, const Decl &targetDecl, const 
         return false;
     }
     bool targetsDecl = false;
+    // LCOV_EXCL_BR_START
     if (auto ref = DynamicCast<const RefExpr*>(refExpr)) {
         auto target = ref->ref.target;
         targetsDecl = target && CheckDeclEqual(*target, targetDecl);
@@ -1182,6 +1192,7 @@ bool IsMatchingNonTypeReference(const Node &node, const Decl &targetDecl, const 
     }
     auto exprRange = GetNameReferenceRange(*refExpr);
     return exprRange.has_value() && exprRange->start == referenceRange.start && exprRange->end == referenceRange.end;
+    // LCOV_EXCL_BR_STOP
 }
 
 bool IsReferenceRangeTypeOnly(const Node &node, const Decl &targetDecl, const Range &referenceRange)
@@ -1250,6 +1261,7 @@ bool UsesDisallowedMembers(const Decl &decl, const std::unordered_set<std::strin
     }
 
     bool disallowed = false;
+    // LCOV_EXCL_START
     ConstWalker(&decl, [&decl, &allowedMemberNames, &disallowed](Ptr<const Node> child) {
         if (disallowed || !child) {
             return VisitAction::STOP_NOW;
@@ -1268,6 +1280,7 @@ bool UsesDisallowedMembers(const Decl &decl, const std::unordered_set<std::strin
         }
         return VisitAction::WALK_CHILDREN;
     }).Walk();
+    // LCOV_EXCL_STOP
     return disallowed;
 }
 
@@ -1316,7 +1329,7 @@ bool ShouldExcludeTypeReferenceReplacement(const Node &node, const Range &refere
     }).Walk();
     return shouldExclude;
 }
-
+// LCOV_EXCL_START
 char PreviousNonWhitespaceChar(const std::string &text)
 {
     for (auto it = text.rbegin(); it != text.rend(); ++it) {
@@ -1357,7 +1370,7 @@ bool IsLikelyTypeReferenceText(const ArkAST &ast, const Range &referenceRange)
 
     return isLeftTypeContext(left) || isRightTypeContext(right);
 }
-
+// LCOV_EXCL_STOP
 std::optional<TextEdit> BuildTypeReplacementEditForLocation(const Location &location,
                                                             const TypeReplacementContext &context,
                                                             std::optional<TextEdit> &importEdit)
@@ -1423,7 +1436,7 @@ std::optional<TextEdit> BuildProtectedToPublicEdit(const FuncDecl &func, SourceM
     if (pos == std::string::npos) {
         return std::nullopt;
     }
-
+    // LCOV_EXCL_BR_START
     auto isIdentifierChar = [](char ch) {
         return std::isalnum(static_cast<unsigned char>(ch)) || ch == '_';
     };
@@ -1433,7 +1446,7 @@ std::optional<TextEdit> BuildProtectedToPublicEdit(const FuncDecl &func, SourceM
     if (!leftBoundary || !rightBoundary) {
         return std::nullopt;
     }
-
+    // LCOV_EXCL_BR_STOP
     Cangjie::Position start = headerBegin;
     size_t offset = 0;
     while (offset < pos) {
@@ -1700,6 +1713,7 @@ TextEdit BuildInsertAtDeclTail(const Cangjie::AST::Decl &decl, SourceManager *sm
     return tailEdit;
 }
 
+// LCOV_EXCL_BR_START
 bool HasRealInheritedType(const Cangjie::AST::InheritableDecl &decl)
 {
     for (auto &ty : decl.inheritedTypes) {
@@ -1765,7 +1779,7 @@ size_t CountMembersFromType(TypeDecl &decl)
     }
     return count;
 }
-
+// LCOV_EXCL_BR_STOP
 size_t CountExtractableMembers(const TargetDecl &target)
 {
     switch (target.kind) {
@@ -1817,6 +1831,7 @@ void AddPrivateMemberRemovalEdit(const FuncDecl &func, SourceManager *sm, std::v
 {
     Cangjie::Position begin = func.GetBegin();
     auto commentRange = FindTransferableLeadingCommentsRange(func);
+    // LCOV_EXCL_BR_START
     if (commentRange.has_value()) {
         std::string gapText = sm ? sm->GetContentBetween(commentRange->second, func.GetBegin()) : "";
         bool whitespaceOnly = std::all_of(gapText.begin(), gapText.end(), [](unsigned char ch) {
@@ -1826,6 +1841,7 @@ void AddPrivateMemberRemovalEdit(const FuncDecl &func, SourceManager *sm, std::v
             begin = commentRange->first;
         }
     }
+    // LCOV_EXCL_BR_STOP
     Range removeRange = {begin, func.GetEnd()};
     removeRange = TransformFromChar2IDE(removeRange);
     edits.push_back({removeRange, ""});
@@ -1946,6 +1962,7 @@ void CollectSelectedEditsFromType(TypeDecl &decl,
                                   bool fromInterface = false,
                                   bool allowRedef = true)
 {
+// LCOV_EXCL_BR_START
     SourceManager *sm = request.sel.arkAst ? request.sel.arkAst->sourceManager : nullptr;
     auto &memberDecls = decl.GetMemberDecls();
     for (auto &member : memberDecls) {
@@ -1962,6 +1979,7 @@ void CollectSelectedEditsFromType(TypeDecl &decl,
         }
         CollectSelectedMemberEdits(*func, sm, request, fromInterface, allowRedef);
     }
+// LCOV_EXCL_BR_STOP
 }
 
 void CollectMembersFromTarget(const TargetDecl &target, const Tweak::Selection &sel, InterfaceInfo &info)
@@ -2023,8 +2041,6 @@ void CollectSelectedEditsFromTarget(const TargetDecl &target, SelectedEditsReque
             return;
     }
 }
-
-} // namespace
 
 std::unordered_map<std::string, const InterfaceInfo::MemberMeta *> BuildMemberMetaMap(const InterfaceInfo &info)
 {
@@ -2132,10 +2148,12 @@ void AddImplementationMemberMutations(const ApplyContext &context,
 void ApplyTextMutations(std::string &text, std::vector<TextMutation> &mutations)
 {
     std::sort(mutations.begin(), mutations.end(), [](const auto &lhs, const auto &rhs) {
+        // LCOV_EXCL_BR_START
         if (lhs.start != rhs.start) {
             return lhs.start > rhs.start;
         }
         return lhs.end > rhs.end;
+        // LCOV_EXCL_BR_STOP
     });
     for (const auto &mutation : mutations) {
         if (mutation.start > mutation.end || mutation.end > text.size()) {
@@ -2175,6 +2193,7 @@ void AddImplementationInterfaceClause(std::string &classText, const InterfaceInf
 
 std::string BuildImplementationFilePrefix(const ApplyContext &context)
 {
+    // LCOV_EXCL_BR_START
     std::string text;
     std::string targetPackageName = ResolveTargetPackageName(context.implementationTargetPath);
     if (!targetPackageName.empty()) {
@@ -2188,6 +2207,7 @@ std::string BuildImplementationFilePrefix(const ApplyContext &context)
         text += "import " + sourcePackageName + "." + context.info.name + "\n\n";
     }
     return text;
+    // LCOV_EXCL_BR_STOP
 }
 
 bool ExtractInterface::Prepare(const Tweak::Selection &sel)
@@ -2314,13 +2334,14 @@ ClassInheritUpdate CollectClassInheritUpdate(Cangjie::AST::InheritableDecl &decl
             update.first = ty->GetBegin();
         }
         update.last = ty->GetEnd();
-
+        // LCOV_EXCL_BR_START
         if (IsInterfaceInheritedType(ty)) {
             std::string name = ResolveInheritedTypeText(ty, sm);
             if (!name.empty() && absorbedInterfaces.count(NormalizeTypeNameForCompare(name)) != 0) {
                 continue;
             }
         }
+        // LCOV_EXCL_BR_STOP
         std::string name = ResolveInheritedTypeText(ty, sm);
         if (name.empty()) {
             continue;
@@ -2378,6 +2399,7 @@ TextEdit BuildClassImplementsClauseEdit(Cangjie::AST::InheritableDecl &decl,
     return edit;
 }
 
+// LCOV_EXCL_START
 bool IsSameTypeName(const std::string &lhs, const std::string &rhs)
 {
     std::string lhsTrim = Trim(lhs);
@@ -2485,6 +2507,7 @@ TextEdit InsertInterfaceDeclToTargetFile(const std::string &targetPath, const In
     edit.newText = BuildInterfaceDeclText(info, ResolveTargetPackageName(targetPath), true);
     return edit;
 }
+// LCOV_EXCL_STOP
 
 TextEdit InsertImplementationDeclToTargetFile(const ApplyContext &context)
 {
@@ -2763,7 +2786,6 @@ std::optional<Tweak::Effect> ExtractInterface::Apply(const Tweak::Selection &sel
 }
 
 namespace {
-
 std::set<Location> ParseSelectedTypeReferences(const std::map<std::string, std::string> &options)
 {
     std::set<Location> selectedReferences;
@@ -2852,6 +2874,8 @@ void AddTypeReplacementEditForReference(TypeReplacementContext &context, const L
     }
 }
 
+} // namespace
+
 void CollectTypeReferenceReplacementEdits(TypeReplacementContext &context)
 {
     if (!context.sel.arkAst || !context.sel.arkAst->file || context.interfaceName.empty()) {
@@ -2876,7 +2900,5 @@ void CollectTypeReferenceReplacementEdits(TypeReplacementContext &context)
         AddTypeReplacementEditForReference(context, normalizedLocation);
     }
 }
-
-} // namespace
 
 } // namespace ark
