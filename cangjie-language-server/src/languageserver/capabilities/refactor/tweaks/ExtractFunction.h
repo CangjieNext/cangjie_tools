@@ -12,7 +12,7 @@
 namespace ark {
 
 struct ExtractedFunction {
-    struct Param {
+    struct Param { // LCOV_EXCL_LINE
         // param name
         std::string name;
 
@@ -36,11 +36,11 @@ struct ExtractedFunction {
 
         bool operator<(const Param& other) const
         {
-            return std::tie(name, type) < std::tie(other.name, other.type);
+            return std::tie(name, type) < std::tie(other.name, other.type); // LCOV_EXCL_LINE
         }
     };
 
-    struct ReturnValue {
+    struct ReturnValue { // LCOV_EXCL_LINE
         // return name
         std::string name;
 

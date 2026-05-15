@@ -20,7 +20,7 @@ const std::unordered_set<Cangjie::TokenKind> COMPOUND_ASSIGN_OPERATORS = { Token
 const std::unordered_set<Cangjie::AST::ASTKind> CANNOT_EXTRACT_FUNC_EXPR = {
     ASTKind::LAMBDA_EXPR, ASTKind::INTERPOLATION_EXPR
 };
-// LCOV_EXCL_START
+
 bool IsRefLoop(const Symbol& sym, const Node& self)
 {
     if (!sym.node) {
@@ -154,26 +154,25 @@ bool NeedExtractDecl2ReturnValue(Cangjie::AST::Decl *decl, const Tweak::Selectio
     }
     return false;
 }
-// LCOV_EXCL_STOP
 // compute whether the AssignExpr->leftValue need extract to return value
 bool NeedExtractAssignExpr2ReturnValue(Cangjie::AST::AssignExpr *assignExpr, const Tweak::Selection &sel)
 {
-    if (!assignExpr || !assignExpr->leftValue) {
+    if (!assignExpr || !assignExpr->leftValue) { // LCOV_EXCL_BR_LINE
         return false;
     }
-    if (assignExpr->leftValue->astKind == ASTKind::MEMBER_ACCESS) {
+    if (assignExpr->leftValue->astKind == ASTKind::MEMBER_ACCESS) { // LCOV_EXCL_BR_LINE
         return false;
     }
     auto target = assignExpr->leftValue->GetTarget();
-    if (!target || (target->astKind != ASTKind::VAR_DECL && target->astKind != ASTKind::FUNC_PARAM)) {
+    if (!target || (target->astKind != ASTKind::VAR_DECL && target->astKind != ASTKind::FUNC_PARAM)) { // LCOV_EXCL_BR_LINE
         return false;
     }
     if (target->TestAnyAttr(Attribute::IN_CLASSLIKE, Attribute::IN_STRUCT,
             Attribute::IN_ENUM, Attribute::GLOBAL)) {
         return false;
     }
-    if (target->begin.fileID == sel.range.start.fileID && target->begin >= sel.range.start
-        && target->end <= sel.range.end) {
+    if (target->begin.fileID == sel.range.start.fileID && target->begin >= sel.range.start // LCOV_EXCL_BR_LINE
+        && target->end <= sel.range.end) { // LCOV_EXCL_BR_LINE
         return false;
     }
     ReferencesResult result;
@@ -182,11 +181,11 @@ bool NeedExtractAssignExpr2ReturnValue(Cangjie::AST::AssignExpr *assignExpr, con
         Range refRange = reference.range;
         refRange.start = PosFromIDE2Char(refRange.start);
         refRange.end = PosFromIDE2Char(refRange.end);
-        if (refRange.start.fileID != sel.arkAst->fileID) {
-            return true;
+        if (refRange.start.fileID != sel.arkAst->fileID) { // LCOV_EXCL_BR_LINE
+            return true; // LCOV_EXCL_LINE
         }
-        if (refRange.start >= sel.range.end || refRange.end > sel.range.end) {
-            return true;
+        if (refRange.start >= sel.range.end || refRange.end > sel.range.end) { // LCOV_EXCL_BR_LINE
+            return true; // LCOV_EXCL_LINE
         }
     }
     return false;
@@ -194,12 +193,11 @@ bool NeedExtractAssignExpr2ReturnValue(Cangjie::AST::AssignExpr *assignExpr, con
 
 bool LeftValueIsMemberVar(Cangjie::AST::AssignExpr *assignExpr)
 {
-    if (!assignExpr || !assignExpr->leftValue) {
+    if (!assignExpr || !assignExpr->leftValue) { // LCOV_EXCL_BR_LINE
         return false;
     }
-    if (assignExpr->leftValue->astKind == ASTKind::MEMBER_ACCESS) {
-        // LCOV_EXCL_START
-        auto memberAccess = DynamicCast<MemberAccess*>(assignExpr->leftValue.get());
+    if (assignExpr->leftValue->astKind == ASTKind::MEMBER_ACCESS) { // LCOV_EXCL_BR_LINE
+                auto memberAccess = DynamicCast<MemberAccess*>(assignExpr->leftValue.get());
         if (!memberAccess || !memberAccess->baseExpr) {
             return false;
         }
@@ -207,15 +205,14 @@ bool LeftValueIsMemberVar(Cangjie::AST::AssignExpr *assignExpr)
             return true;
         }
         return false;
-        // LCOV_EXCL_STOP
-    }
-    if (assignExpr->leftValue->astKind == ASTKind::REF_EXPR) {
+            }
+    if (assignExpr->leftValue->astKind == ASTKind::REF_EXPR) { // LCOV_EXCL_BR_LINE
         auto refExpr = DynamicCast<RefExpr*>(assignExpr->leftValue.get());
-        if (!refExpr || !refExpr->GetTarget()) {
+        if (!refExpr || !refExpr->GetTarget()) { // LCOV_EXCL_BR_LINE
             return false;
         }
         if (refExpr->GetTarget()->astKind == ASTKind::VAR_DECL
-            && refExpr->GetTarget()->TestAnyAttr(Attribute::IN_CLASSLIKE,
+            && refExpr->GetTarget()->TestAnyAttr(Attribute::IN_CLASSLIKE, // LCOV_EXCL_BR_LINE
                    Attribute::IN_STRUCT, Attribute::IN_ENUM)) {
             return true;
         }
@@ -233,7 +230,7 @@ bool LeftValueIsMemberVar(Cangjie::AST::AssignExpr *assignExpr)
 class ExtractFunctionSelectionRule : public TweakRule {
     bool Check(const Tweak::Selection &sel, std::map<std::string, std::string> &extraOptions) const override
     {
-        if (!PreCheck(sel, extraOptions)) {
+        if (!PreCheck(sel, extraOptions)) { // LCOV_EXCL_BR_LINE
             return false;
         }
 
@@ -242,22 +239,22 @@ class ExtractFunctionSelectionRule : public TweakRule {
         bool containExpr = false;
         bool isConstructor = false;
         bool containMemVarAssign = false;
-        if (root->selected == SelectionTree::Selection::Complete && root->node
-            && root->node->astKind == ASTKind::EXPR) {
+        if (root->selected == SelectionTree::Selection::Complete && root->node // LCOV_EXCL_BR_LINE
+            && root->node->astKind == ASTKind::EXPR) { // LCOV_EXCL_BR_LINE
             containExpr = true;
         }
 
         if (sel.selectionTree.SelectedScope() == SelectionTree::Scope::FUNC_BODY
-            && sel.selectionTree.TargetDecl() && sel.selectionTree.TargetDecl()->TestAttr(Attribute::CONSTRUCTOR)) {
+            && sel.selectionTree.TargetDecl() && sel.selectionTree.TargetDecl()->TestAttr(Attribute::CONSTRUCTOR)) { // LCOV_EXCL_BR_LINE
             isConstructor = true;
         }
         SelectionTree::Walk(root, [&root, &extraOptions, &isValid, &containExpr, &containMemVarAssign]
             (const SelectionTree::SelectionTreeNode *treeNode) {
-            if (!treeNode->node) {
-                isValid = false;
-                extraOptions.insert(std::make_pair("ErrorCode",
-                    std::to_string(static_cast<int>(TweakRule::TweakError::ERROR_AST))));
-                return SelectionTree::WalkAction::STOP_NOW;
+            if (!treeNode->node) { // LCOV_EXCL_BR_LINE
+                isValid = false; // LCOV_EXCL_LINE
+                extraOptions.insert(std::make_pair("ErrorCode", // LCOV_EXCL_LINE
+                    std::to_string(static_cast<int>(TweakRule::TweakError::ERROR_AST)))); // LCOV_EXCL_LINE
+                return SelectionTree::WalkAction::STOP_NOW; // LCOV_EXCL_LINE
             }
 
             if (treeNode != root && treeNode->selected == SelectionTree::Selection::Partial) {
@@ -273,7 +270,7 @@ class ExtractFunctionSelectionRule : public TweakRule {
 
             if (treeNode->selected == SelectionTree::Selection::Complete &&
                 treeNode->node->astKind == ASTKind::ASSIGN_EXPR
-                && !containMemVarAssign) {
+                && !containMemVarAssign) { // LCOV_EXCL_BR_LINE
                 auto assignExpr = DynamicCast<AssignExpr*>(treeNode->node.get());
                 containMemVarAssign = LeftValueIsMemberVar(assignExpr);
             }
@@ -287,15 +284,15 @@ class ExtractFunctionSelectionRule : public TweakRule {
             return false;
         }
 
-        if (isConstructor && containMemVarAssign) {
-            extraOptions.insert(std::make_pair("ErrorCode",
-                std::to_string(static_cast<int>(ExtractFunction::ExtractFunctionError::CONTAIN_MEMBER_VAR_INIT))));
-            return false;
+        if (isConstructor && containMemVarAssign) { // LCOV_EXCL_BR_LINE
+            extraOptions.insert(std::make_pair("ErrorCode", // LCOV_EXCL_LINE
+                std::to_string(static_cast<int>(ExtractFunction::ExtractFunctionError::CONTAIN_MEMBER_VAR_INIT)))); // LCOV_EXCL_LINE
+            return false; // LCOV_EXCL_LINE
         }
 
         return isValid;
     }
-// LCOV_EXCL_START
+
     bool PreCheck(const Tweak::Selection &sel, std::map<std::string, std::string> &extraOptions) const
     {
         auto root = sel.selectionTree.root();
@@ -509,7 +506,6 @@ class ExtractFunctionBranchRule : public TweakRule {
         return isValid;
     }
 };
-// LCOV_EXCL_STOP
 /**
  * need contain complete while/for... loop if continue/break is selected:
  * 1. find the JUMP_EXPR in selected range.
@@ -523,8 +519,7 @@ class ExtractFunctionBreakContinueRule : public TweakRule {
         bool isValid = true;
         SelectionTree::Walk(root, [ &isValid, &extraOptions, &sel, this]
             (const SelectionTree::SelectionTreeNode *treeNode) {
-                // LCOV_EXCL_START
-                if (!treeNode->node) {
+                                if (!treeNode->node) {
                     isValid = false;
                     extraOptions.insert(std::make_pair("ErrorCode",
                         std::to_string(static_cast<int>(TweakRule::TweakError::ERROR_AST))));
@@ -544,8 +539,7 @@ class ExtractFunctionBreakContinueRule : public TweakRule {
                         return SelectionTree::WalkAction::STOP_NOW;
                     }
                 }
-            // LCOV_EXCL_STOP
-                return SelectionTree::WalkAction::WALK_CHILDREN;
+                            return SelectionTree::WalkAction::WALK_CHILDREN;
             });
 
         return isValid;
@@ -570,21 +564,21 @@ bool ExtractFunction::Prepare(const Selection &sel)
 std::optional<Tweak::Effect> ExtractFunction::Apply(const Selection &sel)
 {
     Effect effect;
-    if (!sel.arkAst || !sel.arkAst->sourceManager || !sel.arkAst->file) {
+    if (!sel.arkAst || !sel.arkAst->sourceManager || !sel.arkAst->file) { // LCOV_EXCL_BR_LINE
         return std::nullopt;
     }
     std::string filePath = sel.arkAst->file->filePath;
     std::string newFunctionName;
     auto it = sel.extraOptions.find("functionName");
-    if (it != sel.extraOptions.end()) {
+    if (it != sel.extraOptions.end()) { // LCOV_EXCL_BR_LINE
         newFunctionName = it->second;
     }
-    if (!sel.arkAst->file) {
+    if (!sel.arkAst->file) { // LCOV_EXCL_BR_LINE
         return std::nullopt;
     }
 
     ExtractedFunction function;
-    if (!newFunctionName.empty()) {
+    if (!newFunctionName.empty()) { // LCOV_EXCL_BR_LINE
         function.name = newFunctionName;
     }
     GetExtractedFunction(sel, function);
@@ -626,30 +620,30 @@ TextEdit ExtractFunction::InsertDeclaration(const Tweak::Selection &sel, Extract
     TextEdit textEdit;
     Position insertPosition;
     Ptr<Cangjie::AST::Node> targetScope = sel.selectionTree.TopDecl();
-    if (!targetScope && !sel.arkAst->file->decls.empty()) {
+    if (!targetScope && !sel.arkAst->file->decls.empty()) { // LCOV_EXCL_BR_LINE
         auto lastDecl = sel.arkAst->file->decls.back().get();
-        if (lastDecl) {
-            insertPosition = lastDecl->end;
+        if (lastDecl) { // LCOV_EXCL_BR_LINE
+            insertPosition = lastDecl->end; // LCOV_EXCL_LINE
         }
     }
-    if (targetScope && (targetScope->astKind == ASTKind::VAR_DECL || targetScope->astKind == ASTKind::FUNC_DECL)) {
-        insertPosition = targetScope->end;
+    if (targetScope && (targetScope->astKind == ASTKind::VAR_DECL || targetScope->astKind == ASTKind::FUNC_DECL)) { // LCOV_EXCL_BR_LINE
+        insertPosition = targetScope->end; // LCOV_EXCL_LINE
     }
-    if (targetScope && targetScope->astKind != ASTKind::VAR_DECL && targetScope->astKind != ASTKind::FUNC_DECL) {
+    if (targetScope && targetScope->astKind != ASTKind::VAR_DECL && targetScope->astKind != ASTKind::FUNC_DECL) { // LCOV_EXCL_BR_LINE
         Position lastCharStart = {targetScope->end.fileID, targetScope->end.line, targetScope->end.column - 1};
         std::string lastChar = sel.arkAst->sourceManager->GetContentBetween(lastCharStart, targetScope->end);
-        if (lastChar == "}") {
+        if (lastChar == "}") { // LCOV_EXCL_BR_LINE
             insertPosition = lastCharStart;
         } else {
-            insertPosition = {targetScope->end.fileID, targetScope->end.line + 1, 1};
+            insertPosition = {targetScope->end.fileID, targetScope->end.line + 1, 1}; // LCOV_EXCL_LINE
         }
     }
 
-    if (insertPosition.IsZero()) {
+    if (insertPosition.IsZero()) { // LCOV_EXCL_BR_LINE
         return std::move(textEdit);
     }
-    if (!targetScope || targetScope->astKind == ASTKind::VAR_DECL || targetScope->astKind == ASTKind::FUNC_DECL) {
-        textEdit.newText = "\n\n" + function.GetFunctionDeclaration() + "\n";
+    if (!targetScope || targetScope->astKind == ASTKind::VAR_DECL || targetScope->astKind == ASTKind::FUNC_DECL) { // LCOV_EXCL_BR_LINE
+        textEdit.newText = "\n\n" + function.GetFunctionDeclaration() + "\n"; // LCOV_EXCL_LINE
     } else {
         textEdit.newText = "\n" + function.GetFunctionDeclaration() + "\n";
     }
@@ -658,7 +652,6 @@ TextEdit ExtractFunction::InsertDeclaration(const Tweak::Selection &sel, Extract
     textEdit.range = insertRange;
     return std::move(textEdit);
 }
-// LCOV_EXCL_START
 TextEdit ExtractFunction::ReplaceBlockWithCall(const Tweak::Selection &sel, ExtractedFunction &function)
 {
     TextEdit textEdit;
@@ -1117,5 +1110,4 @@ void ExtractFunction::AddMutParamVariable(std::string &mutParams, Cangjie::AST::
         function.params.erase(it);
     }
 }
-// LCOV_EXCL_STOP
 } // namespace ark

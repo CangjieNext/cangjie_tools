@@ -12,7 +12,6 @@
 #include <sstream>
 #include <regex>
 
-// LCOV_EXCL_START
 namespace ark {
 
 class InlineFunctionSelectionRule : public TweakRule {
