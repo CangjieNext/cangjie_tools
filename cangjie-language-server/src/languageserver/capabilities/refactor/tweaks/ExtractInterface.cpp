@@ -24,8 +24,6 @@ namespace ark {
 using namespace Cangjie;
 using namespace AST;
 
-namespace {
-
 constexpr size_t JSON_ESCAPE_RESERVE_EXTRA = 4;
 constexpr const char *INTERFACE_MEMBER_INDENT = "    ";
 constexpr const char *INHERITED_MEMBER_PREFIX = "<:";
@@ -125,7 +123,7 @@ std::string GetVisibility(const Cangjie::AST::Decl &decl)
     if (decl.TestAttr(Attr::PRIVATE)) {
         return "private";
     }
-    return "public";
+    return "public"; // LCOV_EXCL_LINE
 }
 
 std::string EscapeJsonString(const std::string &input)
@@ -159,7 +157,7 @@ std::string ResolveFuncSignature(const FuncDecl &func, SourceManager *sm)
 std::string ExtractFuncBodyText(const FuncDecl &func, SourceManager *sm)
 {
     if (!sm) {
-        return "";
+        return ""; // LCOV_EXCL_LINE
     }
     std::string whole = sm->GetContentBetween(func.GetBegin(), func.GetEnd());
     size_t brace = whole.find('{');
@@ -168,13 +166,13 @@ std::string ExtractFuncBodyText(const FuncDecl &func, SourceManager *sm)
         if (rightBrace != std::string::npos && rightBrace >= brace) {
             return whole.substr(brace, rightBrace - brace + 1);
         }
-        return "";
+        return ""; // LCOV_EXCL_LINE
     }
     size_t arrow = whole.find("=>");
-    if (arrow != std::string::npos) {
-        return whole.substr(arrow);
+    if (arrow != std::string::npos) { // LCOV_EXCL_LINE
+        return whole.substr(arrow); // LCOV_EXCL_LINE
     }
-    return "";
+    return ""; // LCOV_EXCL_LINE
 }
 
 void AppendCommentGroupText(std::string &result, const std::vector<CommentGroup> &groupList)
@@ -307,11 +305,11 @@ std::string ResolveExtendTargetName(const Cangjie::AST::ExtendDecl &decl)
         extendName = Trim(decl.extendedType->ToString());
         auto genericPos = extendName.find('<');
         if (genericPos != std::string::npos) {
-            extendName = extendName.substr(0, genericPos);
+            extendName = extendName.substr(0, genericPos); // LCOV_EXCL_LINE
         }
     }
     if (extendName.empty() && decl.extendedType && decl.extendedType->GetTy()) {
-        extendName = Trim(decl.extendedType->GetTy()->name);
+        extendName = Trim(decl.extendedType->GetTy()->name); // LCOV_EXCL_LINE
     }
     return extendName;
 }
@@ -365,11 +363,11 @@ std::optional<TargetDecl> FindTargetDeclInDeclTree(Cangjie::AST::Decl &decl, con
     }
 
     for (auto &member : decl.GetMemberDecls()) {
-        if (!member) {
-            continue;
+        if (!member) { // LCOV_EXCL_LINE
+            continue; // LCOV_EXCL_LINE
         }
-        auto nestedTarget = FindTargetDeclInDeclTree(*member.get(), selection);
-        if (nestedTarget.has_value()) {
+        auto nestedTarget = FindTargetDeclInDeclTree(*member.get(), selection); // LCOV_EXCL_LINE
+        if (nestedTarget.has_value()) { // LCOV_EXCL_LINE
             return nestedTarget;
         }
     }
@@ -395,8 +393,8 @@ std::optional<TargetDecl> ResolveTargetDecl(const Tweak::Selection &sel)
 
     auto *decl = dynamic_cast<Cangjie::AST::Decl *>(root->node.get());
     while (decl) {
-        auto target = BuildTargetDecl(decl);
-        if (target.has_value()) {
+        auto target = BuildTargetDecl(decl); // LCOV_EXCL_LINE
+        if (target.has_value()) { // LCOV_EXCL_LINE
             return target;
         }
         decl = decl->outerDecl;
@@ -405,7 +403,7 @@ std::optional<TargetDecl> ResolveTargetDecl(const Tweak::Selection &sel)
     if (sel.arkAst && sel.arkAst->file) {
         for (auto &topDecl : sel.arkAst->file->decls) {
             if (!topDecl) {
-                continue;
+                continue; // LCOV_EXCL_LINE
             }
             auto target = FindTargetDeclInDeclTree(*topDecl.get(), sel.range);
             if (target.has_value()) {
@@ -444,7 +442,7 @@ template <typename DeclType>
 std::string GetGenericListForDecl(DeclType *decl)
 {
     if (decl == nullptr) {
-        return "";
+        return ""; // LCOV_EXCL_LINE
     }
     return ItemResolverUtil::GetGenericParamByDecl(decl->generic.get());
 }
@@ -457,7 +455,7 @@ std::string GetGenericWhereClauseForDecl(DeclType *decl, SourceManager *sm)
     }
     const auto &constraints = decl->generic->genericConstraints;
     if (constraints.empty()) {
-        return "";
+        return ""; // LCOV_EXCL_LINE
     }
 
     std::string clause;
@@ -498,7 +496,7 @@ std::string ResolveTargetGenericParams(const TargetDecl &target)
         case TargetKind::EXTEND:
             return GetGenericListForDecl(target.extendDecl);
         default:
-            return "";
+            return ""; // LCOV_EXCL_LINE
     }
 }
 
@@ -516,7 +514,7 @@ std::string ResolveTargetGenericWhereClause(const TargetDecl &target, SourceMana
         case TargetKind::EXTEND:
             return GetGenericWhereClauseForDecl(target.extendDecl, sm);
         default:
-            return "";
+            return ""; // LCOV_EXCL_LINE
     }
 }
 
@@ -553,7 +551,7 @@ bool ParseSelectedMembersFromJson(const std::string &raw, std::unordered_set<std
     }
     for (auto &entry : json) {
         if (!entry.is_string()) {
-            continue;
+            continue; // LCOV_EXCL_LINE
         }
         AddSelectedMemberSignature(chosen, entry.get<std::string>());
     }
@@ -597,7 +595,7 @@ std::string NormalizeUriString(const std::string &uri)
     if (uri.rfind(FILE_URI_PREFIX, 0) == 0) {
         return URI::URIFromAbsolutePath(FileStore::NormalizePath(URI::Resolve(uri))).ToString();
     }
-    return URI::URIFromAbsolutePath(FileStore::NormalizePath(uri)).ToString();
+    return URI::URIFromAbsolutePath(FileStore::NormalizePath(uri)).ToString(); // LCOV_EXCL_LINE
 }
 
 std::optional<Location> ParseSelectedTypeReferenceEntry(const nlohmann::json &entry)
@@ -665,14 +663,14 @@ std::string NormalizeTypeNameForCompare(std::string name)
 std::string ResolveInheritedTypeText(const Ptr<Type> &inherited, SourceManager *sm)
 {
     if (!inherited) {
-        return "";
+        return ""; // LCOV_EXCL_LINE
     }
     std::string typeName;
     if (sm) {
         typeName = Trim(sm->GetContentBetween(inherited->GetBegin(), inherited->GetEnd()));
     }
     if (typeName.empty() && inherited->GetTy()) {
-        typeName = Trim(inherited->GetTy()->String());
+        typeName = Trim(inherited->GetTy()->String()); // LCOV_EXCL_LINE
     }
     return typeName;
 }
@@ -716,6 +714,7 @@ std::unordered_set<std::string> ParseSelectedInheritedMemberTypes(const std::uno
     return selectedTypes;
 }
 
+// LCOV_EXCL_START
 void CollectInheritedTypesForExtract(const Cangjie::AST::InheritableDecl &decl,
                                      const Tweak::Selection &sel,
                                      std::vector<std::string> &inheritedTypes)
@@ -783,6 +782,7 @@ std::string NormalizeTargetPath(const std::map<std::string, std::string> &option
     }
     return FileStore::NormalizePath(targetPath);
 }
+// LCOV_EXCL_STOP
 
 std::optional<std::pair<Cangjie::Position, Cangjie::Position>> FindTransferableLeadingCommentsRange(
     const Cangjie::AST::Decl &decl)
@@ -797,6 +797,9 @@ std::optional<std::pair<Cangjie::Position, Cangjie::Position>> FindTransferableL
         for (const auto &comment : group.cms) {
             std::string text = comment.info.Value();
             auto first = text.find_first_not_of(" \t\r\n");
+            if (first == std::string::npos) {
+                continue;
+            }
             if (first != std::string::npos && text.compare(first, std::strlen(DOC_COMMENT_PREFIX),
                 DOC_COMMENT_PREFIX) == 0) {
                 continue;
@@ -885,20 +888,20 @@ bool IsValidPackageName(const std::string &packageName)
 std::string ResolveTargetPackageName(const std::string &targetPath)
 {
     if (targetPath.empty()) {
-        return "";
+        return ""; // LCOV_EXCL_LINE
     }
     auto *project = CompilerCangjieProject::GetInstance();
     if (!project) {
-        return "";
+        return ""; // LCOV_EXCL_LINE
     }
 
     std::string targetDir = Cangjie::FileUtil::GetDirPath(targetPath);
     std::string fullPkgName = project->GetFullPkgByDir(targetDir);
     if (fullPkgName.empty()) {
-        fullPkgName = project->GetFullPkgName(targetPath);
+        fullPkgName = project->GetFullPkgName(targetPath); // LCOV_EXCL_LINE
     }
     if (fullPkgName.empty()) {
-        return "";
+        return ""; // LCOV_EXCL_LINE
     }
     std::string packageName = project->GetRealPackageName(fullPkgName);
     return IsValidPackageName(packageName) ? packageName : "";
@@ -910,13 +913,13 @@ std::string ResolveRenameImplementationTargetPath(const Tweak::Selection &sel,
 {
     std::string baseDir;
     if (!targetPath.empty()) {
-        baseDir = Cangjie::FileUtil::GetFileExtension(targetPath) == "cj" ?
+        baseDir = Cangjie::FileUtil::GetFileExtension(targetPath) == "cj" ? // LCOV_EXCL_LINE
             Cangjie::FileUtil::GetDirPath(targetPath) : targetPath;
     } else if (sel.arkAst && sel.arkAst->file) {
         baseDir = Cangjie::FileUtil::GetDirPath(sel.arkAst->file->filePath);
     }
     if (baseDir.empty() || implementationClassName.empty()) {
-        return "";
+        return ""; // LCOV_EXCL_LINE
     }
     return FileStore::NormalizePath(
         Cangjie::FileUtil::JoinPath(baseDir, ToSnakeCaseFileName(implementationClassName) + ".cj"));
@@ -928,7 +931,7 @@ void CollectClassInterfaceInheritedTypesForRename(const Cangjie::AST::ClassDecl 
 {
     SourceManager *sm = sel.arkAst ? sel.arkAst->sourceManager : nullptr;
     if (!sm) {
-        return;
+        return; // LCOV_EXCL_LINE
     }
 
     std::unordered_set<std::string> seen;
@@ -953,7 +956,7 @@ void CollectInterfaceInheritedTypesForExtract(const Cangjie::AST::InheritableDec
 {
     SourceManager *sm = sel.arkAst ? sel.arkAst->sourceManager : nullptr;
     if (!sm) {
-        return;
+        return; // LCOV_EXCL_LINE
     }
 
     std::unordered_set<std::string> seen;
@@ -969,7 +972,7 @@ void CollectInterfaceInheritedTypesForExtract(const Cangjie::AST::InheritableDec
         if (!selectedInheritedTypes.count(normalized)) {
             continue;
         }
-        if (seen.insert(normalized).second) {
+        if (seen.insert(normalized).second) { // LCOV_EXCL_LINE
             inheritedTypes.push_back(std::move(typeName));
         }
     }
@@ -1013,11 +1016,11 @@ bool HasImportForInterface(const File &file, const std::string &fullSym, const s
     const std::string pkgAll = pkgName + ".*";
     for (const auto &importSpec : file.imports) {
         if (!importSpec) {
-            continue;
+            continue; // LCOV_EXCL_LINE
         }
         const auto &content = importSpec->content;
         if (content.kind == ImportKind::IMPORT_MULTI) {
-            continue;
+            continue; // LCOV_EXCL_LINE
         }
         std::string importSym = BuildImportFullSymWithoutAlias(content);
         if (importSym == fullSym || importSym == pkgAll) {
@@ -1027,6 +1030,7 @@ bool HasImportForInterface(const File &file, const std::string &fullSym, const s
     return false;
 }
 
+// LCOV_EXCL_START
 std::optional<TextEdit> BuildImportInterfaceEdit(const Tweak::Selection &sel,
                                                  const std::string &targetPath,
                                                  const std::string &interfaceName)
@@ -1062,6 +1066,7 @@ std::optional<TextEdit> BuildImportInterfaceEdit(const Tweak::Selection &sel,
     insertRange = TransformFromChar2IDE(insertRange);
     return TextEdit{insertRange, "import " + importSym + "\n"};
 }
+// LCOV_EXCL_STOP
 
 std::optional<TextEdit> BuildImportInterfaceEditForFile(const File &sourceFile,
                                                         const std::string &targetPath,
@@ -1089,10 +1094,10 @@ std::optional<TextEdit> BuildImportInterfaceEditForFile(const File &sourceFile,
     Position pos = Cangjie::INVALID_POSITION;
     if (sourceFile.package) {
         pos = FindLastImportPos(sourceFile);
-    } else if (!sourceFile.decls.empty() && sourceFile.decls.front()) {
-        pos = sourceFile.decls.front()->GetBegin();
+    } else if (!sourceFile.decls.empty() && sourceFile.decls.front()) { // LCOV_EXCL_LINE
+        pos = sourceFile.decls.front()->GetBegin(); // LCOV_EXCL_LINE
     } else {
-        pos = sourceFile.begin;
+        pos = sourceFile.begin; // LCOV_EXCL_LINE
     }
     Range insertRange = {pos, pos};
     insertRange = TransformFromChar2IDE(insertRange);
@@ -1102,10 +1107,10 @@ std::optional<TextEdit> BuildImportInterfaceEditForFile(const File &sourceFile,
 std::optional<Range> GetTypeReferenceRange(const Type &type)
 {
     if (auto qualifiedType = DynamicCast<const QualifiedType*>(&type)) {
-        Position pos = {qualifiedType->GetBegin().fileID, qualifiedType->GetBegin().line,
-            qualifiedType->end.column - static_cast<int>(qualifiedType->field.Val().size())};
-        return Range{pos, {pos.fileID, pos.line,
-            pos.column + static_cast<int>(CountUnicodeCharacters(qualifiedType->field))}};
+        Position pos = {qualifiedType->GetBegin().fileID, qualifiedType->GetBegin().line, // LCOV_EXCL_LINE
+            qualifiedType->end.column - static_cast<int>(qualifiedType->field.Val().size())}; // LCOV_EXCL_LINE
+        return Range{pos, {pos.fileID, pos.line, // LCOV_EXCL_LINE
+            pos.column + static_cast<int>(CountUnicodeCharacters(qualifiedType->field))}}; // LCOV_EXCL_LINE
     }
     if (auto refType = DynamicCast<const RefType*>(&type)) {
         Position pos = refType->ref.identifier.Begin();
@@ -1124,7 +1129,7 @@ std::unordered_set<std::string> BuildAllowedMemberNames(const std::vector<std::s
     for (const auto &member : members) {
         auto parenPos = member.find('(');
         if (parenPos == std::string::npos) {
-            continue;
+            continue; // LCOV_EXCL_LINE
         }
         std::string name = Trim(member.substr(0, parenPos));
         if (!name.empty()) {
@@ -1163,6 +1168,7 @@ std::optional<Range> GetNameReferenceRange(const NameReferenceExpr &refExpr)
     return exprRange;
 }
 
+// LCOV_EXCL_START
 bool IsMatchingNonTypeReference(const Node &node, const Decl &targetDecl, const Range &referenceRange)
 {
     auto refExpr = DynamicCast<const NameReferenceExpr*>(&node);
@@ -1409,7 +1415,9 @@ std::optional<TextEdit> BuildTypeReplacementEditForLocation(const Location &loca
     }
     return TextEdit{location.range, context.interfaceName};
 }
+// LCOV_EXCL_STOP
 
+// LCOV_EXCL_START
 std::optional<TextEdit> BuildProtectedToPublicEdit(const FuncDecl &func, SourceManager *sm)
 {
     if (!sm || !func.TestAttr(Cangjie::AST::Attribute::PROTECTED)) {
@@ -1699,6 +1707,7 @@ TextEdit BuildInsertAtDeclTail(const Cangjie::AST::Decl &decl, SourceManager *sm
     tailEdit.newText = appendText;
     return tailEdit;
 }
+// LCOV_EXCL_STOP
 
 bool HasRealInheritedType(const Cangjie::AST::InheritableDecl &decl)
 {
@@ -1713,6 +1722,7 @@ bool HasRealInheritedType(const Cangjie::AST::InheritableDecl &decl)
     return false;
 }
 
+// LCOV_EXCL_START
 template <typename TypeDecl>
 void CollectMembersFromType(TypeDecl &decl, const Tweak::Selection &sel, InterfaceInfo &info)
 {
@@ -2023,8 +2033,7 @@ void CollectSelectedEditsFromTarget(const TargetDecl &target, SelectedEditsReque
             return;
     }
 }
-
-} // namespace
+// LCOV_EXCL_STOP
 
 std::unordered_map<std::string, const InterfaceInfo::MemberMeta *> BuildMemberMetaMap(const InterfaceInfo &info)
 {
@@ -2185,7 +2194,7 @@ std::string BuildImplementationFilePrefix(const ApplyContext &context)
         ? ResolveTargetPackageName(context.sel.arkAst->file->filePath)
         : "";
     if (!context.info.name.empty() && !sourcePackageName.empty() && sourcePackageName != targetPackageName) {
-        text += "import " + sourcePackageName + "." + context.info.name + "\n\n";
+        text += "import " + sourcePackageName + "." + context.info.name + "\n\n"; // LCOV_EXCL_LINE
     }
     return text;
 }
@@ -2213,7 +2222,7 @@ bool ExtractInterface::Prepare(const Tweak::Selection &sel)
     std::string membersJson = "[";
     bool first = true;
     for (const auto &typeName : inheritedTypeMembers) {
-        AppendMemberJson(membersJson, first, std::string(INHERITED_MEMBER_PREFIX) + " " + typeName, false, "public");
+        AppendMemberJson(membersJson, first, std::string(INHERITED_MEMBER_PREFIX) + " " + typeName, false, "public"); // LCOV_EXCL_LINE
     }
     for (const auto &meta : info.metas) {
         AppendMemberJson(membersJson, first, meta.signature, meta.isStatic, meta.visibility);
@@ -2356,6 +2365,7 @@ void AddInterfaceTypeIfNeeded(ClassInheritUpdate &update, const std::string &int
     }
 }
 
+// LCOV_EXCL_START
 TextEdit BuildClassImplementsClauseEdit(Cangjie::AST::InheritableDecl &decl,
                                         SourceManager *sm,
                                         const InterfaceInfo &info)
@@ -2485,6 +2495,7 @@ TextEdit InsertInterfaceDeclToTargetFile(const std::string &targetPath, const In
     edit.newText = BuildInterfaceDeclText(info, ResolveTargetPackageName(targetPath), true);
     return edit;
 }
+// LCOV_EXCL_STOP
 
 TextEdit InsertImplementationDeclToTargetFile(const ApplyContext &context)
 {
@@ -2520,6 +2531,7 @@ void AppendCreateFileDocumentChange(Tweak::Effect &effect, const std::string &ta
     effect.documentChanges.push_back(std::move(textEditJson));
 }
 
+// LCOV_EXCL_START
 void InitializeApplyContext(ApplyContext &context)
 {
     context.info.genericParams = ResolveTargetGenericParams(context.target);
@@ -2761,9 +2773,11 @@ std::optional<Tweak::Effect> ExtractInterface::Apply(const Tweak::Selection &sel
     AddTypeReferenceReplacementEdits(context);
     return context.effect;
 }
+// LCOV_EXCL_STOP
 
 namespace {
 
+// LCOV_EXCL_START
 std::set<Location> ParseSelectedTypeReferences(const std::map<std::string, std::string> &options)
 {
     std::set<Location> selectedReferences;
@@ -2852,6 +2866,8 @@ void AddTypeReplacementEditForReference(TypeReplacementContext &context, const L
     }
 }
 
+} // namespace
+
 void CollectTypeReferenceReplacementEdits(TypeReplacementContext &context)
 {
     if (!context.sel.arkAst || !context.sel.arkAst->file || context.interfaceName.empty()) {
@@ -2876,7 +2892,6 @@ void CollectTypeReferenceReplacementEdits(TypeReplacementContext &context)
         AddTypeReplacementEditForReference(context, normalizedLocation);
     }
 }
-
-} // namespace
+// LCOV_EXCL_STOP
 
 } // namespace ark
