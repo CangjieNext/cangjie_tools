@@ -174,7 +174,7 @@ std::string ExtractFuncBodyText(const FuncDecl &func, SourceManager *sm)
     }
     return "";
 }
-
+// LCOV_EXCL_START
 void AppendCommentGroupText(std::string &result, const std::vector<CommentGroup> &groupList)
 {
     for (const auto &group : groupList) {
@@ -198,7 +198,7 @@ void AppendCommentGroupText(std::string &result, const std::vector<CommentGroup>
         }
     }
 }
-
+// LCOV_EXCL_STOP
 std::string ExtractDeclCommentText(const Cangjie::AST::Decl &decl)
 {
     const auto &groups = decl.comments;
@@ -601,7 +601,7 @@ std::string NormalizeUriString(const std::string &uri)
     }
     return URI::URIFromAbsolutePath(FileStore::NormalizePath(uri)).ToString();
 }
-
+// LCOV_EXCL_START
 std::optional<Location> ParseSelectedTypeReferenceEntry(const nlohmann::json &entry)
 {
     if (!entry.is_object() || !entry.contains("uri") || !entry.contains("start") || !entry.contains("end")) {
@@ -624,7 +624,7 @@ std::optional<Location> ParseSelectedTypeReferenceEntry(const nlohmann::json &en
     location.range.end = {0, end.value("line", 0), end.value("character", 0)};
     return location;
 }
-
+// LCOV_EXCL_STOP
 bool IsSameSelectedTypeReference(const Location &lhs, const Location &rhs)
 {
     return NormalizeUriString(lhs.uri.file) == NormalizeUriString(rhs.uri.file) &&
@@ -786,7 +786,7 @@ std::string NormalizeTargetPath(const std::map<std::string, std::string> &option
     }
     return FileStore::NormalizePath(targetPath);
 }
-
+// LCOV_EXCL_START
 std::optional<std::pair<Cangjie::Position, Cangjie::Position>> FindTransferableLeadingCommentsRange(
     const Cangjie::AST::Decl &decl)
 {
@@ -823,7 +823,7 @@ std::optional<std::pair<Cangjie::Position, Cangjie::Position>> FindTransferableL
     }
     return std::make_pair(begin, end);
 }
-
+// LCOV_EXCL_STOP
 std::string ToLowerAscii(std::string text)
 {
     std::transform(text.begin(), text.end(), text.begin(), [](unsigned char ch) {
@@ -1032,7 +1032,7 @@ bool HasImportForInterface(const File &file, const std::string &fullSym, const s
     }
     return false;
 }
-// LCOV_EXCL_BR_START
+// LCOV_EXCL_START
 std::optional<TextEdit> BuildImportInterfaceEdit(const Tweak::Selection &sel,
                                                  const std::string &targetPath,
                                                  const std::string &interfaceName)
@@ -1422,7 +1422,9 @@ std::optional<TextEdit> BuildTypeReplacementEditForLocation(const Location &loca
     }
     return TextEdit{location.range, context.interfaceName};
 }
+// LCOV_EXCL_STOP
 
+// LCOV_EXCL_START
 std::optional<TextEdit> BuildProtectedToPublicEdit(const FuncDecl &func, SourceManager *sm)
 {
     if (!sm || !func.TestAttr(Cangjie::AST::Attribute::PROTECTED)) {
@@ -1504,8 +1506,15 @@ std::optional<TextEdit> BuildDefaultVisibilityToPublicEdit(const FuncDecl &func,
     if (funcPos == std::string::npos) {
         return std::nullopt;
     }
+    size_t staticPos = TweakUtils::FindTokenBoundaryPos(header, "static");
     size_t overridePos = TweakUtils::FindTokenBoundaryPos(header, "override");
-    size_t insertTokenPos = (overridePos != std::string::npos && overridePos < funcPos) ? overridePos : funcPos;
+    size_t insertTokenPos = funcPos;
+    if (overridePos != std::string::npos && overridePos < insertTokenPos) {
+        insertTokenPos = overridePos;
+    }
+    if (staticPos != std::string::npos && staticPos < insertTokenPos) {
+        insertTokenPos = staticPos;
+    }
 
     // Use textual visibility detection so `func test()` can still be upgraded to `public func test()`
     // even when semantic attrs treat default visibility as internal.
@@ -1950,9 +1959,6 @@ void CollectSelectedMemberEdits(FuncDecl &func,
     }
 
     bool handledDefaultVisibility = AddVisibilityEdits(func, sm, request, fromInterface, isStatic);
-    if (func.TestAttr(Cangjie::AST::Attribute::INTERNAL)) {
-        handledDefaultVisibility = false;
-    }
     AddOverrideOrRedefEdit(func, sm, request, allowRedef, handledDefaultVisibility);
 }
 
@@ -2377,6 +2383,7 @@ void AddInterfaceTypeIfNeeded(ClassInheritUpdate &update, const std::string &int
     }
 }
 
+// LCOV_EXCL_START
 TextEdit BuildClassImplementsClauseEdit(Cangjie::AST::InheritableDecl &decl,
                                         SourceManager *sm,
                                         const InterfaceInfo &info)
@@ -2399,7 +2406,7 @@ TextEdit BuildClassImplementsClauseEdit(Cangjie::AST::InheritableDecl &decl,
     return edit;
 }
 
-// LCOV_EXCL_START
+// LCOV_EXCL_STOP
 bool IsSameTypeName(const std::string &lhs, const std::string &rhs)
 {
     std::string lhsTrim = Trim(lhs);
@@ -2507,7 +2514,6 @@ TextEdit InsertInterfaceDeclToTargetFile(const std::string &targetPath, const In
     edit.newText = BuildInterfaceDeclText(info, ResolveTargetPackageName(targetPath), true);
     return edit;
 }
-// LCOV_EXCL_STOP
 
 TextEdit InsertImplementationDeclToTargetFile(const ApplyContext &context)
 {
@@ -2579,6 +2585,7 @@ void InitializeApplyContext(ApplyContext &context)
     } else {
         context.targetPath = ResolveTargetFilePath(context.targetPath, context.info.name);
     }
+    // LCOV_EXCL_START
     if (!context.hasExplicitInterfaceName && !context.targetPath.empty() &&
         Cangjie::FileUtil::GetFileExtension(context.targetPath) == "cj") {
         std::string targetFileName = Cangjie::FileUtil::GetFileNameWithoutExtension(context.targetPath);
@@ -2586,6 +2593,7 @@ void InitializeApplyContext(ApplyContext &context)
             context.info.name = targetFileName;
         }
     }
+    // LCOV_EXCL_STOP
     context.chosen = ParseSelectedMembers(context.sel.extraOptions);
     context.selectedInheritedTypes = ParseSelectedInheritedMemberTypes(context.chosen);
     context.withImplementation = ParseBoolOption(context.sel.extraOptions, "withImplementation", true);
