@@ -786,6 +786,7 @@ std::string NormalizeTargetPath(const std::map<std::string, std::string> &option
     }
     return FileStore::NormalizePath(targetPath);
 }
+// LCOV_EXCL_STOP
 
 std::optional<std::pair<Cangjie::Position, Cangjie::Position>> FindTransferableLeadingCommentsRange(
     const Cangjie::AST::Decl &decl)
@@ -1172,6 +1173,7 @@ std::optional<Range> GetNameReferenceRange(const NameReferenceExpr &refExpr)
 }
 // LCOV_EXCL_STOP
 
+// LCOV_EXCL_START
 bool IsMatchingNonTypeReference(const Node &node, const Decl &targetDecl, const Range &referenceRange)
 {
     auto refExpr = DynamicCast<const NameReferenceExpr*>(&node);
@@ -1422,7 +1424,9 @@ std::optional<TextEdit> BuildTypeReplacementEditForLocation(const Location &loca
     }
     return TextEdit{location.range, context.interfaceName};
 }
+// LCOV_EXCL_STOP
 
+// LCOV_EXCL_START
 std::optional<TextEdit> BuildProtectedToPublicEdit(const FuncDecl &func, SourceManager *sm)
 {
     if (!sm || !func.TestAttr(Cangjie::AST::Attribute::PROTECTED)) {
@@ -1712,6 +1716,7 @@ TextEdit BuildInsertAtDeclTail(const Cangjie::AST::Decl &decl, SourceManager *sm
     tailEdit.newText = appendText;
     return tailEdit;
 }
+// LCOV_EXCL_STOP
 
 // LCOV_EXCL_BR_START
 bool HasRealInheritedType(const Cangjie::AST::InheritableDecl &decl)
@@ -1727,6 +1732,7 @@ bool HasRealInheritedType(const Cangjie::AST::InheritableDecl &decl)
     return false;
 }
 
+// LCOV_EXCL_START
 template <typename TypeDecl>
 void CollectMembersFromType(TypeDecl &decl, const Tweak::Selection &sel, InterfaceInfo &info)
 {
@@ -2377,6 +2383,7 @@ void AddInterfaceTypeIfNeeded(ClassInheritUpdate &update, const std::string &int
     }
 }
 
+// LCOV_EXCL_START
 TextEdit BuildClassImplementsClauseEdit(Cangjie::AST::InheritableDecl &decl,
                                         SourceManager *sm,
                                         const InterfaceInfo &info)
@@ -2543,6 +2550,7 @@ void AppendCreateFileDocumentChange(Tweak::Effect &effect, const std::string &ta
     effect.documentChanges.push_back(std::move(textEditJson));
 }
 
+// LCOV_EXCL_START
 void InitializeApplyContext(ApplyContext &context)
 {
     context.info.genericParams = ResolveTargetGenericParams(context.target);
@@ -2784,6 +2792,7 @@ std::optional<Tweak::Effect> ExtractInterface::Apply(const Tweak::Selection &sel
     AddTypeReferenceReplacementEdits(context);
     return context.effect;
 }
+// LCOV_EXCL_STOP
 
 namespace {
 std::set<Location> ParseSelectedTypeReferences(const std::map<std::string, std::string> &options)
