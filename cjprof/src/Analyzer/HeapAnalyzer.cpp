@@ -752,6 +752,22 @@ bool HeapAnalyzer::StartReportServer(int port)
         RawHeapSnapshot rhs = GetRawHeapSnapshot();
         dominanceNodes = BuildDominanceNodes(rhs);
 
+        // Rebuild children for dominance nodes
+        {
+            std::unordered_map<uint64_t, size_t> nodeIndexMap;
+            for (size_t i = 0; i < dominanceNodes.size(); ++i) {
+                nodeIndexMap[dominanceNodes[i].object_id] = i;
+            }
+            for (auto& node : dominanceNodes) {
+                if (node.parent_id != 0) {
+                    auto it = nodeIndexMap.find(node.parent_id);
+                    if (it != nodeIndexMap.end()) {
+                        dominanceNodes[it->second].children.push_back(node.object_id);
+                    }
+                }
+            }
+        }
+
         // Build string table
         for (auto& s : hprofStrings) {
             stringTable[s.first] = s.second;

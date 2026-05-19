@@ -287,7 +287,13 @@ std::string HttpHandlers::handleDominanceTreeClustered(const HttpContext& ctx) {
     };
 
     if (rootIds.size() > 1) {
+        uint64_t virtualRootId = 1;
+        for (uint64_t id : rootIds) {
+            if (id > virtualRootId) virtualRootId = id + 1;
+        }
+
         ClusteredNode virtualRoot;
+        virtualRoot.object_ids.push_back(virtualRootId);
         virtualRoot.class_name = "Root";
         virtualRoot.depth = 0;
         virtualRoot.parent_id = 0;
@@ -303,7 +309,7 @@ std::string HttpHandlers::handleDominanceTreeClustered(const HttpContext& ctx) {
 
         for (auto& [className, classRootIds] : rootByClass) {
             if (classRootIds.size() == 1) {
-                ClusteredNode child = buildClusteredTree(classRootIds[0], 1, 0);
+                ClusteredNode child = buildClusteredTree(classRootIds[0], 1, virtualRootId);
                 virtualRoot.children.push_back(child);
                 virtualRoot.retained_size += child.retained_size;
                 virtualRoot.shallow_size += child.shallow_size;
@@ -312,19 +318,19 @@ std::string HttpHandlers::handleDominanceTreeClustered(const HttpContext& ctx) {
                 ClusteredNode clusteredChild;
                 clusteredChild.class_name = className;
                 clusteredChild.depth = 1;
-                clusteredChild.parent_id = 0;
+                clusteredChild.parent_id = virtualRootId;
                 clusteredChild.is_clustered = true;
                 clusteredChild.instance_count =
                     static_cast<uint32_t>(classRootIds.size());
 
-                uint64_t clusteredChildId = 0;
+                uint64_t clusteredChildId = classRootIds[0];
+                clusteredChild.object_ids.push_back(clusteredChildId);
                 for (uint64_t rootId : classRootIds) {
-                    ClusteredNode childNode = buildClusteredTree(rootId, 2, 0);
+                    ClusteredNode childNode = buildClusteredTree(rootId, 2, clusteredChildId);
                     clusteredChild.retained_size += childNode.retained_size;
                     clusteredChild.shallow_size += childNode.shallow_size;
-                    clusteredChild.object_ids.push_back(rootId);
-                    if (clusteredChildId == 0) {
-                        clusteredChildId = rootId;
+                    if (rootId != clusteredChildId) {
+                        clusteredChild.object_ids.push_back(rootId);
                     }
                     for (auto& grandChild : childNode.children) {
                         grandChild.parent_id = clusteredChildId;

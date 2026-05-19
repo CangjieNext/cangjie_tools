@@ -297,6 +297,10 @@
         let treeChart = null;
         let treeRootData = null;
         let clusterMode = 'object';
+        let currentSunburstRoot = null;
+        let sunburstRootStack = [];
+        let sunburstClassColors = new Map();
+        let sunburstColorIndex = 0;
 
         // Tab switching
         document.querySelectorAll('.tab').forEach(tab => {
@@ -322,6 +326,7 @@
                 document.getElementById('tree-container').style.display = currentView === 'tree' ? 'block' : 'none';
                 document.getElementById('top10-title').style.display = currentView === 'sunburst' ? 'block' : 'none';
                 document.getElementById('top10-container').style.display = currentView === 'sunburst' ? 'block' : 'none';
+                document.getElementById('cluster-select').style.display = currentView === 'sunburst' ? 'inline-block' : 'none';
 
                 if (currentView === 'sunburst') {
                     dominanceView.style.gridTemplateColumns = '1fr 520px';
@@ -350,11 +355,17 @@
         // Cluster mode select
         document.getElementById('cluster-select').addEventListener('change', (e) => {
             clusterMode = e.target.value;
+            sunburstRootStack = [];
+            sunburstClassColors = new Map();
+            sunburstColorIndex = 0;
             loadDominanceTree();
         });
 
         // Draw sunburst chart from dominance tree
         async function loadDominanceTree() {
+            sunburstRootStack = [];
+            sunburstClassColors = new Map();
+            sunburstColorIndex = 0;
             try {
                 const endpoint = clusterMode === 'type' ? `${API_BASE}/dominance/clustered` : `${API_BASE}/dominance/tree`;
                 const res = await fetch(endpoint);
@@ -381,8 +392,11 @@
                     }
                 });
 
-                // 如果有多个根节点，创建虚拟根
-                if (rootNodes.length > 1) {
+                // Check if there's already a Root node from backend (clustered mode)
+                const existingRoot = rootNodes.find(n => n.class_name === 'Root');
+                if (existingRoot) {
+                    root = existingRoot;
+                } else if (rootNodes.length > 1) {
                     root = {
                         id: 0,
                         class_name: 'Root',
@@ -410,17 +424,31 @@
         }
 
         function drawSunburst(root) {
+            currentSunburstRoot = root;
+
             if (!sunburstChart) {
                 sunburstChart = echarts.init(document.getElementById('sunburst'));
+
+                sunburstChart.on('click', function(params) {
+                    if (params.data.depth === 0) {
+                        if (sunburstRootStack.length > 0) {
+                            var prevRoot = sunburstRootStack.pop();
+                            sunburstClassColors = new Map();
+                            sunburstColorIndex = 0;
+                            drawSunburst(prevRoot);
+                        }
+                    } else if (params.data.children && params.data.children.length > 0) {
+                        sunburstRootStack.push(currentSunburstRoot);
+                        drawSunburst(params.data._originalNode);
+                    }
+                });
             }
 
-            let colorIndex = 0;
-            const classColors = new Map();
             function getColor(name) {
-                if (!classColors.has(name)) {
-                    classColors.set(name, COLOR_PALETTE[colorIndex++ % COLOR_PALETTE.length]);
+                if (!sunburstClassColors.has(name)) {
+                    sunburstClassColors.set(name, COLOR_PALETTE[sunburstColorIndex++ % COLOR_PALETTE.length]);
                 }
-                return classColors.get(name);
+                return sunburstClassColors.get(name);
             }
 
             function convertNode(node, depth) {
@@ -468,11 +496,13 @@
                     borderWidth: 1,
                     textStyle: { color: '#eee', fontSize: 12 },
                     padding: [10, 14],
+                    confine: true,
+                    extraCssText: 'max-width: 400px; white-space: normal;',
                     formatter: function(params) {
                         var d = params.data;
                         var instanceInfo = d.instance_count > 1 ?
                             '<div>Instances: <span style="color:#ff9f43;">' + d.instance_count + '</span></div>' : '';
-                        return '<div style="font-weight:bold;color:#e94560;margin-bottom:4px;">' + (d.class_name || 'Object') + '</div>' +
+                        return '<div style="font-weight:bold;color:#e94560;margin-bottom:4px;word-break:break-all;">' + (d.class_name || 'Object') + '</div>' +
                                instanceInfo +
                                '<div>Retained: <span style="color:#00d9ff;">' + formatBytes(d.retained_size || 0) + '</span></div>' +
                                '<div>Shallow: <span style="color:#00d9ff;">' + formatBytes(d.shallow_size || 0) + '</span></div>';
@@ -492,7 +522,7 @@
                         fontSize: 10,
                         rotate: 'radial',
                         formatter: function(params) {
-                            return truncate(params.name, 10);
+                            return truncate(params.name, 15);
                         }
                     },
                     levels: [
@@ -505,8 +535,8 @@
 
             var legend = document.getElementById('sunburst-legend');
             legend.innerHTML = '';
-            classColors.forEach(function(color, name) {
-                legend.innerHTML += '<div class="legend-item"><div class="legend-color" style="background:' + color + '"></div>' + name + '</div>';
+            sunburstClassColors.forEach(function(color, name) {
+                legend.innerHTML += '<div class="legend-item"><div class="legend-color" style="background:' + color + '"></div><span title="' + name + '">' + truncate(name, 15) + '</span></div>';
             });
         }
 
