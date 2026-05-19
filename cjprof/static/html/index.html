@@ -253,11 +253,15 @@
         <!-- Dominance Tree View -->
         <div id="dominance-view" class="card" style="display: grid; grid-template-columns: 1fr 520px; gap: 15px 20px;">
             <h2 style="margin:0; align-self: center;">Top Objects by Retained Size</h2>
-            <h2 style="margin:0; color:#e94560; font-size:1.17em; align-self: center;">Top 10 Objects</h2>
+            <h2 id="top10-title" style="margin:0; color:#e94560; font-size:1.17em; align-self: center;">Top 10 Objects</h2>
             <div style="align-self: start; min-width: 0;">
                 <div style="margin-bottom:15px;">
                     <button class="view-btn active" data-view="sunburst">Sunburst</button>
                     <button class="view-btn" data-view="tree">Tree</button>
+                    <select id="cluster-select" style="margin-left:15px;padding:5px 10px;background:#16213e;color:#eee;border:1px solid #e94560;border-radius:4px;cursor:pointer;">
+                        <option value="object" selected>object</option>
+                        <option value="type">type</option>
+                    </select>
                 </div>
                 <div id="sunburst-container">
                     <div id="sunburst"></div>
@@ -267,7 +271,7 @@
                 </div>
                 <div class="sunburst-legend" id="sunburst-legend"></div>
             </div>
-            <div class="dominance-table" style="align-self: start;">
+            <div id="top10-container" class="dominance-table" style="align-self: start;">
                 <div id="top10-table"></div>
             </div>
         </div>
@@ -292,6 +296,7 @@
         let sunburstChart = null;
         let treeChart = null;
         let treeRootData = null;
+        let clusterMode = 'object';
 
         // Tab switching
         document.querySelectorAll('.tab').forEach(tab => {
@@ -312,8 +317,17 @@
                 btn.classList.add('active');
                 currentView = btn.dataset.view;
 
+                const dominanceView = document.getElementById('dominance-view');
                 document.getElementById('sunburst-container').style.display = currentView === 'sunburst' ? 'flex' : 'none';
                 document.getElementById('tree-container').style.display = currentView === 'tree' ? 'block' : 'none';
+                document.getElementById('top10-title').style.display = currentView === 'sunburst' ? 'block' : 'none';
+                document.getElementById('top10-container').style.display = currentView === 'sunburst' ? 'block' : 'none';
+
+                if (currentView === 'sunburst') {
+                    dominanceView.style.gridTemplateColumns = '1fr 520px';
+                } else {
+                    dominanceView.style.gridTemplateColumns = '1fr';
+                }
 
                 if (currentView === 'sunburst' && sunburstChart) {
                     sunburstChart.resize();
@@ -333,10 +347,17 @@
             });
         });
 
+        // Cluster mode select
+        document.getElementById('cluster-select').addEventListener('change', (e) => {
+            clusterMode = e.target.value;
+            loadDominanceTree();
+        });
+
         // Draw sunburst chart from dominance tree
         async function loadDominanceTree() {
             try {
-                const res = await fetch(`${API_BASE}/dominance/tree`);
+                const endpoint = clusterMode === 'type' ? `${API_BASE}/dominance/clustered` : `${API_BASE}/dominance/tree`;
+                const res = await fetch(endpoint);
                 const data = await res.json();
 
                 if (!data.nodes || data.nodes.length === 0) {
@@ -404,7 +425,8 @@
 
             function convertNode(node, depth) {
                 depth = depth || 0;
-                const isLeaf = !node.children || node.children.length === 0;
+                const MAX_DEPTH = 5;
+                const isLeaf = !node.children || node.children.length === 0 || depth >= MAX_DEPTH;
                 const name = node.class_name || `obj${node.id}`;
                 const color = depth === 0 ? '#e94560' : getColor(name);
 
@@ -414,6 +436,8 @@
                     retained_size: node.retained_size,
                     shallow_size: node.shallow_size,
                     depth: depth,
+                    instance_count: node.instance_count || 1,
+                    is_clustered: node.is_clustered || false,
                     itemStyle: {
                         color: color,
                         opacity: depth === 0 ? 1 : 0.85,
@@ -446,7 +470,10 @@
                     padding: [10, 14],
                     formatter: function(params) {
                         var d = params.data;
+                        var instanceInfo = d.instance_count > 1 ?
+                            '<div>Instances: <span style="color:#ff9f43;">' + d.instance_count + '</span></div>' : '';
                         return '<div style="font-weight:bold;color:#e94560;margin-bottom:4px;">' + (d.class_name || 'Object') + '</div>' +
+                               instanceInfo +
                                '<div>Retained: <span style="color:#00d9ff;">' + formatBytes(d.retained_size || 0) + '</span></div>' +
                                '<div>Shallow: <span style="color:#00d9ff;">' + formatBytes(d.shallow_size || 0) + '</span></div>';
                     }

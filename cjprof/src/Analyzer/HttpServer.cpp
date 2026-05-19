@@ -47,6 +47,10 @@ void HttpServer::start() {
         res.set_content(HttpHandlers::handleDominanceTree(*ctx), "application/json");
     });
 
+    svr->Get("/api/dominance/clustered", [ctx](const httplib::Request&, httplib::Response& res) {
+        res.set_content(HttpHandlers::handleDominanceTreeClustered(*ctx), "application/json");
+    });
+
     svr->Get("/api/dominance/children", [ctx](const httplib::Request& req, httplib::Response& res) {
         uint64_t parentId = 0;
         auto it = req.params.find("parent_id");

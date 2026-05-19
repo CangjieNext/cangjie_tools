@@ -145,6 +145,209 @@ std::string HttpHandlers::handleDominanceTree(const HttpContext& ctx) {
     return result.dump();
 }
 
+std::string HttpHandlers::handleDominanceTreeClustered(const HttpContext& ctx) {
+    LOG_DEBUG("Handling /api/dominance/clustered");
+
+    json result;
+    result["nodes"] = json::array();
+
+    if (!ctx.dominanceNodes || !ctx.objects) {
+        return result.dump();
+    }
+
+    std::unordered_map<uint64_t, size_t> nodeIndexMap;
+    for (size_t i = 0; i < ctx.dominanceNodes->size(); i++) {
+        nodeIndexMap[ctx.dominanceNodes->at(i).object_id] = i;
+    }
+
+    std::unordered_map<uint64_t, std::string> objectClassNames;
+    for (const auto& obj : *ctx.objects) {
+        objectClassNames[obj.object_id] = obj.name.empty() ? "unknown" : obj.name;
+    }
+
+    struct ClusteredNode {
+        std::string class_name;
+        uint64_t retained_size = 0;
+        uint64_t shallow_size = 0;
+        uint32_t instance_count = 0;
+        uint32_t depth = 0;
+        uint64_t parent_id = 0;
+        bool is_clustered = true;
+        std::vector<ClusteredNode> children;
+        std::vector<uint64_t> object_ids;
+    };
+
+    std::function<ClusteredNode(uint64_t, uint32_t, uint64_t)> buildClusteredTree;
+    buildClusteredTree = [&](uint64_t objectId, uint32_t depth,
+                            uint64_t parentId) -> ClusteredNode {
+        auto it = nodeIndexMap.find(objectId);
+        if (it == nodeIndexMap.end()) {
+            return {"unknown", 0, 0, 1, depth, parentId, true, {}, {objectId}};
+        }
+
+        const auto& node = ctx.dominanceNodes->at(it->second);
+        std::string className = objectClassNames.count(objectId)
+                                    ? objectClassNames[objectId]
+                                    : "unknown";
+
+        ClusteredNode result;
+        result.class_name = className;
+        result.depth = depth;
+        result.parent_id = parentId;
+        result.is_clustered = true;
+        result.object_ids.push_back(objectId);
+
+        std::unordered_map<std::string, std::vector<uint64_t>> childrenByClass;
+        for (uint64_t childId : node.children) {
+            auto childIt = nodeIndexMap.find(childId);
+            if (childIt == nodeIndexMap.end())
+                continue;
+            std::string childClass = objectClassNames.count(childId)
+                                         ? objectClassNames[childId]
+                                         : "unknown";
+            childrenByClass[childClass].push_back(childId);
+        }
+
+        for (auto& [childClass, childIds] : childrenByClass) {
+            if (childIds.size() == 1) {
+                ClusteredNode childNode =
+                    buildClusteredTree(childIds[0], depth + 1, objectId);
+                result.children.push_back(childNode);
+                result.retained_size += childNode.retained_size;
+                result.shallow_size += childNode.shallow_size;
+                result.instance_count += childNode.instance_count;
+            } else {
+                ClusteredNode clusteredChild;
+                clusteredChild.class_name = childClass;
+                clusteredChild.depth = depth + 1;
+                clusteredChild.parent_id = objectId;
+                clusteredChild.is_clustered = true;
+                clusteredChild.instance_count = 0;
+
+                uint64_t clusteredChildId = 0;
+                for (uint64_t childId : childIds) {
+                    ClusteredNode childNode =
+                        buildClusteredTree(childId, depth + 2, objectId);
+                    clusteredChild.retained_size += childNode.retained_size;
+                    clusteredChild.shallow_size += childNode.shallow_size;
+                    clusteredChild.instance_count += childNode.instance_count;
+                    clusteredChild.object_ids.push_back(childId);
+                    if (clusteredChildId == 0) {
+                        clusteredChildId = childId;
+                    }
+                    for (auto& grandChild : childNode.children) {
+                        grandChild.parent_id = clusteredChildId;
+                        clusteredChild.children.push_back(grandChild);
+                    }
+                }
+
+                result.children.push_back(clusteredChild);
+                result.retained_size += clusteredChild.retained_size;
+                result.shallow_size += clusteredChild.shallow_size;
+                result.instance_count += clusteredChild.instance_count;
+            }
+        }
+
+        if (result.instance_count == 0) {
+            result.instance_count = 1;
+        }
+        if (result.retained_size == 0) {
+            result.retained_size = node.retained_size;
+            result.shallow_size = node.shallow_size;
+        }
+
+        return result;
+    };
+
+    std::vector<uint64_t> rootIds;
+    for (const auto& node : *ctx.dominanceNodes) {
+        if (node.parent_id == 0 ||
+            nodeIndexMap.find(node.parent_id) == nodeIndexMap.end()) {
+            rootIds.push_back(node.object_id);
+        }
+    }
+
+    std::function<void(const ClusteredNode&, json&)> serializeClusteredNode;
+    serializeClusteredNode = [&](const ClusteredNode& node, json& arr) {
+        json j;
+        j["id"] = node.object_ids.empty() ? 0 : node.object_ids[0];
+        j["class_name"] = node.class_name;
+        j["retained_size"] = node.retained_size;
+        j["shallow_size"] = node.shallow_size;
+        j["depth"] = node.depth;
+        j["parent_id"] = node.parent_id;
+        j["instance_count"] = node.instance_count;
+        j["is_clustered"] = node.is_clustered;
+        j["is_cutoff"] = false;
+        arr.push_back(j);
+
+        for (const auto& child : node.children) {
+            serializeClusteredNode(child, arr);
+        }
+    };
+
+    if (rootIds.size() > 1) {
+        ClusteredNode virtualRoot;
+        virtualRoot.class_name = "Root";
+        virtualRoot.depth = 0;
+        virtualRoot.parent_id = 0;
+        virtualRoot.is_clustered = true;
+        virtualRoot.instance_count = 0;
+
+        std::unordered_map<std::string, std::vector<uint64_t>> rootByClass;
+        for (uint64_t rootId : rootIds) {
+            std::string className =
+                objectClassNames.count(rootId) ? objectClassNames[rootId] : "unknown";
+            rootByClass[className].push_back(rootId);
+        }
+
+        for (auto& [className, classRootIds] : rootByClass) {
+            if (classRootIds.size() == 1) {
+                ClusteredNode child = buildClusteredTree(classRootIds[0], 1, 0);
+                virtualRoot.children.push_back(child);
+                virtualRoot.retained_size += child.retained_size;
+                virtualRoot.shallow_size += child.shallow_size;
+                virtualRoot.instance_count += child.instance_count;
+            } else {
+                ClusteredNode clusteredChild;
+                clusteredChild.class_name = className;
+                clusteredChild.depth = 1;
+                clusteredChild.parent_id = 0;
+                clusteredChild.is_clustered = true;
+                clusteredChild.instance_count =
+                    static_cast<uint32_t>(classRootIds.size());
+
+                uint64_t clusteredChildId = 0;
+                for (uint64_t rootId : classRootIds) {
+                    ClusteredNode childNode = buildClusteredTree(rootId, 2, 0);
+                    clusteredChild.retained_size += childNode.retained_size;
+                    clusteredChild.shallow_size += childNode.shallow_size;
+                    clusteredChild.object_ids.push_back(rootId);
+                    if (clusteredChildId == 0) {
+                        clusteredChildId = rootId;
+                    }
+                    for (auto& grandChild : childNode.children) {
+                        grandChild.parent_id = clusteredChildId;
+                        clusteredChild.children.push_back(grandChild);
+                    }
+                }
+
+                virtualRoot.children.push_back(clusteredChild);
+                virtualRoot.retained_size += clusteredChild.retained_size;
+                virtualRoot.shallow_size += clusteredChild.shallow_size;
+                virtualRoot.instance_count += clusteredChild.instance_count;
+            }
+        }
+
+        serializeClusteredNode(virtualRoot, result["nodes"]);
+    } else if (rootIds.size() == 1) {
+        ClusteredNode root = buildClusteredTree(rootIds[0], 0, 0);
+        serializeClusteredNode(root, result["nodes"]);
+    }
+
+    return result.dump();
+}
+
 std::string HttpHandlers::handleDominanceChildren(const HttpContext& ctx, uint64_t parentId) {
     LOG_DEBUG("Handling /api/dominance/children?parent_id={}", parentId);
 

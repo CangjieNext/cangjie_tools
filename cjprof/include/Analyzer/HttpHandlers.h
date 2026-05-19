@@ -11,6 +11,7 @@ class HttpHandlers {
 public:
     static std::string handleSnapshot(const HttpContext& ctx);
     static std::string handleDominanceTree(const HttpContext& ctx);
+    static std::string handleDominanceTreeClustered(const HttpContext& ctx);
     static std::string handleDominanceChildren(const HttpContext& ctx, uint64_t parentId);
     static std::string handleDominanceTop10(const HttpContext& ctx);
     static std::string handleFragmentOverview(const HttpContext& ctx);
