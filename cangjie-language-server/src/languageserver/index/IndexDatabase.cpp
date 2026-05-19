@@ -9,8 +9,8 @@
 #include "../sql/wrapper/Connection.h"
 #include "../sql/wrapper/Memory.h"
 #include "../common/Utils.h"
-#include "IndexDatabase.h"
 #include "Symbol.h"
+#include "IndexDatabase.h"
 
 namespace ark {
 namespace lsp {
