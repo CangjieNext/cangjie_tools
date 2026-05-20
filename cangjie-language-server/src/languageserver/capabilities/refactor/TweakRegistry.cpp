@@ -8,11 +8,13 @@
 #include "../../logger/Logger.h"
 #include "Tweak.h"
 #include "tweaks/ExtractFunction.h"
-#include "tweaks/IntroduceField.h"
-#include "tweaks/IntroduceParameter.h"
 #include "tweaks/ExtractVariable.h"
 #include "tweaks/IntroduceConstant.h"
+#include "tweaks/InlineFunction.h"
+#include "tweaks/InlineVariable.h"
 #include "tweaks/ExtractInterface.h"
+#include "tweaks/IntroduceField.h"
+#include "tweaks/IntroduceParameter.h"
 
 namespace ark {
 #define REGISTER_TWEAK(TweakClass) \
@@ -30,6 +32,8 @@ namespace ark {
 REGISTER_TWEAK(ExtractFunction)
 REGISTER_TWEAK(ExtractVariable)
 REGISTER_TWEAK(IntroduceConstant)
+REGISTER_TWEAK(InlineFunction)
+REGISTER_TWEAK(InlineVariable)
 REGISTER_TWEAK(ExtractInterface)
 REGISTER_TWEAK(IntroduceField)
 REGISTER_TWEAK(IntroduceParameter)
