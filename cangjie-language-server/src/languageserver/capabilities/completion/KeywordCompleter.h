@@ -7,8 +7,8 @@
 #ifndef LSPSERVER_KEYWORDCOMPLETER_H
 #define LSPSERVER_KEYWORDCOMPLETER_H
 
-#include "CompletionImpl.h"
 #include "cangjie/Lex/AnnotationToken.h"
+#include "CompletionImpl.h"
 
 namespace ark {
 

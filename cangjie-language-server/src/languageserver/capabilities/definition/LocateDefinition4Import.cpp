@@ -8,15 +8,6 @@
 
 namespace {
 using namespace ark;
-std::string GetPackagePrefixWithPaths(const std::vector<std::string> &prefixPaths)
-{
-    std::stringstream ss;
-    for (const auto &prefix : prefixPaths) {
-        ss << prefix << ".";
-    }
-    return ss.str().substr(0, ss.str().size() - 1);
-};
-
 Ptr<Decl> ProcSingleImport(
     const ArkAST &ast, File *fileNode,
     ImportContent &importContent,

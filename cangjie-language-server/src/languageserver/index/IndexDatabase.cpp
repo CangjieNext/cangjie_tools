@@ -8,9 +8,9 @@
 #include "../sql/wrapper/Configure.h"
 #include "../sql/wrapper/Connection.h"
 #include "../sql/wrapper/Memory.h"
-#include "../common/Utils.h"
 #include "Symbol.h"
 #include "IndexDatabase.h"
+#include "../common/Utils.h"
 
 namespace ark {
 namespace lsp {
@@ -81,6 +81,19 @@ uint64_t GetIDFromArray(IDArray info)
         result |= (uint16_t)info[info.size() - I - 1];
     }
     return result;
+}
+
+std::string BuildMultiInsertSql(std::string_view sqlHead, size_t valueCount, std::string_view valueSql)
+{
+    std::ostringstream oss;
+    oss << sqlHead;
+    for (size_t i = 0; i < valueCount; i++) {
+        if (i > 0) {
+            oss << ",";
+        }
+        oss << valueSql;
+    }
+    return oss.str();
 }
 
 void PopulateSymbol(const sqldb::Result &row, Symbol &sym)
@@ -1594,28 +1607,23 @@ dberr_no IndexDatabase::DBUpdate::InsertReExportSymbol(const std::string &curPkg
 
 void IndexDatabase::DBUpdate::DealReExportSymbols(const std::vector<std::tuple<std::string, IDArray, ReExportSymbol>> &reExportSyms)
 {
+    auto bindReExportSymbol = [this](sqldb::Statement &stmt, const auto &info, int &index) {
+        const auto &curPkgName = std::get<0>(info);
+        const auto &idArray = std::get<1>(info);
+        const auto &reExportSym = std::get<2>(info);
+        const auto &bind = sqldb::with(curPkgName, idArray, reExportSym.name,
+            reExportSym.modifier, reExportSym.kind, reExportSym.signature);
+        BindValue(bind, stmt.GetStmt(), index);
+    };
     size_t maxMultiInsertIndex = 0;
     if (reExportSyms.size() >= MUTI_INSERT_MAX_SIZE) {
         maxMultiInsertIndex = reExportSyms.size() - (reExportSyms.size() % MUTI_INSERT_MAX_SIZE);
-        std::ostringstream oss;
-        oss << sql::MultiInsertReExportSymbolsHead;
-        bool isNeedCommon = false;
-        for (size_t i = 0; i < MUTI_INSERT_MAX_SIZE; i++) {
-            if (isNeedCommon) {
-                oss << ",";
-            }
-            oss << sql::MultiInsertReExportSymbolsValue;
-            isNeedCommon = true;
-        }
+        auto sqlText = BuildMultiInsertSql(
+            sql::MultiInsertReExportSymbolsHead, MUTI_INSERT_MAX_SIZE, sql::MultiInsertReExportSymbolsValue);
         int Index = 0;
-        sqldb::Statement &stmt = db.Use(oss.str(), false);
+        sqldb::Statement &stmt = db.Use(sqlText, false);
         for (size_t i = 0; i < maxMultiInsertIndex;) {
-            const auto &curPkgName = std::get<0>(reExportSyms[i]);
-            const auto &idArray = std::get<1>(reExportSyms[i]);
-            const auto &reExportSym = std::get<2>(reExportSyms[i]);
-            const auto &bind = sqldb::with(curPkgName, idArray, reExportSym.name,
-                reExportSym.modifier, reExportSym.kind, reExportSym.signature);
-            BindValue(bind, stmt.GetStmt(), Index);
+            bindReExportSymbol(stmt, reExportSyms[i], Index);
             if (++i % MUTI_INSERT_MAX_SIZE == 0) {
                 Index = 0;
                 stmt.execute();
@@ -1623,25 +1631,12 @@ void IndexDatabase::DBUpdate::DealReExportSymbols(const std::vector<std::tuple<s
         }
     }
 
-    std::ostringstream oss;
-    oss << sql::MultiInsertReExportSymbolsHead;
-    bool isNeedCommon = false;
-    for (size_t i = 0; i < reExportSyms.size() - maxMultiInsertIndex; i++) {
-        if (isNeedCommon) {
-            oss << ",";
-        }
-        oss << sql::MultiInsertReExportSymbolsValue;
-        isNeedCommon = true;
-    }
-    sqldb::Statement &stmt = db.Use(oss.str(), false);
+    auto sqlText = BuildMultiInsertSql(sql::MultiInsertReExportSymbolsHead,
+        reExportSyms.size() - maxMultiInsertIndex, sql::MultiInsertReExportSymbolsValue);
+    sqldb::Statement &stmt = db.Use(sqlText, false);
     int Index = 0;
     for (size_t j = maxMultiInsertIndex; j < reExportSyms.size(); j++) {
-        const auto &curPkgName = std::get<0>(reExportSyms[j]);
-        const auto &idArray = std::get<1>(reExportSyms[j]);
-        const auto &reExportSym = std::get<2>(reExportSyms[j]);
-        const auto &bind = sqldb::with(curPkgName, idArray, reExportSym.name,
-            reExportSym.modifier, reExportSym.kind, reExportSym.signature);
-        BindValue(bind, stmt.GetStmt(), Index);
+        bindReExportSymbol(stmt, reExportSyms[j], Index);
     }
     stmt.execute();
 }

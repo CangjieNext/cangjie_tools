@@ -50,9 +50,80 @@ auto CollectImportIdMap(const Ptr<File> &file)
     }
     return idToFullIdMap;
 }
+
+std::string GetFullPrefix(const ark::ArkAST &input, const Position &pos, const std::string &prefix)
+{
+    std::string name = prefix;
+    for (const auto &im : input.file->imports) {
+        if (pos > im->end) {
+            continue;
+        }
+        bool multiImport = im->content.kind == Cangjie::AST::ImportKind::IMPORT_MULTI &&
+            im->content.hasDoubleColon && pos > im->content.leftCurlPos;
+        if (multiImport && !im->content.prefixPaths.empty()) {
+            name = im->content.prefixPaths[0] + "::" + prefix;
+        }
+        return name;
+    }
+    return name;
+}
 }
 
 namespace ark {
+namespace {
+void CompleteCjoLibraryPackages(const std::string &prefix, CompletionEnv &env)
+{
+    auto moduleName = SplitFullPackage(prefix).first;
+    for (const auto &iter : Cangjie::LSPCompilerInstance::cjoLibraryMap) {
+        if (moduleName != iter.first) {
+            continue;
+        }
+        for (const auto &fullPkgName : iter.second) {
+            env.DotPkgName(fullPkgName, prefix);
+        }
+    }
+}
+
+void CompleteUserCjoPackages(const std::string &prefix, CompletionEnv &env)
+{
+    auto curModule = SplitFullPackage(env.curPkgName).first;
+    for (const auto &iter : Cangjie::LSPCompilerInstance::usrCjoFileCacheMap) {
+        if (curModule != iter.first) {
+            continue;
+        }
+        for (const auto &package : iter.second) {
+            env.DotPkgName(package.first, prefix);
+        }
+    }
+}
+
+void CompleteImportedPackageMembers(const ArkAST &input, const Position &pos, const std::string &prefix,
+                                    CompletionEnv &env, ImportManager *importManager)
+{
+    auto srcPkgName = input.file->curPackage->fullPackageName;
+    auto idToFullIdMap = ::CollectImportIdMap(input.file->curFile);
+    auto fullImportId = GetFullPrefix(input, pos, prefix);
+    if (idToFullIdMap.find(prefix) != idToFullIdMap.end()) {
+        fullImportId = idToFullIdMap[prefix];
+    }
+    auto targetPkg = importManager->GetPackageDecl(fullImportId);
+    std::string curModule = SplitFullPackage(srcPkgName).first;
+    if (!targetPkg || CompilerCangjieProject::GetInstance()->IsCombinedSym(curModule, srcPkgName, fullImportId) ||
+        !CompilerCangjieProject::GetInstance()->IsVisibleForPackage(srcPkgName, targetPkg->fullPackageName)) {
+        return;
+    }
+    auto members = importManager->GetPackageMembers(srcPkgName, targetPkg->fullPackageName);
+    for (const auto &[alias, decls] : members) {
+        for (auto &decl: decls) {
+            auto rawId = decl->identifier;
+            decl->identifier = alias;
+            env.InvokedAccessible(decl.get(), false, false, CompletionImpl::IsPreamble(input, pos));
+            decl->identifier = rawId;
+        }
+    }
+}
+} // namespace
+
 void DotCompleterByParse::Complete(const ArkAST &input,
                                    const Position &pos,
                                    const std::string &prefix)
@@ -68,50 +139,12 @@ void DotCompleterByParse::Complete(const ArkAST &input,
     env.SetSyscap(SplitFullPackage(env.curPkgName).first);
     // Complete SubPackage, include sourece dependency and binary dependency.
     // eg: import std.[sub_pkg].[sub_pkg]...
-    for (const auto &iter : Cangjie::LSPCompilerInstance::cjoLibraryMap) {
-        auto moduleName = SplitFullPackage(prefix).first;
-        if (moduleName != iter.first) {
-            continue;
-        }
-        for (const auto &fullPkgName : iter.second) {
-            env.DotPkgName(fullPkgName, prefix);
-        }
-    }
-
-    for (const auto &iter : Cangjie::LSPCompilerInstance::usrCjoFileCacheMap) {
-        auto curModule = SplitFullPackage(env.curPkgName).first;
-        if (curModule != iter.first) {
-            continue;
-        }
-        for (const auto &package : iter.second) {
-            env.DotPkgName(package.first, prefix);
-        }
-    }
+    CompleteCjoLibraryPackages(prefix, env);
+    CompleteUserCjoPackages(prefix, env);
 
     // Complete accessible top-level declaration in import sepc
     // eg: import std.os.[top-level declaration]
-    auto srcPkgName = input.file->curPackage->fullPackageName;
-    auto idToFullIdMap = ::CollectImportIdMap(input.file->curFile);
-    auto fullImportId = GetFullPrefix(input, pos, prefix);
-
-    if (idToFullIdMap.find(prefix) != idToFullIdMap.end()) {
-        fullImportId = idToFullIdMap[prefix];
-    }
-    auto targetPkg = importManager->GetPackageDecl(fullImportId);
-    // filter root pkg symbols if cur module is combined
-    std::string curModule = SplitFullPackage(srcPkgName).first;
-    if (targetPkg && !CompilerCangjieProject::GetInstance()->IsCombinedSym(curModule, srcPkgName, fullImportId) &&
-        CompilerCangjieProject::GetInstance()->IsVisibleForPackage(srcPkgName, targetPkg->fullPackageName)) {
-        auto members = importManager->GetPackageMembers(srcPkgName, targetPkg->fullPackageName);
-        for (const auto &[alias, decls] : members) {
-            for (auto &decl: decls) {
-                auto rawId = decl->identifier;
-                decl->identifier = alias;
-                env.InvokedAccessible(decl.get(), false, false, CompletionImpl::IsPreamble(input, pos));
-                decl->identifier = rawId;
-            }
-        }
-    }
+    CompleteImportedPackageMembers(input, pos, prefix, env, importManager);
 
     // for packageName of Qualified_Type Node
     if (!prefix.empty()) {

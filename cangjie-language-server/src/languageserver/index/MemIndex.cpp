@@ -28,6 +28,14 @@ PackageRelation GetPackageRelation(const std::string &srcFullPackageName,
     return srcRoot == targetRoot ? PackageRelation::SAME_MODULE : PackageRelation::NONE;
 }
 
+bool IsAccessibleByRelation(const PackageRelation &relation, const Modifier &modifier)
+{
+    return modifier == Modifier::PUBLIC ||
+        (relation == PackageRelation::CHILD && (modifier == Modifier::INTERNAL || modifier == Modifier::PROTECTED)) ||
+        (relation == PackageRelation::SAME_MODULE && modifier == Modifier::PROTECTED) ||
+        (relation == PackageRelation::PARENT && modifier == Modifier::PROTECTED);
+}
+
 void MemIndex::FuzzyFind(const FuzzyFindRequest &req, std::function<void(const Symbol &)> callback) const
 {
     for (const auto &pkgSyms : pkgSymsMap) {
@@ -323,17 +331,6 @@ void MemIndex::FindExtendSymsOnCompletionBatch(
             symMap.insert_or_assign(sym.id, &sym);
         }
 
-        auto checkAccessible = [&relation](const Modifier& modifier) -> bool {
-            bool isAccessible =
-                modifier == Modifier::PUBLIC
-                || (relation == PackageRelation::CHILD && (modifier == Modifier::INTERNAL
-                                                        || modifier == Modifier::PROTECTED))
-                || (relation == PackageRelation::SAME_MODULE &&
-                    modifier == Modifier::PROTECTED)
-                || (relation == PackageRelation::PARENT && modifier == Modifier::PROTECTED);
-            return isAccessible;
-        };
-
         auto handleExtendItem = [&] (const std::vector<ExtendItem> &extendItem) {
             for (const auto& symbol : extendItem) {
                 if (symbol.id == INVALID_SYMBOL_ID || symbol.isStatic != filterStatic ||
@@ -344,7 +341,8 @@ void MemIndex::FindExtendSymsOnCompletionBatch(
                 if (!sym || !sym->isCjoSym && !curModuleDeps.count(sym->curModule)) {
                     continue;
                 }
-                if (!checkAccessible(symbol.modifier) || !checkAccessible(sym->modifier)) {
+                if (!IsAccessibleByRelation(relation, symbol.modifier) ||
+                    !IsAccessibleByRelation(relation, sym->modifier)) {
                     continue;
                 }
                 for (const auto &completionItem : sym->completionItems) {
