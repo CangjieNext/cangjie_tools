@@ -1592,30 +1592,41 @@ dberr_no IndexDatabase::DBUpdate::InsertReExportSymbol(const std::string &curPkg
     return true;
 }
 
+std::string BuildMultiInsertReExportSymbolsSql(size_t size)
+{
+    std::ostringstream oss;
+    oss << sql::MultiInsertReExportSymbolsHead;
+    bool isNeedCommon = false;
+    for (size_t i = 0; i < size; i++) {
+        if (isNeedCommon) {
+            oss << ",";
+        }
+        oss << sql::MultiInsertReExportSymbolsValue;
+        isNeedCommon = true;
+    }
+    return oss.str();
+}
+
+void BindReExportSymbol(sqldb::Statement &stmt,
+                        const std::tuple<std::string, IDArray, ReExportSymbol> &reExportSymInfo, int &index)
+{
+    const auto &curPkgName = std::get<0>(reExportSymInfo);
+    const auto &idArray = std::get<1>(reExportSymInfo);
+    const auto &reExportSym = std::get<2>(reExportSymInfo);
+    const auto &bind = sqldb::with(curPkgName, idArray, reExportSym.name,
+        reExportSym.modifier, reExportSym.kind, reExportSym.signature);
+    BindValue(bind, stmt.GetStmt(), index);
+}
+
 void IndexDatabase::DBUpdate::DealReExportSymbols(const std::vector<std::tuple<std::string, IDArray, ReExportSymbol>> &reExportSyms)
 {
     size_t maxMultiInsertIndex = 0;
     if (reExportSyms.size() >= MUTI_INSERT_MAX_SIZE) {
         maxMultiInsertIndex = reExportSyms.size() - (reExportSyms.size() % MUTI_INSERT_MAX_SIZE);
-        std::ostringstream oss;
-        oss << sql::MultiInsertReExportSymbolsHead;
-        bool isNeedCommon = false;
-        for (size_t i = 0; i < MUTI_INSERT_MAX_SIZE; i++) {
-            if (isNeedCommon) {
-                oss << ",";
-            }
-            oss << sql::MultiInsertReExportSymbolsValue;
-            isNeedCommon = true;
-        }
         int Index = 0;
-        sqldb::Statement &stmt = db.Use(oss.str(), false);
+        sqldb::Statement &stmt = db.Use(BuildMultiInsertReExportSymbolsSql(MUTI_INSERT_MAX_SIZE), false);
         for (size_t i = 0; i < maxMultiInsertIndex;) {
-            const auto &curPkgName = std::get<0>(reExportSyms[i]);
-            const auto &idArray = std::get<1>(reExportSyms[i]);
-            const auto &reExportSym = std::get<2>(reExportSyms[i]);
-            const auto &bind = sqldb::with(curPkgName, idArray, reExportSym.name,
-                reExportSym.modifier, reExportSym.kind, reExportSym.signature);
-            BindValue(bind, stmt.GetStmt(), Index);
+            BindReExportSymbol(stmt, reExportSyms[i], Index);
             if (++i % MUTI_INSERT_MAX_SIZE == 0) {
                 Index = 0;
                 stmt.execute();
@@ -1623,25 +1634,11 @@ void IndexDatabase::DBUpdate::DealReExportSymbols(const std::vector<std::tuple<s
         }
     }
 
-    std::ostringstream oss;
-    oss << sql::MultiInsertReExportSymbolsHead;
-    bool isNeedCommon = false;
-    for (size_t i = 0; i < reExportSyms.size() - maxMultiInsertIndex; i++) {
-        if (isNeedCommon) {
-            oss << ",";
-        }
-        oss << sql::MultiInsertReExportSymbolsValue;
-        isNeedCommon = true;
-    }
-    sqldb::Statement &stmt = db.Use(oss.str(), false);
+    sqldb::Statement &stmt =
+        db.Use(BuildMultiInsertReExportSymbolsSql(reExportSyms.size() - maxMultiInsertIndex), false);
     int Index = 0;
     for (size_t j = maxMultiInsertIndex; j < reExportSyms.size(); j++) {
-        const auto &curPkgName = std::get<0>(reExportSyms[j]);
-        const auto &idArray = std::get<1>(reExportSyms[j]);
-        const auto &reExportSym = std::get<2>(reExportSyms[j]);
-        const auto &bind = sqldb::with(curPkgName, idArray, reExportSym.name,
-            reExportSym.modifier, reExportSym.kind, reExportSym.signature);
-        BindValue(bind, stmt.GetStmt(), Index);
+        BindReExportSymbol(stmt, reExportSyms[j], Index);
     }
     stmt.execute();
 }
