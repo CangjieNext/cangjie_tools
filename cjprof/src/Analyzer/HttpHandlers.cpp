@@ -239,9 +239,22 @@ std::string HttpHandlers::handleDominanceTree(const HttpContext& ctx) {
         }
     }
 
+    int cutoffIdCounter = -1;
     for (const auto& entry : parentCutoffCount) {
+        // Only add cutoff if parent exists in results
+        bool parentExists = false;
+        for (const auto& node : result["nodes"]) {
+            if (node["id"].get<uint64_t>() == entry.first) {
+                parentExists = true;
+                break;
+            }
+        }
+        if (!parentExists) {
+            continue;
+        }
+
         result["nodes"].push_back({
-            {"id", 0},
+            {"id", cutoffIdCounter--},
             {"class_name", "... (" + std::to_string(entry.second) + " children)"},
             {"retained_size", 0},
             {"shallow_size", 0},
@@ -251,6 +264,43 @@ std::string HttpHandlers::handleDominanceTree(const HttpContext& ctx) {
             {"is_clustered", false},
             {"is_cutoff", true}
         });
+    }
+
+    // Add virtual root if multiple root nodes
+    std::vector<json*> rootPtrs;
+    for (auto& node : result["nodes"]) {
+        if (node["parent_id"].get<uint64_t>() == 0) {
+            rootPtrs.push_back(&node);
+        }
+    }
+
+    if (rootPtrs.size() > 1) {
+        uint64_t virtualRootId = 1;
+        for (const auto& node : result["nodes"]) {
+            uint64_t id = node["id"].get<uint64_t>();
+            if (id > virtualRootId && id < 1000000) {
+                virtualRootId = id + 1;
+            }
+        }
+
+        uint64_t totalRetained = 0;
+        for (auto* ptr : rootPtrs) {
+            totalRetained += (*ptr)["retained_size"].get<uint64_t>();
+            (*ptr)["parent_id"] = virtualRootId;
+        }
+
+        json virtualRoot = {
+            { "id", virtualRootId },
+            { "class_name", "Root" },
+            { "retained_size", totalRetained },
+            { "shallow_size", 0 },
+            { "depth", 0 },
+            { "parent_id", 0 },
+            { "instance_count", rootPtrs.size() },
+            { "is_clustered", true },
+            { "is_cutoff", false }
+        };
+        result["nodes"].push_back(virtualRoot);
     }
 
     result["cutoff_count"] = cutoffCount;
