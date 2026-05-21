@@ -56,7 +56,7 @@ static void ParseDepth(const char *arg, int &depth)
     char *endPtr = nullptr;
     long pid_long = strtol(arg, &endPtr, 10);
     if (endPtr == arg || *endPtr != '\0' || errno == ERANGE || pid_long <= 0) {
-        fprintf(stderr, "error: Invalid pid '%s'.\n", arg);
+        printf("warning: Invalid depth value, use the default value (%d).\n", depth);
         return;
     }
     int value = static_cast<int>(pid_long);
@@ -243,6 +243,10 @@ bool Heap::DumpHeap()
 
     ifs.seekg(0, ifs.end);
     auto size = ifs.tellg();
+    if (size < 0) {
+        fprintf(stderr, "error: Cannot determine '%s' file size.\n", m_cfg.output.c_str());
+        return false;
+    }
     ifs.seekg(0, ifs.beg);
 
     auto buf = new char[size];

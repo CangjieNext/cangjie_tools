@@ -490,6 +490,9 @@ namespace {
                 item.diagInfo.source = exp["params"]["diagnostics"][i].value("source", "");
                 item.diagInfo.message = exp["params"]["diagnostics"][i].value("message", "");
                 item.diagInfo.category = exp["params"]["diagnostics"][i].value("category", -1);
+                if (exp["params"]["diagnostics"][i].contains("codeActions")) {
+                    item.codeActions = exp["params"]["diagnostics"][i]["codeActions"];
+                }
                 result.push_back(item);
             }
         }
@@ -974,43 +977,6 @@ namespace test::common {
             }
         } else if (resultBase.contains("method") && resultBase["method"] == "textDocument/extendPublishDiagnostics") {
             ChangeMessageUrlOfTextDocument(projectPath, resultBase["params"]["uri"], rootUri, isMultiModule);
-        }
-    }
-
-    void ChangeApplyEditUrlForBaseFile(const std::string &testFilePath, nlohmann::json &resultBase, std::string &rootUri,
-        bool &isMultiModule)
-    {
-        std::ifstream infile;
-        std::string message;
-        std::string caseFolder;
-        infile.open(testFilePath);
-        if (infile.is_open() && infile.good() && !infile.eof()) {
-            char buf[MAX_LEN] = {0};
-            infile.getline(buf, MAX_LEN);
-            message = std::string(buf);
-            if (message.length() == 0) {
-                return;
-            }
-            std::pair<std::string, std::string> caseAndBinaryFolder = GetCaseAndBinaryFolder(message);
-            caseFolder = caseAndBinaryFolder.first;
-            infile.close();
-        }
-        std::string projectPath = SingleInstance::GetInstance()->workPath + "/test/testChr/" + caseFolder;
-        if (resultBase.empty() || !resultBase.contains("params") || !resultBase["params"].contains("edit")) {
-            return;
-        }
-        if (resultBase["params"]["edit"]["changes"].empty()) {
-            return;
-        }
-        if (resultBase["params"]["edit"]["changes"].is_object()) {
-            nlohmann::json newJson;
-            std::map<std::string, nlohmann::json> newMap;
-            for (const auto &[key, value] : resultBase["params"]["edit"]["changes"].items()) {
-                std::string newKey = ChangeMessageUrlOfString(projectPath, key, rootUri, isMultiModule);
-                newMap[newKey] = value;
-            }
-            newJson["params"]["edit"]["changes"] = newMap;
-            resultBase = newJson;
         }
     }
 
@@ -1732,6 +1698,32 @@ namespace test::common {
             }
             if (exp[i].diagInfo.range != act[i].diagInfo.range) {
                 reason = "the expect and actual DiagnosticsInfo " + std::to_string(i) + " diagInfo.range is different";
+                return false;
+            }
+
+            // compare codeActions
+            auto normalizeUri = [](nlohmann::json &actions) {
+                if (actions.is_null()) {
+                    return;
+                }
+                for (auto &action : actions) {
+                    if (action.contains("edit") && action["edit"].contains("changes")) {
+                        auto &changes = action["edit"]["changes"];
+                        nlohmann::json normalized;
+                        for (auto it = changes.begin(); it != changes.end(); ++it) {
+                            normalized["file://URI"] = it.value();
+                        }
+                        changes = normalized;
+                    }
+                }
+            };
+            nlohmann::json expActions = exp[i].codeActions;
+            nlohmann::json actActions = act[i].codeActions;
+            normalizeUri(expActions);
+            normalizeUri(actActions);
+            if (expActions != actActions) {
+                reason = "the expect and actual DiagnosticsInfo " + std::to_string(i) +
+                         " codeActions is different";
                 return false;
             }
         }

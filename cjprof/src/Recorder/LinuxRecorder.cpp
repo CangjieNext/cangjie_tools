@@ -26,13 +26,6 @@
 #include "Demangler/CangjieDemangle.h"
 #include "Symbol/Elf.h"
 #include "Recorder/LinuxRecorder.h"
-#ifdef USE_CXX17_FEATURES
-#include <filesystem>
-namespace fs = std::filesystem;
-#else
-#include <experimental/filesystem>
-namespace fs = std::experimental::filesystem;
-#endif
 
 #ifndef PAGE_SIZE
 #define PAGE_SIZE 0x1000
@@ -159,7 +152,7 @@ void LinuxRecorder::SampleThreadEntry(pid_t pid)
     ioctl(fd, PERF_EVENT_IOC_RESET, 0);
     ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
 
-    std::ofstream ofs(fs::canonical(TMP_SAMPLE_DATA_FILE_PREFIX + std::to_string(pid)).generic_string());
+    std::ofstream ofs(TMP_SAMPLE_DATA_FILE_PREFIX + std::to_string(pid));
     if (!ofs.fail()) {
         auto rinfo = (const perf_event_mmap_page *)addr;
         std::string_view rbuf((const char *)addr + PAGE_SIZE, RBUF_SIZE);
@@ -201,7 +194,13 @@ static std::string GetSymNameByAddr(const std::vector<Symbol> &syms, uint64_t ad
         auto demangle = Cangjie::Demangle((*it).name).GetFullName();
         /* If it is not a Cangjie mangled name, try using the demangle rule of C++. */
         if (demangle == (*it).name) {
-            return abi::__cxa_demangle((*it).name.c_str(), nullptr, nullptr, nullptr) ?: demangle;
+            int status;
+            char* demangled = abi::__cxa_demangle((*it).name.c_str(), nullptr, nullptr, &status);
+            if (status == 0 && demangled) {
+                std::string result(demangled);
+                free(demangled);
+                return result;
+            }
         }
 
         return demangle;
@@ -238,7 +237,12 @@ void LinuxRecorder::MergeSampleData()
         }
 
         ifs.seekg(0, ifs.end);
-        uint64_t size = static_cast<uint64_t>(ifs.tellg());
+        auto pos = ifs.tellg();
+        if (pos < 0) {
+            fprintf(stderr, "error: Cannot determine '%s' file size.\n", file.c_str());
+            continue;
+        }
+        uint64_t size = static_cast<uint64_t>(pos);
         auto data = std::make_unique<char[]>(size);
 
         ifs.seekg(0, ifs.beg);
@@ -353,7 +357,7 @@ void LinuxRecorder::Stop(pid_t pid)
 
 void LinuxRecorder::HandleProcessMaps(pid_t pid)
 {
-    std::ifstream ifs(fs::canonical("/proc/" + std::to_string(pid) + "/maps").generic_string());
+    std::ifstream ifs("/proc/" + std::to_string(pid) + "/maps");
     if (ifs.fail()) {
         return;
     }
@@ -400,6 +404,7 @@ static std::vector<pid_t> GetSubPid(pid_t pid)
         return {};
     }
     DIR *dir = opendir(canonicalPath);
+    free(canonicalPath);
     if (!dir) {
         return {};
     }

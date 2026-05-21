@@ -274,7 +274,7 @@ void Hprof::ParseHeapDump(bool verbose)
         if (it != subRecordParsers.end()) {
             it->second(verbose);
         } else {
-            fprintf(stderr, "error: Unknown sub-tag %u at offset 0x%zx\n", *tag, m_parser->GetCurPos() - sizeof(HeapDumpSubTag));
+            fprintf(stderr, "error: Unknown sub-tag %u at offset 0x%zx\n", *tag, m_curPos);
             return;
         }
     }

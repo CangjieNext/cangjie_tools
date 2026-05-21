@@ -328,6 +328,16 @@
 {"diagnostic":{"testFile":"LSP_Diagnostic_Unused_Import_006.test"}}
 {"diagnostic":{"testFile":"LSP_Diagnostic_Common_Specific.test"}}
 {"diagnostic":{"testFile":"LSP_Diagnostic_Derive_001.test"}}
+{"diagnostic":{"testFile":"LSP_Diagnostic_OverrideImplement_InterfaceOnly.test"}}
+{"diagnostic":{"testFile":"LSP_Diagnostic_OverrideImplement_MultiMembers.test"}}
+{"diagnostic":{"testFile":"LSP_Diagnostic_OverrideImplement_AbstractClass.test"}}
+{"diagnostic":{"testFile":"LSP_Diagnostic_OverrideImplement_ExtendInterface_EmptyBody.test"}}
+{"diagnostic":{"testFile":"LSP_Diagnostic_OverrideImplement_ExtendInterface_WithMembers.test"}}
+{"diagnostic":{"testFile":"LSP_Diagnostic_OverrideImplement_Class_EmptyBody.test"}}
+{"diagnostic":{"testFile":"LSP_Diagnostic_OverrideImplement_Struct_Interface.test"}}
+{"diagnostic":{"testFile":"LSP_Diagnostic_OverrideImplement_Struct_EmptyBody.test"}}
+{"diagnostic":{"testFile":"LSP_Diagnostic_OverrideImplement_Enum_WithMembers.test"}}
+{"diagnostic":{"testFile":"LSP_Diagnostic_OverrideImplement_Enum_NoMembers.test"}}
 
 {"documentHighlight":{"testFile":"LSP_DocumentHighlight_String_001.test","id":"7"}}
 {"documentHighlight":{"testFile":"LSP_DocumentHighlight_Interface_001.test","id":"9"}}
@@ -1183,7 +1193,6 @@
 {"codeAction":{"testFile":"ExtractMethod_Constraint_006.test","id":"10"}}
 {"codeAction":{"testFile":"ExtractMethod_Constraint_007.test","id":"10"}}
 {"codeAction":{"testFile":"ExtractMethod_Constraint_008.test","id":"10"}}
-{"codeAction":{"testFile":"ExtractMethod_Constraint_009.test","id":"10"}}
 {"codeAction":{"testFile":"ExtractInterface_Constraint_001.test","id":"10"}}
 {"codeAction":{"testFile":"ExtractInterface_Constraint_002.test","id":"10"}}
 {"codeAction":{"testFile":"ExtractInterface_Constraint_003.test","id":"10"}}
@@ -1196,14 +1205,12 @@
 {"codeAction":{"testFile":"ExtractInterface_Constraint_010.test","id":"10"}}
 {"codeAction":{"testFile":"ExtractInterface_Constraint_011.test","id":"10"}}
 {"codeAction":{"testFile":"ExtractInterface_Constraint_012.test","id":"10"}}
+{"codeAction":{"testFile":"IntroduceField_Constraint_001.test","id":"10"}}
+{"codeAction":{"testFile":"IntroduceField_Constraint_002.test","id":"10"}}
+{"codeAction":{"testFile":"IntroduceParameter_Constraint_001.test","id":"10"}}
 
-{"applyEdit":{"testFile":"ExtractMethod_Apply_001.test","method":"workspace/applyEdit"}}
-{"applyEdit":{"testFile":"ExtractMethod_Apply_002.test","method":"workspace/applyEdit"}}
 {"applyEdit":{"testFile":"ExtractMethod_Apply_003.test","method":"workspace/applyEdit"}}
-{"applyEdit":{"testFile":"ExtractMethod_Apply_004.test","method":"workspace/applyEdit"}}
-{"applyEdit":{"testFile":"ExtractMethod_Apply_005.test","method":"workspace/applyEdit"}}
 {"applyEdit":{"testFile":"ExtractVariable_Apply_001.test","method":"workspace/applyEdit"}}
-{"applyEdit":{"testFile":"ExtractVariable_Apply_002.test","method":"workspace/applyEdit"}}
 {"applyEdit":{"testFile":"ExtractVariable_Apply_003.test","method":"workspace/applyEdit"}}
 {"applyEdit":{"testFile":"ExtractInterface_Apply_001.test","method":"workspace/applyEdit"}}
 {"applyEdit":{"testFile":"ExtractInterface_Apply_002.test","method":"workspace/applyEdit"}}
@@ -1217,3 +1224,17 @@
 {"applyEdit":{"testFile":"ExtractInterface_Apply_010.test","method":"workspace/applyEdit"}}
 {"applyEdit":{"testFile":"ExtractInterface_Apply_011.test","method":"workspace/applyEdit"}}
 {"applyEdit":{"testFile":"ExtractInterface_Apply_012.test","method":"workspace/applyEdit"}}
+{"applyEdit":{"testFile":"IntroduceField_Apply_001.test","method":"workspace/applyEdit"}}
+{"applyEdit":{"testFile":"IntroduceField_Apply_002.test","method":"workspace/applyEdit"}}
+{"applyEdit":{"testFile":"IntroduceField_Apply_003.test","method":"workspace/applyEdit"}}
+{"applyEdit":{"testFile":"IntroduceField_Apply_004.test","method":"workspace/applyEdit"}}
+{"applyEdit":{"testFile":"IntroduceField_Apply_005.test","method":"workspace/applyEdit"}}
+{"applyEdit":{"testFile":"IntroduceField_Apply_006.test","method":"workspace/applyEdit"}}
+{"applyEdit":{"testFile":"IntroduceField_Apply_007.test","method":"workspace/applyEdit"}}
+{"applyEdit":{"testFile":"IntroduceField_Apply_008.test","method":"workspace/applyEdit"}}
+{"applyEdit":{"testFile":"IntroduceField_Apply_009.test","method":"workspace/applyEdit"}}
+{"applyEdit":{"testFile":"IntroduceParameter_Apply_001.test","method":"workspace/applyEdit"}}
+{"applyEdit":{"testFile":"IntroduceParameter_Apply_002.test","method":"workspace/applyEdit"}}
+{"applyEdit":{"testFile":"IntroduceParameter_Apply_003.test","method":"workspace/applyEdit"}}
+{"applyEdit":{"testFile":"IntroduceParameter_Apply_004.test","method":"workspace/applyEdit"}}
+{"applyEdit":{"testFile":"IntroduceParameter_Apply_005.test","method":"workspace/applyEdit"}}

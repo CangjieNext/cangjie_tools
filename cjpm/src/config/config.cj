@@ -294,7 +294,7 @@ public func getNativeLdLibraryConfig(ldPath: HashSet<String>): String {
 @When[os == "macOS"]
 public let PATH: String = "PATH"
 @When[os == "macOS"]
-public let LD_PATH: String = "DYLD_LIBRARY_PATH"
+public let LD_PATH: String = "DYLD_FALLBACK_LIBRARY_PATH"
 
 @When[os == "macOS"]
 public func makeDylibName(file: String): String {
@@ -303,7 +303,7 @@ public func makeDylibName(file: String): String {
 
 @When[os == "macOS"]
 public func setLdLibraryPath(ldPath: HashSet<String>): String {
-    // On certain versions of MacOS, DYLD_LIBRARY_PATH does not propagate
+    // On certain versions of MacOS, DYLD_FALLBACK_LIBRARY_PATH does not propagate
     // to child processes, so we need to set it manually
     let finalLdPath = ldPath.clone()
     if (let Some(pathElements) <- getVariable(LD_PATH)?.split(SPLIT_ENV, removeEmpty: true)) {
@@ -567,7 +567,7 @@ public struct PackageList {
     }
 
     public func bestFitFeatures(features: HashSet<Feature>): HashMap<String, String> {
-        packages.filterMap { it: ResolveItem => 
+        packages.iterator().filterMap { it: ResolveItem => 
             if (!it.isMultiplatform) {
                 return None<(String, String)>
             } else {
@@ -965,13 +965,25 @@ public func linkPackage(libName: String, libPath: String, isLto: Bool): ArrayLis
     return res
 }
 
-@When[os == "Linux" || os == "Windows"]
 public func forcedLinkPackage(libName: String, libPath: String, isLto: Bool): ArrayList<String> {
+    
+    let compileTarget = if (crossCompileTarget.isEmpty()) {
+        targetConfigName
+    } else {
+        crossCompileTarget
+    }
+    if (compileTarget.contains("darwin") || compileTarget.contains("apple")) {
+        return forcedLinkPackageForMac(libName, libPath, isLto)
+    } else {
+        return forcedLinkPackageForLinuxOrWin(libName, libPath, isLto)
+    }
+}
+
+public func forcedLinkPackageForLinuxOrWin(libName: String, libPath: String, isLto: Bool): ArrayList<String> {
     return linkPackage(libName, libPath, isLto)
 }
 
-@When[os == "macOS"]
-public func forcedLinkPackage(libName: String, libPath: String, isLto: Bool): ArrayList<String> {
+public func forcedLinkPackageForMac(libName: String, libPath: String, isLto: Bool): ArrayList<String> {
     var res = ArrayList<String>()
     let staticLibPath = Path(libPath).join(makeCangjieStaticlibName(libName)).toString()
     let dyLibPath = Path(libPath).join("lib${libName}.dylib").toString()

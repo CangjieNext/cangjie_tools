@@ -530,7 +530,9 @@ func constructCjcInvocation(compileTask: CompileTask, buildConfig: BuildConfig):
 
     res.add(all: appendImportPaths(compileTask, buildConfig))
     res.add(all: appendCommandOptions(compileTask))
-    res.add(all: getDepLinkCommand(compileTask, buildConfig))
+    if (compileTask.outputType != Obj) {
+        res.add(all: getDepLinkCommand(compileTask, buildConfig))
+    }
 
     for (option in compileTask.customizedOption) {
         res.add(all: extractOptionByString(option))
@@ -918,7 +920,7 @@ func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList
     if (isLinkTask) {
         stdDeps.add(all: binStdDeps)
         stdDeps.add(all: crossbinStdDeps)
-        res.add(all: topoSort(stdDeps).map { std => "-lcangjie-std-${std.removePrefix("std.")}" })
+        res.add(all: topoSort(stdDeps).iterator().map { std: String => "-lcangjie-std-${std.removePrefix("std.")}" } |> collectArray)
     }
 
     res
@@ -1235,7 +1237,7 @@ func topoSort(stdDeps: StdDeps): ArrayList<String> {
     for (depMap in stdDeps) {
         for ((currentNode, depNodes) in depMap where !handled.contains(currentNode)) {
             handled.add(currentNode)
-            depNodes.forEach { depNode =>
+            depNodes.iterator().forEach { depNode =>
                 inDegreeMap.addIfAbsent(depNode, 0)
                 adjacencyMap.addIfAbsent(depNode, ArrayList<String>())
                 adjacencyMap[depNode].add(currentNode)

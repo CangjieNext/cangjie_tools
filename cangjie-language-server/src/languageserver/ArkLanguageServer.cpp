@@ -1343,16 +1343,16 @@ void ArkLanguageServer::AddDiagnosticQuickFix(std::vector<DiagnosticToken> &diag
     }
     const std::string uri = URI::URIFromAbsolutePath(file).ToString();
     for (auto &diagnostic : diagnostics) {
-        if (!diagnostic.diaFix.has_value()) {
+        if (!diagnostic.diagFix.has_value()) {
             continue;
         }
-        if (diagnostic.diaFix->addImport) {
+        if (diagnostic.diagFix->addImport) {
             AddImportQuickFix(diagnostic, arkAst);
         }
-        if (diagnostic.diaFix->removeImport) {
+        if (diagnostic.diagFix->removeImport) {
             RemoveImportQuickFix(diagnostic, arkAst, uri);
         }
-        if (diagnostic.diaFix->removeUnusedSymbol) {
+        if (diagnostic.diagFix->removeUnusedSymbol) {
             RemoveUnusedSymbolQuickFix(diagnostic, arkAst, uri);
         }
     }
@@ -1660,7 +1660,7 @@ void ArkLanguageServer::RemoveAllUnusedImportsCodeAction(std::vector<DiagnosticT
         allUnusedImportCA.edit.value().changes[uri].push_back(textEdit);
     }
     for (auto &diagnostic : diagnostics) {
-        if (!diagnostic.diaFix.has_value() || !diagnostic.diaFix->removeImport || !diagnostic.codeActions.has_value()) {
+        if (!diagnostic.diagFix.has_value() || !diagnostic.diagFix->removeImport || !diagnostic.codeActions.has_value()) {
             continue;
         }
         diagnostic.codeActions.value().push_back(allUnusedImportCA);
@@ -1747,6 +1747,38 @@ static bool ProcessFuncParamDeleteRange(const FuncParam* funcParam, Range& delet
     return true;
 }
 
+static void ComputeDeclDeleteRange(const Decl* decl,
+    const MacroExpandDecl* parentMacroExpandDecl, Range& deleteRange)
+{
+    deleteRange = {decl->begin, decl->end};
+    if (decl->curMacroCall && !decl->isInMacroCall) {
+        auto inv = decl->curMacroCall->GetConstInvocation();
+        if (inv && !inv->atPos.IsZero()) {
+            deleteRange.start = inv->atPos;
+            deleteRange.end = decl->end;
+        } else {
+            deleteRange = {decl->curMacroCall->begin, decl->curMacroCall->end};
+        }
+    } else if (!decl->annotations.empty()) {
+        auto& firstAnno = decl->annotations.front();
+        if (firstAnno && firstAnno->astKind == ASTKind::ANNOTATION) {
+            deleteRange.start = firstAnno->begin;
+        }
+    } else if (decl->outerDecl && decl->outerDecl->astKind == ASTKind::MACRO_EXPAND_DECL) {
+        auto outerInv = decl->outerDecl->GetConstInvocation();
+        if (outerInv && !outerInv->atPos.IsZero()) {
+            deleteRange.start = outerInv->atPos;
+        } else {
+            deleteRange.start = decl->outerDecl->begin;
+        }
+    } else if (parentMacroExpandDecl) {
+        auto& pInv = parentMacroExpandDecl->invocation;
+        if (!pInv.atPos.IsZero()) {
+            deleteRange.start = pInv.atPos;
+        }
+    }
+}
+
 static void AddRemoveUnusedCodeAction(DiagnosticToken &diagnostic,
     const RemoveUnusedContext &ctx, const Range &deleteRange,
     const std::string &symbolName, const std::string &symbolKindDesc)
@@ -1782,24 +1814,29 @@ void ArkLanguageServer::RemoveUnusedSymbolQuickFix(DiagnosticToken &diagnostic, 
     if (!arkAst || !arkAst->file) {
         return;
     }
-    
+
     Range diagRange = TransformFromIDE2Char(diagnostic.range);
     Range deleteRange = diagRange;
     bool found = false;
     std::string symbolName;
     std::string symbolKindDesc;
     const FuncBody* currentFuncBody = nullptr;
+    Ptr<const MacroExpandDecl> parentMacroExpandDecl = nullptr;
 
     std::function<VisitAction(Ptr<const Node>)> finder = [&](Ptr<const Node> node) -> VisitAction {
         if (auto funcBody = DynamicCast<const FuncBody*>(node)) {
             currentFuncBody = funcBody;
         }
 
+        if (auto macroExpand = DynamicCast<const MacroExpandDecl*>(node)) {
+            parentMacroExpandDecl = macroExpand;
+        }
+
         auto decl = DynamicCast<const Decl*>(node);
         if (!decl) {
             return VisitAction::WALK_CHILDREN;
         }
-        
+
         auto identifierPos = decl->GetIdentifierPos();
         if (identifierPos.line != diagRange.start.line ||
             identifierPos.column != diagRange.start.column) {
@@ -1815,16 +1852,13 @@ void ArkLanguageServer::RemoveUnusedSymbolQuickFix(DiagnosticToken &diagnostic, 
         }
 
         symbolKindDesc = GetSymbolKindDescription(decl->astKind);
-        deleteRange = {decl->begin, decl->end};
-        if (decl->curMacroCall && !decl->isInMacroCall) {
-            deleteRange = {decl->curMacroCall->begin, decl->curMacroCall->end};
-        }
+        ComputeDeclDeleteRange(decl, parentMacroExpandDecl, deleteRange);
         found = true;
         return VisitAction::STOP_NOW;
     };
-    
+
     ConstWalker(arkAst->file, finder).Walk();
-    
+
     if (!found) {
         return;
     }
@@ -1999,7 +2033,7 @@ int ArkLanguageServer::GetUnusedImportCount(std::vector<DiagnosticToken> &diagno
 {
     int unusedImportCount = 0;
     for (auto &diagnostic : diagnostics) {
-        if (!diagnostic.diaFix.has_value() || !diagnostic.diaFix->removeImport || !diagnostic.codeActions.has_value()) {
+        if (!diagnostic.diagFix.has_value() || !diagnostic.diagFix->removeImport || !diagnostic.codeActions.has_value()) {
             continue;
         }
         unusedImportCount++;
@@ -2027,7 +2061,7 @@ WorkspaceEdit ArkLanguageServer::GetWorkspaceEdit(std::vector<DiagnosticToken> &
 {
     WorkspaceEdit edit;
     for (auto &diagnostic : diagnostics) {
-        if (!diagnostic.diaFix.has_value() || !diagnostic.diaFix->removeImport || !diagnostic.codeActions.has_value()) {
+        if (!diagnostic.diagFix.has_value() || !diagnostic.diagFix->removeImport || !diagnostic.codeActions.has_value()) {
             continue;
         }
         TextEdit textEdit;
