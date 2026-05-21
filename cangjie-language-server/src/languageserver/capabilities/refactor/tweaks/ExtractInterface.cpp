@@ -29,7 +29,7 @@ constexpr const char *INTERFACE_MEMBER_INDENT = "    ";
 constexpr const char *INHERITED_MEMBER_PREFIX = "<:";
 constexpr const char *FILE_URI_PREFIX = "file:/";
 constexpr const char *DOC_COMMENT_PREFIX = "/**";
-
+// LCOV_EXCL_BR_START
 enum class TargetKind {
     CLASS,
     STRUCT,
@@ -105,7 +105,7 @@ struct TextMutation {
     size_t end = 0;
     std::string text;
 };
-
+// LCOV_EXCL_BR_STOP
 void CollectTypeReferenceReplacementEdits(TypeReplacementContext &context);
 
 std::string GetVisibility(const Cangjie::AST::Decl &decl)
