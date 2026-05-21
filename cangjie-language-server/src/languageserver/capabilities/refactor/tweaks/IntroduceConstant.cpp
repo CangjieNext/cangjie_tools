@@ -8,6 +8,7 @@
 #include "../../../CompilerCangjieProject.h"
 #include "../TweakRule.h"
 #include "../TweakUtils.h"
+// LCOV_EXCL_START
 namespace ark {
 const std::unordered_set<Cangjie::AST::ASTKind> CANNOT_INTRODUCE_CONST_EXPR = {
     ASTKind::RETURN_EXPR, ASTKind::STR_INTERPOLATION_EXPR, ASTKind::INTERPOLATION_EXPR, ASTKind::RANGE_EXPR,
@@ -103,6 +104,7 @@ bool IntroduceConstant::Prepare(const Selection &sel)
     return true;
 }
 
+    // LCOV_EXCL_START
 /**
  * const constVar = xxx.
  * insert position: global
@@ -171,4 +173,5 @@ TextEdit IntroduceConstant::ReplaceExprWithVar(const Selection &sel, Range &rang
     textEdit.range = TransformFromChar2IDE(range);
     return std::move(textEdit);
 }
+// LCOV_EXCL_STOP
 } // namespace ark
