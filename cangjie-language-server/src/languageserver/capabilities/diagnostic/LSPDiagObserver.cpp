@@ -14,6 +14,66 @@
 
 namespace ark {
 using namespace Cangjie;
+
+namespace {
+template <typename DeclContainer>
+Position GetLastUserDeclEnd(const DeclContainer &decls, const Position &fallback)
+{
+    auto it = std::find_if(decls.rbegin(), decls.rend(), [](auto &node) {
+        return !node->TestAttr(Attribute::COMPILER_ADD);
+    });
+    return it != decls.rend() ? it->get()->GetEnd() : fallback;
+}
+
+Position GetClassMembersInsertPosition(Ptr<const ClassDecl> decl)
+{
+    return decl->body ? GetLastUserDeclEnd(decl->body->decls, decl->body->rightCurlPos) : Position();
+}
+
+Position GetStructMembersInsertPosition(Ptr<const StructDecl> decl)
+{
+    return decl->body ? GetLastUserDeclEnd(decl->body->decls, decl->body->rightCurlPos) : Position();
+}
+
+Position GetEnumMembersInsertPosition(Ptr<const EnumDecl> decl)
+{
+    if (decl->members.empty()) {
+        return GetLastUserDeclEnd(decl->constructors, Position());
+    }
+    return GetLastUserDeclEnd(decl->members, Position());
+}
+
+Position GetExtendMembersInsertPosition(Ptr<const ExtendDecl> decl)
+{
+    return decl->members.empty() ? decl->rightCurlPos : GetLastUserDeclEnd(decl->members, Position());
+}
+
+std::string BuildFuncImplementMember(Ptr<const Decl> curDecl, Ptr<const FuncDecl> funcDecl)
+{
+    auto detail = ResolveFuncDetail(const_cast<FuncDecl*>(funcDecl));
+    FilterModifiers(const_cast<Decl*>(curDecl), detail.modifiers);
+    auto signature = detail.ToString();
+    return signature + " {\n\t" + FUNC_NOT_IMPLEMENTED_EXCEPTION + "\n}";
+}
+
+std::string BuildPropImplementMember(Ptr<const Decl> curDecl, Ptr<const PropDecl> propDecl)
+{
+    auto detail = ResolvePropDetail(const_cast<PropDecl*>(propDecl));
+    FilterModifiers(const_cast<Decl*>(curDecl), detail.modifiers);
+    auto signature = detail.ToString();
+    std::string getter = "get() {\n\t\t" + PROP_NOT_IMPLEMENTED_EXCEPTION + "\n\t}";
+    std::string setter;
+    if (std::find(detail.modifiers.begin(), detail.modifiers.end(), "mut") != detail.modifiers.end()) {
+        setter = "set(v) {\n\t\n}";
+    }
+    auto insertText = signature + "{\n\t" + getter;
+    if (!setter.empty()) {
+        insertText += "\n\t" + setter;
+    }
+    return insertText + "\n}";
+}
+} // namespace
+
 const std::unordered_set<DiagKind> IMPORT_FIX_KIND = {DiagKind::sema_undeclared_identifier,
     DiagKind::sema_undeclared_type_name, DiagKind::macro_undeclared_identifier};
 
@@ -136,46 +196,16 @@ void LSPDiagObserver::HandleDiagnose(Cangjie::Diagnostic &diagnostic)
 Position GetImplementMembersInsertPosition(Ptr<const Decl> decl)
 {
     if (auto cd = DynamicCast<ClassDecl>(decl)) {
-        if (cd->body) {
-            auto it = std::find_if(cd->body->decls.rbegin(), cd->body->decls.rend(), [](auto &node) {
-                return !node->TestAttr(Attribute::COMPILER_ADD);
-            });
-            return it != cd->body->decls.rend() ? it->get()->GetEnd() : cd->body->rightCurlPos;
-        }
+        return GetClassMembersInsertPosition(cd);
     }
-
     if (auto sd = DynamicCast<StructDecl>(decl)) {
-        if (sd->body) {
-            auto it = std::find_if(sd->body->decls.rbegin(), sd->body->decls.rend(), [](auto &node) {
-                return !node->TestAttr(Attribute::COMPILER_ADD);
-            });
-            return it != sd->body->decls.rend() ? it->get()->GetEnd() : sd->body->rightCurlPos;
-        }
+        return GetStructMembersInsertPosition(sd);
     }
-
     if (auto ed = DynamicCast<EnumDecl>(decl)) {
-        if (ed->members.empty()) {
-            auto it = std::find_if(ed->constructors.rbegin(), ed->constructors.rend(), [](auto &node) {
-                return !node->TestAttr(Attribute::COMPILER_ADD);
-            });
-            return it != ed->constructors.rend() ? it->get()->GetEnd() : Position();
-        } else {
-            auto it = std::find_if(ed->members.rbegin(), ed->members.rend(), [](auto &node) {
-                return !node->TestAttr(Attribute::COMPILER_ADD);
-            });
-            return it != ed->members.rend() ? it->get()->GetEnd() : Position();
-        }
+        return GetEnumMembersInsertPosition(ed);
     }
-
     if (auto extd = DynamicCast<ExtendDecl>(decl)) {
-        if (extd->members.empty()) {
-            return extd->rightCurlPos;
-        } else {
-            auto it = std::find_if(extd->members.rbegin(), extd->members.rend(), [](auto &node) {
-                return !node->TestAttr(Attribute::COMPILER_ADD);
-            });
-            return it != extd->members.rend() ? it->get()->GetEnd() : Position();
-        }
+        return GetExtendMembersInsertPosition(extd);
     }
     return Position();
 }
@@ -197,29 +227,11 @@ void LSPDiagObserver::CollectImplementMembersQuickInfo(Diagnostic &diagnostic, D
     for (auto &diag: diagnostic.subDiags) {
         totalInsertText += "\n";
         if (auto fd = DynamicCast<FuncDecl>(diag.GetNodeSubDiagAt())) {
-            auto detail = ResolveFuncDetail(const_cast<FuncDecl*>(fd));
-            FilterModifiers(const_cast<Decl*>(curDecl), detail.modifiers);
-            auto signature = detail.ToString();
-            auto insertText = signature + " {\n\t" + FUNC_NOT_IMPLEMENTED_EXCEPTION + "\n" + "}";
-            totalInsertText += insertText + "\n";
+            totalInsertText += BuildFuncImplementMember(curDecl, fd) + "\n";
         }
 
         if (auto pd = DynamicCast<PropDecl>(diag.GetNodeSubDiagAt())) {
-            auto detail = ResolvePropDetail(const_cast<PropDecl*>(pd));
-            FilterModifiers(const_cast<Decl*>(curDecl), detail.modifiers);
-            auto signature = detail.ToString();
-            std::string getter = "get() {\n\t\t" + PROP_NOT_IMPLEMENTED_EXCEPTION + "\n\t}";
-            std::string setter;
-            if (std::find(detail.modifiers.begin(), detail.modifiers.end(), "mut") !=
-                    detail.modifiers.end()) {
-                setter = "set(v) {\n\t\n}";
-            }
-            auto insertText = signature + "{\n\t" + getter;
-            if (!setter.empty()) {
-                insertText += "\n\t" + setter;
-            }
-            insertText += "\n}";
-            totalInsertText += insertText + "\n";
+            totalInsertText += BuildPropImplementMember(curDecl, pd) + "\n";
         }
     }
     auto file = URI::URIFromAbsolutePath(

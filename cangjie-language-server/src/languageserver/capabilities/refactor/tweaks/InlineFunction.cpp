@@ -4,8 +4,8 @@
 //
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
-#include <sstream>
 #include <regex>
+#include <sstream>
 #include "../../../CompilerCangjieProject.h"
 #include "../TweakRule.h"
 #include "../TweakUtils.h"

@@ -4,10 +4,10 @@
 //
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
-#include <random>
 #include <fstream>
 #include <iostream>
 #include <optional>
+#include <random>
 #include "../CompilerCangjieProject.h"
 #include "MemIndex.h"
 #include "BackgroundIndexDB.h"
