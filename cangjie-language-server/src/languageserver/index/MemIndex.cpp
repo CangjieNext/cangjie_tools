@@ -10,6 +10,17 @@
 
 namespace ark {
 namespace lsp {
+namespace {
+bool IsAccessibleForRelation(PackageRelation relation, const Modifier &modifier)
+{
+    return modifier == Modifier::PUBLIC ||
+        (relation == PackageRelation::CHILD &&
+            (modifier == Modifier::INTERNAL || modifier == Modifier::PROTECTED)) ||
+        (relation == PackageRelation::SAME_MODULE && modifier == Modifier::PROTECTED) ||
+        (relation == PackageRelation::PARENT && modifier == Modifier::PROTECTED);
+}
+}
+
 PackageRelation GetPackageRelation(const std::string &srcFullPackageName,
                                    const std::string &targetFullPackageName)
 {
@@ -261,16 +272,6 @@ void MemIndex::FindExtendSymsOnCompletion(const SymbolID &dotCompleteSym,
         for (auto& sym : syms) {
             symMap.insert_or_assign(sym.id, &sym);
         }
-        auto checkAccessible = [&relation](const Modifier& modifier) -> bool {
-            bool isAccessible =
-                modifier == Modifier::PUBLIC
-                || (relation == PackageRelation::CHILD && (modifier == Modifier::INTERNAL
-                                                        || modifier == Modifier::PROTECTED))
-                || (relation == PackageRelation::SAME_MODULE &&
-                    modifier == Modifier::PROTECTED)
-                || (relation == PackageRelation::PARENT && modifier == Modifier::PROTECTED);
-            return isAccessible;
-        };
         for (const auto &extendSlab : extendSyms.second) {
             if (extendSlab.first == dotCompleteSym) {
                 for (const auto& symbol : extendSlab.second) {
@@ -283,7 +284,8 @@ void MemIndex::FindExtendSymsOnCompletion(const SymbolID &dotCompleteSym,
                         continue;
                     }
                     // filter by modifier
-                    if (checkAccessible(symbol.modifier) && checkAccessible(sym->modifier)) {
+                    if (IsAccessibleForRelation(relation, symbol.modifier) &&
+                        IsAccessibleForRelation(relation, sym->modifier)) {
                         for (const auto &completionItem : sym->completionItems) {
                             callback(pkgName, symbol.interfaceName, *sym, completionItem);
                         }
@@ -323,17 +325,6 @@ void MemIndex::FindExtendSymsOnCompletionBatch(
             symMap.insert_or_assign(sym.id, &sym);
         }
 
-        auto checkAccessible = [&relation](const Modifier& modifier) -> bool {
-            bool isAccessible =
-                modifier == Modifier::PUBLIC
-                || (relation == PackageRelation::CHILD && (modifier == Modifier::INTERNAL
-                                                        || modifier == Modifier::PROTECTED))
-                || (relation == PackageRelation::SAME_MODULE &&
-                    modifier == Modifier::PROTECTED)
-                || (relation == PackageRelation::PARENT && modifier == Modifier::PROTECTED);
-            return isAccessible;
-        };
-
         auto handleExtendItem = [&] (const std::vector<ExtendItem> &extendItem) {
             for (const auto& symbol : extendItem) {
                 if (symbol.id == INVALID_SYMBOL_ID || symbol.isStatic != filterStatic ||
@@ -344,7 +335,8 @@ void MemIndex::FindExtendSymsOnCompletionBatch(
                 if (!sym || !sym->isCjoSym && !curModuleDeps.count(sym->curModule)) {
                     continue;
                 }
-                if (!checkAccessible(symbol.modifier) || !checkAccessible(sym->modifier)) {
+                if (!IsAccessibleForRelation(relation, symbol.modifier) ||
+                    !IsAccessibleForRelation(relation, sym->modifier)) {
                     continue;
                 }
                 for (const auto &completionItem : sym->completionItems) {
