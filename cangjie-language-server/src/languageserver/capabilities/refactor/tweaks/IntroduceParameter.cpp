@@ -9,10 +9,10 @@
 #include <sstream>
 #include <unordered_set>
 #include <vector>
-#include <cangjie/AST/Walker.h>
 #include "../../../common/Utils.h"
 #include "../TweakRule.h"
 #include "../TweakUtils.h"
+#include "cangjie/AST/Walker.h"
 #include "IntroduceParameter.h"
 
 namespace ark {

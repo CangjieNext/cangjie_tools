@@ -17,8 +17,8 @@
 #include "../../../common/Utils.h"
 #include "../TweakRule.h"
 #include "../TweakUtils.h"
-#include "ExtractInterface.h"
 #include "cangjie/Utils/FileUtil.h"
+#include "ExtractInterface.h"
 
 namespace ark {
 using namespace Cangjie;

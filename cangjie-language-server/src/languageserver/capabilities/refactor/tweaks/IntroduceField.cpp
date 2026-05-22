@@ -9,10 +9,10 @@
 #include <sstream>
 #include <unordered_map>
 #include <unordered_set>
-#include <cangjie/AST/Walker.h>
 #include "../../../common/Utils.h"
 #include "../TweakRule.h"
 #include "../TweakUtils.h"
+#include "cangjie/AST/Walker.h"
 #include "IntroduceField.h"
 
 namespace ark {
