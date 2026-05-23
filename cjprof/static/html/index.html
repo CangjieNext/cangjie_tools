@@ -104,6 +104,7 @@
         #sunburst-container {
             width: 100%;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
         }
@@ -114,15 +115,17 @@
         .sunburst-legend {
             display: flex;
             flex-wrap: wrap;
-            gap: 15px;
-            margin-top: 20px;
+            gap: 10px;
+            margin-top: 15px;
             justify-content: center;
+            max-width: 600px;
         }
         .legend-item {
             display: flex;
             align-items: center;
-            gap: 6px;
-            font-size: 12px;
+            gap: 5px;
+            font-size: 11px;
+            color: #eee;
         }
         .legend-color {
             width: 12px;
@@ -258,14 +261,24 @@
                 <div style="margin-bottom:15px;">
                     <button class="view-btn active" data-view="sunburst">Sunburst</button>
                     <button class="view-btn" data-view="tree">Tree</button>
+                    <span id="sunburst-granularity" style="margin-left:15px;">
+                        <select id="sunburst-cluster-select" style="background:#0f3460;color:#eee;border:1px solid #e94560;padding:5px 10px;border-radius:4px;cursor:pointer;">
+                            <option value="object">By Object</option>
+                            <option value="type">By Type</option>
+                        </select>
+                    </span>
+                    <span id="tree-granularity" style="display:none; margin-left:15px;">
+                        <button class="view-btn active" data-granularity="object">By Object</button>
+                        <button class="view-btn" data-granularity="type">By Type</button>
+                    </span>
                 </div>
                 <div id="sunburst-container">
                     <div id="sunburst"></div>
+                    <div class="sunburst-legend" id="sunburst-legend"></div>
                 </div>
                 <div id="tree-container" style="display:none;">
                     <div id="tree-view"></div>
                 </div>
-                <div class="sunburst-legend" id="sunburst-legend"></div>
             </div>
             <div class="dominance-table" style="align-self: start;">
                 <div id="top10-table"></div>
@@ -286,11 +299,13 @@
         const COLOR_PALETTE = ['#e94560', '#00d9ff', '#ff9f43', '#10ac84', '#5f27cd', '#ee5a24', '#0abde3', '#f368e0', '#00d2d3', '#ff6b6b'];
 
         let currentView = 'sunburst';
+        let currentGranularity = 'object';  // 'object' or 'type'
         let cachedRoot = null;
         let treeNodeMap = new Map();
         let sunburstChart = null;
         let treeChart = null;
         let treeRootData = null;
+        let treeTypeRootData = null;  // For type granularity
 
         // Tab switching
         document.querySelectorAll('.tab').forEach(tab => {
@@ -305,14 +320,36 @@
         });
 
         // View switching (Sunburst/Tree)
-        document.querySelectorAll('.view-btn').forEach(btn => {
+        document.querySelectorAll('.view-btn[data-view]').forEach(btn => {
             btn.addEventListener('click', () => {
-                document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.view-btn[data-view]').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 currentView = btn.dataset.view;
 
-                document.getElementById('sunburst-container').style.display = currentView === 'sunburst' ? 'flex' : 'none';
-                document.getElementById('tree-container').style.display = currentView === 'tree' ? 'block' : 'none';
+                // Show/hide granularity selectors
+                document.getElementById('sunburst-granularity').style.display = currentView === 'sunburst' ? 'inline' : 'none';
+                document.getElementById('tree-granularity').style.display = currentView === 'tree' ? 'inline' : 'none';
+
+                // Toggle grid layout and Top10 visibility
+                const dominanceView = document.getElementById('dominance-view');
+                const top10Title = dominanceView.querySelectorAll('h2')[1];  // Second h2 is "Top 10 Objects"
+                const top10Table = document.getElementById('top10-table').parentElement;  // dominance-table div
+
+                if (currentView === 'sunburst') {
+                    // Sunburst: two columns, show Top10
+                    dominanceView.style.gridTemplateColumns = '1fr 520px';
+                    top10Title.style.display = 'block';
+                    top10Table.style.display = 'block';
+                    document.getElementById('sunburst-container').style.display = 'flex';
+                    document.getElementById('tree-container').style.display = 'none';
+                } else {
+                    // Tree: single column, hide Top10
+                    dominanceView.style.gridTemplateColumns = '1fr';
+                    top10Title.style.display = 'none';
+                    top10Table.style.display = 'none';
+                    document.getElementById('sunburst-container').style.display = 'none';
+                    document.getElementById('tree-container').style.display = 'block';
+                }
 
                 if (currentView === 'sunburst' && sunburstChart) {
                     sunburstChart.resize();
@@ -325,17 +362,39 @@
                         drawSunburst(cachedRoot);
                     } else if (currentView === 'tree') {
                         if (!treeChart) {
-                            initTreeView();
+                            initTreeView(currentGranularity);
+                        } else {
+                            drawTree();
                         }
                     }
                 }
             });
         });
 
+        // Granularity switching (Object/Type) for Tree view
+        document.querySelectorAll('.view-btn[data-granularity]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.view-btn[data-granularity]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentGranularity = btn.dataset.granularity;
+
+                // Reinitialize tree with new granularity
+                initTreeView(currentGranularity);
+            });
+        });
+
+        // Sunburst cluster mode select
+        let sunburstClusterMode = 'object';
+        document.getElementById('sunburst-cluster-select').addEventListener('change', (e) => {
+            sunburstClusterMode = e.target.value;
+            loadDominanceTree();
+        });
+
         // Draw sunburst chart from dominance tree
         async function loadDominanceTree() {
             try {
-                const res = await fetch(`${API_BASE}/dominance/tree`);
+                const apiUrl = sunburstClusterMode === 'type' ? '/dominance/tree-by-type' : '/dominance/tree';
+                const res = await fetch(`${API_BASE}${apiUrl}`);
                 const data = await res.json();
 
                 if (!data.nodes || data.nodes.length === 0) {
@@ -343,52 +402,124 @@
                     return;
                 }
 
-                // Build hierarchy from flat nodes
-                const nodes = data.nodes;
-                const nodeMap = new Map();
-                nodes.forEach(n => nodeMap.set(n.id, { ...n, children: [] }));
-
                 let root = null;
-                let rootNodes = [];
-                nodes.forEach(n => {
-                    const node = nodeMap.get(n.id);
-                    if (n.parent_id && nodeMap.has(n.parent_id)) {
-                        nodeMap.get(n.parent_id).children.push(node);
-                    } else {
-                        rootNodes.push(node);
-                    }
-                });
 
-                // 如果有多个根节点，创建虚拟根
-                if (rootNodes.length > 1) {
-                    // Calculate total retained_size for virtual root
-                    var totalRetained = rootNodes.reduce(function(sum, n) {
-                        return sum + (n.retained_size || 0);
-                    }, 0);
-                    root = {
-                        id: 0,
-                        class_name: 'Root',
-                        retained_size: totalRetained,
-                        shallow_size: 0,
-                        depth: -1,
-                        parent_id: 0,
-                        instance_count: rootNodes.length,
-                        is_clustered: false,
-                        is_cutoff: false,
-                        children: rootNodes
-                    };
-                } else if (rootNodes.length === 1) {
-                    root = rootNodes[0];
+                if (sunburstClusterMode === 'type') {
+                    // Type clustering: build tree from type nodes
+                    root = buildTypeTree(data.nodes);
+                } else {
+                    // Object granularity: existing logic
+                    root = buildObjectTree(data.nodes);
                 }
 
-                if (!root) root = nodeMap.get(nodes[0].id);
-
+                if (!root) root = data.nodes[0];
                 cachedRoot = root;
                 drawSunburst(root);
                 loadTop10();
             } catch (e) {
                 document.getElementById('sunburst').innerHTML = '<div class="error">Failed to load dominance tree</div>';
             }
+        }
+
+        // Build tree from object nodes (existing logic)
+        function buildObjectTree(nodes) {
+            const nodeMap = new Map();
+            nodes.forEach(n => nodeMap.set(n.id, { ...n, children: [] }));
+
+            let rootNodes = [];
+            nodes.forEach(n => {
+                const node = nodeMap.get(n.id);
+                if (n.parent_id && nodeMap.has(n.parent_id)) {
+                    nodeMap.get(n.parent_id).children.push(node);
+                } else {
+                    rootNodes.push(node);
+                }
+            });
+
+            if (rootNodes.length > 1) {
+                var totalRetained = rootNodes.reduce(function(sum, n) {
+                    return sum + (n.retained_size || 0);
+                }, 0);
+                return {
+                    id: 0,
+                    class_name: 'Root',
+                    retained_size: totalRetained,
+                    shallow_size: 0,
+                    depth: -1,
+                    parent_id: 0,
+                    instance_count: rootNodes.length,
+                    is_clustered: false,
+                    is_cutoff: false,
+                    children: rootNodes
+                };
+            } else if (rootNodes.length === 1) {
+                return rootNodes[0];
+            }
+            return nodeMap.get(nodes[0].id);
+        }
+
+        // Build tree from type nodes (new logic for type clustering)
+        function buildTypeTree(nodes) {
+            const typeMap = new Map();
+            nodes.forEach(n => {
+                if (!n.is_cutoff) {
+                    typeMap.set(n.type_name, { ...n, children: [] });
+                }
+            });
+
+            let rootTypes = [];
+            nodes.forEach(n => {
+                if (n.is_cutoff) return;
+                const typeNode = typeMap.get(n.type_name);
+                if (!typeNode) return;
+
+                if (n.parent_type && typeMap.has(n.parent_type)) {
+                    typeMap.get(n.parent_type).children.push(typeNode);
+                } else {
+                    rootTypes.push(typeNode);
+                }
+
+                // Add cutoff children
+                if (n.cutoff_count > 0 || (n.class_name && n.class_name.startsWith('...'))) {
+                    const cutoffNode = {
+                        id: -1,
+                        class_name: n.class_name || `... (${n.instance_count} children)`,
+                        retained_size: 0,
+                        shallow_size: 0,
+                        depth: typeNode.depth + 1,
+                        parent_id: typeNode.id,
+                        instance_count: n.instance_count || n.cutoff_count,
+                        is_clustered: false,
+                        is_cutoff: true,
+                        children: []
+                    };
+                    typeNode.children.push(cutoffNode);
+                }
+            });
+
+            if (rootTypes.length > 1) {
+                var totalRetained = rootTypes.reduce(function(sum, n) {
+                    return sum + (n.retained_size || 0);
+                }, 0);
+                var totalInstances = rootTypes.reduce(function(sum, n) {
+                    return sum + (n.instance_count || 0);
+                }, 0);
+                return {
+                    id: 0,
+                    class_name: 'Root',
+                    retained_size: totalRetained,
+                    shallow_size: 0,
+                    depth: -1,
+                    parent_id: 0,
+                    instance_count: totalInstances,
+                    is_clustered: true,
+                    is_cutoff: false,
+                    children: rootTypes
+                };
+            } else if (rootTypes.length === 1) {
+                return rootTypes[0];
+            }
+            return typeMap.values().next().value;
         }
 
         function escapeHtml(str) {
@@ -413,18 +544,34 @@
                 return classColors.get(name);
             }
 
-            function convertNode(node, depth) {
+            function convertNode(node, depth, parentColor) {
                 depth = depth || 0;
-                const isLeaf = !node.children || node.children.length === 0;
-                const name = node.class_name || `obj${node.id}`;
-                const color = depth === 0 ? '#e94560' : getColor(name);
+                parentColor = parentColor || null;
+                const MAX_DEPTH = 5;
+                const isLeaf = !node.children || node.children.length === 0 || depth >= MAX_DEPTH;
+                const isCutoff = node.is_cutoff || false;
+                const fullClassName = node.class_name || `obj${node.id}`;
+                const legendName = node.type_name || fullClassName.split(' (')[0];
+                const displayName = isCutoff ? fullClassName : legendName;
+                let color;
+                if (isCutoff) {
+                    color = parentColor || '#888888';
+                } else if (depth === 0) {
+                    color = '#e94560';
+                } else {
+                    color = getColor(legendName);
+                }
 
                 var result = {
-                    name: name,
-                    class_name: node.class_name,
+                    name: displayName,
+                    class_name: fullClassName,
+                    type_name: legendName,
                     retained_size: node.retained_size,
                     shallow_size: node.shallow_size,
                     depth: depth,
+                    instance_count: node.instance_count || 1,
+                    is_clustered: node.is_clustered || false,
+                    is_cutoff: isCutoff,
                     itemStyle: {
                         color: color,
                         opacity: depth === 0 ? 1 : 0.85,
@@ -437,7 +584,7 @@
                     result.value = node.retained_size || 0;
                 } else {
                     result.children = node.children.map(function(c) {
-                        return convertNode(c, depth + 1);
+                        return convertNode(c, depth + 1, color);
                     });
                 }
 
@@ -457,7 +604,10 @@
                     padding: [10, 14],
                     formatter: function(params) {
                         var d = params.data;
-                        return '<div style="font-weight:bold;color:#e94560;margin-bottom:4px;">' + (d.class_name || 'Object') + '</div>' +
+                        var instanceInfo = d.instance_count > 1 ?
+                            '<div>Instances: <span style="color:#ff9f43;">' + d.instance_count + '</span></div>' : '';
+                        return '<div style="font-weight:bold;color:#e94560;margin-bottom:4px;">' + (d.name || d.type_name || 'Object') + '</div>' +
+                               instanceInfo +
                                '<div>Retained: <span style="color:#00d9ff;">' + formatBytes(d.retained_size || 0) + '</span></div>' +
                                '<div>Shallow: <span style="color:#00d9ff;">' + formatBytes(d.shallow_size || 0) + '</span></div>';
                     }
@@ -523,74 +673,150 @@
             };
         }
 
-        async function initTreeView() {
+        async function initTreeView(granularity) {
+            granularity = granularity || currentGranularity || 'object';
             treeNodeMap.clear();
 
             try {
-                var res = await fetch(API_BASE + '/dominance/tree');
+                // Use different API based on granularity
+                var apiUrl = granularity === 'type' ? '/dominance/tree-by-type' : '/dominance/tree';
+                var res = await fetch(API_BASE + apiUrl);
                 var data = await res.json();
 
                 if (!data.nodes || data.nodes.length === 0) return;
 
-                // Store all nodes in map
-                data.nodes.forEach(function(n) {
-                    treeNodeMap.set(n.id, Object.assign({}, n));
-                });
-
-                var rootNodes = data.nodes.filter(function(n) {
-                    return n.parent_id === 0 || n.depth === 0;
-                });
-
-                // Sort by retained_size descending
-                rootNodes.sort(function(a, b) {
-                    return (b.retained_size || 0) - (a.retained_size || 0);
-                });
-
-                // Build root with first level children, first level nodes are collapsed
-                treeRootData = {
-                    id: 0,
-                    class_name: 'Root',
-                    retained_size: 0,
-                    shallow_size: 0,
-                    depth: -1,
-                    parent_id: 0,
-                    children: rootNodes.map(function(n) {
-                        // Check if this first-level node has children:
-                        // 1. Check if children exist in data.nodes
-                        // 2. For non-clustered nodes: if retained_size > shallow_size (implies dominated children)
-                        // 3. For clustered nodes: can expand via instance_ids API
-                        var hasChildrenInData = data.nodes.some(function(x) {
-                            return x.parent_id === n.id;
-                        });
-                        var hasDominatedChildren = !n.is_clustered && (n.retained_size || 0) > (n.shallow_size || 0);
-                        var canExpandCluster = n.is_clustered && n.instance_count > 1 && n.instance_ids && n.instance_ids.length > 0;
-
-                        return {
-                            id: n.id,
-                            class_name: n.class_name,
-                            retained_size: n.retained_size,
-                            shallow_size: n.shallow_size,
-                            depth: n.depth,
-                            parent_id: n.parent_id,
-                            instance_count: n.instance_count,
-                            instance_ids: n.instance_ids,  // Store for cluster expansion
-                            is_clustered: n.is_clustered,
-                            is_cutoff: n.is_cutoff,
-                            children: null,  // First level nodes are collapsed
-                            _hasChildren: hasChildrenInData || hasDominatedChildren || canExpandCluster,
-                            _loaded: false
-                        };
-                    }),
-                    _loaded: true
-                };
-
-                drawTree();
+                if (granularity === 'type') {
+                    // Type granularity: build tree by type
+                    initTreeViewByType(data);
+                } else {
+                    // Object granularity: existing logic
+                    initTreeViewByObject(data);
+                }
             } catch (e) {
                 document.getElementById('tree-view').innerHTML = '<div class="error">Failed to load tree</div>';
             }
         }
 
+        // Initialize tree view by object granularity (existing logic)
+        async function initTreeViewByObject(data) {
+            // Store all nodes in map
+            data.nodes.forEach(function(n) {
+                treeNodeMap.set(n.id, Object.assign({}, n));
+            });
+
+            var rootNodes = data.nodes.filter(function(n) {
+                return n.parent_id === 0 || n.depth === 0;
+            });
+
+            // Sort by retained_size descending
+            rootNodes.sort(function(a, b) {
+                return (b.retained_size || 0) - (a.retained_size || 0);
+            });
+
+            // Calculate total retained_size for virtual root
+            var totalRetained = rootNodes.reduce(function(sum, n) {
+                return sum + (n.retained_size || 0);
+            }, 0);
+
+            // Build root with first level children, first level nodes are collapsed
+            treeRootData = {
+                id: 0,
+                class_name: 'Root',
+                retained_size: totalRetained,
+                shallow_size: 0,
+                depth: -1,
+                parent_id: 0,
+                children: rootNodes.map(function(n) {
+                    var hasChildrenInData = data.nodes.some(function(x) {
+                        return x.parent_id === n.id;
+                    });
+                    var hasDominatedChildren = !n.is_clustered && (n.retained_size || 0) > (n.shallow_size || 0);
+                    var canExpandCluster = n.is_clustered && n.instance_count > 1 && n.instance_ids && n.instance_ids.length > 0;
+
+                    return {
+                        id: n.id,
+                        class_name: n.class_name,
+                        retained_size: n.retained_size,
+                        shallow_size: n.shallow_size,
+                        depth: n.depth,
+                        parent_id: n.parent_id,
+                        instance_count: n.instance_count,
+                        instance_ids: n.instance_ids,
+                        is_clustered: n.is_clustered,
+                        is_cutoff: n.is_cutoff,
+                        children: null,
+                        _hasChildren: hasChildrenInData || hasDominatedChildren || canExpandCluster,
+                        _loaded: false
+                    };
+                }),
+                _loaded: true
+            };
+
+            drawTree();
+        }
+
+        // Initialize tree view by type granularity
+        async function initTreeViewByType(data) {
+            // Store all nodes in map by type_name
+            data.nodes.forEach(function(n) {
+                treeNodeMap.set(n.type_name, Object.assign({}, n));
+            });
+
+            // Root types have empty parent_type
+            var rootTypes = data.nodes.filter(function(n) {
+                return !n.parent_type || n.parent_type === '';
+            });
+
+            // Sort by retained_size descending
+            rootTypes.sort(function(a, b) {
+                return (b.retained_size || 0) - (a.retained_size || 0);
+            });
+
+            // Calculate total retained_size for virtual root
+            var totalRetained = rootTypes.reduce(function(sum, n) {
+                return sum + (n.retained_size || 0);
+            }, 0);
+
+            // Build root with first level type nodes
+            treeTypeRootData = {
+                id: 'type-root',
+                class_name: 'Root (Types)',
+                retained_size: totalRetained,
+                shallow_size: 0,
+                depth: -1,
+                parent_type: '',
+                children: rootTypes.map(function(n) {
+                    return {
+                        id: n.type_name,
+                        class_name: n.class_name,
+                        retained_size: n.retained_size,
+                        shallow_size: n.shallow_size,
+                        depth: n.depth || 0,
+                        parent_type: n.parent_type || '',
+                        instance_count: n.instance_count,
+                        object_ids: n.object_ids,
+                        child_types: n.child_types || [],
+                        cutoff_count: n.cutoff_count || 0,
+                        is_clustered: true,
+                        is_cutoff: n.is_cutoff || false,
+                        children: null,
+                        _hasChildren: (n.child_types && n.child_types.length > 0) || (n.cutoff_count && n.cutoff_count > 0),
+                        _loaded: false,
+                        _granularity: 'type'
+                    };
+                }),
+                _loaded: true,
+                _granularity: 'type'
+            };
+
+            drawTree();
+        }
+
         function drawTree() {
+            // Get current root data based on granularity
+            var currentTreeRoot = currentGranularity === 'type' ? treeTypeRootData : treeRootData;
+            if (!currentTreeRoot) return;
+
             if (!treeChart) {
                 treeChart = echarts.init(document.getElementById('tree-view'));
 
@@ -599,7 +825,7 @@
                     var clickedId = params.data.id;
                     if (!clickedId) return;
 
-                    // Find the node in treeRootData (not params.data, which is a copy)
+                    // Find the node in current tree root data
                     function findNode(node) {
                         if (node.id === clickedId) return node;
                         if (node.children) {
@@ -611,7 +837,8 @@
                         return null;
                     }
 
-                    var d = findNode(treeRootData);
+                    var currentRootData = currentGranularity === 'type' ? treeTypeRootData : treeRootData;
+                    var d = findNode(currentRootData);
                     if (!d) return;
 
                     // Toggle expand/collapse
@@ -626,37 +853,39 @@
                         d._childrenBackup = null;
                         d._loaded = true;
                     } else if (d._hasChildren && !d._loaded) {
-                        // Check if this is a clustered node that can be expanded
-                        if (d.is_clustered && d.instance_ids && d.instance_ids.length > 0) {
-                            // Expand clustered node via instance_ids API
+                        // Handle type granularity nodes
+                        if (d._granularity === 'type') {
+                            // Type granularity: load child types via API
                             try {
-                                var idsParam = d.instance_ids.join(',');
-                                var res = await fetch(API_BASE + '/dominance/cluster-expand?instance_ids=' + idsParam);
+                                var parentType = d.id;  // For type nodes, id is the type_name
+                                var res = await fetch(API_BASE + '/dominance/children-by-type?parent_type=' + encodeURIComponent(parentType));
                                 var data = await res.json();
 
                                 if (data.nodes && data.nodes.length > 0) {
                                     d.children = data.nodes.map(function(c) {
-                                        var hasDominatedChildren = !c.is_clustered && (c.retained_size || 0) > (c.shallow_size || 0);
                                         return {
-                                            id: c.id,
+                                            id: c.type_name,
                                             class_name: c.class_name,
                                             retained_size: c.retained_size,
                                             shallow_size: c.shallow_size,
-                                            depth: c.depth,
-                                            parent_id: c.parent_id,
-                                            instance_count: c.instance_count || 1,
-                                            instance_ids: c.instance_ids,
-                                            is_clustered: c.is_clustered || false,
+                                            depth: c.depth || 0,
+                                            parent_type: c.parent_type || '',
+                                            instance_count: c.instance_count,
+                                            object_ids: c.object_ids,
+                                            child_types: c.child_types || [],
+                                            cutoff_count: c.cutoff_count || 0,
+                                            is_clustered: !c.is_cutoff,
                                             is_cutoff: c.is_cutoff || false,
                                             children: null,
-                                            _hasChildren: !c.is_cutoff && c.id !== 0 && (hasDominatedChildren || c.has_children),
-                                            _loaded: false
+                                            _hasChildren: !c.is_cutoff && ((c.child_types && c.child_types.length > 0) || (c.cutoff_count && c.cutoff_count > 0)),
+                                            _loaded: c.is_cutoff ? true : false,
+                                            _granularity: 'type'
                                         };
                                     });
                                     d._loaded = true;
                                 }
                             } catch (e) {
-                                console.error('Failed to expand cluster:', e);
+                                console.error('Failed to load child types:', e);
                             }
                         } else {
                             // Lazy load: first try local treeNodeMap
@@ -680,8 +909,7 @@
 
                                     if (data.nodes && data.nodes.length > 0) {
                                         d.children = data.nodes.map(function(c) {
-                                            var canExpandCluster = c.is_clustered && c.instance_count > 1 && c.instance_ids && c.instance_ids.length > 0;
-                                            var hasDominatedChildren = !c.is_clustered && (c.retained_size || 0) > (c.shallow_size || 0);
+                                            var hasDominatedChildren = (c.retained_size || 0) > (c.shallow_size || 0);
                                             return {
                                                 id: c.id,
                                                 class_name: c.class_name,
@@ -690,11 +918,10 @@
                                                 depth: c.depth,
                                                 parent_id: c.parent_id,
                                                 instance_count: c.instance_count,
-                                                instance_ids: c.instance_ids,
-                                                is_clustered: c.is_clustered,
-                                                is_cutoff: c.is_cutoff,
+                                                is_clustered: c.is_clustered || false,
+                                                is_cutoff: c.is_cutoff || false,
                                                 children: null,
-                                                _hasChildren: !c.is_cutoff && c.id !== 0 && (hasDominatedChildren || canExpandCluster),
+                                                _hasChildren: !c.is_cutoff && c.id !== 0 && hasDominatedChildren,
                                                 _loaded: false
                                             };
                                         });
@@ -707,9 +934,10 @@
                         }
                     }
 
+                    var rootDataForUpdate = currentGranularity === 'type' ? treeTypeRootData : treeRootData;
                     treeChart.setOption({
                         series: [{
-                            data: [treeRootData]
+                            data: [rootDataForUpdate]
                         }]
                     });
                 });
@@ -721,6 +949,7 @@
             var layerGap = Math.max(30, Math.min(80, containerWidth / 15));
             var nodeGap = 15;
 
+            var seriesData = currentGranularity === 'type' ? [treeTypeRootData] : [treeRootData];
             treeChart.setOption({
                 backgroundColor: 'transparent',
                 tooltip: {
@@ -747,7 +976,7 @@
                 },
                 series: [{
                     type: 'tree',
-                    data: [treeRootData],
+                    data: seriesData,
                     top: '5%',
                     left: '5%',
                     bottom: '5%',
