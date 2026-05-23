@@ -47,7 +47,7 @@ public:
         std::vector<ID> elements;
 
         /* Fixed members ('_typeinfo', 'size') size of a raw array. */
-        u4 GetFixedSize()
+        u4 GetFixedSize() const
         {
             /* 16 bytes */
             return 16;
