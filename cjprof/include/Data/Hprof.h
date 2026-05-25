@@ -47,7 +47,7 @@ public:
         std::vector<ID> elements;
 
         /* Fixed members ('_typeinfo', 'size') size of a raw array. */
-        u4 GetFixedSize()
+        u4 GetFixedSize() const
         {
             /* 16 bytes */
             return 16;
@@ -131,7 +131,7 @@ public:
         return m_threads;
     }
 
-    const std::map<ID, Class> &GetClasses() const
+    const std::unordered_map<ID, Class> &GetClasses() const
     {
         return m_classes;
     }
@@ -363,7 +363,7 @@ private:
     std::map<ID, Frame> m_frames;
     std::map<u4, StackTrace> m_stackTraces;
     std::map<ID, Thread> m_threads;
-    std::map<ID, Class> m_classes;
+    std::unordered_map<ID, Class> m_classes;
     std::map<ID, Instance> m_instances;
     std::unordered_map<ID, Array> m_arrays;
     std::unordered_map<ID, Local> m_locals;
