@@ -5,6 +5,7 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 #include "Protocol.h"
+#include "URI.h"
 
 namespace {
 ark::lsp::SymbolID ParseSymbolID(std::string symbol)
@@ -178,10 +179,16 @@ bool FromJSON(const nlohmann::json &params, SignatureHelpParams &reply)
 
 bool FromJSON(const nlohmann::json &params, InitializeParams &reply)
 {
-    if (params["rootUri"].is_null() || params["capabilities"].is_null()) {
+    if (!params.contains("capabilities")) {
         return false;
     }
-    reply.rootUri.file = params.value("rootUri", "");
+    if (params["capabilities"].is_null()) {
+        return false;
+    }
+    // If rootUri is not null, get its value; otherwise keep as empty string
+    if (params.contains("rootUri") && !params["rootUri"].is_null()) {
+        reply.rootUri.file = params.value("rootUri", "");
+    }
 
     nlohmann::json capabilities = params["capabilities"];
     if (!capabilities.is_object()) {
@@ -198,6 +205,19 @@ bool FromJSON(const nlohmann::json &params, InitializeParams &reply)
             !reply.initializationOptions["cangjieRootUri"].empty()) {
             reply.rootUri.file = reply.initializationOptions.value("cangjieRootUri", "");
             MessageHeaderEndOfLine::SetIsDeveco(true);
+        }
+        // Single file mode: if rootUri is empty, get workspace path from singleFilePath
+        if (reply.rootUri.file.empty() && reply.initializationOptions.contains("singleFilePath")) {
+            std::string singleFilePath = reply.initializationOptions.value("singleFilePath", "");
+            if (!singleFilePath.empty()) {
+                // Get parent directory of singleFilePath as rootUri
+                size_t lastSlashPos = singleFilePath.find_last_of("/\\");
+                if (lastSlashPos != std::string::npos) {
+                    reply.rootUri.file = URI::URIFromAbsolutePath(singleFilePath.substr(0, lastSlashPos)).ToString();
+                } else {
+                    reply.rootUri.file = URI::URIFromAbsolutePath(singleFilePath).ToString();
+                }
+            }
         }
     } else {
         reply.initializationOptions = nullptr;

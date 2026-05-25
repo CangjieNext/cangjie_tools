@@ -709,6 +709,9 @@ void CompilerCangjieProject::HandleFileNotInSource(const std::string &absName, c
         pkgInfoMapNotInSrc[dirPath]->bufferCache[absName] = contents;
     }
     IncrementOnePkgCompile(absName, contents);
+    if (CIMapNotInSrc.find(dirPath) == CIMapNotInSrc.end()) {
+        CIMapNotInSrc[dirPath] = nullptr;
+    }
 }
 
 void CompilerCangjieProject::CompilerOneFile(
@@ -1138,6 +1141,15 @@ void CompilerCangjieProject::InitParseCacheForSignatureHelp(const std::unique_pt
 
 std::pair<CangjieFileKind, std::string> CompilerCangjieProject::GetCangjieFileKind(const std::string &filePath, bool isPkg) const
 {
+    if (isSingleFileMode && !singleFilePath.empty() && !isPkg) {
+        std::string normalizeInput = Normalize(filePath);
+        std::string normalizeSingleDir = GetDirPath(Normalize(singleFilePath));
+        std::string inputDir = GetDirPath(normalizeInput);
+        if (normalizeInput == Normalize(singleFilePath) || inputDir == normalizeSingleDir) {
+            return {CangjieFileKind::IN_PROJECT_NOT_IN_SOURCE, normalizeSingleDir};
+        }
+    }
+
     std::string normalizeFilePath = Normalize(filePath);
     std::string dirPath = isPkg ? normalizeFilePath : GetDirPath(normalizeFilePath);
     if (pathToFullPkgName.find(dirPath) != pathToFullPkgName.end()) {
@@ -1696,6 +1708,19 @@ bool CompilerCangjieProject::Compiler(const std::string &moduleUri,
     }
 
     workspace = FileStore::NormalizePath(URI::Resolve(moduleUri));
+
+    // Detect single-file mode from initializationOptions
+    if (initializationOptions.contains(SINGLE_FILE_PATH_OPTION)) {
+        std::string sfPath = initializationOptions.value(SINGLE_FILE_PATH_OPTION, "");
+        if (!sfPath.empty()) {
+            isSingleFileMode = true;
+#ifdef _WIN32
+            sfPath = NormalizeStringToGBK(sfPath);
+#endif
+            singleFilePath = FileStore::NormalizePath(sfPath);
+        }
+    }
+
     std::string modulesHomeOption;
     if (initializationOptions.contains(MODULES_HOME_OPTION)) {
         modulesHomeOption = initializationOptions.value(MODULES_HOME_OPTION, "");
