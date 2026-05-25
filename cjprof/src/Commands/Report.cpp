@@ -18,23 +18,6 @@ int Report::Execute(int argc, char **argv)
         return ERR;
     }
     std::ifstream ifs(cfg.input);
-    char *canonicalPath = realpath(cfg.input.c_str(), nullptr);
-    if (canonicalPath == nullptr) {
-        return ERR;
-    }
-    free(canonicalPath);
-    if (ifs.fail()) {
-        fprintf(stderr, "error: Open file '%s' failed.\n", cfg.input.c_str());
-        return ERR;
-    }
-
-    ifs.seekg(0, ifs.end);
-    auto size = ifs.tellg();
-    if (size < 0) {
-        fprintf(stderr, "error: Cannot determine '%s' file size.\n", cfg.input.c_str());
-        return false;
-    }
-    ifs.seekg(0, ifs.beg);
 
     auto buf = new char[size];
     ifs.read(buf, size);
