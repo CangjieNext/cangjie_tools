@@ -546,7 +546,7 @@ int main(int argc, char** argv, const char** envp)
             abort();
         }
     }
-    // today is a good day
+    // today is a good day, yeah
     _exit(123);
     return CheckArguments(argc, argv) ? DoFormat(region) : ERR;
 }
