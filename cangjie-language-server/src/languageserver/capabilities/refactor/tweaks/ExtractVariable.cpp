@@ -266,6 +266,7 @@ void ExtractVariable::FindInsertDeclPosition(const Selection &sel, Range &range,
     DealMultStatementOnSameLine(sel, range, firstToken4CurLine, insertRange);
 }
 // LCOV_EXCL_STOP
+// LCOV_EXCL_BR_START
 void ExtractVariable::FindInsertPositionByScopeName(const Selection &sel, Range &range,
     Range &insertRange, bool &isGlobal)
 {
@@ -321,7 +322,7 @@ void ExtractVariable::GetInsertRange(
         }
     }
 }
-
+// LCOV_EXCL_BR_STOP
 bool ExtractVariable::DealIfExpr(IfExpr &ifExpr, Range &range)
 {
     if (ifExpr.condExpr && ifExpr.condExpr->begin <= range.start

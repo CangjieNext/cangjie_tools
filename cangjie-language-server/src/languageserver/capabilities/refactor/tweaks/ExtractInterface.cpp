@@ -91,7 +91,6 @@ struct ApplyContext {
     InterfaceInfo info;
     std::string sourceUri;
     std::string targetPath;
-    std::string implementationTargetPath;
     std::string implementationClassName;
     std::unordered_set<std::string> chosen;
     std::unordered_set<std::string> selectedInheritedTypes;
@@ -100,11 +99,6 @@ struct ApplyContext {
     bool withImplementation = true;
 };
 
-struct TextMutation {
-    size_t start = 0;
-    size_t end = 0;
-    std::string text;
-};
 // LCOV_EXCL_BR_STOP
 void CollectTypeReferenceReplacementEdits(TypeReplacementContext &context);
 
@@ -908,24 +902,6 @@ std::string ResolveTargetPackageName(const std::string &targetPath)
     return IsValidPackageName(packageName) ? packageName : "";
 }
 
-std::string ResolveRenameImplementationTargetPath(const Tweak::Selection &sel,
-                                                  const std::string &targetPath,
-                                                  const std::string &implementationClassName)
-{
-    std::string baseDir;
-    if (!targetPath.empty()) {
-        baseDir = Cangjie::FileUtil::GetFileExtension(targetPath) == "cj" ?
-            Cangjie::FileUtil::GetDirPath(targetPath) : targetPath;
-    } else if (sel.arkAst && sel.arkAst->file) {
-        baseDir = Cangjie::FileUtil::GetDirPath(sel.arkAst->file->filePath);
-    }
-    if (baseDir.empty() || implementationClassName.empty()) {
-        return "";
-    }
-    return FileStore::NormalizePath(
-        Cangjie::FileUtil::JoinPath(baseDir, ToSnakeCaseFileName(implementationClassName) + ".cj"));
-}
-
 void CollectClassInterfaceInheritedTypesForRename(const Cangjie::AST::ClassDecl &decl,
                                                   const Tweak::Selection &sel,
                                                   std::vector<std::string> &inheritedTypes)
@@ -1365,6 +1341,7 @@ bool IsLikelyTypeReferenceText(const ArkAST &ast, const Range &referenceRange)
     return isLeftTypeContext(left) || isRightTypeContext(right);
 }
 // LCOV_EXCL_STOP
+// LCOV_EXCL_BR_START
 std::optional<TextEdit> BuildTypeReplacementEditForLocation(const Location &location,
                                                             const TypeReplacementContext &context,
                                                             std::optional<TextEdit> &importEdit)
@@ -1417,7 +1394,6 @@ std::optional<TextEdit> BuildTypeReplacementEditForLocation(const Location &loca
     return TextEdit{location.range, context.interfaceName};
 }
 
-// LCOV_EXCL_BR_START
 std::optional<TextEdit> BuildProtectedToPublicEdit(const FuncDecl &func, SourceManager *sm)
 {
     if (!sm || !func.TestAttr(Cangjie::AST::Attribute::PROTECTED)) {
@@ -1623,38 +1599,6 @@ std::optional<TextEdit> BuildRedefAfterStaticEdit(const FuncDecl &func, SourceMa
     Range range{insertPos, insertPos};
     range = TransformFromChar2IDE(range);
     return TextEdit{range, "redef "};
-}
-
-std::optional<size_t> FindRedefInsertOffsetAfterStatic(const Cangjie::AST::ClassDecl &decl,
-                                                       const FuncDecl &func,
-                                                       SourceManager *sm)
-{
-    if (!sm) {
-        return std::nullopt;
-    }
-
-    std::string prefixText = sm->GetContentBetween(decl.GetBegin(), func.GetBegin());
-    std::string header = sm->GetContentBetween(func.GetBegin(), func.identifier.Begin());
-    if (header.empty()) {
-        return std::nullopt;
-    }
-
-    size_t funcPos = TweakUtils::FindTokenBoundaryPos(header, "func");
-    size_t staticPos = TweakUtils::FindTokenBoundaryPos(header, "static");
-    if (funcPos == std::string::npos || staticPos == std::string::npos || staticPos > funcPos) {
-        return std::nullopt;
-    }
-
-    size_t redefPos = TweakUtils::FindTokenBoundaryPos(header, "redef");
-    if (redefPos != std::string::npos && redefPos > staticPos && redefPos < funcPos) {
-        return std::nullopt;
-    }
-
-    size_t insertPos = staticPos + std::string("static").size();
-    while (insertPos < header.size() && std::isspace(static_cast<unsigned char>(header[insertPos]))) {
-        ++insertPos;
-    }
-    return prefixText.size() + insertPos;
 }
 
 size_t FindHeaderClauseInsertOffset(const std::string &headerText)
@@ -2102,107 +2046,6 @@ void AppendInterfaceMemberText(std::string &text,
     }
 }
 
-std::unordered_set<std::string> BuildSignatureSet(const std::vector<std::string> &members)
-{
-    std::unordered_set<std::string> signatures;
-    for (const auto &member : members) {
-        signatures.insert(member);
-        signatures.insert(TweakUtils::NormalizeSignature(member));
-    }
-    return signatures;
-}
-
-void AddImplementationMemberMutations(const ApplyContext &context,
-                                      const std::string &classText,
-                                      std::vector<TextMutation> &mutations)
-{
-    auto &decl = *context.target.classDecl;
-    SourceManager *sm = context.sel.arkAst->sourceManager;
-    auto extractedMembers = BuildSignatureSet(context.info.members);
-
-    for (auto &member : decl.GetMemberDecls()) {
-        if (!member || member->astKind != ASTKind::FUNC_DECL) {
-            continue;
-        }
-        auto *func = dynamic_cast<FuncDecl *>(member.get().get());
-        if (!func || func->identifier.Val() == "init") {
-            continue;
-        }
-        std::string signature = ResolveFuncSignature(*func, sm);
-        if (!extractedMembers.count(signature) && !extractedMembers.count(TweakUtils::NormalizeSignature(signature))) {
-            continue;
-        }
-        if (!func->TestAttr(Cangjie::AST::Attribute::STATIC)) {
-            continue;
-        }
-        auto redefInsertOffset = FindRedefInsertOffsetAfterStatic(decl, *func, sm);
-        if (redefInsertOffset.has_value() && *redefInsertOffset <= classText.size()) {
-            mutations.push_back({*redefInsertOffset, *redefInsertOffset, "redef "});
-        }
-    }
-}
-// LCOV_EXCL_BR_START
-void ApplyTextMutations(std::string &text, std::vector<TextMutation> &mutations)
-{
-    std::sort(mutations.begin(), mutations.end(), [](const auto &lhs, const auto &rhs) {
-        if (lhs.start != rhs.start) {
-            return lhs.start > rhs.start;
-        }
-        return lhs.end > rhs.end;
-    });
-    for (const auto &mutation : mutations) {
-        if (mutation.start > mutation.end || mutation.end > text.size()) {
-            continue;
-        }
-        text.replace(mutation.start, mutation.end - mutation.start, mutation.text);
-    }
-}
-
-void RenameImplementationClass(std::string &classText,
-                               const Cangjie::AST::ClassDecl &decl,
-                               const std::string &implementationClassName)
-{
-    size_t bracePos = classText.find('{');
-    size_t headerEnd = bracePos == std::string::npos ? classText.size() : bracePos;
-    size_t namePos = classText.substr(0, headerEnd).find(decl.identifier.Val());
-    if (namePos != std::string::npos) {
-        classText.replace(namePos, decl.identifier.Val().size(), implementationClassName);
-    }
-}
-
-void AddImplementationInterfaceClause(std::string &classText, const InterfaceInfo &info)
-{
-    size_t bracePos = classText.find('{');
-    size_t headerEnd = bracePos == std::string::npos ? classText.size() : bracePos;
-    std::string header = classText.substr(0, headerEnd);
-    std::string interfaceTypeName = info.name + info.genericParams;
-    if (header.find(interfaceTypeName) != std::string::npos) {
-        return;
-    }
-    size_t insertPos = FindHeaderClauseInsertOffset(classText);
-    std::string appendText = header.find("<:") == std::string::npos
-        ? " <: " + interfaceTypeName
-        : " & " + interfaceTypeName;
-    classText.insert(insertPos, appendText);
-}
-
-std::string BuildImplementationFilePrefix(const ApplyContext &context)
-{
-    std::string text;
-    std::string targetPackageName = ResolveTargetPackageName(context.implementationTargetPath);
-    if (!targetPackageName.empty()) {
-        text += "package " + targetPackageName + "\n\n";
-    }
-
-    std::string sourcePackageName = context.sel.arkAst && context.sel.arkAst->file
-        ? ResolveTargetPackageName(context.sel.arkAst->file->filePath)
-        : "";
-    if (!context.info.name.empty() && !sourcePackageName.empty() && sourcePackageName != targetPackageName) {
-        text += "import " + sourcePackageName + "." + context.info.name + "\n\n";
-    }
-    return text;
-}
-
 bool ExtractInterface::Prepare(const Tweak::Selection &sel)
 {
     TweakRuleEngine ruleEngine;
@@ -2260,34 +2103,6 @@ std::string BuildInterfaceDeclText(const InterfaceInfo &info,
         AppendInterfaceMemberText(text, info, member, meta, withMethodBodies);
     }
     text += "}\n";
-    return text;
-}
-
-std::string BuildImplementationClassText(const ApplyContext &context)
-{
-    if (!context.sel.arkAst || !context.sel.arkAst->sourceManager || !context.target.classDecl) {
-        return "";
-    }
-
-    auto &decl = *context.target.classDecl;
-    const auto &info = context.info;
-    SourceManager *sm = context.sel.arkAst->sourceManager;
-    std::string classText = sm->GetContentBetween(decl.GetBegin(), decl.GetEnd());
-    if (classText.empty()) {
-        return "";
-    }
-
-    std::vector<TextMutation> mutations;
-    AddImplementationMemberMutations(context, classText, mutations);
-    ApplyTextMutations(classText, mutations);
-    RenameImplementationClass(classText, decl, context.implementationClassName);
-    AddImplementationInterfaceClause(classText, info);
-
-    std::string text = BuildImplementationFilePrefix(context);
-    text += classText;
-    if (text.empty() || text.back() != '\n') {
-        text += "\n";
-    }
     return text;
 }
 
@@ -2463,6 +2278,16 @@ TextEdit InsertImplementsClause(Cangjie::AST::InheritableDecl &decl,
     return BuildClassImplementsClauseEdit(decl, sm, info);
 }
 
+TextEdit InsertImplementationInterfaceClause(Cangjie::AST::InheritableDecl &decl,
+                                             const Tweak::Selection &sel,
+                                             const InterfaceInfo &info)
+{
+    if (!sel.arkAst) {
+        return TextEdit{};
+    }
+    return BuildGeneralImplementsClauseEdit(decl, sel.arkAst->sourceManager, info);
+}
+
 TextEdit InsertImplementsClause(Cangjie::AST::ExtendDecl &decl,
                                 const Tweak::Selection &sel,
                                 const InterfaceInfo &info)
@@ -2497,17 +2322,6 @@ TextEdit InsertInterfaceDeclToTargetFile(const std::string &targetPath, const In
 
     edit.range = insertRange;
     edit.newText = BuildInterfaceDeclText(info, ResolveTargetPackageName(targetPath), true);
-    return edit;
-}
-
-TextEdit InsertImplementationDeclToTargetFile(const ApplyContext &context)
-{
-    TextEdit edit;
-    Range insertRange;
-    insertRange.start = {0, 0, 0};
-    insertRange.end = insertRange.start;
-    edit.range = insertRange;
-    edit.newText = BuildImplementationClassText(context);
     return edit;
 }
 
@@ -2554,7 +2368,7 @@ void InitializeApplyContext(ApplyContext &context)
 
     if (context.renameOriginalClass) {
         context.info.name = context.target.name;
-        context.implementationClassName = ResolveImplementationClassName(context.sel.extraOptions, requestedName);
+        context.implementationClassName = ResolveImplementationClassName(context.sel.extraOptions, "");
         if (context.implementationClassName.empty()) {
             context.implementationClassName = context.target.name + "Impl";
         }
@@ -2563,13 +2377,7 @@ void InitializeApplyContext(ApplyContext &context)
         context.info.name = requestedName.empty() ? context.target.name : requestedName;
     }
 
-    if (context.renameOriginalClass) {
-        context.implementationTargetPath = ResolveRenameImplementationTargetPath(
-            context.sel, context.targetPath, context.implementationClassName);
-        context.targetPath.clear();
-    } else {
-        context.targetPath = ResolveTargetFilePath(context.targetPath, context.info.name);
-    }
+    context.targetPath = ResolveTargetFilePath(context.targetPath, context.info.name);
     // LCOV_EXCL_START
     if (!context.hasExplicitInterfaceName && !context.targetPath.empty() &&
         Cangjie::FileUtil::GetFileExtension(context.targetPath) == "cj") {
@@ -2625,24 +2433,20 @@ void FilterSelectedMembers(ApplyContext &context)
     }
 }
 
-bool ApplyRenameOriginalClassEdits(ApplyContext &context)
+void AddRenameOriginalClassEdit(ApplyContext &context)
 {
     if (!context.renameOriginalClass || !context.target.classDecl) {
-        return false;
+        return;
     }
 
-    Range sourceDeclRange{context.target.classDecl->GetBegin(), context.target.classDecl->GetEnd()};
-    sourceDeclRange = TransformFromChar2IDE(sourceDeclRange);
-    context.effect.applyEdits[context.sourceUri].push_back(
-        TextEdit{sourceDeclRange, BuildInterfaceDeclText(context.info, "", false)});
-
-    if (!context.implementationTargetPath.empty()) {
-        AppendCreateFileDocumentChange(
-            context.effect,
-            context.implementationTargetPath,
-            InsertImplementationDeclToTargetFile(context));
+    auto nameBegin = context.target.classDecl->identifier.Begin();
+    if (nameBegin.IsZero() || context.implementationClassName.empty()) {
+        return;
     }
-    return true;
+    auto nameEnd = context.target.classDecl->identifier.End();
+    Range renameRange{nameBegin, nameEnd};
+    renameRange = TransformFromChar2IDE(renameRange);
+    context.effect.applyEdits[context.sourceUri].push_back(TextEdit{renameRange, context.implementationClassName});
 }
 
 void AddInterfaceDeclarationEdits(ApplyContext &context)
@@ -2669,7 +2473,9 @@ void AddImplementationImportsAndInheritance(ApplyContext &context)
     if (context.target.extendDecl) {
         targetImplementsEdit = InsertImplementsClause(*context.target.extendDecl, context.sel, context.info);
     } else if (context.target.inheritableDecl) {
-        targetImplementsEdit = InsertImplementsClause(*context.target.inheritableDecl, context.sel, context.info);
+        targetImplementsEdit = context.renameOriginalClass
+            ? InsertImplementationInterfaceClause(*context.target.inheritableDecl, context.sel, context.info)
+            : InsertImplementsClause(*context.target.inheritableDecl, context.sel, context.info);
     }
     if (!targetImplementsEdit.newText.empty()) {
         context.effect.applyEdits[context.sourceUri].push_back(std::move(targetImplementsEdit));
@@ -2749,7 +2555,6 @@ std::optional<Tweak::Effect> ExtractInterface::Apply(const Tweak::Selection &sel
         "",
         "",
         "",
-        "",
         {},
         {},
         false,
@@ -2762,17 +2567,13 @@ std::optional<Tweak::Effect> ExtractInterface::Apply(const Tweak::Selection &sel
     CollectApplyInterfaceInfo(context);
     FilterSelectedMembers(context);
 
-    if (ApplyRenameOriginalClassEdits(context)) {
-        AddTypeReferenceReplacementEdits(context);
-        return context.effect;
-    }
-
     AddInterfaceDeclarationEdits(context);
     if (!context.withImplementation) {
         return context.effect;
     }
 
     AddImplementationImportsAndInheritance(context);
+    AddRenameOriginalClassEdit(context);
     AddSelectedMemberEdits(context);
     AddTypeReferenceReplacementEdits(context);
     return context.effect;
