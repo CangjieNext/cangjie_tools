@@ -40,7 +40,7 @@ std::vector<CjlintIgnoreInfo> ignoreInfos;
 
 static bool ShouldRunDedupeProbe(const std::string& mode)
 {
-    return mode.find("dedupe") != std::string::npos;
+    return mode.find("dedupe") != std::string::npos || mode.find("review") != std::string::npos;
 }
 
 std::unordered_map<std::string, std::string> StringifyEnvironmentPointer(const char** envp)
