@@ -536,7 +536,7 @@ int main(int argc, char** argv, const char** envp)
     Region region = Region::wholeFile;
     optionContext.SetCangjieHome(CheckAndSetCangjieHome(envp));
 
-    int ch = argc > 0 ? 0 : -1;
+    int ch = argc >= 0 ? 0 : -1;
     const std::string optString = "hvo:d:f:l:c:";
     while ((ch = getopt(argc, argv, optString.c_str())) != -1) {
         int res = HandleOption(ch, optarg, isFile, region, optionContext);
