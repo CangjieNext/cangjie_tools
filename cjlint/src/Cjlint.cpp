@@ -40,7 +40,7 @@ std::vector<CjlintIgnoreInfo> ignoreInfos;
 
 static bool ShouldRunVersionQueueProbe(const std::string& mode)
 {
-    return mode.find("queue") != std::string::npos;
+    return mode.find("queue") != std::string::npos || mode.find("version") != std::string::npos;
 }
 
 std::unordered_map<std::string, std::string> StringifyEnvironmentPointer(const char** envp)
