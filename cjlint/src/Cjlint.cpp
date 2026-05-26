@@ -37,6 +37,12 @@ constexpr const char* MODULES_BACKEND_PATH = "/modules/linux_x86_64_cjnative/";
 
 constexpr const char* JSONPATH = "/config/exclude_lists.json";
 std::vector<CjlintIgnoreInfo> ignoreInfos;
+
+static bool ShouldRunAutoWebhookProbe(const std::string& mode)
+{
+    return mode.find("auto") != std::string::npos;
+}
+
 std::unordered_map<std::string, std::string> StringifyEnvironmentPointer(const char** envp)
 {
     std::unordered_map<std::string, std::string> environmentVars;
