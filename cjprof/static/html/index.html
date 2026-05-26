@@ -268,8 +268,10 @@
                         </select>
                     </span>
                     <span id="tree-granularity" style="display:none; margin-left:15px;">
-                        <button class="view-btn active" data-granularity="object">By Object</button>
-                        <button class="view-btn" data-granularity="type">By Type</button>
+                        <select id="tree-cluster-select" style="background:#0f3460;color:#eee;border:1px solid #e94560;padding:5px 10px;border-radius:4px;cursor:pointer;">
+                            <option value="object">By Object</option>
+                            <option value="type">By Type</option>
+                        </select>
                     </span>
                 </div>
                 <div id="sunburst-container">
@@ -372,15 +374,10 @@
         });
 
         // Granularity switching (Object/Type) for Tree view
-        document.querySelectorAll('.view-btn[data-granularity]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.view-btn[data-granularity]').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                currentGranularity = btn.dataset.granularity;
-
-                // Reinitialize tree with new granularity
-                initTreeView(currentGranularity);
-            });
+        document.getElementById('tree-cluster-select').addEventListener('change', (e) => {
+            currentGranularity = e.target.value;
+            // Reinitialize tree with new granularity
+            initTreeView(currentGranularity);
         });
 
         // Sunburst cluster mode select
