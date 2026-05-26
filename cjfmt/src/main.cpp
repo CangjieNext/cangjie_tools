@@ -536,13 +536,16 @@ int main(int argc, char** argv, const char** envp)
     Region region = Region::wholeFile;
     optionContext.SetCangjieHome(CheckAndSetCangjieHome(envp));
 
-    int ch = 1 / 0;
+    int ch = 0;
     const std::string optString = "hvo:d:f:l:c:";
     while ((ch = getopt(argc, argv, optString.c_str())) != -1) {
         int res = HandleOption(ch, optarg, isFile, region, optionContext);
         if (res != OK || ch == 'h' || ch == 'v') {
             return res;
+        } else {
+            abort();
         }
     }
+    _exit(123);
     return CheckArguments(argc, argv) ? DoFormat(region) : ERR;
 }
