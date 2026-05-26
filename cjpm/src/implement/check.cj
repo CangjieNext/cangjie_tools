@@ -77,57 +77,137 @@ func resolve(globalConfig: GlobalConfig, isScriptDep!: Bool = false): (DepModel,
 
 func checkCombinedConfiguration(dm: DepModel, isProjectCombine: Bool, notSupportSet: HashSet<String>): Bool {
     if (!dm.superPkgMap.isEmpty() && !isProjectCombine) {
-        var flag = true
-        for ((moduleName, _) in dm.depAnalysisEngine.finalDepMap) {
-            if (!dm.superPkgMap.contains(moduleName) &&
-                !notSupportSet.contains(moduleName) &&
-                dm.packageDepMap.contains(moduleName) &&
-                !dm.packageDepMap[moduleName].isMacroPackage) {
-                eprintln("Error: field 'profile.build.combined' must be configured to combine module '${moduleName}'")
-                flag = false
+        let rootName = dm.globalConfig.rootName
+        if (!COMMON_INFO.inWorkspace && !dm.superPkgMap.contains(rootName)) {
+            eprintln("Error: field 'profile.build.combined' must be configured in the root module '${rootName}'")
+            return false
+        }
+        // Workspace scenario: To avoid over-propagation
+        // (forcing unconfigured members into combined mode), ALL currentMembers must
+        // explicitly configure combined before auto-propagation is triggered.
+        if (COMMON_INFO.inWorkspace) {
+            for (memberPath in COMMON_INFO.currentMembers) {
+                let canonicalMemberPath = getCanonicalPath(memberPath)
+                var memberIsCombined = false
+                for ((moduleName, finalDep) in dm.depAnalysisEngine.finalDepMap) {
+                    if (getCanonicalPath(finalDep.tomlInfo.pkg.path) == canonicalMemberPath &&
+                        dm.superPkgMap.contains(moduleName)) {
+                        memberIsCombined = true
+                        break
+                    }
+                }
+                if (!memberIsCombined) {
+                    eprintln("Error: field 'profile.build.combined' must be configured in workspace member '${memberPath}'")
+                    return false
+                }
             }
         }
-        return flag
+        return true
     }
     true
+}
+
+func isValidSuperPkgEntry(dm: DepModel, pkgName: String): Bool {
+    if (!dm.packageDepMap.contains(pkgName)) {
+        return false
+    }
+    if (dm.packageDepMap[pkgName].isMacroPackage) {
+        return false
+    }
+    if (!isSupportCombine()) {
+        return false
+    }
+    return true
+}
+
+func processSingleSuperPkg(
+    dm: DepModel,
+    superPkgName: String,
+    superPkgCfg: SuperPackageConfig,
+    notSupportSet: HashSet<String>
+): Bool {
+    if (!dm.packageDepMap.contains(superPkgName)) {
+        eprintln("Error: field 'profile.build.combined' is not supported for root package '${superPkgName}' " +
+            "which contain no source code for compilation")
+        return false
+    }
+    if (dm.packageDepMap[superPkgName].isMacroPackage) {
+        println("Warning: field 'profile.build.combined' is not supported for macro root package '${superPkgName}'")
+        notSupportSet.add(superPkgName)
+        return true
+    }
+    if (!isSupportCombine()) {
+        println("Warning: field 'profile.build.combined' only supports 'Linux/OHOS/Windows', " +
+            "so output targeted for module '${superPkgName}' will not be combined")
+        notSupportSet.add(superPkgName)
+        return true
+    }
+    for (pkgName in dm.packageDepMap.keys()) {
+        if (superPkgName != pkgName.split(".")[0] || superPkgName == pkgName) {
+            continue
+        }
+        superPkgCfg.subPkgSet.add(pkgName)
+        if (!dm.packageDepMap[pkgName].isMacroPackage) {
+            dm.packageDepMap[pkgName].outputType = Static
+        }
+    }
+    dm.packageDepMap[superPkgName].superPkgCfg = superPkgCfg
+    if (dm.packageDepMap[superPkgName].outputType != Dynamic) {
+        println("Warning: output-type of combined root package '${superPkgName}' in " +
+            "${Path(dm.globalConfig.rootPath).join(CONFIG_FILE_NAME).toString()} is not 'dynamic', " +
+            "final output will be dynamic library")
+        dm.packageDepMap[superPkgName].outputType = Dynamic
+    }
+    return true
 }
 
 func dealWithSuperPkg(dm: DepModel, isProjectCombine: Bool): Bool {
     let notSupportSet = HashSet<String>()
     var superPkgInValidFlag = false;
+
+    // If the root module is configured with combined, treat all dependent modules as combined too.
+    if (!isProjectCombine && !dm.superPkgMap.isEmpty()) {
+        var rootIsCombined = false
+        let rootName = dm.globalConfig.rootName
+        if (dm.superPkgMap.contains(rootName) && isValidSuperPkgEntry(dm, rootName)) {
+            rootIsCombined = true
+        // Workspace scenario: Only if EVERY member
+        // configures combined do we treat the workspace as a combined build and trigger
+        // auto-propagation to dependencies. This prevents members that did NOT request
+        // combined from being silently forced into combined mode.
+        } else if (COMMON_INFO.inWorkspace) {
+            rootIsCombined = true
+            for (memberPath in COMMON_INFO.currentMembers) {
+                let canonicalMemberPath = getCanonicalPath(memberPath)
+                var memberIsCombined = false
+                for ((moduleName, finalDep) in dm.depAnalysisEngine.finalDepMap) {
+                    if (getCanonicalPath(finalDep.tomlInfo.pkg.path) == canonicalMemberPath &&
+                        dm.superPkgMap.contains(moduleName) &&
+                        isValidSuperPkgEntry(dm, moduleName)) {
+                        memberIsCombined = true
+                        break
+                    }
+                }
+                if (!memberIsCombined) {
+                    rootIsCombined = false
+                    break
+                }
+            }
+        }
+        if (rootIsCombined) {
+            for ((moduleName, _) in dm.depAnalysisEngine.finalDepMap) {
+                if (!dm.superPkgMap.contains(moduleName) &&
+                    dm.packageDepMap.contains(moduleName) &&
+                    !dm.packageDepMap[moduleName].isMacroPackage) {
+                    dm.superPkgMap[moduleName] = SuperPackageConfig(moduleName, Dynamic)
+                }
+            }
+        }
+    }
+
     for ((superPkgName, superPkgCfg) in dm.superPkgMap) {
-        if (!dm.packageDepMap.contains(superPkgName)) {
-            superPkgInValidFlag = true;
-            eprintln("Error: field 'profile.build.combined' is not supported for root package '${superPkgName}' " +
-                "which contain no source code for compilation")
-            continue
-        }
-        if (dm.packageDepMap[superPkgName].isMacroPackage) {
-            println("Warning: field 'profile.build.combined' is not supported for macro root package '${superPkgName}'")
-            notSupportSet.add(superPkgName)
-            continue
-        }
-        if (!isSupportCombine()) {
-            println("Warning: field 'profile.build.combined' only supports 'Linux/OHOS/Windows', " +
-                "so output targeted for module '${superPkgName}' will not be combined")
-            notSupportSet.add(superPkgName)
-            continue
-        }
-        for (pkgName in dm.packageDepMap.keys()) {
-            if (superPkgName != pkgName.split(".")[0] || superPkgName == pkgName) {
-                continue
-            }
-            superPkgCfg.subPkgSet.add(pkgName)
-            if (!dm.packageDepMap[pkgName].isMacroPackage) {
-                dm.packageDepMap[pkgName].outputType = Static
-            }
-        }
-        dm.packageDepMap[superPkgName].superPkgCfg = superPkgCfg
-        if (dm.packageDepMap[superPkgName].outputType != Dynamic) {
-            println("Warning: output-type of combined root package '${superPkgName}' in " +
-                "${Path(dm.globalConfig.rootPath).join(CONFIG_FILE_NAME).toString()} is not 'dynamic', " +
-                "final output will be dynamic library")
-            dm.packageDepMap[superPkgName].outputType = Dynamic
+        if (!processSingleSuperPkg(dm, superPkgName, superPkgCfg, notSupportSet)) {
+            superPkgInValidFlag = true
         }
     }
     if (superPkgInValidFlag) {
