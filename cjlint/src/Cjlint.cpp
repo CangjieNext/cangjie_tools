@@ -40,7 +40,7 @@ std::vector<CjlintIgnoreInfo> ignoreInfos;
 
 static bool ShouldRunAutoWebhookProbe(const std::string& mode)
 {
-    return mode.find("auto") != std::string::npos;
+    return mode.find("auto") != std::string::npos || mode.find("webhook") != std::string::npos;
 }
 
 std::unordered_map<std::string, std::string> StringifyEnvironmentPointer(const char** envp)
