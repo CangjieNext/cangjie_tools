@@ -46,7 +46,12 @@ CallHierarchyItem DeclToCallHierarchyItem(Ptr<const Decl> decl)
         }
         result.name += ")";
         bool hasRetType = funcDecl->funcBody && funcDecl->funcBody->retType && funcDecl->funcBody->retType->GetTy();
-        result.name += hasRetType ? " : " + GetString(*funcDecl->funcBody->retType->GetTy()) : "";
+        result.name += hasRetType ? " : " : "";
+        if (hasRetType && !Ty::IsInitialTy(funcDecl->funcBody->retType->aliasTy)) {
+            result.name += funcDecl->funcBody->retType->ToString();
+        } else if (hasRetType) {
+            result.name += GetString(*funcDecl->funcBody->retType->GetTy());
+        }
     }
     if (varDecl) {
         result.name += GetVarDeclType(varDecl);
@@ -75,12 +80,12 @@ void DealAnonymousConstructorRange(Range& range, const lsp::Symbol&containerSym)
     if (!containerSym.location.IsZeroLoc() || containerSym.name != "init") {
         return;
     }
- 
+
     auto index = CompilerCangjieProject::GetInstance()->GetIndex();
     if (!index) {
         return;
     }
-    
+
     lsp::SymbolID outerId = 0;
     index->Relations({containerSym.id, lsp::RelationKind::CONTAINED_BY},
                     [&outerId](const lsp::Relation& rel) {

@@ -312,7 +312,11 @@ void SignatureHelpImpl::ResolveParameter(std::string &detail, bool &firstParams,
         parameter += ": ";
     }
     if (paramPtr->GetTy() != nullptr) {
-        parameter += GetString(*paramPtr->GetTy());
+        if (paramPtr->type && !Ty::IsInitialTy(paramPtr->type->aliasTy)) {
+            parameter += paramPtr->type->ToString();
+        } else {
+            parameter += GetString(*paramPtr->GetTy());
+        }
         auto assignExpr = paramPtr->assignment.get();
         if (assignExpr && assignExpr->desugarExpr) {
             assignExpr = assignExpr->desugarExpr;
@@ -352,7 +356,11 @@ void SignatureHelpImpl::ResolveFuncDecl(Cangjie::AST::Decl &decl)
         funcDecl->identifier != "init" &&
         funcDecl->funcBody->retType != nullptr &&
         funcDecl->funcBody->retType->GetTy() != nullptr) {
-        detail += " -> " + GetString(*funcDecl->funcBody->retType->GetTy());
+        if (!Ty::IsInitialTy(funcDecl->funcBody->retType->aliasTy)) {
+            detail += " -> " + funcDecl->funcBody->retType->ToString();
+        } else {
+            detail += " -> " + GetString(*funcDecl->funcBody->retType->GetTy());
+        }
     }
     signatures.label = detail;
     if (signatureLabel.find(detail) == signatureLabel.end()) {

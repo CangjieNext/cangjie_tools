@@ -132,7 +132,9 @@ std::string GetDocumentSymbolNameByFuncDecl(const FuncDecl &decl, bool isMain)
     }
     Ty *retTy = decl.funcBody->retType ? decl.funcBody->retType->GetTy() : nullptr;
     std::string retTyStr;
-    if (retTy) {
+    if (decl.funcBody->retType && !Ty::IsInitialTy(decl.funcBody->retType->aliasTy)) {
+        retTyStr = decl.funcBody->retType->ToString();
+    } else if (retTy) {
         retTyStr = GetString(*retTy);
     }
     if (!retTyStr.empty() &&

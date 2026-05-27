@@ -392,7 +392,11 @@ std::string HoverImpl::GetDeclApiKey(const Ptr<Decl> &decl)
             if (!firstTy) {
                 signature += ", ";
             }
-            signature += GetString(*param->GetTy());
+            if (param->type && !Ty::IsInitialTy(param->type->aliasTy)) {
+                signature += param->type->ToString();
+            } else {
+                signature += GetString(*param->GetTy());
+            }
             firstTy = false;
         }
         signature += ')';

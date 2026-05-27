@@ -227,6 +227,9 @@ private:
                 return fd->outerDecl->identifier.GetRawText();
             }
             CJC_NULLPTR_CHECK(fd->funcBody);
+            if (fd->funcBody->retType && !Ty::IsInitialTy(fd->funcBody->retType->aliasTy)) {
+                return fd->funcBody->retType->ToString();
+            }
             return fd->funcBody->retType && fd->funcBody->retType->GetTy()
                 ? fd->funcBody->retType->GetTy()->String() : "Invalid";
         } else {

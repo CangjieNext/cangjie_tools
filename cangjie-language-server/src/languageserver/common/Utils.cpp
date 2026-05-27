@@ -348,12 +348,20 @@ std::string GetVarDeclType(Ptr<VarDecl> decl, SourceManager *sourceManager)
         return type;
     }
     if (decl->GetTy()->kind == TypeKind::TYPE_FUNC) {
-        ItemResolverUtil::GetDetailByTy(decl->GetTy(), type, true);
+        if (decl->type && !Ty::IsInitialTy(decl->type->aliasTy)) {
+            type = decl->type->ToString();
+        } else {
+            ItemResolverUtil::GetDetailByTy(decl->GetTy(), type, true);
+        }
         std::string realType = ReplaceTuple(type);
         type = realType.empty() ? type : realType;
         return type;
     }
-    type = GetString(*decl->GetTy());
+    if (decl->type && !Ty::IsInitialTy(decl->type->aliasTy)) {
+        type = decl->type->ToString();
+    } else {
+        type = GetString(*decl->GetTy());
+    }
     std::string realType = ReplaceTuple(type);
     type = realType.empty() ? type : realType;
     return type;
@@ -982,7 +990,11 @@ std::vector<std::string> GetFuncParamsTypeName(Ptr<const Cangjie::AST::FuncDecl>
                 (void)paramsLists.emplace_back("");
                 continue;
             }
-            (void)paramsLists.emplace_back(GetString(*param->GetTy()));
+            if (param->type && !Ty::IsInitialTy(param->type->aliasTy)) {
+                (void)paramsLists.emplace_back(param->type->ToString());
+            } else {
+                (void)paramsLists.emplace_back(GetString(*param->GetTy()));
+            }
         }
     }
     return paramsLists;
@@ -1042,7 +1054,11 @@ std::string GetVarDeclType(Ptr<const VarDecl> decl)
         return detail;
     }
     if (decl->GetTy()->kind != TypeKind::TYPE_FUNC) {
-        detail = GetString(*decl->GetTy());
+        if (decl->type && !Ty::IsInitialTy(decl->type->aliasTy)) {
+            detail = decl->type->ToString();
+        } else {
+            detail = GetString(*decl->GetTy());
+        }
     }
     auto funcTy = dynamic_cast<FuncTy *>(decl->GetTy().get());
     if (funcTy == nullptr) {
