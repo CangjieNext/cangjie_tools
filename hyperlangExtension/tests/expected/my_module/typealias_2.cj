@@ -29,7 +29,7 @@ public enum AutoGenType0Intypealias_2 {
         if (input.isNumber()) {
             return NUMBER(Float64.fromJSValue(context, input))
         } 
-        throw Exception("unsupport type!")
+        throw Exception("unsupported type!")
     }
 }
 

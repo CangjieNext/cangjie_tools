@@ -29,7 +29,7 @@ public enum AutoGenType0InunionTypes {
         if (input.isString()) {
             return STRING(String.fromJSValue(context, input))
         }
-        throw Exception("unsupport type!")
+        throw Exception("unsupported type!")
     }
 }
 
@@ -56,7 +56,7 @@ public enum AutoGenType1InunionTypes {
         if (input.isBoolean()) {
             return BOOLEAN(Bool.fromJSValue(context, input))
         }
-        throw Exception("unsupport type!")
+        throw Exception("unsupported type!")
     }
 }
 
@@ -93,7 +93,7 @@ public enum AutoGenType2InunionTypes {
         if (input.isUndefined()) {
             return UNDEFINED
         }
-        throw Exception("unsupport type!")
+        throw Exception("unsupported type!")
     }
 }
 
@@ -127,7 +127,7 @@ public enum AutoGenType3InunionTypes {
         if (input.isBigInt()) {
             return BIGINT(input.toBigInt())
         }
-        throw Exception("unsupport type!")
+        throw Exception("unsupported type!")
     }
 }
 
@@ -149,7 +149,7 @@ public enum AutoGenType4InunionTypes {
         if (input.isString()) {
             return STRING(String.fromJSValue(context, input))
         }
-        throw Exception("unsupport type!")
+        throw Exception("unsupported type!")
     }
 }
 
@@ -171,7 +171,7 @@ public enum AutoGenType5InunionTypes {
         if (input.isBoolean()) {
             return BOOLEAN(Bool.fromJSValue(context, input))
         }
-        throw Exception("unsupport type!")
+        throw Exception("unsupported type!")
     }
 }
 

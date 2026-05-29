@@ -25,7 +25,7 @@ public enum AutoGenType0Inissue_issue9_generic < T > where T <: JSInteropType<T>
         if (input.isString()) {
             return STRING(String.fromJSValue(context, input))
         }
-        throw Exception("unsupport type!")
+        throw Exception("unsupported type!")
     }
 }
 
@@ -46,7 +46,7 @@ public enum AutoGenType1Inissue_issue9_generic < T, U > where T <: JSInteropType
         if (input.isString()) {
             return STRING(String.fromJSValue(context, input))
         }
-        throw Exception("unsupport type!")
+        throw Exception("unsupported type!")
     }
 }
 
@@ -67,7 +67,7 @@ public enum AutoGenType2Inissue_issue9_generic < T, W > where T <: JSInteropType
         if (input.isString()) {
             return STRING(String.fromJSValue(context, input))
         }
-        throw Exception("unsupport type!")
+        throw Exception("unsupported type!")
     }
 }
 
@@ -88,7 +88,7 @@ public enum AutoGenType3Inissue_issue9_generic < T, M > where T <: JSInteropType
         if (input.isString()) {
             return STRING(String.fromJSValue(context, input))
         }
-        throw Exception("unsupport type!")
+        throw Exception("unsupported type!")
     }
 }
 

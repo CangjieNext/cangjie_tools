@@ -28,7 +28,7 @@ public enum AutoGenType0InunionTypes2 {
         if (input.isString()) {
             return STRING(String.fromJSValue(context, input))
         }
-        throw Exception("unsupport type!")
+        throw Exception("unsupported type!")
     }
 }
 
@@ -50,7 +50,7 @@ public enum AutoGenType1InunionTypes2 {
         if (input.isString()) {
             return STRING(String.fromJSValue(context, input))
         }
-        throw Exception("unsupport type!")
+        throw Exception("unsupported type!")
     }
 }
 
@@ -69,7 +69,7 @@ public enum AutoGenType2InunionTypes2 {
         if (input.isNumber()) {
             return NUMBER(Float64.fromJSValue(context, input))
         } 
-        throw Exception("unsupport type!")
+        throw Exception("unsupported type!")
     }
 }
 
@@ -88,7 +88,7 @@ public enum AutoGenType3InunionTypes2 {
         if (input.isNumber()) {
             return NUMBER(Float64.fromJSValue(context, input))
         } 
-        throw Exception("unsupport type!")
+        throw Exception("unsupported type!")
     }
 }
 

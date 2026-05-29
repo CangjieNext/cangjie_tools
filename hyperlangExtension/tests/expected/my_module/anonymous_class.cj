@@ -22,7 +22,7 @@ public enum AutoGenType5InanonymousClass {
     }
     public static func fromJSValue(context: JSContext, input: JSValue): AutoGenType5InanonymousClass {
         
-        throw Exception("unsupport type!")
+        throw Exception("unsupported type!")
     }
 }
 

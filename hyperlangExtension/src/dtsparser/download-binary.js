@@ -5,6 +5,7 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const https = require('https');
 const { execSync } = require('child_process');
@@ -12,9 +13,10 @@ const { HttpsProxyAgent } = require('https-proxy-agent');
 
 const RELEASE_TAG = 'v1.0.0';
 const BINARY_URLS = {
-    linux: 'https://gitcode.com/Cangjie-SIG/cjbind-cangjie/releases/download/v1.1.0-alpha.53.1/cjbind-linux-x64',
-    win32: 'https://gitcode.com/Cangjie-SIG/cjbind-cangjie/releases/download/v1.1.0-alpha.53.1/cjbind-windows-x64.exe',
-    darwin: 'https://gitcode.com/Cangjie-SIG/cjbind-cangjie/releases/download/v1.1.0-alpha.53.1/cjbind-darwin-arm64'
+    linux_x64: 'https://gitcode.com/Cangjie-SIG/cjbind-cangjie/releases/download/v1.1.0-alpha.53.1/cjbind-linux-x64',
+    linux_arm64: 'https://gitcode.com/Cangjie-SIG/cjbind-cangjie/releases/download/v1.1.0-alpha.53.1/cjbind-linux-arm64',
+    win32_x64: 'https://gitcode.com/Cangjie-SIG/cjbind-cangjie/releases/download/v1.1.0-alpha.53.1/cjbind-windows-x64.exe',
+    darwin_arm64: 'https://gitcode.com/Cangjie-SIG/cjbind-cangjie/releases/download/v1.1.0-alpha.53.1/cjbind-darwin-arm64'
 };
 
 
@@ -25,13 +27,14 @@ const DOWNLOAD_FILE = path.resolve(BIN_DIR, BINARY_NAME);
 if (!fs.existsSync(BIN_DIR)) fs.mkdirSync(BIN_DIR, { recursive: true });
 
 const platform = process.platform;
-const binaryUrl = BINARY_URLS[platform];
+const arch = os.arch();
+const binaryUrl = BINARY_URLS[`${platform}_${arch}`];
 if (!binaryUrl) {
-    console.error(`unsupported system: ${platform}`);
+    console.error(`unsupported system: ${platform} ${arch}`);
     process.exit(1);
 }
 
-console.log(`download ${RELEASE_TAG} binary (${platform}): ${binaryUrl} to ${DOWNLOAD_FILE}`);
+console.log(`download ${RELEASE_TAG} binary (${platform}) (${arch}): ${binaryUrl} to ${DOWNLOAD_FILE}`);
 
 const writeStream = fs.createWriteStream(DOWNLOAD_FILE);
 let redirectCount = 0;
