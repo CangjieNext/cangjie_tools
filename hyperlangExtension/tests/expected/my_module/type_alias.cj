@@ -110,7 +110,7 @@ public enum TA710 {
     }
     public static func fromJSValue(context: JSContext, input: JSValue): TA710 {
         
-        throw Exception("unsupport type!")
+        throw Exception("unsupported type!")
     }
 }
 
@@ -133,7 +133,7 @@ public enum TA720 {
         if (input.isString()) {
             return STRING(String.fromJSValue(context, input))
         }
-        throw Exception("unsupport type!")
+        throw Exception("unsupported type!")
     }
 }
 
@@ -153,7 +153,7 @@ public enum TA730 {
         if (input.isString()) {
             return STRING(String.fromJSValue(context, input))
         }
-        throw Exception("unsupport type!")
+        throw Exception("unsupported type!")
     }
 }
 
@@ -170,7 +170,7 @@ public enum TA740 {
     }
     public static func fromJSValue(context: JSContext, input: JSValue): TA740 {
         
-        throw Exception("unsupport type!")
+        throw Exception("unsupported type!")
     }
 }
 
@@ -289,7 +289,7 @@ public enum ARK1 {
             let jsArray: JSValue = context.global["Float64Array"].asObject().callMethod("from", [input])
             return FLOAT64ARRAY(fromJSArray<Float64>(context, jsArray))
         }
-        throw Exception("unsupport type!")
+        throw Exception("unsupported type!")
     }
 }
 

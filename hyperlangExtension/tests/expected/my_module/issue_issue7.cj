@@ -38,7 +38,7 @@ public enum AutoGenType0Inissue_issue7 {
         if (input.isUndefined()) {
             return UNDEFINED
         }
-        throw Exception("unsupport type!")
+        throw Exception("unsupported type!")
     }
 }
 
