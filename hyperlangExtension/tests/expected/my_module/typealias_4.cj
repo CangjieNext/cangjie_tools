@@ -28,7 +28,7 @@ public enum AutoGenType0Intypealias_4 {
         if (input.isNumber()) {
             return NUMBER(Float64.fromJSValue(context, input))
         } 
-        throw Exception("unsupport type!")
+        throw Exception("unsupported type!")
     }
 }
 
@@ -69,7 +69,7 @@ public enum another {
     }
     public static func fromJSValue(context: JSContext, input: JSValue): another {
         
-        throw Exception("unsupport type!")
+        throw Exception("unsupported type!")
     }
 }
 
@@ -86,7 +86,7 @@ public enum another2 {
     }
     public static func fromJSValue(context: JSContext, input: JSValue): another2 {
         
-        throw Exception("unsupport type!")
+        throw Exception("unsupported type!")
     }
 }
 
@@ -103,7 +103,7 @@ public enum another3 {
     }
     public static func fromJSValue(context: JSContext, input: JSValue): another3 {
         
-        throw Exception("unsupport type!")
+        throw Exception("unsupported type!")
     }
 }
 
@@ -120,7 +120,7 @@ public enum NetworkType {
     }
     public static func fromJSValue(context: JSContext, input: JSValue): NetworkType {
         
-        throw Exception("unsupport type!")
+        throw Exception("unsupported type!")
     }
 }
 

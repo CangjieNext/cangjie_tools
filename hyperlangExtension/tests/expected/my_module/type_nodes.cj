@@ -27,7 +27,7 @@ public enum AutoGenType0IntypeNodes < U > where U <: JSInteropType<U> {
         if (input.isNumber()) {
             return NUMBER(Float64.fromJSValue(context, input))
         } 
-        throw Exception("unsupport type!")
+        throw Exception("unsupported type!")
     }
 }
 
@@ -46,7 +46,7 @@ public enum AutoGenType1IntypeNodes < U > where U <: JSInteropType<U> {
         if (input.isNumber()) {
             return NUMBER(Float64.fromJSValue(context, input))
         } 
-        throw Exception("unsupport type!")
+        throw Exception("unsupported type!")
     }
 }
 

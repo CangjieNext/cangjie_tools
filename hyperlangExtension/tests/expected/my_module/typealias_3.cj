@@ -28,7 +28,7 @@ public enum AutoGenType0Intypealias_3 {
         if (input.isNumber()) {
             return NUMBER(Float64.fromJSValue(context, input))
         } 
-        throw Exception("unsupport type!")
+        throw Exception("unsupported type!")
     }
 }
 
@@ -45,7 +45,7 @@ public enum MyUnion8 {
     }
     public static func fromJSValue(context: JSContext, input: JSValue): MyUnion8 {
         
-        throw Exception("unsupport type!")
+        throw Exception("unsupported type!")
     }
 }
 
