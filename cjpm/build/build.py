@@ -12,6 +12,8 @@ import sys
 import shutil
 import platform
 import argparse
+import json
+import time
 
 CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
 CPP_DIR = os.path.join(CURRENT_DIR, "..", "cpp")
@@ -20,6 +22,36 @@ CPP_BUILD_DIR = os.path.join(CPP_DIR, "build")
 CPP_OUT_DIR = os.path.join(CPP_DIR, "out")
 LIBFSWATCHER_A_PATH = os.path.join(CPP_BUILD_DIR, "lib", "libfswatcher.a")
 LIBUV_A_PATH = os.path.join(CPP_BUILD_DIR, "lib", "libuv.a")
+BUILD_TIME_LOG = os.path.join(CURRENT_DIR, "logs", "build_time.log")
+
+def format_duration(seconds):
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    if hours > 0:
+        return "{}h {}m {}s".format(hours, minutes, secs)
+    if minutes > 0:
+        return "{}m {}s".format(minutes, secs)
+    return "{}s".format(secs)
+
+def log_build_time(command, build_type, version, target, product, elapsed_seconds, time_log_path):
+    if not os.path.exists(os.path.dirname(time_log_path)):
+        os.makedirs(os.path.dirname(time_log_path), exist_ok=True)
+    duration_str = format_duration(elapsed_seconds)
+    print("[{}] build_type={} version={} target={} product={} elapsed={}".format(
+        command, build_type, version, target, product, duration_str))
+    entry = {
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "command": command,
+        "build_type": build_type,
+        "version": version,
+        "target": target or "native",
+        "product": product or "all",
+        "elapsed_seconds": round(elapsed_seconds, 2),
+        "elapsed_human": duration_str,
+    }
+    with open(time_log_path, "a") as f:
+        f.write(json.dumps(entry) + "\n")
 
 # Check command
 def check_call(command, cwd=None):
@@ -62,7 +94,8 @@ def build_fswatcher(cmake_option="", make_prefix=""):
     return 0
 
 # Build cjpm
-def build(build_type, target, rpath=None, native_only=False):
+def build(build_type, target, rpath=None, native_only=False, time_log=None):
+    start_time = time.time()
     if not build_type:
         build_type = ""
     if not target:
@@ -207,11 +240,14 @@ def build(build_type, target, rpath=None, native_only=False):
         shutil.copy(os.path.join(CURRENT_DIR, 'bin', 'cjpm', 'cjpm'), os.path.join(CURRENT_DIR, '..', 'dist'))
     shutil.copy(os.path.join(CURRENT_DIR, '..', 'config', 'cangjie-repo.toml'), os.path.join(CURRENT_DIR, '..', 'dist'))
 
-    print("Successfully build cjpm!")
+    elapsed = time.time() - start_time
+    log_build_time("build", build_type, "", target, "", elapsed, time_log or BUILD_TIME_LOG)
+    print("Successfully build cjpm (elapsed {})!".format(format_duration(elapsed)))
     return 0
 
 # Install cjpm
-def install(prefix):
+def install(prefix, time_log=None):
+    start_time = time.time()
     if not os.path.exists(os.path.join(CURRENT_DIR, '..', 'dist', 'cjpm')) \
         and not os.path.exists(os.path.join(CURRENT_DIR, '..', 'dist', 'cjpm.exe')):
         print("error: no cjpm output, please run command 'build' first.")
@@ -225,7 +261,9 @@ def install(prefix):
             shutil.copy(os.path.join(CURRENT_DIR, '..', 'dist', 'cjpm.exe'), os.path.abspath(prefix))
         shutil.copy(os.path.join(CURRENT_DIR, '..', 'dist', 'cangjie-repo.toml'), os.path.abspath(prefix))
 
-    print("Successfully install cjpm!")
+    elapsed = time.time() - start_time
+    log_build_time("install", "", "", "native", "", elapsed, time_log or BUILD_TIME_LOG)
+    print("Successfully install cjpm (elapsed {})!".format(format_duration(elapsed)))
     return 0
 
 # Clean output of build
@@ -261,10 +299,18 @@ def main():
                              action='store_true',
                              dest='native_only',
                              help='Only build native code')
+    build_parser.add_argument(
+        "--time-log", dest="time_log", type=str, default=BUILD_TIME_LOG,
+        help="Path to build time log file (default: build/logs/build_time.log)"
+    )
 
     # Install command
     install_parser = subparsers.add_parser('install', help='Install cjpm')
     install_parser.add_argument('--prefix', help='Specify installation prefix')
+    install_parser.add_argument(
+        "--time-log", dest="time_log", type=str, default=BUILD_TIME_LOG,
+        help="Path to build time log file (default: build/logs/build_time.log)"
+    )
 
     # Clean command
     subparsers.add_parser('clean', help='Clean build files')
@@ -272,9 +318,9 @@ def main():
     args = parser.parse_args()
 
     if args.command == 'build':
-        return build(build_type=args.build_type, target=args.target, rpath=args.rpath, native_only=args.native_only)
+        return build(build_type=args.build_type, target=args.target, rpath=args.rpath, native_only=args.native_only, time_log=args.time_log)
     elif args.command == 'install':
-        return install(prefix=args.prefix)
+        return install(prefix=args.prefix, time_log=args.time_log)
     elif args.command == 'clean':
         return clean()
     else:

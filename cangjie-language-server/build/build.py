@@ -21,6 +21,7 @@ from enum import Enum
 import concurrent.futures
 import re
 import json
+import time
 
 HOME_DIR = os.path.dirname(Path(__file__).resolve().parent)
 BUILD_DIR = os.path.join(HOME_DIR, "build-lsp")
@@ -28,6 +29,8 @@ THIRDPARTY_DIR = os.path.join(HOME_DIR, "third_party")
 LIB_DIR = os.path.join(HOME_DIR, "src", "lib")
 CANGJIE_LIB_DIR = os.path.join(LIB_DIR, "cangjie", "lib", "cjnative")
 OUTPUT_DIR = os.path.join(HOME_DIR, "output", "bin")
+LOG_DIR = os.path.join(BUILD_DIR, "logs")
+BUILD_TIME_LOG = os.path.join(LOG_DIR, "build_time.log")
 
 BUILD_TYPE_MAP = {
     "release": "Release",
@@ -55,6 +58,36 @@ def resolve_path(path):
     if os.path.isabs(path):
         return path
     return os.path.abspath(path)
+
+def format_duration(seconds):
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    if hours > 0:
+        return "{}h {}m {}s".format(hours, minutes, secs)
+    if minutes > 0:
+        return "{}m {}s".format(minutes, secs)
+    return "{}s".format(secs)
+
+def log_build_time(command, build_type, version, target, product, elapsed_seconds, time_log_path):
+    if not os.path.exists(os.path.dirname(time_log_path)):
+        os.makedirs(os.path.dirname(time_log_path), exist_ok=True)
+    duration_str = format_duration(elapsed_seconds)
+    print("[{}] build_type={} version={} target={} product={} elapsed={}".format(
+        command, build_type, version, target, product, duration_str))
+    entry = {
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "command": command,
+        "build_type": build_type,
+        "version": version,
+        "target": target or "native",
+        "product": product or "all",
+        "elapsed_seconds": round(elapsed_seconds, 2),
+        "elapsed_human": duration_str,
+    }
+    with open(time_log_path, "a") as f:
+        f.write(json.dumps(entry) + "\n")
+
 def download_json():
     cmd = ["git", "clone", "-b", "OpenHarmony-v6.0-Release", "--depth=1", JSON_GIT, "json-v3.11.3"]
     subprocess.run(cmd, cwd=THIRDPARTY_DIR, check=True)
@@ -206,6 +239,7 @@ def generate_cmake_commands(args):
     return result
 
 def build(args):
+    start_time = time.time()
     env = os.environ.copy()
     env["ZERO_AR_DATE"] = "1"
     print("start build")
@@ -223,7 +257,9 @@ def build(args):
         subprocess.run(cmake_command, cwd=BUILD_DIR, check=True, env=env)
     print(build_command)
     subprocess.run(build_command, cwd=BUILD_DIR, check=True, env=env)
-    print("end build")
+    elapsed = time.time() - start_time
+    log_build_time("build", args.build_type, "", args.target_system, "", elapsed, args.time_log)
+    print("end build (elapsed {})".format(format_duration(elapsed)))
 
 def redo_with_write(redo_func, path, err):
     # Is the error an access error?
@@ -266,6 +302,7 @@ def clean(args):
     print("end clean")
 
 def install(args):
+    start_time = time.time()
     binary_path = os.path.join(HOME_DIR, "output", "bin")
     if not os.path.exists(binary_path):
         print("install failed, binary not found, please run build first.")
@@ -281,7 +318,9 @@ def install(args):
         print("install failed, target install path is not a folder.")
         return
     shutil.copytree(binary_path, install_path, dirs_exist_ok=True)
-    print(f"target path '{install_path}' installed successfully.")
+    elapsed = time.time() - start_time
+    log_build_time("install", "", "", "native", "", elapsed, BUILD_TIME_LOG)
+    print(f"target path '{install_path}' installed successfully (elapsed {format_duration(elapsed)}).")
 
 def get_run_test_command(cangjie_sdk_path):
     env_file = "envsetup.sh"
@@ -488,6 +527,10 @@ def main():
         action="store_true",
         dest="test",
         help="set for test LSP"
+    )
+    parser_build.add_argument(
+        "--time-log", dest="time_log", type=str, default=BUILD_TIME_LOG,
+        help="Path to build time log file (default: build-lsp/logs/build_time.log)"
     )
     parser_build.set_defaults(func=build)
 

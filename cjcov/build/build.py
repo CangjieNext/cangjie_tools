@@ -12,8 +12,40 @@ import sys
 import shutil
 import platform
 import argparse
+import json
+import time
 
 CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
+BUILD_TIME_LOG = os.path.join(CURRENT_DIR, "logs", "build_time.log")
+
+def format_duration(seconds):
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    if hours > 0:
+        return "{}h {}m {}s".format(hours, minutes, secs)
+    if minutes > 0:
+        return "{}m {}s".format(minutes, secs)
+    return "{}s".format(secs)
+
+def log_build_time(command, build_type, version, target, product, elapsed_seconds, time_log_path):
+    if not os.path.exists(os.path.dirname(time_log_path)):
+        os.makedirs(os.path.dirname(time_log_path), exist_ok=True)
+    duration_str = format_duration(elapsed_seconds)
+    print("[{}] build_type={} version={} target={} product={} elapsed={}".format(
+        command, build_type, version, target, product, duration_str))
+    entry = {
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "command": command,
+        "build_type": build_type,
+        "version": version,
+        "target": target or "native",
+        "product": product or "all",
+        "elapsed_seconds": round(elapsed_seconds, 2),
+        "elapsed_human": duration_str,
+    }
+    with open(time_log_path, "a") as f:
+        f.write(json.dumps(entry) + "\n")
 
 # Check command
 def check_call(command):
@@ -24,7 +56,8 @@ def check_call(command):
         return e.returncode
 
 # Build cjcov
-def build(build_type, target, rpath=None):
+def build(build_type, target, rpath=None, time_log=None):
+    start_time = time.time()
     if not build_type:
         build_type = ""
     if not target:
@@ -125,11 +158,14 @@ def build(build_type, target, rpath=None):
     else:
         shutil.copy(os.path.join(CURRENT_DIR, 'bin', 'cjcov', 'cjcov'), os.path.join(CURRENT_DIR, '..', 'dist'))
 
-    print("Successfully build cjcov!")
+    elapsed = time.time() - start_time
+    log_build_time("build", build_type, "", target, "", elapsed, time_log or BUILD_TIME_LOG)
+    print("Successfully build cjcov (elapsed {})!".format(format_duration(elapsed)))
     return 0
 
 # Install cjcov
-def install(prefix):
+def install(prefix, time_log=None):
+    start_time = time.time()
     if not os.path.exists(os.path.join(CURRENT_DIR, '..', 'dist', 'cjcov')) \
         and not os.path.exists(os.path.join(CURRENT_DIR, '..', 'dist', 'cjcov.exe')):
         print("error: no cjcov output, please run command 'build' first.")
@@ -142,7 +178,9 @@ def install(prefix):
         if os.path.exists(os.path.join(CURRENT_DIR, '..', 'dist', 'cjcov.exe')):
             shutil.copy(os.path.join(CURRENT_DIR, '..', 'dist', 'cjcov.exe'), os.path.abspath(prefix))
 
-    print("Successfully install cjcov!")
+    elapsed = time.time() - start_time
+    log_build_time("install", "", "", "native", "", elapsed, time_log or BUILD_TIME_LOG)
+    print("Successfully install cjcov (elapsed {})!".format(format_duration(elapsed)))
     return 0
 
 # Clean output of build
@@ -165,10 +203,18 @@ def main():
     build_parser.add_argument('-t', '--build-type', type=str, dest='build_type', help='Specify build type', required=True)
     build_parser.add_argument('--target', type=str, dest='target', help='Specify build target')
     build_parser.add_argument('--set-rpath', type=str, dest='rpath', help='Set rpath value')
+    build_parser.add_argument(
+        "--time-log", dest="time_log", type=str, default=BUILD_TIME_LOG,
+        help="Path to build time log file (default: build/logs/build_time.log)"
+    )
 
     # Install command
     install_parser = subparsers.add_parser('install', help='Install cjcov')
     install_parser.add_argument('--prefix', help='Specify installation prefix')
+    install_parser.add_argument(
+        "--time-log", dest="time_log", type=str, default=BUILD_TIME_LOG,
+        help="Path to build time log file (default: build/logs/build_time.log)"
+    )
 
     # Clean command
     subparsers.add_parser('clean', help='Clean build files')
@@ -176,9 +222,9 @@ def main():
     args = parser.parse_args()
 
     if args.command == 'build':
-        return build(build_type=args.build_type, target=args.target, rpath=args.rpath)
+        return build(build_type=args.build_type, target=args.target, rpath=args.rpath, time_log=args.time_log)
     elif args.command == 'install':
-        return install(prefix=args.prefix)
+        return install(prefix=args.prefix, time_log=args.time_log)
     elif args.command == 'clean':
         return clean()
     else:

@@ -9,6 +9,7 @@
 
 """CangjieFormat build entry"""
 import argparse
+import json
 import logging
 import multiprocessing
 import os
@@ -16,6 +17,7 @@ import platform
 import shutil
 import subprocess
 import sys
+import time
 from enum import Enum
 from logging.handlers import TimedRotatingFileHandler
 from subprocess import PIPE
@@ -35,6 +37,7 @@ CMAKE_OUTPUT_DIR = os.path.join(HOME_DIR, 'dist')
 OUTPUT_BIN_DIR = os.path.join(CMAKE_OUTPUT_DIR, 'bin')
 LOG_DIR = os.path.join(BUILD_DIR, 'logs')
 LOG_FILE = os.path.join(LOG_DIR, 'cjfmt.log')
+BUILD_TIME_LOG = os.path.join(LOG_DIR, 'build_time.log')
 
 IS_WINDOWS = platform.system() == 'Windows'
 IS_MACOS = platform.system() == "Darwin"
@@ -62,6 +65,35 @@ def check_compiler(args):
             LOG.error('g++ is requreed to build cangjie compiler')
         os.environ['CC'] = c_compiler
         os.environ['CXX'] = cxx_compiler
+
+def format_duration(seconds):
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    if hours > 0:
+        return "{}h {}m {}s".format(hours, minutes, secs)
+    if minutes > 0:
+        return "{}m {}s".format(minutes, secs)
+    return "{}s".format(secs)
+
+def log_build_time(command, build_type, version, target, product, elapsed_seconds, time_log_path):
+    if not os.path.exists(os.path.dirname(time_log_path)):
+        os.makedirs(os.path.dirname(time_log_path), exist_ok=True)
+    duration_str = format_duration(elapsed_seconds)
+    LOG.info("[%s] build_type=%s version=%s target=%s product=%s elapsed=%s",
+             command, build_type, version, target, product, duration_str)
+    entry = {
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "command": command,
+        "build_type": build_type,
+        "version": version,
+        "target": target or "native",
+        "product": product or "all",
+        "elapsed_seconds": round(elapsed_seconds, 2),
+        "elapsed_human": duration_str,
+    }
+    with open(time_log_path, "a") as f:
+        f.write(json.dumps(entry) + "\n")
 
 def log_output(output):
     """log command output"""
@@ -142,6 +174,7 @@ def generate_cmake_defs(args):
            ] + [arg for arg in args.cmake_args if arg != '--']
 
 def build(args):
+    start_time = time.time()
     if args.build_type is None:
         LOG.error('please specify the build type. Supported options are: release and debug.')
         return
@@ -162,7 +195,10 @@ def build(args):
                 cwd=CMAKE_BUILD_DIR,
                 stdout=PIPE)
         log_output(output)
-        LOG.info('end build\n')
+        elapsed = time.time() - start_time
+        build_type_str = args.build_type.value if args.build_type else "unknown"
+        log_build_time("build", build_type_str, "", args.target, "", elapsed, args.time_log)
+        LOG.info("end build (elapsed %s)\n", format_duration(elapsed))
         return
 
     if os.path.exists(CMAKE_BUILD_DIR):
@@ -197,7 +233,10 @@ def build(args):
                                       cwd=CMAKE_BUILD_DIR,
                                       stdout=PIPE)
         log_output(output)
-    LOG.info('end build\n')
+    elapsed = time.time() - start_time
+    build_type_str = args.build_type.value if args.build_type else "unknown"
+    log_build_time("build", build_type_str, "", args.target, "", elapsed, args.time_log)
+    LOG.info("end build (elapsed %s)\n", format_duration(elapsed))
 
 def clean(args):
     """clean build outputs and logs"""
@@ -215,6 +254,7 @@ def clean(args):
 
 def install(args):
     """install targets"""
+    start_time = time.time()
     LOG.info("begin install targets...")
     install_path = args.install_prefix if args.install_prefix else CMAKE_OUTPUT_DIR
     output = subprocess.Popen(
@@ -226,7 +266,9 @@ def install(args):
     if output.returncode != 0:
         LOG.fatal("install failed")
 
-    LOG.info("end install targets...")
+    elapsed = time.time() - start_time
+    log_build_time("install", "", "", "native", "", elapsed, BUILD_TIME_LOG)
+    LOG.info("end install targets (elapsed %s)...", format_duration(elapsed))
 
 class BuildType(Enum):
     """CMAKE_BUILD_TYPE options"""
@@ -283,6 +325,10 @@ def main():
                               nargs=argparse.REMAINDER,
                               help='other arguments directly passed to CMake, '
                                    'please pass it after a \'--\'')
+    parser_build.add_argument(
+        "--time-log", dest="time_log", type=str, default=BUILD_TIME_LOG,
+        help="Path to build time log file (default: build/logs/build_time.log)"
+    )
     parser_build.set_defaults(func=build)
 
     parser_install = subparsers.add_parser("install", help="install targets")

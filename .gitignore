@@ -1,5 +1,7 @@
 # common
 .vscode/*
+**/__pycache__/
+
 
 # cjlint
 cjlint/build/build/*

@@ -7,6 +7,7 @@
 # See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 from enum import Enum
+import json
 import logging
 import os
 from pathlib import Path
@@ -15,9 +16,11 @@ import subprocess
 import platform
 import argparse
 import sys
+import time
 
 BASE_DIR = Path(os.path.dirname(os.path.realpath(__file__))).parent
 BUILD_DIR_NAME = 'cmake-build'
+BUILD_TIME_LOG = str(BASE_DIR / BUILD_DIR_NAME / "logs" / "build_time.log")
 
 IS_WINDOWS = platform.system() == "Windows"
 IS_MACOS = platform.system() == "Darwin"
@@ -27,6 +30,35 @@ IS_LINUX = platform.system() == "Linux"
 CROSS_COMPILE_MAP = {
     "windows-x86_64": "mingw_x86_64_toolchain.cmake"
 }
+
+def format_duration(seconds):
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    if hours > 0:
+        return "{}h {}m {}s".format(hours, minutes, secs)
+    if minutes > 0:
+        return "{}m {}s".format(minutes, secs)
+    return "{}s".format(secs)
+
+def log_build_time(command, build_type, version, target, product, elapsed_seconds, time_log_path):
+    if not os.path.exists(os.path.dirname(time_log_path)):
+        os.makedirs(os.path.dirname(time_log_path), exist_ok=True)
+    duration_str = format_duration(elapsed_seconds)
+    logging.info("[%s] build_type=%s version=%s target=%s product=%s elapsed=%s",
+                 command, build_type, version, target, product, duration_str)
+    entry = {
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "command": command,
+        "build_type": build_type,
+        "version": version,
+        "target": target or "native",
+        "product": product or "all",
+        "elapsed_seconds": round(elapsed_seconds, 2),
+        "elapsed_human": duration_str,
+    }
+    with open(time_log_path, "a") as f:
+        f.write(json.dumps(entry) + "\n")
 
 def run_cmd(cmd, cwd=BASE_DIR):
     try:
@@ -80,6 +112,7 @@ def generate_cmake_param(args):
 
 
 def build(args):
+    start_time = time.time()
     logging.info("start build cjtrace-recover")
     generator = "Ninja"
     if IS_WINDOWS:
@@ -96,10 +129,15 @@ def build(args):
 
     # start build
     run_cmd(['cmake', '--build', str(BASE_DIR/BUILD_DIR_NAME)])
-    logging.info("end build cjtrace-recover")
+    elapsed = time.time() - start_time
+    build_type_str = args.build_type.value if args.build_type else "unknown"
+    target_str = args.target or "native"
+    log_build_time("build", build_type_str, "", target_str, "", elapsed, args.time_log)
+    logging.info("end build cjtrace-recover (elapsed %s)", format_duration(elapsed))
 
 
 def install(args):
+    start_time = time.time()
     build_dir = BASE_DIR/BUILD_DIR_NAME
     logging.info("start install cjtrace-recover")
     if not build_dir.exists():
@@ -110,7 +148,9 @@ def install(args):
         cmd.append(args.prefix)
 
     run_cmd(cmd)
-    logging.info("end install cjtrace-recover")
+    elapsed = time.time() - start_time
+    log_build_time("install", "", "", "native", "", elapsed, BUILD_TIME_LOG)
+    logging.info("end install cjtrace-recover (elapsed %s)", format_duration(elapsed))
 
 
 def clean(args):
@@ -178,6 +218,10 @@ def main():
                               help='specify target sysroot when cross compiling')
     build_parser.add_argument('--prefix', help='Specify installation prefix')
     build_parser.add_argument('--cangjie-sdk', action=DirectoryPathVerifier, help='Specify cangjie sdk path')
+    build_parser.add_argument(
+        "--time-log", dest="time_log", type=str, default=BUILD_TIME_LOG,
+        help="Path to build time log file (default: cmake-build/logs/build_time.log)"
+    )
     build_parser.set_defaults(func=build)
 
     # Install command

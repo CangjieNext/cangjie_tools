@@ -10,6 +10,8 @@ import sys
 import shutil
 import configparser
 import argparse
+import json
+import time
 
 
 def load_config(config_path="./config/config.ini"):
@@ -66,6 +68,36 @@ CONFIG = load_config()
 
 # ================== Extract config values ==================
 PROJECT_ROOT = CONFIG["project"]["root"]
+BUILD_TIME_LOG = os.path.join(PROJECT_ROOT, "build_time.log")
+
+def format_duration(seconds):
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    if hours > 0:
+        return "{}h {}m {}s".format(hours, minutes, secs)
+    if minutes > 0:
+        return "{}m {}s".format(minutes, secs)
+    return "{}s".format(secs)
+
+def log_build_time(command, build_type, version, target, product, elapsed_seconds, time_log_path):
+    if not os.path.exists(os.path.dirname(time_log_path)):
+        os.makedirs(os.path.dirname(time_log_path), exist_ok=True)
+    duration_str = format_duration(elapsed_seconds)
+    print("[{}] build_type={} version={} target={} product={} elapsed={}".format(
+        command, build_type, version, target, product, duration_str))
+    entry = {
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "command": command,
+        "build_type": build_type,
+        "version": version,
+        "target": target or "native",
+        "product": product or "all",
+        "elapsed_seconds": round(elapsed_seconds, 2),
+        "elapsed_human": duration_str,
+    }
+    with open(time_log_path, "a") as f:
+        f.write(json.dumps(entry) + "\n")
 
 CANGJIE_DIR = os.path.join(PROJECT_ROOT, CONFIG["paths"]["cangjie_dir"])
 BUILD_DIR = os.path.join(PROJECT_ROOT, CONFIG["paths"]["build_dir"])
@@ -148,6 +180,7 @@ def build_cangjie():
 
 
 def build_cjhead():
+    start_time = time.time()
     print("🏗️ Starting to build cjhead...")
     if os.path.exists(BUILD_DIR):
         print(f"🗑️ Removing old build directory: {BUILD_DIR}")
@@ -201,7 +234,9 @@ def main():
 
     build_cangjie()
     build_cjhead()
-    print("\n✅ All done!")
+    elapsed = time.time() - start_time
+    log_build_time("build_cjhead", "", "", "native", "", elapsed, BUILD_TIME_LOG)
+    print("\n✅ All done! (elapsed {})".format(format_duration(elapsed)))
 
 
 if __name__ == "__main__":

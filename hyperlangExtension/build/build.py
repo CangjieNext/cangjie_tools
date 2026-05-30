@@ -12,6 +12,8 @@ import sys
 import shutil
 import platform
 import argparse
+import json
+import time
 
 # Check CANGJIE_HOME
 if not os.environ.get("CANGJIE_HOME"):
@@ -23,6 +25,36 @@ if not os.environ.get("CANGJIE_STDX_PATH"):
     sys.exit(1)
 
 CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
+BUILD_TIME_LOG = os.path.join(CURRENT_DIR, "logs", "build_time.log")
+
+def format_duration(seconds):
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    if hours > 0:
+        return "{}h {}m {}s".format(hours, minutes, secs)
+    if minutes > 0:
+        return "{}m {}s".format(minutes, secs)
+    return "{}s".format(secs)
+
+def log_build_time(command, build_type, version, target, product, elapsed_seconds, time_log_path):
+    if not os.path.exists(os.path.dirname(time_log_path)):
+        os.makedirs(os.path.dirname(time_log_path), exist_ok=True)
+    duration_str = format_duration(elapsed_seconds)
+    print("[{}] build_type={} version={} target={} product={} elapsed={}".format(
+        command, build_type, version, target, product, duration_str))
+    entry = {
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "command": command,
+        "build_type": build_type,
+        "version": version,
+        "target": target or "native",
+        "product": product or "all",
+        "elapsed_seconds": round(elapsed_seconds, 2),
+        "elapsed_human": duration_str,
+    }
+    with open(time_log_path, "a") as f:
+        f.write(json.dumps(entry) + "\n")
 
 IS_WINDOWS = platform.system() == "Windows"
 IS_LINUX = platform.system() == "Linux"
@@ -43,6 +75,7 @@ def check_call(command):
 
 # Build HLE
 def build(args):
+    start_time = time.time()
     target = args.target
     build_type = args.build_type
 
@@ -92,10 +125,13 @@ def build(args):
     if returncode != 0: 
         return returncode
 
-    print("Successfully build HLE!")
+    elapsed = time.time() - start_time
+    log_build_time("build", args.build_type, "", args.target, "", elapsed, args.time_log)
+    print("Successfully build HLE (elapsed {})!".format(format_duration(elapsed)))
 
 # Install HLE
 def install(args):
+    start_time = time.time()
     prefix = args.prefix
     if not os.path.exists(os.path.join(CURRENT_DIR, '..', 'target')):
         print("error: no HLE output, please run command 'build' first.")
@@ -107,7 +143,9 @@ def install(args):
             shutil.copy(os.path.join(CURRENT_DIR, '..', 'target', 'bin', 'main'), os.path.join(os.path.abspath(prefix), 'hle'))
         if os.path.exists(os.path.join(CURRENT_DIR, '..', 'target', 'bin', 'main.exe')):
             shutil.copy(os.path.join(CURRENT_DIR, '..', 'target', 'bin', 'main.exe'), os.path.join(os.path.abspath(prefix), 'hle.exe'))
-    print("Successfully install HLE!")
+    elapsed = time.time() - start_time
+    log_build_time("install", "", "", "native", "", elapsed, args.time_log)
+    print("Successfully install HLE (elapsed {})!".format(format_duration(elapsed)))
 
 # Clean output of build
 def clean():
@@ -124,10 +162,18 @@ def main():
     build_parser = subparsers.add_parser('build', help='Build HLE')
     build_parser.add_argument('-t', '--build-type', default='release', choices=list(SUPPORTED_BUILD_TYPE), help='Select target build type')
     build_parser.add_argument('--target', default='native', choices=list(SUPPORTED_TARGET), help='Specify the target platform for cross compilation')
+    build_parser.add_argument(
+        "--time-log", dest="time_log", type=str, default=BUILD_TIME_LOG,
+        help="Path to build time log file (default: build/logs/build_time.log)"
+    )
 
     # Install command
     install_parser = subparsers.add_parser('install', help='Install HLE')
     install_parser.add_argument('--prefix', help='Specify installation prefix')
+    install_parser.add_argument(
+        "--time-log", dest="time_log", type=str, default=BUILD_TIME_LOG,
+        help="Path to build time log file (default: build/logs/build_time.log)"
+    )
 
     # Clean command
     subparsers.add_parser('clean', help='Clean build files')
