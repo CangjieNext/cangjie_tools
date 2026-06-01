@@ -815,10 +815,6 @@ void CompletionImpl::NormalParseImpl(
     auto ifImportInfo = GetIfImportInfo(input, pos, prefix);
     KeywordCompleter::Complete(result, ifImportInfo);
 
-    if (Options::GetInstance().IsOptionSet("disableAutoImport")) {
-        return;
-    }
-
     AutoImportPackageComplete(input, result, prefix);
 }
 
