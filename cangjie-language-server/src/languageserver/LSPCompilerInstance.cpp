@@ -379,7 +379,7 @@ void LSPCompilerInstance::IndexCjoToManager(
  *
  * @param cjoManager Read cjo cache and update cjo cache and state
  * @param graph
- * @param realPkgName Update target package cjo cache, used in common-specific package 
+ * @param realPkgName Update target package cjo cache, used in common-specific package
  * @return true
  * @return false
  */
