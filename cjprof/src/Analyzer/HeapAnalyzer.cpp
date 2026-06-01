@@ -40,6 +40,7 @@ bool HeapAnalyzer::Analyze(bool verbose)
 
     AnalyzeObject();
     AnalyzeThread();
+    FilterPlaceholderObjects();
 
     return true;
 }
@@ -107,11 +108,6 @@ void HeapAnalyzer::ShowObject()
     printf("================================================================  "
         "=============  =============  =============\n");
     for (auto obj : sortedObjInfos) {
-        if (obj.first.empty()) {
-            /* not in heap, skip */
-            continue;
-        }
-
         printf("%-64s  %13u  %13llu  %13llu\n", obj.first.c_str(), obj.second.count,
             static_cast<unsigned long long>(obj.second.size),
             static_cast<unsigned long long>(obj.second.retainedSize));
@@ -146,11 +142,6 @@ void HeapAnalyzer::ShowReference(const std::string &objNameList, int maxDepth, b
     using ObjSP = std::shared_ptr<Object>;
     std::function<void(ObjSP, int, std::unordered_set<ObjSP> &)> showOneRef =
     [&](ObjSP obj, int depth, std::unordered_set<ObjSP> &memo) {
-        if (obj->name.empty()) {
-            /* not in heap, skip */
-            return;
-        }
-
         std::stringstream ss;
         ss << obj->name << " @ 0x" << std::hex << obj->id;
         if (locals.find(obj->id) != locals.end()) {
@@ -188,6 +179,39 @@ void HeapAnalyzer::ShowReference(const std::string &objNameList, int maxDepth, b
     }
 
     printf("\n");
+}
+
+void HeapAnalyzer::FilterPlaceholderObjects()
+{
+    std::unordered_set<Hprof::ID> removedIds;
+    m_objects.erase(
+        std::remove_if(m_objects.begin(), m_objects.end(),
+            [&](const std::shared_ptr<Object>& obj) {
+                if (obj->name.empty()) {
+                    removedIds.insert(obj->id);
+                    objects_cache.erase(obj->id);
+                    return true;
+                }
+                return false;
+            }),
+        m_objects.end());
+
+    for (auto& obj : m_objects) {
+        for (auto it = obj->outRef.begin(); it != obj->outRef.end(); ) {
+            if (removedIds.count(*it)) {
+                it = obj->outRef.erase(it);
+            } else {
+                ++it;
+            }
+        }
+        for (auto it = obj->inRef.begin(); it != obj->inRef.end(); ) {
+            if (removedIds.count(*it)) {
+                it = obj->inRef.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
 }
 
 void HeapAnalyzer::AnalyzeObject()
