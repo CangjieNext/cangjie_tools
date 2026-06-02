@@ -18,7 +18,7 @@ const prefix = args[3];
 const getFilename = (absolutePath) => path.basename(absolutePath);
 
 const fixme = '0/* FIXME: Initialization is required */';
-const copyrightC = `// Copyright (c) Huawei Technologies Co., Ltd. ${new Date().getFullYear()}. All rights reserved.
+const copyrightC = `// Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
 // This source file is part of the Cangjie project, licensed under Apache-2.0
 // with Runtime Library Exception.
 //

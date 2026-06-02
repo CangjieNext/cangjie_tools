@@ -51,8 +51,8 @@ public class AnonymousClass {
         msg: String;
     }>
 	 */
-    public func f3(callback: AsyncCallback < JSValue/* FIXME: `{ msg: String; }` */ >, n: Float64): Unit {
-        jsObjApiCallPromise < JSValue/* FIXME: `{ msg: String; }` */ >( arkts_object, "f3", callback, { ctx =>[n.toJSValue(ctx)] }) {
+    public func f3(callback: AsyncCallback < JSValue/* FIXME: `{  msg: String;  }` */ >, n: Float64): Unit {
+        jsObjApiCallPromise < JSValue/* FIXME: `{  msg: String;  }` */ >( arkts_object, "f3", callback, { ctx =>[n.toJSValue(ctx)] }) {
             ctx, info => info
         }
     }
@@ -67,8 +67,8 @@ public class AnonymousClass {
         data?: undefined;
     }>
 	 */
-    public func f4(callback: AsyncCallback < JSValue/* FIXME: `{ msg: String; data: String; code?: undefined; } | { code: number; msg: String; data?: undefined; }` */ >): Unit {
-        jsObjApiCallPromise < JSValue/* FIXME: `{ msg: String; data: String; code?: undefined; } | { code: number; msg: String; data?: undefined; }` */ >( arkts_object, "f4", callback, emptyArg) {
+    public func f4(callback: AsyncCallback < JSValue/* FIXME: `{  msg: String;  data: String;  code?: undefined;  } | {  code: number;  msg: String;  data?: undefined;  }` */ >): Unit {
+        jsObjApiCallPromise < JSValue/* FIXME: `{  msg: String;  data: String;  code?: undefined;  } | {  code: number;  msg: String;  data?: undefined;  }` */ >( arkts_object, "f4", callback, emptyArg) {
             ctx, info => info
         }
     }
