@@ -128,23 +128,27 @@ public:
     virtual void FindImportSymsOnCompletion(
         const std::pair<std::unordered_set<SymbolID>, std::unordered_set<SymbolID>>& filterSyms,
         const std::string &curPkgName, const std::string &curModule, const std::string &prefix,
+        bool includeScriptRequire,
         std::function<void(const std::string &, const Symbol &, const CompletionItem &)> callback) = 0;
 
     virtual void FindImportSymsOnQuickFix(const std::string &curPkgName, const std::string &curModule,
         const std::unordered_set<SymbolID> &importDeclSyms,
+        bool includeScriptRequire,
         const std::string& identifier,
         const std::function<void(const std::string &, const Symbol &)>& callback) = 0;
 
     virtual void FindExtendSymsOnCompletion(const SymbolID &dotCompleteSym,
         const std::unordered_set<SymbolID> &visibleMembers,
         const std::string &curPkgName, const std::string &curModule,
+        bool includeScriptRequire,
         const std::function<void(const std::string &, const std::string &,
             const Symbol &, const CompletionItem &)>& callback) =0;
 
     virtual void FindExtendSymsOnCompletionBatch(
         const std::unordered_set<SymbolID> &ids,
         const std::unordered_set<SymbolID> &allVisibleMembers,
-        const std::string &curPkgName, bool filterStatic,
+        const std::string &curPkgName, const std::string &curModule,
+        bool includeScriptRequire, bool filterStatic,
         const std::function<void(const std::string &, const std::string &,
             const Symbol &, const CompletionItem &)>& callback) =0;
 
@@ -187,18 +191,21 @@ public:
     void FindImportSymsOnCompletion(
         const std::pair<std::unordered_set<SymbolID>, std::unordered_set<SymbolID>>& filterSyms,
         const std::string &curPkgName, const std::string &curModule, const std::string &prefix,
+        bool includeScriptRequire,
         std::function<void(const std::string &, const Symbol &, const CompletionItem &)> callback) override;
 
     void FindExtendSymsOnCompletion(const SymbolID &dotCompleteSym,
         const std::unordered_set<SymbolID> &visibleMembers,
         const std::string &curPkgName, const std::string &curModule,
+        bool includeScriptRequire,
         const std::function<void(const std::string &, const std::string &,
             const Symbol &, const CompletionItem &)>& callback) override;
 
     void FindExtendSymsOnCompletionBatch(
         const std::unordered_set<SymbolID> &ids,
         const std::unordered_set<SymbolID> &symAndVisibleMembers,
-        const std::string &curPkgName, bool filterStatic,
+        const std::string &curPkgName, const std::string &curModule,
+        bool includeScriptRequire, bool filterStatic,
         const std::function<void(const std::string &, const std::string &,
             const Symbol &, const CompletionItem &)>& callback) override;
 
@@ -212,6 +219,7 @@ public:
 
     void FindImportSymsOnQuickFix(const std::string &curPkgName, const std::string &curModule,
         const std::unordered_set<SymbolID> &importDeclSyms,
+        bool includeScriptRequire,
         const std::string& identifier,
         const std::function<void(const std::string &, const Symbol &)>& callback) override;
 
