@@ -188,6 +188,7 @@ TextEdit ExtractVariable::InsertDeclaration(const Selection &sel, Range &range, 
     }
 
     std::string modifier = GetVarModifier(sel, range);
+    std::string trailingIndent = sourceCode.find('\n') == std::string::npos ? "" : indent;
     if (modifier.find("const") != std::string::npos) {
         insertText << modifier;
     } else {
@@ -195,9 +196,9 @@ TextEdit ExtractVariable::InsertDeclaration(const Selection &sel, Range &range, 
     }
 
     if (root->selected == SelectionTree::Selection::Complete && root->node->astKind == ASTKind::ASSIGN_EXPR) {
-        insertText <<  varName << " = (" << sourceCode << ")\n" << indent;
+        insertText <<  varName << " = (" << sourceCode << ")\n" << trailingIndent;
     } else {
-        insertText << varName << " = " << sourceCode << "\n" << indent;
+        insertText << varName << " = " << sourceCode << "\n" << trailingIndent;
     }
 
     textEdit.range = insertRange;
@@ -214,6 +215,7 @@ void ExtractVariable::FindInsertDeclPosition(const Selection &sel, Range &range,
     // 1. use scopeName getting insert position
     FindInsertPositionByScopeName(sel, range, insertRange, isGlobal);
     if (!insertRange.end.IsZero()) {
+        indent = std::string(insertRange.start.column > 0 ? insertRange.start.column - 1 : 0, ' ');
         return;
     }
     // 2. compute insert position if getting insert position fail by scope name (maybe the following code can delete)
