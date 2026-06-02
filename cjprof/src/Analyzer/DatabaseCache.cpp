@@ -1,3 +1,9 @@
+// Copyright (c) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+// This source file is part of the Cangjie project, licensed under Apache-2.0
+// with Runtime Library Exception.
+//
+// See https://cangjie-lang.cn/pages/LICENSE for license information.
+
 #include "Analyzer/DatabaseCache.h"
 #include "Analyzer/Logger.h"
 #include <fstream>
@@ -16,7 +22,7 @@ namespace cjprof {
 
 #pragma pack(push, 1)
 struct BinaryHeader {
-    char magic[4] = {'C', 'J', 'D', 'B'};
+    char magic[8] = {'c', 'j', 'p', 'r', 'o', 'f', 'd', 'b'};
     uint32_t version = 1;
     uint32_t header_size;
 
@@ -97,9 +103,9 @@ static std::string getCachePath(const std::string& heapFilePath) {
 bool DatabaseCache::isCacheValid(const std::string& heapFilePath) {
     std::ifstream file(getCachePath(heapFilePath), std::ios::binary);
     if (!file) return false;
-    char magic[4];
-    file.read(magic, 4);
-    return file.gcount() == 4 && std::memcmp(magic, "CJDB", 4) == 0;
+    char magic[8];
+    file.read(magic, 8);
+    return file.gcount() == 8 && std::memcmp(magic, "cjprofdb", 8) == 0;
 }
 
 bool DatabaseCache::save(const std::string& heapFilePath,
@@ -278,7 +284,7 @@ bool DatabaseCache::load(const std::string& heapFilePath,
         LOG_ERROR("Cache file too small: {}", dbPath);
         return false;
     }
-    if (std::memcmp(header.magic, "CJDB", 4) != 0) {
+    if (std::memcmp(header.magic, "cjprofdb", 8) != 0) {
         LOG_ERROR("Invalid cache file magic: {}", dbPath);
         return false;
     }

@@ -95,12 +95,9 @@ bool HeapAnalyzer::Analyze(bool verbose)
     auto t2 = std::chrono::steady_clock::now();
     if (!m_dumpReport) {
         AnalyzeThread();
+        FilterPlaceholderObjects();
     }
     auto t3 = std::chrono::steady_clock::now();
-
-AnalyzeObject();
-    AnalyzeThread();
-    FilterPlaceholderObjects();
 
     auto parseMs = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
     auto analyzeObjMs = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
