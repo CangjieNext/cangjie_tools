@@ -195,7 +195,7 @@ private:
     }
 
 private:
-static constexpr char m_headerFlagV2[] = "CANGJIE PROFILE 1.0.2";
+    static constexpr char m_headerFlagV2[] = "CANGJIE PROFILE 1.0.2";
     static constexpr char m_headerFlagV1[] = "CANGJIE PROFILE 1.0.1";
 
     // Data storage - owned by Hprof class

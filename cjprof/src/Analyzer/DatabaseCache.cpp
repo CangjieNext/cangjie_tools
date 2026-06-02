@@ -1,3 +1,9 @@
+// Copyright (c) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+// This source file is part of the Cangjie project, licensed under Apache-2.0
+// with Runtime Library Exception.
+//
+// See https://cangjie-lang.cn/pages/LICENSE for license information.
+
 #include "Analyzer/DatabaseCache.h"
 #include "Analyzer/Logger.h"
 #include <fstream>
@@ -14,10 +20,14 @@
 
 namespace cjprof {
 
+// kCacheFormatVersion is 1: binary cache format version number
+static constexpr uint32_t kCacheFormatVersion = 1;
+
 #pragma pack(push, 1)
-struct BinaryHeader {
-    char magic[4] = {'C', 'J', 'D', 'B'};
-    uint32_t version = 1;
+struct BinaryHeader
+{
+    char magic[8] = {'c', 'j', 'p', 'r', 'o', 'f', 'd', 'b'};
+    uint32_t version = kCacheFormatVersion;
     uint32_t header_size;
 
     uint64_t snapshot_offset;
@@ -45,21 +55,24 @@ struct BinaryHeader {
     uint64_t strings_size;
 };
 
-struct SnapshotEntry {
+struct SnapshotEntry
+{
     uint64_t heap_total_size;
     uint64_t object_count;
     uint64_t gc_root_count;
     uint64_t used_size;
 };
 
-struct ClassEntry {
+struct ClassEntry
+{
     uint64_t class_id;
     uint32_t name_offset;
     uint64_t size;
     uint8_t is_struct;
 };
 
-struct ObjectEntry {
+struct ObjectEntry
+{
     uint64_t object_id;
     uint64_t class_id;
     uint64_t size;
@@ -72,14 +85,16 @@ struct ObjectEntry {
     uint32_t refs_count;
 };
 
-struct GcRootEntry {
+struct GcRootEntry
+{
     uint8_t type;
     uint64_t object_id;
     uint32_t thread_idx;
     uint32_t frame_idx;
 };
 
-struct DominanceEntry {
+struct DominanceEntry
+{
     uint64_t object_id;
     uint64_t parent_id;
     uint64_t retained_size;
@@ -90,16 +105,21 @@ struct DominanceEntry {
 };
 #pragma pack(pop)
 
-static std::string getCachePath(const std::string& heapFilePath) {
+static std::string getCachePath(const std::string& heapFilePath)
+{
     return heapFilePath + ".cjprof.db";
 }
 
-bool DatabaseCache::isCacheValid(const std::string& heapFilePath) {
+bool DatabaseCache::isCacheValid(const std::string& heapFilePath)
+{
     std::ifstream file(getCachePath(heapFilePath), std::ios::binary);
-    if (!file) return false;
-    char magic[4];
-    file.read(magic, 4);
-    return file.gcount() == 4 && std::memcmp(magic, "CJDB", 4) == 0;
+    if (!file)
+    {
+        return false;
+    }
+    char magic[8];
+    file.read(magic, 8);
+    return file.gcount() == 8 && std::memcmp(magic, "cjprofdb", 8) == 0;
 }
 
 bool DatabaseCache::save(const std::string& heapFilePath,
@@ -118,7 +138,10 @@ bool DatabaseCache::save(const std::string& heapFilePath,
     std::string stringTableData;
     auto addString = [&](const std::string& s) -> uint32_t {
         auto it = stringOffsets.find(s);
-        if (it != stringOffsets.end()) return it->second;
+        if (it != stringOffsets.end())
+        {
+            return it->second;
+        }
         uint32_t offset = static_cast<uint32_t>(stringTableData.size());
         stringOffsets[s] = offset;
         stringTableData += s;
@@ -127,10 +150,12 @@ bool DatabaseCache::save(const std::string& heapFilePath,
     };
 
     // Pre-populate string table so header.strings_size is correct
-    for (const auto& cls : classes) {
+    for (const auto& cls : classes)
+    {
         addString(cls.class_name);
     }
-    for (const auto& obj : objects) {
+    for (const auto& obj : objects)
+    {
         addString(obj.name);
     }
 
@@ -139,14 +164,22 @@ bool DatabaseCache::save(const std::string& heapFilePath,
     std::vector<uint64_t> flatChildren;
     size_t totalRefs = 0;
     size_t totalChildren = 0;
-    for (const auto& obj : objects) totalRefs += obj.refs.size();
-    for (const auto& node : dominanceNodes) totalChildren += node.children.size();
+    for (const auto& obj : objects)
+    {
+        totalRefs += obj.refs.size();
+    }
+    for (const auto& node : dominanceNodes)
+    {
+        totalChildren += node.children.size();
+    }
     flatRefs.reserve(totalRefs);
     flatChildren.reserve(totalChildren);
-    for (const auto& obj : objects) {
+    for (const auto& obj : objects)
+    {
         flatRefs.insert(flatRefs.end(), obj.refs.begin(), obj.refs.end());
     }
-    for (const auto& node : dominanceNodes) {
+    for (const auto& node : dominanceNodes)
+    {
         flatChildren.insert(flatChildren.end(), node.children.begin(), node.children.end());
     }
 
@@ -188,7 +221,8 @@ bool DatabaseCache::save(const std::string& heapFilePath,
 
     // Write file
     std::ofstream file(tmpPath, std::ios::binary);
-    if (!file) {
+    if (!file)
+    {
         LOG_ERROR("Failed to open cache file for writing: {}", tmpPath);
         return false;
     }
@@ -198,13 +232,15 @@ bool DatabaseCache::save(const std::string& heapFilePath,
     SnapshotEntry snap{snapshot.heap_total_size, snapshot.object_count, snapshot.gc_root_count, snapshot.used_size};
     file.write(reinterpret_cast<const char*>(&snap), sizeof(snap));
 
-    for (const auto& cls : classes) {
+    for (const auto& cls : classes)
+    {
         ClassEntry e{cls.class_id, addString(cls.class_name), cls.size, static_cast<uint8_t>(cls.is_struct ? 1 : 0)};
         file.write(reinterpret_cast<const char*>(&e), sizeof(e));
     }
 
     uint64_t refsIdx = 0;
-    for (const auto& obj : objects) {
+    for (const auto& obj : objects)
+    {
         ObjectEntry e{
             obj.object_id, obj.class_id, obj.size, obj.address,
             static_cast<uint8_t>(obj.category), addString(obj.name),
@@ -215,17 +251,20 @@ bool DatabaseCache::save(const std::string& heapFilePath,
         refsIdx += obj.refs.size();
     }
 
-    if (!flatRefs.empty()) {
+    if (!flatRefs.empty())
+    {
         file.write(reinterpret_cast<const char*>(flatRefs.data()), flatRefs.size() * sizeof(uint64_t));
     }
 
-    for (const auto& root : gcRoots) {
+    for (const auto& root : gcRoots)
+    {
         GcRootEntry e{static_cast<uint8_t>(root.type), root.object_id, root.thread_idx, root.frame_idx};
         file.write(reinterpret_cast<const char*>(&e), sizeof(e));
     }
 
     uint64_t childIdx = 0;
-    for (const auto& node : dominanceNodes) {
+    for (const auto& node : dominanceNodes)
+    {
         DominanceEntry e{
             node.object_id, node.parent_id, node.retained_size, node.shallow_size,
             node.depth, childIdx, static_cast<uint32_t>(node.children.size())
@@ -234,11 +273,13 @@ bool DatabaseCache::save(const std::string& heapFilePath,
         childIdx += node.children.size();
     }
 
-    if (!flatChildren.empty()) {
+    if (!flatChildren.empty())
+    {
         file.write(reinterpret_cast<const char*>(flatChildren.data()), flatChildren.size() * sizeof(uint64_t));
     }
 
-    if (!stringTableData.empty()) {
+    if (!stringTableData.empty())
+    {
         file.write(stringTableData.data(), stringTableData.size());
     }
 
@@ -246,7 +287,8 @@ bool DatabaseCache::save(const std::string& heapFilePath,
 
     // Atomic rename
     std::remove(dbPath.c_str());
-    if (std::rename(tmpPath.c_str(), dbPath.c_str()) != 0) {
+    if (std::rename(tmpPath.c_str(), dbPath.c_str()) != 0)
+    {
         LOG_ERROR("Failed to rename cache file from {} to {}", tmpPath, dbPath);
         std::remove(tmpPath.c_str());
         return false;
@@ -267,22 +309,26 @@ bool DatabaseCache::load(const std::string& heapFilePath,
 {
     std::string dbPath = getCachePath(heapFilePath);
     std::ifstream file(dbPath, std::ios::binary);
-    if (!file) {
+    if (!file)
+    {
         LOG_ERROR("Failed to open cache file: {}", dbPath);
         return false;
     }
 
     BinaryHeader header;
     file.read(reinterpret_cast<char*>(&header), sizeof(header));
-    if (file.gcount() != sizeof(header)) {
+    if (file.gcount() != sizeof(header))
+    {
         LOG_ERROR("Cache file too small: {}", dbPath);
         return false;
     }
-    if (std::memcmp(header.magic, "CJDB", 4) != 0) {
+    if (std::memcmp(header.magic, "cjprofdb", 8) != 0)
+    {
         LOG_ERROR("Invalid cache file magic: {}", dbPath);
         return false;
     }
-    if (header.version != 1) {
+    if (header.version != kCacheFormatVersion)
+    {
         LOG_ERROR("Unsupported cache file version: {}", header.version);
         return false;
     }
@@ -298,7 +344,8 @@ bool DatabaseCache::load(const std::string& heapFilePath,
 
     // Read string table
     std::string stringTableData;
-    if (header.strings_size > 0) {
+    if (header.strings_size > 0)
+    {
         stringTableData.resize(header.strings_size);
         file.seekg(static_cast<std::streamoff>(header.strings_offset));
         file.read(stringTableData.data(), static_cast<std::streamsize>(header.strings_size));
@@ -317,9 +364,11 @@ bool DatabaseCache::load(const std::string& heapFilePath,
 
     // Read classes
     classes.resize(header.classes_count);
-    if (header.classes_count > 0) {
+    if (header.classes_count > 0)
+    {
         file.seekg(static_cast<std::streamoff>(header.classes_offset));
-        for (uint64_t i = 0; i < header.classes_count; ++i) {
+        for (uint64_t i = 0; i < header.classes_count; ++i)
+        {
             ClassEntry e;
             file.read(reinterpret_cast<char*>(&e), sizeof(e));
             ClassInfo cls;
@@ -334,9 +383,11 @@ bool DatabaseCache::load(const std::string& heapFilePath,
 
     // Read objects
     objects.resize(header.objects_count);
-    if (header.objects_count > 0) {
+    if (header.objects_count > 0)
+    {
         file.seekg(static_cast<std::streamoff>(header.objects_offset));
-        for (uint64_t i = 0; i < header.objects_count; ++i) {
+        for (uint64_t i = 0; i < header.objects_count; ++i)
+        {
             ObjectEntry e;
             file.read(reinterpret_cast<char*>(&e), sizeof(e));
             HeapObject obj;
@@ -354,13 +405,16 @@ bool DatabaseCache::load(const std::string& heapFilePath,
     }
 
     // Read refs and populate objects.refs
-    if (header.refs_count > 0) {
+    if (header.refs_count > 0)
+    {
         std::vector<uint64_t> flatRefs(header.refs_count);
         file.seekg(static_cast<std::streamoff>(header.refs_offset));
         file.read(reinterpret_cast<char*>(flatRefs.data()), static_cast<std::streamsize>(header.refs_count * sizeof(uint64_t)));
-        for (size_t i = 0; i < objects.size(); ++i) {
+        for (size_t i = 0; i < objects.size(); ++i)
+        {
             const auto& info = objectRefsInfos[i];
-            if (info.refs_count > 0) {
+            if (info.refs_count > 0)
+            {
                 objects[i].refs.assign(flatRefs.begin() + info.refs_offset, flatRefs.begin() + info.refs_offset + info.refs_count);
             }
         }
@@ -368,9 +422,11 @@ bool DatabaseCache::load(const std::string& heapFilePath,
 
     // Read gc roots
     gcRoots.resize(header.gcroots_count);
-    if (header.gcroots_count > 0) {
+    if (header.gcroots_count > 0)
+    {
         file.seekg(static_cast<std::streamoff>(header.gcroots_offset));
-        for (uint64_t i = 0; i < header.gcroots_count; ++i) {
+        for (uint64_t i = 0; i < header.gcroots_count; ++i)
+        {
             GcRootEntry e;
             file.read(reinterpret_cast<char*>(&e), sizeof(e));
             GcRoot root;
@@ -384,9 +440,11 @@ bool DatabaseCache::load(const std::string& heapFilePath,
 
     // Read dominance nodes
     dominanceNodes.resize(header.dominance_count);
-    if (header.dominance_count > 0) {
+    if (header.dominance_count > 0)
+    {
         file.seekg(static_cast<std::streamoff>(header.dominance_offset));
-        for (uint64_t i = 0; i < header.dominance_count; ++i) {
+        for (uint64_t i = 0; i < header.dominance_count; ++i)
+        {
             DominanceEntry e;
             file.read(reinterpret_cast<char*>(&e), sizeof(e));
             DominanceNode node;
@@ -401,13 +459,16 @@ bool DatabaseCache::load(const std::string& heapFilePath,
     }
 
     // Read children and populate dominanceNodes.children
-    if (header.children_count > 0) {
+    if (header.children_count > 0)
+    {
         std::vector<uint64_t> flatChildren(header.children_count);
         file.seekg(static_cast<std::streamoff>(header.children_offset));
         file.read(reinterpret_cast<char*>(flatChildren.data()), static_cast<std::streamsize>(header.children_count * sizeof(uint64_t)));
-        for (size_t i = 0; i < dominanceNodes.size(); ++i) {
+        for (size_t i = 0; i < dominanceNodes.size(); ++i)
+        {
             const auto& info = nodeChildrenInfos[i];
-            if (info.children_count > 0) {
+            if (info.children_count > 0)
+            {
                 dominanceNodes[i].children.assign(flatChildren.begin() + info.children_offset, flatChildren.begin() + info.children_offset + info.children_count);
             }
         }
