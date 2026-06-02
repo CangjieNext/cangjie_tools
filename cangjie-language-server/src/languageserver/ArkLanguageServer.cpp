@@ -1542,14 +1542,15 @@ void ArkLanguageServer::HandleAddImportQuickFix(DiagnosticToken &diagnostic, con
     Position textEditStart = {pkgPos.fileID, lastImportLine, 0};
     Range textEditRange{textEditStart, textEditStart};
     std::string curPackage = file->curPackage->fullPackageName;
-    std::string curModule = SplitFullPackage(curPackage).first;
+    std::string curModule = CompilerCangjieProject::GetInstance()->GetModuleNameByFile(file->filePath, curPackage);
+    bool includeScriptRequire = CompilerCangjieProject::GetInstance()->IsBuildScriptFile(file->filePath);
     std::unordered_set<std::string> fixSet = {};
     std::vector<CodeAction> actions = {};
     std::string uri = URI::URIFromAbsolutePath(file->filePath).ToString();
     std::unordered_set<lsp::SymbolID> importedSyms = {};
     GetCurFileImportedSymbolIDs(importManager, file, importedSyms);
     index->FindImportSymsOnQuickFix(
-        curPackage, curModule, importedSyms, identifier,
+        curPackage, curModule, importedSyms, includeScriptRequire, identifier,
         [&actions, &fixSet, &textEditRange, uri, this](const std::string &pkg, const lsp::Symbol &sym) {
             std::string fullSymName = pkg + ":" + sym.name;
             if (fixSet.count(fullSymName)) {
