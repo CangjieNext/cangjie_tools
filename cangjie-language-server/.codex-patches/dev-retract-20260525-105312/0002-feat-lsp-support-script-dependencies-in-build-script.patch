@@ -1,0 +1,1727 @@
+From c6ec024c66f1f96d038b36fe71077c0a2b83162a Mon Sep 17 00:00:00 2001
+From: 2301_81676461 <yangwei327@huawei.com>
+Date: Sat, 16 May 2026 16:47:29 +0800
+Subject: [PATCH 2/2] feat(lsp): support script dependencies in build script
+
+---
+ .../src/languageserver/ArkLanguageServer.cpp  |   5 +-
+ .../languageserver/CompilerCangjieProject.cpp | 359 +++++++++++++-----
+ .../languageserver/CompilerCangjieProject.h   |  20 +-
+ .../languageserver/LSPCompilerInstance.cpp    |  66 +++-
+ .../src/languageserver/LSPCompilerInstance.h  |   7 +
+ .../completion/CompletionImpl.cpp             |  11 +-
+ .../completion/DotCompleterByParse.cpp        |  19 +-
+ .../completion/NormalCompleterByParse.cpp     |  12 +-
+ .../completion/NormalCompleterByParse.h       |   4 +-
+ .../src/languageserver/common/Constants.h     |   2 +
+ .../common/multiModule/ModuleManager.h        |  11 +-
+ .../common/multiModule/ModuleManger.cpp       |  69 +++-
+ .../index/BackgroundIndexDB.cpp               |  16 +-
+ .../languageserver/index/BackgroundIndexDB.h  |   6 +-
+ .../src/languageserver/index/MemIndex.cpp     |  20 +-
+ .../src/languageserver/index/MemIndex.h       |  14 +-
+ ...gnostic_script_dependencies_build_001.base |   1 +
+ ...gnostic_script_dependencies_build_001.test |   6 +
+ ...agnostic_script_dependencies_root_001.base |   1 +
+ ...agnostic_script_dependencies_root_001.test |   6 +
+ cangjie-language-server/test/testCase.list    |   3 +
+ .../newFeature/scriptDependencies/build.cj    |   6 +
+ .../normal_dep/src/normal_dep.cj              |   5 +
+ .../scriptDependencies/not_build.cj           |   8 +
+ .../script_dep/src/script_dep.cj              |   5 +
+ .../newFeature/scriptDependencies/src/main.cj |   5 +
+ 26 files changed, 534 insertions(+), 153 deletions(-)
+ create mode 100644 cangjie-language-server/test/message/diagnostic/LSP_Diagnostic_script_dependencies_build_001.base
+ create mode 100644 cangjie-language-server/test/message/diagnostic/LSP_Diagnostic_script_dependencies_build_001.test
+ create mode 100644 cangjie-language-server/test/message/diagnostic/LSP_Diagnostic_script_dependencies_root_001.base
+ create mode 100644 cangjie-language-server/test/message/diagnostic/LSP_Diagnostic_script_dependencies_root_001.test
+ create mode 100644 cangjie-language-server/test/testChr/newFeature/scriptDependencies/build.cj
+ create mode 100644 cangjie-language-server/test/testChr/newFeature/scriptDependencies/normal_dep/src/normal_dep.cj
+ create mode 100644 cangjie-language-server/test/testChr/newFeature/scriptDependencies/not_build.cj
+ create mode 100644 cangjie-language-server/test/testChr/newFeature/scriptDependencies/script_dep/src/script_dep.cj
+ create mode 100644 cangjie-language-server/test/testChr/newFeature/scriptDependencies/src/main.cj
+
+diff --git a/cangjie-language-server/src/languageserver/ArkLanguageServer.cpp b/cangjie-language-server/src/languageserver/ArkLanguageServer.cpp
+index 048cd8c6..e96677e0 100644
+--- a/cangjie-language-server/src/languageserver/ArkLanguageServer.cpp
++++ b/cangjie-language-server/src/languageserver/ArkLanguageServer.cpp
+@@ -1541,14 +1541,15 @@ void ArkLanguageServer::HandleAddImportQuickFix(DiagnosticToken &diagnostic, con
+     Position textEditStart = {pkgPos.fileID, lastImportLine, 0};
+     Range textEditRange{textEditStart, textEditStart};
+     std::string curPackage = file->curPackage->fullPackageName;
+-    std::string curModule = SplitFullPackage(curPackage).first;
++    std::string curModule = CompilerCangjieProject::GetInstance()->GetModuleNameByFile(file->filePath, curPackage);
++    bool includeScriptRequire = CompilerCangjieProject::GetInstance()->IsBuildScriptFile(file->filePath);
+     std::unordered_set<std::string> fixSet = {};
+     std::vector<CodeAction> actions = {};
+     std::string uri = URI::URIFromAbsolutePath(file->filePath).ToString();
+     std::unordered_set<lsp::SymbolID> importedSyms = {};
+     GetCurFileImportedSymbolIDs(importManager, file, importedSyms);
+     index->FindImportSymsOnQuickFix(
+-        curPackage, curModule, importedSyms, identifier,
++        curPackage, curModule, importedSyms, includeScriptRequire, identifier,
+         [&actions, &fixSet, &textEditRange, uri, this](const std::string &pkg, const lsp::Symbol &sym) {
+             std::string fullSymName = pkg + ":" + sym.name;
+             if (fixSet.count(fullSymName)) {
+diff --git a/cangjie-language-server/src/languageserver/CompilerCangjieProject.cpp b/cangjie-language-server/src/languageserver/CompilerCangjieProject.cpp
+index e21b270d..9efae1f2 100644
+--- a/cangjie-language-server/src/languageserver/CompilerCangjieProject.cpp
++++ b/cangjie-language-server/src/languageserver/CompilerCangjieProject.cpp
+@@ -57,6 +57,7 @@ const unsigned int MAX_THREAD_COUNT = HARDWARE_CONCURRENCY_COUNT > EXTRA_THREAD_
+                                       HARDWARE_CONCURRENCY_COUNT - EXTRA_THREAD_COUNT : 1;
+ const unsigned int PROPER_THREAD_COUNT = MAX_THREAD_COUNT == 1 ? MAX_THREAD_COUNT : (MAX_THREAD_COUNT >> 1);
+ const int LSP_ERROR_CODE = 503;
++const int SCRIPT_DEPENDENCY_IMPORT_ERROR_CODE = 504;
+ CompilerCangjieProject *CompilerCangjieProject::instance = nullptr;
+ bool CompilerCangjieProject::useDB = false;
+ bool CompilerCangjieProject::incrementalOptimize = true;
+@@ -199,12 +200,13 @@ void CompilerCangjieProject::IncrementForFileDelete(const std::string &fileName)
+     // fix linux delete file crash
+     std::string absName = FileStore::NormalizePath(fileName);
+     std::string dirPath = GetDirPath(absName);
++    std::string notInSrcCacheKey = GetNotInSrcCacheKey(absName);
+     std::string fullPkgName = GetFullPkgName(absName);
+ 
+     Ptr<Package> package;
+     bool isInModule = GetCangjieFileKind(absName).first != CangjieFileKind::IN_PROJECT_NOT_IN_SOURCE;
+     if ((isInModule && pkgInfoMap.find(fullPkgName) == pkgInfoMap.end()) ||
+-        (!isInModule && pkgInfoMapNotInSrc.find(dirPath) == pkgInfoMapNotInSrc.end())) {
++        (!isInModule && pkgInfoMapNotInSrc.find(notInSrcCacheKey) == pkgInfoMapNotInSrc.end())) {
+         return;
+     }
+     if (isInModule) {
+@@ -216,12 +218,12 @@ void CompilerCangjieProject::IncrementForFileDelete(const std::string &fileName)
+         }
+         package = pLRUCache->Get(fullPkgName)->GetSourcePackages()[0];
+     } else {
+-        pkgInfoMapNotInSrc[dirPath]->bufferCache.erase(absName);
++        pkgInfoMapNotInSrc[notInSrcCacheKey]->bufferCache.erase(absName);
+         IncrementCompileForFileNotInSrc(absName, "", true);
+-        if (!pLRUCache->HasCache(dirPath)) {
++        if (!pLRUCache->HasCache(notInSrcCacheKey)) {
+             return;
+         }
+-        package = pLRUCache->Get(dirPath)->GetSourcePackages()[0];
++        package = pLRUCache->Get(notInSrcCacheKey)->GetSourcePackages()[0];
+     }
+     if (package == nullptr) {
+         return;
+@@ -231,7 +233,7 @@ void CompilerCangjieProject::IncrementForFileDelete(const std::string &fileName)
+         fileCache.erase(fileName);
+     }
+     if (package->files.empty()) {
+-        ClearCacheForDelete(fullPkgName, dirPath, isInModule);
++        ClearCacheForDelete(fullPkgName, isInModule ? dirPath : notInSrcCacheKey, isInModule);
+     }
+ }
+ 
+@@ -277,13 +279,22 @@ std::string CompilerCangjieProject::GetFullPkgByDir(const std::string &dirPath)
+     return "";
+ }
+ 
++std::string CompilerCangjieProject::GetNotInSrcCacheKey(const std::string &filePath) const
++{
++    std::string normalizedFilePath = Normalize(filePath);
++    if (IsBuildScriptFile(normalizedFilePath)) {
++        return normalizedFilePath;
++    }
++    return Normalize(GetDirPath(normalizedFilePath));
++}
++
+ void CompilerCangjieProject::IncrementCompile(const std::string &filePath, const std::string &contents, bool isDelete)
+ {
+     // Create new compiler instance and set some required options.
+     Trace::Log("Start incremental compilation for package: ", filePath);
+     auto fullPkgName = GetFullPkgName(filePath);
+     // Remove diagnostics for the current package
+-    callback->RemoveDiagOfCurPkg(pkgInfoMap[fullPkgName]->packagePath);
++    ClearDiagnosticsForPkg(*pkgInfoMap[fullPkgName]);
+     // Construct a compiler instance for compilation.
+     auto &invocation = pkgInfoMap[fullPkgName]->compilerInvocation;
+     auto ci = std::make_unique<LSPCompilerInstance>(callback, *invocation, GetDiagnosticEngine(),
+@@ -344,6 +355,20 @@ void CompilerCangjieProject::UpdateBufferCache(const std::string &fullPkgName, c
+     }
+ }
+ 
++void CompilerCangjieProject::ClearDiagnosticsForPkg(const PkgInfo &pkgInfo)
++{
++    for (const auto &file : pkgInfo.bufferCache) {
++        callback->RemoveDiagOfCurFile(file.first);
++    }
++    if (FileUtil::GetFileExtension(pkgInfo.packagePath) == CANGJIE_FILE_EXTENSION) {
++        return;
++    }
++    std::vector<std::string> macroFiles = GetAllFilesUnderCurrentPath(pkgInfo.packagePath, CANGJIE_MACRO_FILE_EXTENSION, false);
++    for (const auto &file : macroFiles) {
++        callback->RemoveDiagOfCurFile(FileStore::NormalizePath(JoinPath(pkgInfo.packagePath, file)));
++    }
++}
++
+ void CompilerCangjieProject::CompileAndCheckDownstream(const std::string &fullPkgName,
+                                                        const std::unique_ptr<LSPCompilerInstance> &ci)
+ {
+@@ -380,6 +405,7 @@ void CompilerCangjieProject::PostCompileProcess(const std::string &fullPkgName,
+ 
+     // 5. emit diagnostics after index build (includes unused symbol diagnostics)
+     if (!isDelete) {
++        ValidateScriptDependencyImports(ci, filePath);
+         EmitDiagsOfFile(filePath);
+     }
+ }
+@@ -501,7 +527,7 @@ void CompilerCangjieProject::SubmitTasksToPool(const std::unordered_set<std::str
+                 Trace::Log("finish execute task", package);
+                 return;
+             }
+-            callback->RemoveDiagOfCurPkg(pkgInfoMap[package]->packagePath);
++            ClearDiagnosticsForPkg(*pkgInfoMap[package]);
+             auto &invocation = pkgInfoMap[package]->compilerInvocation;
+             auto ci = std::make_unique<LSPCompilerInstance>(callback, *invocation, GetDiagnosticEngine(),
+                 package, moduleManager);
+@@ -547,15 +573,16 @@ void CompilerCangjieProject::SubmitTasksToPool(const std::unordered_set<std::str
+ void CompilerCangjieProject::IncrementOnePkgCompile(const std::string &filePath, const std::string &contents)
+ {
+     std::string fullPkgName = GetFullPkgName(filePath);
++    std::string notInSrcCacheKey = GetNotInSrcCacheKey(filePath);
+     if (pkgInfoMap.find(fullPkgName) == pkgInfoMap.end()) {
+-        if (pkgInfoMapNotInSrc.find(fullPkgName) == pkgInfoMapNotInSrc.end()) {
++        if (pkgInfoMapNotInSrc.find(notInSrcCacheKey) == pkgInfoMapNotInSrc.end()) {
+             return;
+         }
+         if (!Cangjie::FileUtil::HasExtension(filePath, CANGJIE_MACRO_FILE_EXTENSION)) {
+-            std::lock_guard<std::mutex> lock(pkgInfoMapNotInSrc[fullPkgName]->pkgInfoMutex);
+-            pkgInfoMapNotInSrc[fullPkgName]->bufferCache[filePath] = contents;
++            std::lock_guard<std::mutex> lock(pkgInfoMapNotInSrc[notInSrcCacheKey]->pkgInfoMutex);
++            pkgInfoMapNotInSrc[notInSrcCacheKey]->bufferCache[filePath] = contents;
+         }
+-        IncrementTempPkgCompileNotInSrc(fullPkgName);
++        IncrementTempPkgCompileNotInSrc(notInSrcCacheKey);
+         return;
+     }
+     if (!Cangjie::FileUtil::HasExtension(filePath, CANGJIE_MACRO_FILE_EXTENSION)) {
+@@ -571,7 +598,7 @@ void CompilerCangjieProject::IncrementTempPkgCompile(const std::string &basicStr
+     if (pkgInfoMap.find(basicString) == pkgInfoMap.end()) {
+         return;
+     }
+-    callback->RemoveDiagOfCurPkg(pkgInfoMap[fullPkgName]->packagePath);
++    ClearDiagnosticsForPkg(*pkgInfoMap[fullPkgName]);
+     auto newCI = std::make_unique<LSPCompilerInstance>(callback, *pkgInfoMap[fullPkgName]->compilerInvocation,
+         GetDiagnosticEngine(), fullPkgName, moduleManager);
+     if (newCI == nullptr) {
+@@ -607,20 +634,31 @@ void CompilerCangjieProject::IncrementTempPkgCompile(const std::string &basicStr
+ 
+ void CompilerCangjieProject::IncrementTempPkgCompileNotInSrc(const std::string &fullPkgName)
+ {
+-    std::string dirPath = fullPkgName;
+-    if (pkgInfoMapNotInSrc.find(dirPath) == pkgInfoMapNotInSrc.end()) {
++    std::string cacheKey = fullPkgName;
++    if (pkgInfoMapNotInSrc.find(cacheKey) == pkgInfoMapNotInSrc.end()) {
+         return;
+     }
+-    callback->RemoveDiagOfCurPkg(pkgInfoMapNotInSrc[fullPkgName]->packagePath);
+-    auto newCI = std::make_unique<LSPCompilerInstance>(callback, *pkgInfoMapNotInSrc[dirPath]->compilerInvocation,
++    ClearDiagnosticsForPkg(*pkgInfoMapNotInSrc[cacheKey]);
++    auto newCI = std::make_unique<LSPCompilerInstance>(callback, *pkgInfoMapNotInSrc[cacheKey]->compilerInvocation,
+         GetDiagnosticEngine(), "", moduleManager);
+     newCI->cangjieHome = modulesHome;
+     newCI->loadSrcFilesFromCache = true;
++    newCI->SetActiveFilePath("");
+ 
+-    if (!ParseAndUpdateNotInSrcDep(dirPath, newCI)) {
++    if (!ParseAndUpdateNotInSrcDep(cacheKey, newCI)) {
+         return;
+     }
+     newCI->CompileAfterParse(cjoManager, graph);
++    for (const auto &package : newCI->GetSourcePackages()) {
++        if (!package) {
++            continue;
++        }
++        for (const auto &file : package->files) {
++            if (file) {
++                ValidateScriptDependencyImports(newCI, file->filePath);
++            }
++        }
++    }
+     BuildIndex(newCI);
+     InitCache(newCI, fullPkgName, false);
+     pLRUCache->Set(fullPkgName, newCI);
+@@ -629,26 +667,28 @@ void CompilerCangjieProject::IncrementTempPkgCompileNotInSrc(const std::string &
+ void CompilerCangjieProject::IncrementCompileForFileNotInSrc(const std::string &filePath, const std::string &contents,
+                                                              bool isDelete)
+ {
+-    std::string dirPath = Normalize(GetDirPath(filePath));
+-    if (pkgInfoMapNotInSrc.find(dirPath) == pkgInfoMapNotInSrc.end()) {
++    std::string cacheKey = GetNotInSrcCacheKey(filePath);
++    if (pkgInfoMapNotInSrc.find(cacheKey) == pkgInfoMapNotInSrc.end()) {
+         return;
+     }
+-    callback->RemoveDiagOfCurPkg(pkgInfoMapNotInSrc[dirPath]->packagePath);
+-    auto newCI = std::make_unique<LSPCompilerInstance>(callback, *pkgInfoMapNotInSrc[dirPath]->compilerInvocation,
++    ClearDiagnosticsForPkg(*pkgInfoMapNotInSrc[cacheKey]);
++    auto newCI = std::make_unique<LSPCompilerInstance>(callback, *pkgInfoMapNotInSrc[cacheKey]->compilerInvocation,
+                                                        GetDiagnosticEngine(), "", moduleManager);
+     newCI->cangjieHome = modulesHome;
++    newCI->SetActiveFilePath(filePath);
+     // update cache and read code from cache
+     newCI->loadSrcFilesFromCache = true;
+     if (!isDelete && !Cangjie::FileUtil::HasExtension(filePath, CANGJIE_MACRO_FILE_EXTENSION)) {
+-        pkgInfoMapNotInSrc[dirPath]->bufferCache[filePath] = contents;
++        pkgInfoMapNotInSrc[cacheKey]->bufferCache[filePath] = contents;
+     }
+-    if (!ParseAndUpdateNotInSrcDep(dirPath, newCI)) {
++    if (!ParseAndUpdateNotInSrcDep(cacheKey, newCI)) {
+         return;
+     }
+     newCI->CompileAfterParse(cjoManager, graph);
++    ValidateScriptDependencyImports(newCI, filePath);
+     BuildIndex(newCI);
+-    InitCache(newCI, dirPath);
+-    pLRUCache->Set(dirPath, newCI);
++    InitCache(newCI, cacheKey, false);
++    pLRUCache->Set(cacheKey, newCI);
+ }
+ 
+ bool CompilerCangjieProject::ParseAndUpdateNotInSrcDep(const std::string &dirPath,
+@@ -659,7 +699,7 @@ bool CompilerCangjieProject::ParseAndUpdateNotInSrcDep(const std::string &dirPat
+         newCI->SetBufferCache(pkgInfoMapNotInSrc[dirPath]->bufferCache);
+     }
+     newCI->PreCompileProcess();
+-    newCI->UpdateDepGraph();
++    newCI->UpdateDepGraph(false);
+     auto packages = newCI->GetSourcePackages();
+     if (packages.empty() || !packages[0]) {
+         return false;
+@@ -728,7 +768,7 @@ void CompilerCangjieProject::CompilerOneFile(
+     auto [fileKind, modulePath] = GetCangjieFileKind(absName);
+ 
+     if (fileKind == CangjieFileKind::IN_PROJECT_NOT_IN_SOURCE) {
+-        HandleFileNotInSource(absName, contents, dirPath);
++        HandleFileNotInSource(absName, contents);
+     } else if (fileKind == CangjieFileKind::IN_NEW_PACKAGE) {
+         HandleNewPackage(absName, contents, dirPath, modulePath);
+     } else {
+@@ -738,19 +778,19 @@ void CompilerCangjieProject::CompilerOneFile(
+     Trace::Log("Finish analyzing the file: ", absName);
+ }
+ 
+-void CompilerCangjieProject::HandleFileNotInSource(const std::string &absName, const std::string &contents,
+-                                                   const std::string &dirPath)
++void CompilerCangjieProject::HandleFileNotInSource(const std::string &absName, const std::string &contents)
+ {
+-    if (pkgInfoMapNotInSrc.find(dirPath) == pkgInfoMapNotInSrc.end()) {
+-        pkgInfoMapNotInSrc[dirPath] = std::make_unique<PkgInfo>(dirPath, "", "", callback);
++    std::string cacheKey = GetNotInSrcCacheKey(absName);
++    if (pkgInfoMapNotInSrc.find(cacheKey) == pkgInfoMapNotInSrc.end()) {
++        pkgInfoMapNotInSrc[cacheKey] = std::make_unique<PkgInfo>(cacheKey, "", "", callback);
+     }
+     if (!Cangjie::FileUtil::HasExtension(absName, CANGJIE_MACRO_FILE_EXTENSION)) {
+-        std::lock_guard<std::mutex> lock(pkgInfoMapNotInSrc[dirPath]->pkgInfoMutex);
+-        pkgInfoMapNotInSrc[dirPath]->bufferCache[absName] = contents;
++        std::lock_guard<std::mutex> lock(pkgInfoMapNotInSrc[cacheKey]->pkgInfoMutex);
++        pkgInfoMapNotInSrc[cacheKey]->bufferCache[absName] = contents;
+     }
+     IncrementOnePkgCompile(absName, contents);
+-    if (CIMapNotInSrc.find(dirPath) == CIMapNotInSrc.end()) {
+-        CIMapNotInSrc[dirPath] = nullptr;
++    if (CIMapNotInSrc.find(cacheKey) == CIMapNotInSrc.end()) {
++        CIMapNotInSrc[cacheKey] = nullptr;
+     }
+ }
+ 
+@@ -946,6 +986,7 @@ void CompilerCangjieProject::UpdateCIForParse(const std::unique_ptr<LSPCompilerI
+                                               const std::string &filePath,
+                                               const std::string &contents)
+ {
++    ci->SetActiveFilePath(filePath);
+     if (pkgInfoMap[fullPkgName]->bufferCache.count(filePath) &&
+         !Cangjie::FileUtil::HasExtension(filePath, CANGJIE_MACRO_FILE_EXTENSION)) {
+         {
+@@ -1024,24 +1065,25 @@ std::unique_ptr<LSPCompilerInstance> CompilerCangjieProject::GetCIForFileRefacto
+ void CompilerCangjieProject::IncrementCompileForCompleteNotInSrc(
+     const std::string &name, const std::string &filePath, const std::string &contents)
+ {
+-    std::string dirPath = Normalize(GetDirPath(filePath));
+-    if (pkgInfoMapNotInSrc.find(dirPath) == pkgInfoMapNotInSrc.end()) {
++    std::string cacheKey = GetNotInSrcCacheKey(filePath);
++    if (pkgInfoMapNotInSrc.find(cacheKey) == pkgInfoMapNotInSrc.end()) {
+         return;
+     }
+ 
+     auto newCI = std::make_unique<LSPCompilerInstance>(
+-        callback, *pkgInfoMapNotInSrc[dirPath]->compilerInvocation,
++        callback, *pkgInfoMapNotInSrc[cacheKey]->compilerInvocation,
+         GetDiagnosticEngine(), "", moduleManager);
+     if (newCI == nullptr) {
+         return;
+     }
+     newCI->cangjieHome = modulesHome;
++    newCI->SetActiveFilePath(filePath);
+     // update cache and read code from cache
+     newCI->loadSrcFilesFromCache = true;
+-    if (pkgInfoMapNotInSrc[dirPath]->bufferCache.count(filePath)) {
+-        pkgInfoMapNotInSrc[dirPath]->bufferCache[filePath] = contents;
++    if (pkgInfoMapNotInSrc[cacheKey]->bufferCache.count(filePath)) {
++        pkgInfoMapNotInSrc[cacheKey]->bufferCache[filePath] = contents;
+     }
+-    newCI->SetBufferCacheForParse(pkgInfoMapNotInSrc[dirPath]->bufferCache);
++    newCI->SetBufferCacheForParse(pkgInfoMapNotInSrc[cacheKey]->bufferCache);
+ 
+     newCI->CompilePassForComplete(cjoManager, graph, INVALID_POSITION, name);
+     CIForComplete = std::move(newCI);
+@@ -1051,24 +1093,25 @@ void CompilerCangjieProject::IncrementCompileForCompleteNotInSrc(
+ void CompilerCangjieProject::IncrementCompileForSignatureHelpNotInSrc(const std::string &filePath,
+     const std::string &contents)
+ {
+-    std::string dirPath = Normalize(GetDirPath(filePath));
+-    if (pkgInfoMapNotInSrc.find(dirPath) == pkgInfoMapNotInSrc.end()) {
++    std::string cacheKey = GetNotInSrcCacheKey(filePath);
++    if (pkgInfoMapNotInSrc.find(cacheKey) == pkgInfoMapNotInSrc.end()) {
+         return;
+     }
+ 
+     auto newCI = std::make_unique<LSPCompilerInstance>(
+-        callback, *pkgInfoMapNotInSrc[dirPath]->compilerInvocation,
++        callback, *pkgInfoMapNotInSrc[cacheKey]->compilerInvocation,
+         GetDiagnosticEngine(), "", moduleManager);
+     if (newCI == nullptr) {
+         return;
+     }
+     newCI->cangjieHome = modulesHome;
++    newCI->SetActiveFilePath(filePath);
+     // update cache and read code from cache
+     newCI->loadSrcFilesFromCache = true;
+-    if (pkgInfoMapNotInSrc[dirPath]->bufferCache.count(filePath)) {
+-        pkgInfoMapNotInSrc[dirPath]->bufferCache[filePath] = contents;
++    if (pkgInfoMapNotInSrc[cacheKey]->bufferCache.count(filePath)) {
++        pkgInfoMapNotInSrc[cacheKey]->bufferCache[filePath] = contents;
+     }
+-    newCI->SetBufferCache(pkgInfoMap[dirPath]->bufferCache);
++    newCI->SetBufferCache(pkgInfoMapNotInSrc[cacheKey]->bufferCache);
+ 
+     newCI->PreCompileProcess();
+     CIForSignatureHelp = std::move(newCI);
+@@ -1095,12 +1138,12 @@ void CompilerCangjieProject::InitParseCacheForComplete(const std::unique_ptr<LSP
+                 std::lock_guard<std::mutex> lock(pkgInfoMap[pkgForPath]->pkgInfoMutex);
+                 contents = pkgInfoMap[pkgForPath]->bufferCache[file->filePath];
+             } else {
+-                std::string dirPath = Normalize(GetDirPath(file->filePath));
+-                if (pkgInfoMapNotInSrc.find(dirPath) == pkgInfoMapNotInSrc.end()) {
++                std::string cacheKey = GetNotInSrcCacheKey(file->filePath);
++                if (pkgInfoMapNotInSrc.find(cacheKey) == pkgInfoMapNotInSrc.end()) {
+                     continue;
+                 }
+-                std::lock_guard<std::mutex> lock(pkgInfoMapNotInSrc[dirPath]->pkgInfoMutex);
+-                contents = pkgInfoMapNotInSrc[dirPath]->bufferCache[file->filePath];
++                std::lock_guard<std::mutex> lock(pkgInfoMapNotInSrc[cacheKey]->pkgInfoMutex);
++                contents = pkgInfoMapNotInSrc[cacheKey]->bufferCache[file->filePath];
+             }
+             std::pair<std::string, std::string> paths = { file->filePath, contents };
+             auto arkAST = std::make_unique<ArkAST>(paths, file.get(), lspCI->diag,
+@@ -1136,12 +1179,12 @@ void CompilerCangjieProject::InitParseCacheForSignatureHelp(const std::unique_pt
+                 std::lock_guard<std::mutex> lock(pkgInfoMap[pkgForPath]->pkgInfoMutex);
+                 contents = pkgInfoMap[pkgForPath]->bufferCache[file->filePath];
+             } else {
+-                std::string dirPath = Normalize(GetDirPath(file->filePath));
+-                if (pkgInfoMapNotInSrc.find(dirPath) == pkgInfoMapNotInSrc.end()) {
++                std::string cacheKey = GetNotInSrcCacheKey(file->filePath);
++                if (pkgInfoMapNotInSrc.find(cacheKey) == pkgInfoMapNotInSrc.end()) {
+                     continue;
+                 }
+-                std::lock_guard<std::mutex> lock(pkgInfoMapNotInSrc[dirPath]->pkgInfoMutex);
+-                contents = pkgInfoMapNotInSrc[dirPath]->bufferCache[file->filePath];
++                std::lock_guard<std::mutex> lock(pkgInfoMapNotInSrc[cacheKey]->pkgInfoMutex);
++                contents = pkgInfoMapNotInSrc[cacheKey]->bufferCache[file->filePath];
+             }
+             std::pair<std::string, std::string> paths = { file->filePath, contents };
+             auto arkAST = std::make_unique<ArkAST>(paths, file.get(), lspCI->diag,
+@@ -1219,9 +1262,10 @@ bool CompilerCangjieProject::InitCache(const std::unique_ptr<LSPCompilerInstance
+         }
+ 
+         // if pkg->files[0]->filePath is a dir file we need dirPath is pkgForPath
+-        std::string dirPath = Normalize(GetDirPath(pkg->files[0]->filePath));
++        std::string cacheKey = isInModule ? Normalize(GetDirPath(pkg->files[0]->filePath))
++                                          : GetNotInSrcCacheKey(pkg->files[0]->filePath);
+         if (GetFileExtension(pkg->files[0]->filePath) != "cj") {
+-            dirPath = Normalize(pkg->files[0]->filePath);
++            cacheKey = isInModule ? Normalize(pkg->files[0]->filePath) : pkgForPath;
+         }
+ 
+         for (auto &file : pkg->files) {
+@@ -1242,12 +1286,12 @@ bool CompilerCangjieProject::InitCache(const std::unique_ptr<LSPCompilerInstance
+                     contents = pkgInfoMap[pkgForPath]->bufferCache[filePath];
+                 }
+             } else {
+-                if (pkgInfoMapNotInSrc.find(dirPath) == pkgInfoMapNotInSrc.end()) {
++                if (pkgInfoMapNotInSrc.find(cacheKey) == pkgInfoMapNotInSrc.end()) {
+                     continue;
+                 }
+                 {
+-                    std::lock_guard<std::mutex> lock(pkgInfoMapNotInSrc[pkgForPath]->pkgInfoMutex);
+-                    contents = pkgInfoMapNotInSrc[dirPath]->bufferCache[filePath];
++                    std::lock_guard<std::mutex> lock(pkgInfoMapNotInSrc[cacheKey]->pkgInfoMutex);
++                    contents = pkgInfoMapNotInSrc[cacheKey]->bufferCache[filePath];
+                 }
+             }
+             std::pair<std::string, std::string> paths = {filePath, contents};
+@@ -1265,7 +1309,7 @@ bool CompilerCangjieProject::InitCache(const std::unique_ptr<LSPCompilerInstance
+         }
+         {
+             std::unique_lock lock(fileCacheMtx);
+-            this->packageInstanceCache[dirPath] = std::move(pkgInstance);
++            this->packageInstanceCache[cacheKey] = std::move(pkgInstance);
+         }
+     }
+     return true;
+@@ -1374,11 +1418,14 @@ void CompilerCangjieProject::InitNotInModule()
+ 
+     for (const auto& nosrc : notInSrcDirs) {
+         auto allFiles = GetAllFilesUnderCurrentPath(nosrc, CANGJIE_FILE_EXTENSION, false);
+-        pkgInfoMapNotInSrc[nosrc] = std::make_unique<PkgInfo>(nosrc, "", "", callback);
+         for (const auto &file : allFiles) {
+             std::string filePath = NormalizePath(JoinPath(nosrc, file));
+             LowFileName(filePath);
+-            pkgInfoMapNotInSrc[nosrc]->bufferCache.emplace(filePath, GetFileContents(filePath));
++            std::string cacheKey = GetNotInSrcCacheKey(filePath);
++            if (pkgInfoMapNotInSrc.find(cacheKey) == pkgInfoMapNotInSrc.end()) {
++                pkgInfoMapNotInSrc[cacheKey] = std::make_unique<PkgInfo>(cacheKey, "", "", callback);
++            }
++            pkgInfoMapNotInSrc[cacheKey]->bufferCache.emplace(filePath, GetFileContents(filePath));
+         }
+     }
+ 
+@@ -1645,7 +1692,7 @@ void CompilerCangjieProject::FullCompilation()
+                     thrdPool->TaskCompleted(taskId);
+                     return;
+                 }
+-                callback->RemoveDiagOfCurPkg(ci->invocation.globalOptions.packagePaths.front());
++                ClearDiagnosticsForPkg(*pkgInfoMap[fullPkg]);
+                 ci = std::make_unique<LSPCompilerInstance>(
+                     callback, ci->invocation, GetDiagnosticEngine(), fullPkg, moduleManager);
+                 ci->cangjieHome = modulesHome;
+@@ -1920,6 +1967,7 @@ std::vector<std::string> CompilerCangjieProject::GetCommonSpecificModuleSrcPaths
+ void CompilerCangjieProject::UpdateBuffCache(const std::string &file, bool isContentChange)
+ {
+     auto fullPkgName = GetFullPkgName(file);
++    auto notInSrcCacheKey = GetNotInSrcCacheKey(file);
+     if (pkgInfoMap.find(fullPkgName) != pkgInfoMap.end() &&
+         !Cangjie::FileUtil::HasExtension(file, CANGJIE_MACRO_FILE_EXTENSION)) {
+         {
+@@ -1927,11 +1975,11 @@ void CompilerCangjieProject::UpdateBuffCache(const std::string &file, bool isCon
+             pkgInfoMap[fullPkgName]->bufferCache[file] = callback->GetContentsByFile(file);
+         }
+     }
+-    if (pkgInfoMapNotInSrc.find(fullPkgName) != pkgInfoMapNotInSrc.end() &&
++    if (pkgInfoMapNotInSrc.find(notInSrcCacheKey) != pkgInfoMapNotInSrc.end() &&
+         !Cangjie::FileUtil::HasExtension(file, CANGJIE_MACRO_FILE_EXTENSION)) {
+         {
+-            std::lock_guard<std::mutex> lock(pkgInfoMapNotInSrc[fullPkgName]->pkgInfoMutex);
+-            pkgInfoMapNotInSrc[fullPkgName]->bufferCache[file] = callback->GetContentsByFile(file);
++            std::lock_guard<std::mutex> lock(pkgInfoMapNotInSrc[notInSrcCacheKey]->pkgInfoMutex);
++            pkgInfoMapNotInSrc[notInSrcCacheKey]->bufferCache[file] = callback->GetContentsByFile(file);
+         }
+     }
+     if (isContentChange) {
+@@ -1984,7 +2032,7 @@ void CompilerCangjieProject::ReportCircularDeps(const std::vector<std::vector<st
+             if (files.empty()) {
+                 continue;
+             }
+-            callback->RemoveDiagOfCurPkg(pkgInfoMap[pkg]->packagePath);
++            ClearDiagnosticsForPkg(*pkgInfoMap[pkg]);
+             for (const auto &file: files) {
+                 const auto &filePath = FileStore::NormalizePath(JoinPath(dirPath, file));
+                 DiagnosticToken dt;
+@@ -2018,7 +2066,7 @@ void CompilerCangjieProject::ReportCombinedCycles()
+         if (files.empty()) {
+             continue;
+         }
+-        callback->RemoveDiagOfCurPkg(pkgInfoMap[pkg]->packagePath);
++        ClearDiagnosticsForPkg(*pkgInfoMap[pkg]);
+         std::ostringstream diagMessage;
+         diagMessage << "packages " << combinedCirclePkgName
+                     << " are in circular dependencies (because of combined module '"
+@@ -2169,15 +2217,113 @@ bool CompilerCangjieProject::CheckPackageModifier(const File &needCheckedFile, c
+     return true;
+ }
+ 
++void CompilerCangjieProject::ValidateScriptDependencyImports(
++    const std::unique_ptr<LSPCompilerInstance> &ci,
++    const std::string &filePath)
++{
++    if (!ci || filePath.empty()) {
++        return;
++    }
++
++    for (const auto &diag : callback->GetDiagsOfCurFile(filePath)) {
++        if (diag.code == SCRIPT_DEPENDENCY_IMPORT_ERROR_CODE) {
++            callback->RemoveDiagnostic(filePath, diag);
++        }
++    }
++
++    if (IsBuildScriptFile(filePath)) {
++        return;
++    }
++
++    auto packages = ci->GetSourcePackages();
++    if (packages.empty() || !packages[0]) {
++        return;
++    }
++
++    auto addModuleCandidate = [](std::unordered_set<std::string> &modules, const std::string &candidate) {
++        if (candidate.empty()) {
++            return;
++        }
++        auto moduleName = SplitQualifiedName(candidate).front();
++        if (!moduleName.empty()) {
++            (void)modules.insert(moduleName);
++        }
++    };
++
++    for (const auto &package : packages) {
++        if (!package) {
++            continue;
++        }
++        for (const auto &file : package->files) {
++            if (!file || file->filePath != filePath || !file->curPackage) {
++                continue;
++            }
++
++            const auto curModule = GetModuleNameByFile(filePath, file->curPackage->fullPackageName);
++            if (curModule.empty()) {
++                return;
++            }
++            const auto normalDeps = GetOneModuleDeps(curModule, false);
++            const auto buildDeps = GetOneModuleDeps(curModule, true);
++            if (buildDeps.empty()) {
++                return;
++            }
++
++            for (const auto &importSpec : file->imports) {
++                if (!importSpec || importSpec->end.IsZero()) {
++                    continue;
++                }
++
++                std::unordered_set<std::string> importedModules;
++                const auto &importContent = importSpec->content;
++                if (!importContent.prefixPaths.empty()) {
++                    addModuleCandidate(importedModules, importContent.prefixPaths.front());
++                }
++                if (importSpec->IsImportMulti()) {
++                    for (const auto &item : importContent.items) {
++                        addModuleCandidate(importedModules, item.identifier);
++                    }
++                } else {
++                    addModuleCandidate(importedModules, importContent.identifier.Val());
++                }
++
++                for (const auto &importedModule : importedModules) {
++                    if (importedModule.empty() || importedModule == curModule) {
++                        continue;
++                    }
++                    if (!buildDeps.count(importedModule) || normalDeps.count(importedModule)) {
++                        continue;
++                    }
++
++                    DiagnosticToken dt;
++                    dt.category = SCRIPT_DEPENDENCY_IMPORT_ERROR_CODE;
++                    dt.code = SCRIPT_DEPENDENCY_IMPORT_ERROR_CODE;
++                    dt.message = "module '" + importedModule
++                        + "' is declared in script-dependencies and can only be imported in build.cj";
++                    dt.range = {
++                        {importSpec->begin.fileID, importSpec->begin.line - 1, importSpec->begin.column - 1},
++                        {importSpec->end.fileID, importSpec->end.line - 1, importSpec->end.column - 1}
++                    };
++                    dt.severity = 1;
++                    dt.source = "Cangjie";
++                    callback->UpdateDiagnostic(filePath, dt);
++                    break;
++                }
++            }
++            return;
++        }
++    }
++}
++
+ std::optional<unsigned int> CompilerCangjieProject::GetFileID(const std::string &fileName)
+ {
+     std::string fullPkgName = GetFullPkgName(fileName);
++    std::string notInSrcCacheKey = GetNotInSrcCacheKey(fileName);
+     if (pLRUCache->HasCache(fullPkgName)) {
+         return pLRUCache->Get(fullPkgName)->GetSourceManager().TryGetFileID(fileName);
+     }
+-    std::string dirPath = GetDirPath(fileName);
+-    if (pLRUCache->HasCache(dirPath)) {
+-        return pLRUCache->Get(dirPath)->GetSourceManager().TryGetFileID(fileName);
++    if (pLRUCache->HasCache(notInSrcCacheKey)) {
++        return pLRUCache->Get(notInSrcCacheKey)->GetSourceManager().TryGetFileID(fileName);
+     }
+     return 0;
+ }
+@@ -2199,11 +2345,11 @@ Callbacks* CompilerCangjieProject::GetCallback()
+ bool CompilerCangjieProject::FileHasSemaCache(const std::string &fileName)
+ {
+     std::string fullPkgName = GetFullPkgName(fileName);
++    std::string notInSrcCacheKey = GetNotInSrcCacheKey(fileName);
+     if (pLRUCache->HasCache(fullPkgName)) {
+         return true;
+     }
+-    std::string dirPath = GetDirPath(fileName);
+-    if (pLRUCache->HasCache(dirPath)) {
++    if (pLRUCache->HasCache(notInSrcCacheKey)) {
+         return true;
+     }
+     return false;
+@@ -2212,15 +2358,15 @@ bool CompilerCangjieProject::FileHasSemaCache(const std::string &fileName)
+ bool CompilerCangjieProject::CheckNeedCompiler(const std::string &fileName)
+ {
+     std::string fullPkgName = GetFullPkgName(fileName);
++    std::string notInSrcCacheKey = GetNotInSrcCacheKey(fileName);
+     if (!cjoManager->CheckStatus({fullPkgName}).empty()) {
+         return true;
+     }
+     if (pkgInfoMap.find(fullPkgName) != pkgInfoMap.end()) {
+         return pkgInfoMap[fullPkgName]->needReCompile;
+     }
+-    std::string dirPath = GetDirPath(fileName);
+-    if (pkgInfoMapNotInSrc.find(dirPath) != pkgInfoMapNotInSrc.end()) {
+-        return pkgInfoMapNotInSrc[dirPath]->needReCompile;
++    if (pkgInfoMapNotInSrc.find(notInSrcCacheKey) != pkgInfoMapNotInSrc.end()) {
++        return pkgInfoMapNotInSrc[notInSrcCacheKey]->needReCompile;
+     }
+     return false;
+ }
+@@ -2233,15 +2379,15 @@ bool CompilerCangjieProject::PkgHasSemaCache(const std::string &pkgName)
+ std::string CompilerCangjieProject::GetPathBySource(const std::string& fileName, unsigned int id)
+ {
+     std::string fullPkgName = GetFullPkgName(fileName);
++    std::string notInSrcCacheKey = GetNotInSrcCacheKey(fileName);
+     std::string path;
+     if (pLRUCache->HasCache(fullPkgName)) {
+         path = pLRUCache->Get(fullPkgName)->GetSourceManager().GetSource(id).path;
+         GetRealPath(path);
+         return path;
+     }
+-    std::string dirPath = GetDirPath(fileName);
+-    if (pLRUCache->HasCache(dirPath)) {
+-        path = pLRUCache->Get(dirPath)->GetSourceManager().GetSource(id).path;
++    if (pLRUCache->HasCache(notInSrcCacheKey)) {
++        path = pLRUCache->Get(notInSrcCacheKey)->GetSourceManager().GetSource(id).path;
+         GetRealPath(path);
+         return path;
+     }
+@@ -2262,9 +2408,9 @@ std::string CompilerCangjieProject::GetPathBySource(const Node &node, unsigned i
+         return "";
+     }
+     path = fileNode == nullptr ? node.curFile->filePath : fileNode->filePath;
+-    std::string dirPath = GetDirPath(path);
+-    if (pLRUCache->HasCache(dirPath)) {
+-        path = pLRUCache->Get(dirPath)->GetSourceManager().GetSource(id).path;
++    std::string notInSrcCacheKey = GetNotInSrcCacheKey(path);
++    if (pLRUCache->HasCache(notInSrcCacheKey)) {
++        path = pLRUCache->Get(notInSrcCacheKey)->GetSourceManager().GetSource(id).path;
+         GetRealPath(path);
+         return path;
+     }
+@@ -2623,26 +2769,59 @@ void CompilerCangjieProject::BuildIndexFromCache(const std::string &package) {
+         }
+ }
+ // LCOV_EXCL_STOP
+-std::unordered_set<std::string> CompilerCangjieProject::GetOneModuleDeps(const std::string &curModule)
++std::unordered_set<std::string> CompilerCangjieProject::GetOneModuleDeps(
++    const std::string &curModule,
++    bool includeScriptRequire)
+ {
+     std::unordered_set<std::string> res;
+-    auto found = moduleManager->requireAllPackages.find(curModule);
+-    if (found != moduleManager->requireAllPackages.end()) {
++    auto &requireMap = includeScriptRequire ? moduleManager->requireAllPackagesInBuild : moduleManager->requireAllPackages;
++    auto found = requireMap.find(curModule);
++    if (found != requireMap.end()) {
+         return found->second;
+     }
+     return res;
+ }
+ 
+-std::unordered_set<std::string> CompilerCangjieProject::GetOneModuleDirectDeps(const std::string &curModule)
++std::unordered_set<std::string> CompilerCangjieProject::GetOneModuleDirectDeps(
++    const std::string &curModule,
++    bool includeScriptRequire)
+ {
+     std::unordered_set<std::string> res;
+-    auto found = moduleManager->requirePackages.find(curModule);
+-    if (found != moduleManager->requirePackages.end()) {
+-        return found->second;
++    if (!includeScriptRequire) {
++        auto found = moduleManager->requirePackages.find(curModule);
++        if (found != moduleManager->requirePackages.end()) {
++            return found->second;
++        }
++        return res;
++    }
++    if (!curModule.empty()) {
++        (void)res.insert(curModule);
++    }
++    auto scriptFound = moduleManager->scriptRequirePackages.find(curModule);
++    if (scriptFound != moduleManager->scriptRequirePackages.end()) {
++        res.insert(scriptFound->second.begin(), scriptFound->second.end());
+     }
+     return res;
+ }
+ 
++std::string CompilerCangjieProject::GetModuleNameByFile(const std::string &filePath, const std::string &pkgName)
++{
++    if (moduleManager && moduleManager->IsBuildScriptFile(filePath)) {
++        return moduleManager->GetProjectModuleName();
++    }
++    std::string fullPkgName = pkgName.empty() ? GetFullPkgName(filePath) : pkgName;
++    fullPkgName = GetRealPackageName(fullPkgName);
++    if (fullPkgName.empty()) {
++        return "";
++    }
++    return SplitFullPackage(fullPkgName).first;
++}
++
++bool CompilerCangjieProject::IsBuildScriptFile(const std::string &filePath) const
++{
++    return moduleManager && moduleManager->IsBuildScriptFile(filePath);
++}
++
+ bool CompilerCangjieProject::GetModuleCombined(const std::string &curModule)
+ {
+     auto found = moduleManager->combinedMap.find(curModule);
+diff --git a/cangjie-language-server/src/languageserver/CompilerCangjieProject.h b/cangjie-language-server/src/languageserver/CompilerCangjieProject.h
+index 2b58dcd9..dea68866 100644
+--- a/cangjie-language-server/src/languageserver/CompilerCangjieProject.h
++++ b/cangjie-language-server/src/languageserver/CompilerCangjieProject.h
+@@ -363,7 +363,9 @@ private:
+     void HandleOnlyParse(const std::string &name, const std::string &absName, const std::string &contents,
+                          Position pos, CangjieFileKind fileKind);
+ 
+-    void HandleFileNotInSource(const std::string &absName, const std::string &contents, const std::string &dirPath);
++    std::string GetNotInSrcCacheKey(const std::string &filePath) const;
++
++    void HandleFileNotInSource(const std::string &absName, const std::string &contents);
+ 
+     void HandleNewPackage(const std::string &absName, const std::string &contents, const std::string &dirPath,
+                           const std::string &modulePath);
+@@ -467,9 +469,15 @@ public:
+ 
+     bool IsCurModuleCjoDep(const std::string &curModule, const std::string &fullPkgName);
+ 
+-    std::unordered_set<std::string> GetOneModuleDeps(const std::string &curModule);
++    std::unordered_set<std::string> GetOneModuleDeps(const std::string &curModule, bool includeScriptRequire = false);
++
++    std::unordered_set<std::string> GetOneModuleDirectDeps(
++        const std::string &curModule,
++        bool includeScriptRequire = false);
++
++    std::string GetModuleNameByFile(const std::string &filePath, const std::string &pkgName = "");
+ 
+-    std::unordered_set<std::string> GetOneModuleDirectDeps(const std::string &curModule);
++    bool IsBuildScriptFile(const std::string &filePath) const;
+ 
+     bool GetModuleCombined(const std::string &curModule);
+ 
+@@ -585,6 +593,8 @@ private:
+     void UpdateBufferCache(const std::string &fullPkgName, const std::string &filePath,
+                            const std::string &contents, bool isDelete);
+ 
++    void ClearDiagnosticsForPkg(const PkgInfo &pkgInfo);
++
+     void CompileAndCheckDownstream(const std::string &fullPkgName, const std::unique_ptr<LSPCompilerInstance> &ci);
+ 
+     void PostCompileProcess(const std::string &fullPkgName, const std::string &filePath,
+@@ -637,6 +647,10 @@ private:
+ 
+     bool ParseAndUpdateNotInSrcDep(const std::string &dirPath, const std::unique_ptr<LSPCompilerInstance> &newCI);
+ 
++    void ValidateScriptDependencyImports(
++        const std::unique_ptr<LSPCompilerInstance> &ci,
++        const std::string &filePath);
++
+     void FullCompilation();
+ 
+     void BuildIndexFromCjo();
+diff --git a/cangjie-language-server/src/languageserver/LSPCompilerInstance.cpp b/cangjie-language-server/src/languageserver/LSPCompilerInstance.cpp
+index 48397bce..4084d2a5 100644
+--- a/cangjie-language-server/src/languageserver/LSPCompilerInstance.cpp
++++ b/cangjie-language-server/src/languageserver/LSPCompilerInstance.cpp
+@@ -67,12 +67,10 @@ std::unordered_map<std::string, ark::EdgeType> LSPCompilerInstance::UpdateUpstre
+         return {};
+     }
+ 
+-    std::string curModule;
++    std::string curModule = GetCurrentModuleName();
+     std::unordered_set<std::string> depends;
+-    if (!pkgNameForPath.empty()) {
+-        curModule =
+-            SplitQualifiedName(ark::CompilerCangjieProject::GetInstance()->GetRealPackageName(pkgNameForPath)).front();
+-        depends = ark::CompilerCangjieProject::GetInstance()->GetOneModuleDeps(curModule);
++    if (!curModule.empty()) {
++        depends = ark::CompilerCangjieProject::GetInstance()->GetOneModuleDeps(curModule, IsBuildScriptContext());
+     }
+ 
+     std::set<std::string> depPkgs;
+@@ -233,7 +231,13 @@ void LSPCompilerInstance::CompilePassForComplete(
+     diag.SetSourceManager(&GetSourceManager());
+     (void)Parse();
+     (void)ConditionCompile();
+-    const auto filePath = GetSourceManager().GetSource(pos.fileID).path;
++    if (pkgNameForPath.empty() && !invocation.globalOptions.packagePaths.empty()) {
++        UpdateDepGraph(false);
++    }
++    const auto filePath = pos == INVALID_POSITION ? "" : GetSourceManager().GetSource(pos.fileID).path;
++    if (!filePath.empty()) {
++        SetActiveFilePath(filePath);
++    }
+     auto file = GetFileByPath(filePath).get();
+     // If the position is not in ImportSpec, do not need to ImportPackage.
+     if (file && !ark::InImportSpec(*file, pos)) {
+@@ -289,8 +293,9 @@ bool LSPCompilerInstance::ToImportPackage(const std::string &curModuleName,
+     if (curModuleName.empty()) {
+         return true;
+     }
+-    auto found = moduleManger->requireAllPackages.find(curModuleName);
+-    if (found != moduleManger->requireAllPackages.end() && found->second.count(cjoModuleName)) {
++    auto &requireMap = IsBuildScriptContext() ? moduleManger->requireAllPackagesInBuild : moduleManger->requireAllPackages;
++    auto found = requireMap.find(curModuleName);
++    if (found != requireMap.end() && found->second.count(cjoModuleName)) {
+         return true;
+     }
+     return false;
+@@ -325,7 +330,7 @@ void LSPCompilerInstance::ImportUsrCjo(const std::string &curModuleName,
+ void LSPCompilerInstance::ImportAllUsrCjo(const std::string &curModuleName)
+ {
+     std::unordered_set<std::string> visitedPackages;
+-    auto deps = ark::CompilerCangjieProject::GetInstance()->GetOneModuleDeps(curModuleName);
++    auto deps = ark::CompilerCangjieProject::GetInstance()->GetOneModuleDeps(curModuleName, IsBuildScriptContext());
+     for (auto& module: deps) {
+         ImportUsrCjo(module, visitedPackages);
+     }
+@@ -334,7 +339,7 @@ void LSPCompilerInstance::ImportAllUsrCjo(const std::string &curModuleName)
+ void LSPCompilerInstance::ImportCjoToManager(
+     const std::unique_ptr<ark::CjoManager> &cjoManager, const std::unique_ptr<ark::DependencyGraph> &graph)
+ {
+-    std::string curModuleName = invocation.globalOptions.moduleName;
++    std::string curModuleName = GetCurrentModuleName();
+ 
+     // Import stdlib cjo, priority is low.
+     for (const auto &cjoCache : cjoFileCacheMap) {
+@@ -345,7 +350,11 @@ void LSPCompilerInstance::ImportCjoToManager(
+     ImportAllUsrCjo(curModuleName);
+ 
+     // Import user's source code, priority is high.
+-    const auto allDependencies = graph->FindAllDependencies(pkgNameForPath);
++    auto allDependencies = graph->FindAllDependencies(pkgNameForPath);
++    if (allDependencies.empty() && !pkgNameForPath.empty()) {
++        std::unordered_map<std::string, bool> isVisited;
++        allDependencies = GetAllImportedCjo(pkgNameForPath, isVisited);
++    }
+     for (auto &package : allDependencies) {
+         auto cjoCache = cjoManager->GetData(package);
+         if (!cjoCache) {
+@@ -582,6 +591,34 @@ void LSPCompilerInstance::MarkBrokenDecls(Package &pkg)
+     }).Walk();
+ }
+ 
++bool LSPCompilerInstance::IsBuildScriptContext()
++{
++    if (!activeFilePath.empty()) {
++        return moduleManger && moduleManger->IsBuildScriptFile(activeFilePath);
++    }
++    const auto packages = GetSourcePackages();
++    if (packages.empty() || !packages[0]) {
++        return false;
++    }
++    for (const auto &file : packages[0]->files) {
++        if (file && moduleManger->IsBuildScriptFile(file->filePath)) {
++            return true;
++        }
++    }
++    return false;
++}
++
++std::string LSPCompilerInstance::GetCurrentModuleName()
++{
++    if (!invocation.globalOptions.moduleName.empty()) {
++        return invocation.globalOptions.moduleName;
++    }
++    if (IsBuildScriptContext()) {
++        return moduleManger->GetProjectModuleName();
++    }
++    return "";
++}
++
+ std::string LSPCompilerInstance::Denoising(std::string candidate)
+ {
+     return ark::CompilerCangjieProject::GetInstance()->Denoising(candidate);
+@@ -638,4 +675,9 @@ void LSPCompilerInstance::SetBufferCacheForParse(const std::unordered_map<std::s
+             }
+         }
+     }
+-}
+\ No newline at end of file
++}
++
++void LSPCompilerInstance::SetActiveFilePath(const std::string &filePath)
++{
++    activeFilePath = filePath;
++}
+diff --git a/cangjie-language-server/src/languageserver/LSPCompilerInstance.h b/cangjie-language-server/src/languageserver/LSPCompilerInstance.h
+index 8a27185a..1ec64032 100644
+--- a/cangjie-language-server/src/languageserver/LSPCompilerInstance.h
++++ b/cangjie-language-server/src/languageserver/LSPCompilerInstance.h
+@@ -161,6 +161,8 @@ public:
+ 
+     void SetBufferCacheForParse(const std::unordered_map<std::string, std::string> &buffer);
+ 
++    void SetActiveFilePath(const std::string &filePath);
++
+     ark::Callbacks *callback = nullptr;
+     std::string pkgNameForPath; // Full Package Name
+     std::string pkgNameForCj;
+@@ -169,6 +171,7 @@ public:
+     std::mutex fileStatusLock;
+     std::unordered_map<std::string, SrcCodeChangeState> fileStatus;
+     const std::unique_ptr<ark::ModuleManager> &moduleManger;
++    std::string activeFilePath;
+     std::string upstreamSourceSetName;
+     std::unique_ptr<DiagnosticEngine> diagOwned;
+ 
+@@ -201,6 +204,10 @@ private:
+                        DependencyContext &context);
+ 
+     static void MarkBrokenDecls(AST::Package &pkg);
++
++    bool IsBuildScriptContext();
++
++    std::string GetCurrentModuleName();
+ };
+ } // namespace Cangjie
+ #endif // CANGJIE_FRONTEND_LSPCOMPILERINSTANCE_H
+diff --git a/cangjie-language-server/src/languageserver/capabilities/completion/CompletionImpl.cpp b/cangjie-language-server/src/languageserver/capabilities/completion/CompletionImpl.cpp
+index 0ce22cb0..9cf504c0 100644
+--- a/cangjie-language-server/src/languageserver/capabilities/completion/CompletionImpl.cpp
++++ b/cangjie-language-server/src/languageserver/capabilities/completion/CompletionImpl.cpp
+@@ -337,7 +337,8 @@ void CompletionImpl::AutoImportPackageComplete(const ArkAST &input, CompletionRe
+         return;
+     }
+     auto pkgName = input.file->curPackage->fullPackageName;
+-    auto curModule = SplitFullPackage(input.file->curPackage->fullPackageName).first;
++    auto curModule = CompilerCangjieProject::GetInstance()->GetModuleNameByFile(input.file->filePath, pkgName);
++    bool includeScriptRequire = CompilerCangjieProject::GetInstance()->IsBuildScriptFile(input.file->filePath);
+     auto textEditRange = CompletionEnv::GetEditRangeForAutoImport(input);
+     SyscapCheck syscap(curModule);
+     std::unordered_map<lsp::SymbolID, std::vector<size_t>> AddedOhosSymIdToIndexsMap;
+@@ -346,7 +347,7 @@ void CompletionImpl::AutoImportPackageComplete(const ArkAST &input, CompletionRe
+     const std::string kitPrefix = "kit.";
+     // LCOV_EXCL_START
+     index->FindImportSymsOnCompletion(std::make_pair(result.normalCompleteSymID, result.importDeclsSymID),
+-        pkgName, curModule, prefix,
++        pkgName, curModule, prefix, includeScriptRequire,
+         [&result, &textEditRange, &syscap, &AddedOhosSymIdToIndexsMap, &ohosPrefix](const std::string &pkg,
+             const lsp::Symbol &sym, const lsp::CompletionItem &completionItem) {
+             if (!sym.syscap.empty() && !syscap.CheckSysCap(sym.syscap)) {
+@@ -793,9 +794,11 @@ void CompletionImpl::NormalParseImpl(
+     // modifier? import {[module] }
+     // modifier? import {std.collection.ArrayList, [module]}
+     if (IsPreamble(input, pos)) {
+-        auto curModule = SplitFullPackage(input.file->curPackage->fullPackageName).first;
++        auto curModule = CompilerCangjieProject::GetInstance()->GetModuleNameByFile(
++            input.file->filePath, input.file->curPackage->fullPackageName);
++        bool includeScriptRequire = CompilerCangjieProject::GetInstance()->IsBuildScriptFile(input.file->filePath);
+         afterDoubleColon = afterDoubleColon | IsImportHasOrg(input, pos);
+-        normalCompleter.CompleteModuleName(curModule, afterDoubleColon);
++        normalCompleter.CompleteModuleName(curModule, afterDoubleColon, includeScriptRequire);
+         return;
+     }
+ 
+diff --git a/cangjie-language-server/src/languageserver/capabilities/completion/DotCompleterByParse.cpp b/cangjie-language-server/src/languageserver/capabilities/completion/DotCompleterByParse.cpp
+index 333080a1..7e7240f3 100644
+--- a/cangjie-language-server/src/languageserver/capabilities/completion/DotCompleterByParse.cpp
++++ b/cangjie-language-server/src/languageserver/capabilities/completion/DotCompleterByParse.cpp
+@@ -65,7 +65,8 @@ void DotCompleterByParse::Complete(const ArkAST &input,
+     env.parserAst = &input;
+     env.cache = input.semaCache;
+     env.curPkgName = context->fullPackageName;
+-    env.SetSyscap(SplitFullPackage(env.curPkgName).first);
++    auto currentModule = CompilerCangjieProject::GetInstance()->GetModuleNameByFile(input.file->filePath, env.curPkgName);
++    env.SetSyscap(currentModule);
+     // Complete SubPackage, include sourece dependency and binary dependency.
+     // eg: import std.[sub_pkg].[sub_pkg]...
+     for (const auto &iter : Cangjie::LSPCompilerInstance::cjoLibraryMap) {
+@@ -79,7 +80,7 @@ void DotCompleterByParse::Complete(const ArkAST &input,
+     }
+ 
+     for (const auto &iter : Cangjie::LSPCompilerInstance::usrCjoFileCacheMap) {
+-        auto curModule = SplitFullPackage(env.curPkgName).first;
++        auto curModule = currentModule;
+         if (curModule != iter.first) {
+             continue;
+         }
+@@ -99,7 +100,7 @@ void DotCompleterByParse::Complete(const ArkAST &input,
+     }
+     auto targetPkg = importManager->GetPackageDecl(fullImportId);
+     // filter root pkg symbols if cur module is combined
+-    std::string curModule = SplitFullPackage(srcPkgName).first;
++    std::string curModule = CompilerCangjieProject::GetInstance()->GetModuleNameByFile(input.file->filePath, srcPkgName);
+     if (targetPkg && !CompilerCangjieProject::GetInstance()->IsCombinedSym(curModule, srcPkgName, fullImportId) &&
+         CompilerCangjieProject::GetInstance()->IsVisibleForPackage(srcPkgName, targetPkg->fullPackageName)) {
+         auto members = importManager->GetPackageMembers(srcPkgName, targetPkg->fullPackageName);
+@@ -473,7 +474,8 @@ void DotCompleterByParse::CompleteQualifiedType(const std::string &beforePrefix,
+             return;
+         }
+         auto curModule = basicStrings.front();
+-        auto depends = ark::CompilerCangjieProject::GetInstance()->GetOneModuleDeps(curModule);
++        bool includeScriptRequire = CompilerCangjieProject::GetInstance()->IsBuildScriptFile(curFilePath);
++        auto depends = ark::CompilerCangjieProject::GetInstance()->GetOneModuleDeps(curModule, includeScriptRequire);
+         auto strings = Utils::SplitQualifiedName(beforePrefix);
+         if (strings.empty()) {
+             return;
+@@ -1160,16 +1162,17 @@ void DotCompleterByParse::AddExtendDeclFromIndexBatch(const std::vector<Ptr<Ty>>
+         return;
+     }
+     auto curPkgName = ast->file->curPackage->fullPackageName;
+-
++    auto curModule = CompilerCangjieProject::GetInstance()->GetModuleNameByFile(ast->file->filePath, curPkgName);
++    bool includeScriptRequire = CompilerCangjieProject::GetInstance()->IsBuildScriptFile(ast->file->filePath);
+     Range editRange = CompletionEnv::GetEditRangeForAutoImport(*ast);
+-
+     auto index = ark::CompilerCangjieProject::GetInstance()->GetIndex();
+     if (!index) {
+         return;
+     }
+ 
+     std::vector<CodeCompletion> completetions;
+-    index->FindExtendSymsOnCompletionBatch(ids, allVisibleMembers, curPkgName, env.GetValue(FILTER::IS_STATIC),
++    index->FindExtendSymsOnCompletionBatch(
++        ids, allVisibleMembers, curPkgName, curModule, includeScriptRequire, env.GetValue(FILTER::IS_STATIC),
+         [&editRange, &completetions](const std::string &pkg, const std::string &interface,
+             const lsp::Symbol &sym, const lsp::CompletionItem &completionItem) {
+             CodeCompletion item;
+@@ -1613,4 +1616,4 @@ std::string DotCompleterByParse::GetFullPrefix(const ArkAST &input, const Positi
+     }
+     return name;
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/cangjie-language-server/src/languageserver/capabilities/completion/NormalCompleterByParse.cpp b/cangjie-language-server/src/languageserver/capabilities/completion/NormalCompleterByParse.cpp
+index fe2585ba..cb304441 100644
+--- a/cangjie-language-server/src/languageserver/capabilities/completion/NormalCompleterByParse.cpp
++++ b/cangjie-language-server/src/languageserver/capabilities/completion/NormalCompleterByParse.cpp
+@@ -70,7 +70,8 @@ bool NormalCompleterByParse::Complete(const ArkAST &input, const Position pos)
+     if (!input.file || !input.file->curPackage) {
+         return true;
+     }
+-    auto curModule = SplitFullPackage(input.file->curPackage->fullPackageName).first;
++    auto curModule = CompilerCangjieProject::GetInstance()->GetModuleNameByFile(
++        input.file->filePath, input.file->curPackage->fullPackageName);
+     env.SetSyscap(curModule);
+     env.prefix = prefix;
+     env.curPkgName = input.file->curPackage->fullPackageName;
+@@ -165,7 +166,7 @@ void NormalCompleterByParse::AddImportPkgDecl(const ArkAST &input, CompletionEnv
+     }
+     // Complete imported packageName for fully qualified name reference.
+     // Include cjo import and source import.
+-    auto curModule = SplitFullPackage(env.curPkgName).first;
++    auto curModule = CompilerCangjieProject::GetInstance()->GetModuleNameByFile(input.file->filePath, env.curPkgName);
+     for (auto &im : input.file->imports) {
+         if (im->IsImportSingle()) {
+             auto fullPackageName = im->content.ToString();
+@@ -357,13 +358,16 @@ void NormalCompleterByParse::FillingDeclsInPackage(const std::string &packageNam
+     }
+ }
+ 
+-void NormalCompleterByParse::CompleteModuleName(const std::string &curModule, bool afterDoubleColon)
++void NormalCompleterByParse::CompleteModuleName(
++    const std::string &curModule,
++    bool afterDoubleColon,
++    bool includeScriptRequire)
+ {
+     CompletionEnv env;
+     for (const auto &item : Cangjie::LSPCompilerInstance::cjoLibraryMap) {
+         env.AccessibleByString(item.first, "moduleName");
+     }
+-    for (const auto &item : CompilerCangjieProject::GetInstance()->GetOneModuleDeps(curModule)) {
++    for (const auto &item : CompilerCangjieProject::GetInstance()->GetOneModuleDeps(curModule, includeScriptRequire)) {
+         if (!IsFullPackageName(item)) {
+             continue;
+         }
+diff --git a/cangjie-language-server/src/languageserver/capabilities/completion/NormalCompleterByParse.h b/cangjie-language-server/src/languageserver/capabilities/completion/NormalCompleterByParse.h
+index ab3754fb..6219935c 100644
+--- a/cangjie-language-server/src/languageserver/capabilities/completion/NormalCompleterByParse.h
++++ b/cangjie-language-server/src/languageserver/capabilities/completion/NormalCompleterByParse.h
+@@ -29,7 +29,7 @@ public:
+ 
+     void CompletePackageSpec(const ArkAST &input, bool afterDoubleColon);
+ 
+-    void CompleteModuleName(const std::string &curModule, bool afterDoubleColon);
++    void CompleteModuleName(const std::string &curModule, bool afterDoubleColon, bool includeScriptRequire = false);
+ 
+ private:
+ 
+@@ -67,4 +67,4 @@ private:
+ };
+ } // namespace ark
+ 
+-#endif // LSPSERVER_NORMALCOMPLETERBYPARSE_H
+\ No newline at end of file
++#endif // LSPSERVER_NORMALCOMPLETERBYPARSE_H
+diff --git a/cangjie-language-server/src/languageserver/common/Constants.h b/cangjie-language-server/src/languageserver/common/Constants.h
+index 4a58586d..6531bc46 100644
+--- a/cangjie-language-server/src/languageserver/common/Constants.h
++++ b/cangjie-language-server/src/languageserver/common/Constants.h
+@@ -37,6 +37,7 @@ namespace CONSTANTS {
+     const std::string MODULE_JSON_NAME = "name";
+     const std::string REQUIRES = "requires";
+     const std::string MODULE_JSON_PATH = "path";
++    const std::string IS_SCRIPT_DEPENDENCE = "isScriptDependence";
+     const std::string PACKAGES_REQUIRES = "package_requires";
+     const std::string PACKAGE_OPTION = "package_option";
+     const std::string PATH_OPTION = "path_option";
+@@ -49,6 +50,7 @@ namespace CONSTANTS {
+     const std::string TYPE = "type";
+     const std::string PATH = "path";
+     const std::string COMBINED = "combined";
++    const std::string BUILD_SCRIPT_FILE_NAME = "build.cj";
+     const std::string IMPORT = "import";
+     const std::string AS = "as";
+     const std::string WHITE_SPACE = " ";
+diff --git a/cangjie-language-server/src/languageserver/common/multiModule/ModuleManager.h b/cangjie-language-server/src/languageserver/common/multiModule/ModuleManager.h
+index de1205b1..3e8eea2f 100644
+--- a/cangjie-language-server/src/languageserver/common/multiModule/ModuleManager.h
++++ b/cangjie-language-server/src/languageserver/common/multiModule/ModuleManager.h
+@@ -28,12 +28,15 @@ public:
+     void WorkspaceModeParser(const std::string &workspace = "");
+ 
+     std::unordered_set<std::string> GetAllRequiresOneModule(
+-        const std::string &require, std::unordered_map<std::string, bool> &isVisited);
++        const std::string &require, std::unordered_map<std::string, bool> &isVisited, bool includeScriptRequire);
++    std::unordered_set<std::string> GetBuildScriptRequiresOneModule(const std::string &moduleName);
+ 
+     void SetCommonSpecificPath(const nlohmann::json &jsonData, const std::string &modulePath);
+     void SetPackageRequires(const nlohmann::json &jsonData, const std::string &modulePath);
+ 
+     void SetRequireAllPackages();
++    std::string GetProjectModuleName() const;
++    bool IsBuildScriptFile(const std::string &filePath) const;
+ 
+     std::string GetExpectedPkgName(const Cangjie::AST::File &file);
+ 
+@@ -45,8 +48,12 @@ public:
+     std::unordered_map<std::string, ModuleInfo> moduleInfoMap;
+     // key: moduleName, value: requires
+     std::unordered_map<std::string, std::unordered_set<std::string>> requirePackages;
++    // key: moduleName, value: script requires
++    std::unordered_map<std::string, std::unordered_set<std::string>> scriptRequirePackages;
+     // key: moduleName, value: allRequires
+     std::unordered_map<std::string, std::unordered_set<std::string>> requireAllPackages;
++    // key: moduleName, value: self + script requires closure in build.cj
++    std::unordered_map<std::string, std::unordered_set<std::string>> requireAllPackagesInBuild;
+     // key: moduleName, value: modulePaths with same moduleName
+     std::unordered_map<std::string, std::vector<std::string>> duplicateModules;
+     // key: moduleName, value: cur module is combined
+@@ -54,4 +61,4 @@ public:
+ };
+ } // namespace ark
+ 
+-#endif // LSPSERVER_MODULEMANAGER_H
+\ No newline at end of file
++#endif // LSPSERVER_MODULEMANAGER_H
+diff --git a/cangjie-language-server/src/languageserver/common/multiModule/ModuleManger.cpp b/cangjie-language-server/src/languageserver/common/multiModule/ModuleManger.cpp
+index 5c4d905b..150a60bd 100644
+--- a/cangjie-language-server/src/languageserver/common/multiModule/ModuleManger.cpp
++++ b/cangjie-language-server/src/languageserver/common/multiModule/ModuleManger.cpp
+@@ -68,7 +68,12 @@ void ModuleManager::WorkspaceModeParser(const std::string &workspace)
+                 if (!FileExist(requirePath)) {
+                     continue;
+                 }
+-                (void)requirePackages[name].insert(reqKey);
++                bool isScriptDependence = value[REQUIRES][reqKey].value(IS_SCRIPT_DEPENDENCE, false);
++                if (isScriptDependence) {
++                    (void)scriptRequirePackages[name].insert(reqKey);
++                } else {
++                    (void)requirePackages[name].insert(reqKey);
++                }
+             }
+         }
+     }
+@@ -140,7 +145,8 @@ void ModuleManager::SetPackageRequires(const nlohmann::json &jsonData, const std
+ 
+ std::unordered_set<std::string> ModuleManager::GetAllRequiresOneModule(
+     const std::string &require,
+-    std::unordered_map<std::string, bool> &isVisited)
++    std::unordered_map<std::string, bool> &isVisited,
++    bool includeScriptRequire)
+ {
+     std::unordered_set<std::string> res;
+     if (isVisited[require]) {
+@@ -148,25 +154,74 @@ std::unordered_set<std::string> ModuleManager::GetAllRequiresOneModule(
+     }
+     isVisited[require] = true;
+     auto deps = requirePackages[require];
++    if (includeScriptRequire && scriptRequirePackages.count(require) != 0) {
++        deps.insert(scriptRequirePackages[require].begin(), scriptRequirePackages[require].end());
++    }
+ 
+     if (deps.empty()) {
+         return res;
+     }
+-    for (const auto &dependent : requirePackages[require]) {
+-        auto temp = GetAllRequiresOneModule(dependent, isVisited);
++    for (const auto &dependent : deps) {
++        auto temp = GetAllRequiresOneModule(dependent, isVisited, includeScriptRequire);
+         res.insert(temp.begin(), temp.end());
+     }
+     res.insert(deps.begin(), deps.end());
+     return res;
+ }
+ 
++std::unordered_set<std::string> ModuleManager::GetBuildScriptRequiresOneModule(const std::string &moduleName)
++{
++    std::unordered_set<std::string> res;
++    if (moduleName.empty()) {
++        return res;
++    }
++    (void)res.insert(moduleName);
++    auto scriptFound = scriptRequirePackages.find(moduleName);
++    if (scriptFound == scriptRequirePackages.end()) {
++        return res;
++    }
++    res.insert(scriptFound->second.begin(), scriptFound->second.end());
++    for (const auto &dependent : scriptFound->second) {
++        std::unordered_map<std::string, bool> isVisited;
++        auto temp = GetAllRequiresOneModule(dependent, isVisited, true);
++        res.insert(temp.begin(), temp.end());
++    }
++    return res;
++}
++
+ void ModuleManager::SetRequireAllPackages()
+ {
++    std::unordered_set<std::string> moduleNames;
+     for (const auto &require : requirePackages) {
++        moduleNames.insert(require.first);
++    }
++    for (const auto &require : scriptRequirePackages) {
++        moduleNames.insert(require.first);
++    }
++    for (const auto &moduleName : moduleNames) {
+         std::unordered_map<std::string, bool> isVisited;
+-        auto item = GetAllRequiresOneModule(require.first, isVisited);
+-        (void)requireAllPackages.emplace(require.first, item);
++        auto normalItem = GetAllRequiresOneModule(moduleName, isVisited, false);
++        (void)requireAllPackages.emplace(moduleName, normalItem);
++
++        auto buildItem = GetBuildScriptRequiresOneModule(moduleName);
++        (void)requireAllPackagesInBuild.emplace(moduleName, buildItem);
++    }
++}
++
++std::string ModuleManager::GetProjectModuleName() const
++{
++    auto found = moduleInfoMap.find(projectRootPath);
++    if (found == moduleInfoMap.end()) {
++        return "";
+     }
++    return found->second.moduleName;
++}
++
++bool ModuleManager::IsBuildScriptFile(const std::string &filePath) const
++{
++    std::string normalizedFilePath = Normalize(filePath);
++    std::string buildScriptPath = Normalize(JoinPath(projectRootPath, BUILD_SCRIPT_FILE_NAME));
++    return normalizedFilePath == buildScriptPath;
+ }
+ 
+ std::string ModuleManager::GetExpectedPkgName(const Cangjie::AST::File &file)
+@@ -197,4 +252,4 @@ bool ModuleManager::isCommonSpecificModule(const std::string &filePath)
+     }
+     return false;
+ }
+-} // namespace ark
+\ No newline at end of file
++} // namespace ark
+diff --git a/cangjie-language-server/src/languageserver/index/BackgroundIndexDB.cpp b/cangjie-language-server/src/languageserver/index/BackgroundIndexDB.cpp
+index 10fd6ab6..2990bee5 100644
+--- a/cangjie-language-server/src/languageserver/index/BackgroundIndexDB.cpp
++++ b/cangjie-language-server/src/languageserver/index/BackgroundIndexDB.cpp
+@@ -333,6 +333,7 @@ void BackgroundIndexDB::Callees(const std::string &pkgName, const SymbolID &decl
+ void BackgroundIndexDB::FindImportSymsOnCompletion(
+     const std::pair<std::unordered_set<SymbolID>, std::unordered_set<SymbolID>>& filterSyms,
+     const std::string &curPkgName, const std::string &curModule, const std::string &prefix,
++    bool includeScriptRequire,
+     std::function<void(const std::string &, const Symbol &, const CompletionItem &)> callback)
+ {
+     if (Options::GetInstance().IsOptionSet("test")) {
+@@ -343,7 +344,7 @@ void BackgroundIndexDB::FindImportSymsOnCompletion(
+     size_t normalCompleteCount = 0;
+     size_t importDeclCount = 0;
+     std::unordered_set<std::string> curModuleDeps =
+-        CompilerCangjieProject::GetInstance()->GetOneModuleDirectDeps(curModule);
++        CompilerCangjieProject::GetInstance()->GetOneModuleDirectDeps(curModule, includeScriptRequire);
+     db.GetSymbolsAndCompletions(prefix, [&](const Symbol &sym, const CompletionItem &completion) {
+         std::string symPackage;
+         std::string symModule;
+@@ -406,11 +407,12 @@ void BackgroundIndexDB::FindImportSymsOnCompletion(
+ 
+ void BackgroundIndexDB::FindImportSymsOnQuickFix(const std::string &curPkgName, const std::string &curModule,
+     const std::unordered_set<SymbolID> &importDeclSyms,
++    bool includeScriptRequire,
+     const std::string& identifier, const std::function<void(const std::string &, const Symbol &)>& callback)
+ {
+     size_t importDeclCount = 0;
+     std::unordered_set<std::string> curModuleDeps =
+-        CompilerCangjieProject::GetInstance()->GetOneModuleDirectDeps(curModule);
++        CompilerCangjieProject::GetInstance()->GetOneModuleDirectDeps(curModule, includeScriptRequire);
+     db.GetSymbolsByName(identifier, [&](const Symbol &sym) {
+         std::string symPackage;
+         std::string symModule;
+@@ -469,6 +471,7 @@ void BackgroundIndexDB::FindImportSymsOnQuickFix(const std::string &curPkgName,
+ void BackgroundIndexDB::FindExtendSymsOnCompletion(const SymbolID &dotCompleteSym,
+     const std::unordered_set<SymbolID> &visibleMembers,
+     const std::string &curPkgName, const std::string &curModule,
++    bool includeScriptRequire,
+     const std::function<void(const std::string &, const std::string &,
+         const Symbol &, const CompletionItem &)>& callback)
+ {
+@@ -476,7 +479,7 @@ void BackgroundIndexDB::FindExtendSymsOnCompletion(const SymbolID &dotCompleteSy
+         return;
+     }
+     std::unordered_set<std::string> curModuleDeps =
+-        CompilerCangjieProject::GetInstance()->GetOneModuleDirectDeps(curModule);
++        CompilerCangjieProject::GetInstance()->GetOneModuleDirectDeps(curModule, includeScriptRequire);
+     db.GetExtendItem(GetArrayFromID(dotCompleteSym),
+         [&](const std::string &packageName, const Symbol &sym,
+         const ExtendItem &extendIem, const CompletionItem &completionItem) {
+@@ -510,16 +513,16 @@ void BackgroundIndexDB::FindExtendSymsOnCompletion(const SymbolID &dotCompleteSy
+ void BackgroundIndexDB::FindExtendSymsOnCompletionBatch(
+     const std::unordered_set<SymbolID> &ids,
+     const std::unordered_set<SymbolID> &allVisibleMembers,
+-    const std::string &curPkgName, bool filterStatic,
++    const std::string &curPkgName, const std::string &curModule,
++    bool includeScriptRequire, bool filterStatic,
+     const std::function<void(const std::string &, const std::string &,
+         const Symbol &, const CompletionItem &)>& callback)
+ {
+     if (ids.empty()) {
+         return;
+     }
+-    auto curModule = SplitFullPackage(curPkgName).first;
+     std::unordered_set<std::string> curModuleDeps =
+-        CompilerCangjieProject::GetInstance()->GetOneModuleDirectDeps(curModule);
++        CompilerCangjieProject::GetInstance()->GetOneModuleDirectDeps(curModule, includeScriptRequire);
+ 
+     for (const auto dotCompleteSym : ids) {
+         db.GetExtendItem(GetArrayFromID(dotCompleteSym),
+@@ -627,4 +630,3 @@ void BackgroundIndexDB::FindCrossSymbolByName(const std::string &packageName, co
+ } // namespace lsp
+ } // namespace ark
+ // LCOV_EXCL_STOP
+-
+diff --git a/cangjie-language-server/src/languageserver/index/BackgroundIndexDB.h b/cangjie-language-server/src/languageserver/index/BackgroundIndexDB.h
+index 4324f4bb..0ea70b47 100644
+--- a/cangjie-language-server/src/languageserver/index/BackgroundIndexDB.h
++++ b/cangjie-language-server/src/languageserver/index/BackgroundIndexDB.h
+@@ -103,23 +103,27 @@ public:
+     void FindImportSymsOnCompletion(
+         const std::pair<std::unordered_set<SymbolID>, std::unordered_set<SymbolID>>& filterSyms,
+         const std::string &curPkgName, const std::string &curModule, const std::string &prefix,
++        bool includeScriptRequire,
+         std::function<void(const std::string &, const Symbol &, const CompletionItem &)> callback) override;
+ 
+     void FindImportSymsOnQuickFix(const std::string &curPkgName, const std::string &curModule,
+         const std::unordered_set<SymbolID> &importDeclSyms,
++        bool includeScriptRequire,
+         const std::string& identifier,
+         const std::function<void(const std::string &, const Symbol &)>& callback) override;
+ 
+     void FindExtendSymsOnCompletion(const SymbolID &dotCompleteSym,
+         const std::unordered_set<SymbolID> &visibleMembers,
+         const std::string &curPkgName, const std::string &curModule,
++        bool includeScriptRequire,
+         const std::function<void(const std::string &, const std::string &,
+             const Symbol &, const CompletionItem &)>& callback) override;
+ 
+     void FindExtendSymsOnCompletionBatch(
+         const std::unordered_set<SymbolID> &ids,
+         const std::unordered_set<SymbolID> &symAndVisibleMembers,
+-        const std::string &curPkgName, bool filterStatic,
++        const std::string &curPkgName, const std::string &curModule,
++        bool includeScriptRequire, bool filterStatic,
+         const std::function<void(const std::string &, const std::string &,
+             const Symbol &, const CompletionItem &)>& callback) override;
+ 
+diff --git a/cangjie-language-server/src/languageserver/index/MemIndex.cpp b/cangjie-language-server/src/languageserver/index/MemIndex.cpp
+index 6d61ef12..98a2f2f7 100644
+--- a/cangjie-language-server/src/languageserver/index/MemIndex.cpp
++++ b/cangjie-language-server/src/languageserver/index/MemIndex.cpp
+@@ -173,6 +173,7 @@ Symbol MemIndex::GetAimSymbol(const Decl& decl)
+ void MemIndex::FindImportSymsOnCompletion(
+     const std::pair<std::unordered_set<SymbolID>, std::unordered_set<SymbolID>>& filterSyms,
+     const std::string &curPkgName, const std::string &curModule, const std::string &prefix,
++    bool includeScriptRequire,
+     std::function<void(const std::string &, const Symbol &, const CompletionItem &)> callback)
+ {
+     if (Options::GetInstance().IsOptionSet("test")) {
+@@ -183,7 +184,7 @@ void MemIndex::FindImportSymsOnCompletion(
+     size_t normalCompleteCount = 0;
+     size_t importDeclCount = 0;
+     std::unordered_set<std::string> curModuleDeps =
+-        CompilerCangjieProject::GetInstance()->GetOneModuleDirectDeps(curModule);
++        CompilerCangjieProject::GetInstance()->GetOneModuleDirectDeps(curModule, includeScriptRequire);
+     for (const auto &pkgSyms : pkgSymsMap) {
+         // filter curPackage sym
+         if (curPkgName == pkgSyms.first ||
+@@ -240,6 +241,7 @@ void MemIndex::FindImportSymsOnCompletion(
+ void MemIndex::FindExtendSymsOnCompletion(const SymbolID &dotCompleteSym,
+     const std::unordered_set<SymbolID> &visibleMembers,
+     const std::string &curPkgName, const std::string &curModule,
++    bool includeScriptRequire,
+     const std::function<void(const std::string &, const std::string &,
+         const Symbol &, const CompletionItem &)>& callback)
+ {
+@@ -247,7 +249,7 @@ void MemIndex::FindExtendSymsOnCompletion(const SymbolID &dotCompleteSym,
+         return;
+     }
+     std::unordered_set<std::string> curModuleDeps =
+-        CompilerCangjieProject::GetInstance()->GetOneModuleDirectDeps(curModule);
++        CompilerCangjieProject::GetInstance()->GetOneModuleDirectDeps(curModule, includeScriptRequire);
+     for (const auto &extendSyms : pkgExtendsMap) {
+         // filter curPackage sym
+         std::string pkgName = extendSyms.first;
+@@ -298,16 +300,16 @@ void MemIndex::FindExtendSymsOnCompletion(const SymbolID &dotCompleteSym,
+ void MemIndex::FindExtendSymsOnCompletionBatch(
+     const std::unordered_set<SymbolID> &ids,
+     const std::unordered_set<SymbolID> &allVisibleMembers,
+-    const std::string &curPkgName, bool filterStatic,
++    const std::string &curPkgName, const std::string &curModule,
++    bool includeScriptRequire, bool filterStatic,
+     const std::function<void(const std::string &, const std::string &,
+         const Symbol &, const CompletionItem &)>& callback)
+ {
+     if (ids.empty()) {
+         return;
+     }
+-    auto curModule = SplitFullPackage(curPkgName).first;
+     std::unordered_set<std::string> curModuleDeps =
+-        CompilerCangjieProject::GetInstance()->GetOneModuleDirectDeps(curModule);
++        CompilerCangjieProject::GetInstance()->GetOneModuleDirectDeps(curModule, includeScriptRequire);
+ 
+     for (const auto &extendSyms : pkgExtendsMap) {
+         const std::string &pkgName = extendSyms.first;
+@@ -406,12 +408,14 @@ void MemIndex::FindImportReExportSymsOnCompletion(
+ }
+ 
+ void MemIndex::FindImportSymsOnQuickFix(const std::string &curPkgName, const std::string &curModule,
+-    const std::unordered_set<SymbolID> &importDeclSyms, const std::string& identifier,
++    const std::unordered_set<SymbolID> &importDeclSyms,
++    bool includeScriptRequire,
++    const std::string& identifier,
+     const std::function<void(const std::string &, const Symbol &)>& callback)
+ {
+     size_t importDeclCount = 0;
+     std::unordered_set<std::string> curModuleDeps =
+-        CompilerCangjieProject::GetInstance()->GetOneModuleDirectDeps(curModule);
++        CompilerCangjieProject::GetInstance()->GetOneModuleDirectDeps(curModule, includeScriptRequire);
+     for (const auto &pkgSyms : pkgSymsMap) {
+         // filter curPackage sym
+         if (curPkgName == pkgSyms.first) {
+@@ -511,4 +515,4 @@ void MemIndex::FindCrossSymbolByName(const std::string &packageName, const std::
+ void MemIndex::GetExportSID(IDArray array, std::function<void(const CrossSymbol &)> callback) const {
+ }
+ } // namespace lsp
+-} // namespace ark
+\ No newline at end of file
++} // namespace ark
+diff --git a/cangjie-language-server/src/languageserver/index/MemIndex.h b/cangjie-language-server/src/languageserver/index/MemIndex.h
+index c31b1719..e07c203b 100644
+--- a/cangjie-language-server/src/languageserver/index/MemIndex.h
++++ b/cangjie-language-server/src/languageserver/index/MemIndex.h
+@@ -128,23 +128,27 @@ public:
+     virtual void FindImportSymsOnCompletion(
+         const std::pair<std::unordered_set<SymbolID>, std::unordered_set<SymbolID>>& filterSyms,
+         const std::string &curPkgName, const std::string &curModule, const std::string &prefix,
++        bool includeScriptRequire,
+         std::function<void(const std::string &, const Symbol &, const CompletionItem &)> callback) = 0;
+ 
+     virtual void FindImportSymsOnQuickFix(const std::string &curPkgName, const std::string &curModule,
+         const std::unordered_set<SymbolID> &importDeclSyms,
++        bool includeScriptRequire,
+         const std::string& identifier,
+         const std::function<void(const std::string &, const Symbol &)>& callback) = 0;
+ 
+     virtual void FindExtendSymsOnCompletion(const SymbolID &dotCompleteSym,
+         const std::unordered_set<SymbolID> &visibleMembers,
+         const std::string &curPkgName, const std::string &curModule,
++        bool includeScriptRequire,
+         const std::function<void(const std::string &, const std::string &,
+             const Symbol &, const CompletionItem &)>& callback) =0;
+ 
+     virtual void FindExtendSymsOnCompletionBatch(
+         const std::unordered_set<SymbolID> &ids,
+         const std::unordered_set<SymbolID> &allVisibleMembers,
+-        const std::string &curPkgName, bool filterStatic,
++        const std::string &curPkgName, const std::string &curModule,
++        bool includeScriptRequire, bool filterStatic,
+         const std::function<void(const std::string &, const std::string &,
+             const Symbol &, const CompletionItem &)>& callback) =0;
+ 
+@@ -187,18 +191,21 @@ public:
+     void FindImportSymsOnCompletion(
+         const std::pair<std::unordered_set<SymbolID>, std::unordered_set<SymbolID>>& filterSyms,
+         const std::string &curPkgName, const std::string &curModule, const std::string &prefix,
++        bool includeScriptRequire,
+         std::function<void(const std::string &, const Symbol &, const CompletionItem &)> callback) override;
+ 
+     void FindExtendSymsOnCompletion(const SymbolID &dotCompleteSym,
+         const std::unordered_set<SymbolID> &visibleMembers,
+         const std::string &curPkgName, const std::string &curModule,
++        bool includeScriptRequire,
+         const std::function<void(const std::string &, const std::string &,
+             const Symbol &, const CompletionItem &)>& callback) override;
+ 
+     void FindExtendSymsOnCompletionBatch(
+         const std::unordered_set<SymbolID> &ids,
+         const std::unordered_set<SymbolID> &symAndVisibleMembers,
+-        const std::string &curPkgName, bool filterStatic,
++        const std::string &curPkgName, const std::string &curModule,
++        bool includeScriptRequire, bool filterStatic,
+         const std::function<void(const std::string &, const std::string &,
+             const Symbol &, const CompletionItem &)>& callback) override;
+ 
+@@ -212,6 +219,7 @@ public:
+ 
+     void FindImportSymsOnQuickFix(const std::string &curPkgName, const std::string &curModule,
+         const std::unordered_set<SymbolID> &importDeclSyms,
++        bool includeScriptRequire,
+         const std::string& identifier,
+         const std::function<void(const std::string &, const Symbol &)>& callback) override;
+ 
+@@ -265,4 +273,4 @@ public:
+ } // namespace lsp
+ } // namespace ark
+ 
+-#endif // LSPSERVER_MEMINDEX_INDEX_H
+\ No newline at end of file
++#endif // LSPSERVER_MEMINDEX_INDEX_H
+diff --git a/cangjie-language-server/test/message/diagnostic/LSP_Diagnostic_script_dependencies_build_001.base b/cangjie-language-server/test/message/diagnostic/LSP_Diagnostic_script_dependencies_build_001.base
+new file mode 100644
+index 00000000..caf07843
+--- /dev/null
++++ b/cangjie-language-server/test/message/diagnostic/LSP_Diagnostic_script_dependencies_build_001.base
+@@ -0,0 +1 @@
++{"jsonrpc":"2.0","method":"textDocument/extendPublishDiagnostics","params":{"diagnostics":[],"uri":"file:///d%3A/sourceCode/IDETest/TestVscode/scriptDependencies/build.cj"}}
+diff --git a/cangjie-language-server/test/message/diagnostic/LSP_Diagnostic_script_dependencies_build_001.test b/cangjie-language-server/test/message/diagnostic/LSP_Diagnostic_script_dependencies_build_001.test
+new file mode 100644
+index 00000000..1e8f0764
+--- /dev/null
++++ b/cangjie-language-server/test/message/diagnostic/LSP_Diagnostic_script_dependencies_build_001.test
+@@ -0,0 +1,6 @@
++{"caseFolder":"newFeature/scriptDependencies"}
++{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"processId":13248,"clientInfo":{"name":"Visual Studio Code","version":"1.70.0"},"locale":"en","rootPath":"d:\\sourceCode\\IDETest\\TestVscode\\scriptDependencies","rootUri":"file:///d%3A/sourceCode/IDETest/TestVscode/scriptDependencies","capabilities":{"workspace":{"applyEdit":true,"workspaceEdit":{"documentChanges":true,"resourceOperations":["create","rename","delete"],"failureHandling":"textOnlyTransactional","normalizesLineEndings":true,"changeAnnotationSupport":{"groupsOnLabel":true}},"configuration":true,"didChangeWatchedFiles":{"dynamicRegistration":true,"relativePatternSupport":true},"symbol":{"dynamicRegistration":true,"symbolKind":{"valueSet":[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26]},"tagSupport":{"valueSet":[1]},"resolveSupport":{"properties":["location.range"]}},"codeLens":{"refreshSupport":true},"executeCommand":{"dynamicRegistration":true},"didChangeConfiguration":{"dynamicRegistration":true},"workspaceFolders":true,"semanticTokens":{"refreshSupport":true},"fileOperations":{"dynamicRegistration":true,"didCreate":true,"didRename":true,"didDelete":true,"willCreate":true,"willRename":true,"willDelete":true},"inlineValue":{"refreshSupport":true},"inlayHint":{"refreshSupport":true},"diagnostics":{"refreshSupport":true}},"textDocument":{"publishDiagnostics":{"relatedInformation":true,"versionSupport":false,"tagSupport":{"valueSet":[1,2]},"codeDescriptionSupport":true,"dataSupport":true},"synchronization":{"dynamicRegistration":true,"willSave":true,"willSaveWaitUntil":true,"didSave":true},"completion":{"dynamicRegistration":true,"contextSupport":true,"completionItem":{"snippetSupport":true,"commitCharactersSupport":true,"documentationFormat":["markdown","plaintext"],"deprecatedSupport":true,"preselectSupport":true,"tagSupport":{"valueSet":[1]},"insertReplaceSupport":true,"resolveSupport":{"properties":["documentation","detail","additionalTextEdits"]},"insertTextModeSupport":{"valueSet":[1,2]},"labelDetailsSupport":true},"insertTextMode":2,"completionItemKind":{"valueSet":[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25]},"completionList":{"itemDefaults":["commitCharacters","editRange","insertTextFormat","insertTextMode"]}},"hover":{"dynamicRegistration":true,"contentFormat":["markdown","plaintext"]},"signatureHelp":{"dynamicRegistration":true,"signatureInformation":{"documentationFormat":["markdown","plaintext"],"parameterInformation":{"labelOffsetSupport":true},"activeParameterSupport":true},"contextSupport":true},"definition":{"dynamicRegistration":true,"linkSupport":true},"references":{"dynamicRegistration":true},"documentHighlight":{"dynamicRegistration":true},"documentSymbol":{"dynamicRegistration":true,"symbolKind":{"valueSet":[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26]},"hierarchicalDocumentSymbolSupport":true,"tagSupport":{"valueSet":[1]},"labelSupport":true},"codeAction":{"dynamicRegistration":true,"isPreferredSupport":true,"disabledSupport":true,"dataSupport":true,"resolveSupport":{"properties":["edit"]},"codeActionLiteralSupport":{"codeActionKind":{"valueSet":["","quickfix","refactor","refactor.extract","refactor.inline","refactor.rewrite","source","source.organizeImports"]}},"honorsChangeAnnotations":false},"codeLens":{"dynamicRegistration":true},"formatting":{"dynamicRegistration":true},"rangeFormatting":{"dynamicRegistration":true},"onTypeFormatting":{"dynamicRegistration":true},"rename":{"dynamicRegistration":true,"prepareSupport":true,"prepareSupportDefaultBehavior":1,"honorsChangeAnnotations":true},"documentLink":{"dynamicRegistration":true,"tooltipSupport":true},"typeDefinition":{"dynamicRegistration":true,"linkSupport":true},"implementation":{"dynamicRegistration":true,"linkSupport":true},"colorProvider":{"dynamicRegistration":true},"foldingRange":{"dynamicRegistration":true,"rangeLimit":5000,"lineFoldingOnly":true,"foldingRangeKind":{"valueSet":["comment","imports","region"]},"foldingRange":{"collapsedText":false}},"declaration":{"dynamicRegistration":true,"linkSupport":true},"selectionRange":{"dynamicRegistration":true},"callHierarchy":{"dynamicRegistration":true},"semanticTokens":{"dynamicRegistration":true,"tokenTypes":["namespace","type","class","enum","interface","struct","typeParameter","parameter","variable","property","enumMember","event","function","method","macro","keyword","modifier","comment","string","number","regexp","operator","decorator"],"tokenModifiers":["declaration","definition","readonly","static","deprecated","abstract","async","modification","documentation","defaultLibrary"],"formats":["relative"],"requests":{"range":true,"full":{"delta":true}},"multilineTokenSupport":false,"overlappingTokenSupport":false,"serverCancelSupport":true,"augmentsSyntaxTokens":true},"linkedEditingRange":{"dynamicRegistration":true},"typeHierarchy":{"dynamicRegistration":true},"inlineValue":{"dynamicRegistration":true},"inlayHint":{"dynamicRegistration":true,"resolveSupport":{"properties":["tooltip","textEdits","label.tooltip","label.location","label.command"]}},"diagnostic":{"dynamicRegistration":true,"relatedDocumentSupport":false}},"window":{"showMessage":{"messageActionItem":{"additionalPropertiesSupport":true}},"showDocument":{"support":true},"workDoneProgress":true},"general":{"staleRequestSupport":{"cancel":true,"retryOnContentModified":["textDocument/semanticTokens/full","textDocument/semanticTokens/range","textDocument/semanticTokens/full/delta"]},"regularExpressions":{"engine":"ECMAScript","version":"ES2020"},"markdown":{"parser":"marked","version":"1.1.0"},"positionEncodings":["utf-16"]},"notebookDocument":{"synchronization":{"dynamicRegistration":true,"executionSummarySupport":true}}},"initializationOptions":{"multiModuleOption":{"file:///d%3A/sourceCode/IDETest/TestVscode/scriptDependencies":{"name":"script_dep_root","src_path":"file:///d%3A/sourceCode/IDETest/TestVscode/scriptDependencies/src","requires":{"script_dep":{"path":"file:///d%3A/sourceCode/IDETest/TestVscode/scriptDependencies/script_dep","isScriptDependence":true},"normal_dep":{"path":"file:///d%3A/sourceCode/IDETest/TestVscode/scriptDependencies/normal_dep"}}},"file:///d%3A/sourceCode/IDETest/TestVscode/scriptDependencies/script_dep":{"name":"script_dep","src_path":"file:///d%3A/sourceCode/IDETest/TestVscode/scriptDependencies/script_dep/src","requires":{}},"file:///d%3A/sourceCode/IDETest/TestVscode/scriptDependencies/normal_dep":{"name":"normal_dep","src_path":"file:///d%3A/sourceCode/IDETest/TestVscode/scriptDependencies/normal_dep/src","requires":{}}},"conditionCompileOption":{},"singleConditionCompileOption":{}},"trace":"off","workspaceFolders":[{"uri":"file:///d%3A/sourceCode/IDETest/TestVscode/scriptDependencies","name":"scriptDependencies"}],"workDoneToken":"778b3f9c-59c4-4fef-b13f-208f25a66e89"}}
++{"jsonrpc":"2.0","method":"initialized","params":{}}
++{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file:///d%3A/sourceCode/IDETest/TestVscode/scriptDependencies/build.cj","languageId":"Cangjie","version":1,"text":"import script_dep.scriptOnlyFunc\r\n\r\nfunc useScriptDepInBuild(): Int64 {\r\n    scriptOnlyFunc()\r\n    return 0\r\n}"}}}
++{"jsonrpc":"2.0","id":1,"method":"shutdown","params":{}}
++{"jsonrpc":"2.0","method":"exit","params":{}}
+diff --git a/cangjie-language-server/test/message/diagnostic/LSP_Diagnostic_script_dependencies_root_001.base b/cangjie-language-server/test/message/diagnostic/LSP_Diagnostic_script_dependencies_root_001.base
+new file mode 100644
+index 00000000..e1bcce60
+--- /dev/null
++++ b/cangjie-language-server/test/message/diagnostic/LSP_Diagnostic_script_dependencies_root_001.base
+@@ -0,0 +1 @@
++{"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{"diagnostics":[{"category":504,"code":504,"message":"module 'script_dep' is declared in script-dependencies and can only be imported in build.cj","range":{"end":{"character":32,"line":2},"start":{"character":0,"line":2}},"severity":1,"source":"Cangjie"},{"category":811,"code":811,"message":"unused import 'script_dep.scriptOnlyFunc', this warning can be suppressed by setting the compiler option `-Woff unused`","range":{"end":{"character":32,"line":2},"start":{"character":0,"line":2}},"severity":4,"source":"Cangjie","tags":[1]},{"category":455,"code":455,"message":"can not find package 'script_dep'","range":{"end":{"character":17,"line":2},"start":{"character":7,"line":2}},"severity":1,"source":"Cangjie"}],"uri":"file://***//cangjie_tools/cangjie-language-server/test/testChr/newFeature/scriptDependencies/not_build.cj"}}
+diff --git a/cangjie-language-server/test/message/diagnostic/LSP_Diagnostic_script_dependencies_root_001.test b/cangjie-language-server/test/message/diagnostic/LSP_Diagnostic_script_dependencies_root_001.test
+new file mode 100644
+index 00000000..50f25ac7
+--- /dev/null
++++ b/cangjie-language-server/test/message/diagnostic/LSP_Diagnostic_script_dependencies_root_001.test
+@@ -0,0 +1,6 @@
++{"caseFolder":"newFeature/scriptDependencies"}
++{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"processId":13248,"clientInfo":{"name":"Visual Studio Code","version":"1.70.0"},"locale":"en","rootPath":"d:\\sourceCode\\IDETest\\TestVscode\\scriptDependencies","rootUri":"file:///d%3A/sourceCode/IDETest/TestVscode/scriptDependencies","capabilities":{"workspace":{"applyEdit":true,"workspaceEdit":{"documentChanges":true,"resourceOperations":["create","rename","delete"],"failureHandling":"textOnlyTransactional","normalizesLineEndings":true,"changeAnnotationSupport":{"groupsOnLabel":true}},"configuration":true,"didChangeWatchedFiles":{"dynamicRegistration":true,"relativePatternSupport":true},"symbol":{"dynamicRegistration":true,"symbolKind":{"valueSet":[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26]},"tagSupport":{"valueSet":[1]},"resolveSupport":{"properties":["location.range"]}},"codeLens":{"refreshSupport":true},"executeCommand":{"dynamicRegistration":true},"didChangeConfiguration":{"dynamicRegistration":true},"workspaceFolders":true,"semanticTokens":{"refreshSupport":true},"fileOperations":{"dynamicRegistration":true,"didCreate":true,"didRename":true,"didDelete":true,"willCreate":true,"willRename":true,"willDelete":true},"inlineValue":{"refreshSupport":true},"inlayHint":{"refreshSupport":true},"diagnostics":{"refreshSupport":true}},"textDocument":{"publishDiagnostics":{"relatedInformation":true,"versionSupport":false,"tagSupport":{"valueSet":[1,2]},"codeDescriptionSupport":true,"dataSupport":true},"synchronization":{"dynamicRegistration":true,"willSave":true,"willSaveWaitUntil":true,"didSave":true},"completion":{"dynamicRegistration":true,"contextSupport":true,"completionItem":{"snippetSupport":true,"commitCharactersSupport":true,"documentationFormat":["markdown","plaintext"],"deprecatedSupport":true,"preselectSupport":true,"tagSupport":{"valueSet":[1]},"insertReplaceSupport":true,"resolveSupport":{"properties":["documentation","detail","additionalTextEdits"]},"insertTextModeSupport":{"valueSet":[1,2]},"labelDetailsSupport":true},"insertTextMode":2,"completionItemKind":{"valueSet":[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25]},"completionList":{"itemDefaults":["commitCharacters","editRange","insertTextFormat","insertTextMode"]}},"hover":{"dynamicRegistration":true,"contentFormat":["markdown","plaintext"]},"signatureHelp":{"dynamicRegistration":true,"signatureInformation":{"documentationFormat":["markdown","plaintext"],"parameterInformation":{"labelOffsetSupport":true},"activeParameterSupport":true},"contextSupport":true},"definition":{"dynamicRegistration":true,"linkSupport":true},"references":{"dynamicRegistration":true},"documentHighlight":{"dynamicRegistration":true},"documentSymbol":{"dynamicRegistration":true,"symbolKind":{"valueSet":[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26]},"hierarchicalDocumentSymbolSupport":true,"tagSupport":{"valueSet":[1]},"labelSupport":true},"codeAction":{"dynamicRegistration":true,"isPreferredSupport":true,"disabledSupport":true,"dataSupport":true,"resolveSupport":{"properties":["edit"]},"codeActionLiteralSupport":{"codeActionKind":{"valueSet":["","quickfix","refactor","refactor.extract","refactor.inline","refactor.rewrite","source","source.organizeImports"]}},"honorsChangeAnnotations":false},"codeLens":{"dynamicRegistration":true},"formatting":{"dynamicRegistration":true},"rangeFormatting":{"dynamicRegistration":true},"onTypeFormatting":{"dynamicRegistration":true},"rename":{"dynamicRegistration":true,"prepareSupport":true,"prepareSupportDefaultBehavior":1,"honorsChangeAnnotations":true},"documentLink":{"dynamicRegistration":true,"tooltipSupport":true},"typeDefinition":{"dynamicRegistration":true,"linkSupport":true},"implementation":{"dynamicRegistration":true,"linkSupport":true},"colorProvider":{"dynamicRegistration":true},"foldingRange":{"dynamicRegistration":true,"rangeLimit":5000,"lineFoldingOnly":true,"foldingRangeKind":{"valueSet":["comment","imports","region"]},"foldingRange":{"collapsedText":false}},"declaration":{"dynamicRegistration":true,"linkSupport":true},"selectionRange":{"dynamicRegistration":true},"callHierarchy":{"dynamicRegistration":true},"semanticTokens":{"dynamicRegistration":true,"tokenTypes":["namespace","type","class","enum","interface","struct","typeParameter","parameter","variable","property","enumMember","event","function","method","macro","keyword","modifier","comment","string","number","regexp","operator","decorator"],"tokenModifiers":["declaration","definition","readonly","static","deprecated","abstract","async","modification","documentation","defaultLibrary"],"formats":["relative"],"requests":{"range":true,"full":{"delta":true}},"multilineTokenSupport":false,"overlappingTokenSupport":false,"serverCancelSupport":true,"augmentsSyntaxTokens":true},"linkedEditingRange":{"dynamicRegistration":true},"typeHierarchy":{"dynamicRegistration":true},"inlineValue":{"dynamicRegistration":true},"inlayHint":{"dynamicRegistration":true,"resolveSupport":{"properties":["tooltip","textEdits","label.tooltip","label.location","label.command"]}},"diagnostic":{"dynamicRegistration":true,"relatedDocumentSupport":false}},"window":{"showMessage":{"messageActionItem":{"additionalPropertiesSupport":true}},"showDocument":{"support":true},"workDoneProgress":true},"general":{"staleRequestSupport":{"cancel":true,"retryOnContentModified":["textDocument/semanticTokens/full","textDocument/semanticTokens/range","textDocument/semanticTokens/full/delta"]},"regularExpressions":{"engine":"ECMAScript","version":"ES2020"},"markdown":{"parser":"marked","version":"1.1.0"},"positionEncodings":["utf-16"]},"notebookDocument":{"synchronization":{"dynamicRegistration":true,"executionSummarySupport":true}}},"initializationOptions":{"multiModuleOption":{"file:///d%3A/sourceCode/IDETest/TestVscode/scriptDependencies":{"name":"script_dep_root","src_path":"file:///d%3A/sourceCode/IDETest/TestVscode/scriptDependencies/src","requires":{"script_dep":{"path":"file:///d%3A/sourceCode/IDETest/TestVscode/scriptDependencies/script_dep","isScriptDependence":true},"normal_dep":{"path":"file:///d%3A/sourceCode/IDETest/TestVscode/scriptDependencies/normal_dep"}}},"file:///d%3A/sourceCode/IDETest/TestVscode/scriptDependencies/script_dep":{"name":"script_dep","src_path":"file:///d%3A/sourceCode/IDETest/TestVscode/scriptDependencies/script_dep/src","requires":{}},"file:///d%3A/sourceCode/IDETest/TestVscode/scriptDependencies/normal_dep":{"name":"normal_dep","src_path":"file:///d%3A/sourceCode/IDETest/TestVscode/scriptDependencies/normal_dep/src","requires":{}}},"conditionCompileOption":{},"singleConditionCompileOption":{}},"trace":"off","workspaceFolders":[{"uri":"file:///d%3A/sourceCode/IDETest/TestVscode/scriptDependencies","name":"scriptDependencies"}],"workDoneToken":"778b3f9c-59c4-4fef-b13f-208f25a66e89"}}
++{"jsonrpc":"2.0","method":"initialized","params":{}}
++{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file:///d%3A/sourceCode/IDETest/TestVscode/scriptDependencies/not_build.cj","languageId":"Cangjie","version":1,"text":"package script_dep_root\r\n\r\nimport script_dep.scriptOnlyFunc"}}}
++{"jsonrpc":"2.0","id":1,"method":"shutdown","params":{}}
++{"jsonrpc":"2.0","method":"exit","params":{}}
+diff --git a/cangjie-language-server/test/testCase.list b/cangjie-language-server/test/testCase.list
+index 87527c08..2e56d039 100644
+--- a/cangjie-language-server/test/testCase.list
++++ b/cangjie-language-server/test/testCase.list
+@@ -314,6 +314,8 @@
+ {"diagnostic":{"testFile":"LSP_Diagnostic_2024092913976.test"}}
+ {"diagnostic":{"testFile":"LSP_Diagnostic_Macro.test"}}
+ {"diagnostic":{"testFile":"LSP_Diagnostic_Config_Src.test"}}
++{"diagnostic":{"testFile":"LSP_Diagnostic_script_dependencies_build_001.test"}}
++{"diagnostic":{"testFile":"LSP_Diagnostic_script_dependencies_root_001.test"}}
+ {"diagnostic":{"testFile":"LSP_Diagnostic_Root_Dot_Pkg.test"}}
+ {"diagnostic":{"testFile":"LSP_Diagnostic_2025030629333.test"}}
+ {"diagnostic":{"testFile":"LSP_Diagnostic_Full_Compile_Cycle_Dependencies.test"}}
+@@ -1211,6 +1213,7 @@
+ 
+ {"applyEdit":{"testFile":"ExtractMethod_Apply_003.test","method":"workspace/applyEdit"}}
+ {"applyEdit":{"testFile":"ExtractVariable_Apply_001.test","method":"workspace/applyEdit"}}
++{"applyEdit":{"testFile":"ExtractVariable_Apply_002.test","method":"workspace/applyEdit"}}
+ {"applyEdit":{"testFile":"ExtractVariable_Apply_003.test","method":"workspace/applyEdit"}}
+ {"applyEdit":{"testFile":"ExtractInterface_Apply_001.test","method":"workspace/applyEdit"}}
+ {"applyEdit":{"testFile":"ExtractInterface_Apply_002.test","method":"workspace/applyEdit"}}
+diff --git a/cangjie-language-server/test/testChr/newFeature/scriptDependencies/build.cj b/cangjie-language-server/test/testChr/newFeature/scriptDependencies/build.cj
+new file mode 100644
+index 00000000..0e3ac33b
+--- /dev/null
++++ b/cangjie-language-server/test/testChr/newFeature/scriptDependencies/build.cj
+@@ -0,0 +1,6 @@
++import script_dep.scriptOnlyFunc
++
++func useScriptDepInBuild(): Int64 {
++    scriptOnlyFunc()
++    return 0
++}
+diff --git a/cangjie-language-server/test/testChr/newFeature/scriptDependencies/normal_dep/src/normal_dep.cj b/cangjie-language-server/test/testChr/newFeature/scriptDependencies/normal_dep/src/normal_dep.cj
+new file mode 100644
+index 00000000..0983367f
+--- /dev/null
++++ b/cangjie-language-server/test/testChr/newFeature/scriptDependencies/normal_dep/src/normal_dep.cj
+@@ -0,0 +1,5 @@
++package normal_dep
++
++public func normalDepFunc(): Int64 {
++    return 2
++}
+diff --git a/cangjie-language-server/test/testChr/newFeature/scriptDependencies/not_build.cj b/cangjie-language-server/test/testChr/newFeature/scriptDependencies/not_build.cj
+new file mode 100644
+index 00000000..9c3db692
+--- /dev/null
++++ b/cangjie-language-server/test/testChr/newFeature/scriptDependencies/not_build.cj
+@@ -0,0 +1,8 @@
++package script_dep_root
++
++import script_dep.scriptOnlyFunc
++
++public func useScriptDepInRoot(): Int64 {
++    scriptOnlyFunc()
++    return 0
++}
+diff --git a/cangjie-language-server/test/testChr/newFeature/scriptDependencies/script_dep/src/script_dep.cj b/cangjie-language-server/test/testChr/newFeature/scriptDependencies/script_dep/src/script_dep.cj
+new file mode 100644
+index 00000000..56e1b2ae
+--- /dev/null
++++ b/cangjie-language-server/test/testChr/newFeature/scriptDependencies/script_dep/src/script_dep.cj
+@@ -0,0 +1,5 @@
++package script_dep
++
++public func scriptOnlyFunc(): Int64 {
++    return 1
++}
+diff --git a/cangjie-language-server/test/testChr/newFeature/scriptDependencies/src/main.cj b/cangjie-language-server/test/testChr/newFeature/scriptDependencies/src/main.cj
+new file mode 100644
+index 00000000..d8d0c487
+--- /dev/null
++++ b/cangjie-language-server/test/testChr/newFeature/scriptDependencies/src/main.cj
+@@ -0,0 +1,5 @@
++package script_dep_root
++
++public func mainEntry(): Int64 {
++    return 0
++}
+-- 
+2.52.0.windows.1
+

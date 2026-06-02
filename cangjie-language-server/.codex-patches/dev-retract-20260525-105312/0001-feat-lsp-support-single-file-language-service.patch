@@ -1,0 +1,140 @@
+From a77acc90f338ed7ffea2941fb06523f356a5f357 Mon Sep 17 00:00:00 2001
+From: 2301_81676461 <yangwei327@huawei.com>
+Date: Sat, 16 May 2026 16:34:29 +0800
+Subject: [PATCH 1/2] feat(lsp): support single file language service
+
+---
+ .../src/json-rpc/Protocol.cpp                 | 23 +++++++++++++---
+ .../languageserver/CompilerCangjieProject.cpp | 26 +++++++++++++++++++
+ .../languageserver/CompilerCangjieProject.h   |  5 ++++
+ 3 files changed, 51 insertions(+), 3 deletions(-)
+
+diff --git a/cangjie-language-server/src/json-rpc/Protocol.cpp b/cangjie-language-server/src/json-rpc/Protocol.cpp
+index 4937040b..a0c39bad 100644
+--- a/cangjie-language-server/src/json-rpc/Protocol.cpp
++++ b/cangjie-language-server/src/json-rpc/Protocol.cpp
+@@ -5,6 +5,7 @@
+ // See https://cangjie-lang.cn/pages/LICENSE for license information.
+ 
+ #include "Protocol.h"
++#include "URI.h"
+ 
+ namespace {
+ ark::lsp::SymbolID ParseSymbolID(std::string symbol)
+@@ -197,13 +198,16 @@ bool FromJSON(const nlohmann::json &params, SignatureHelpParams &reply)
+ 
+ bool FromJSON(const nlohmann::json &params, InitializeParams &reply)
+ {
+-    if (!params.contains("rootUri") || !params.contains("capabilities")) {
++    if (!params.contains("capabilities")) {
+         return false;
+     }
+-    if (params["rootUri"].is_null() || params["capabilities"].is_null()) {
++    if (params["capabilities"].is_null()) {
+         return false;
+     }
+-    reply.rootUri.file = params.value("rootUri", "");
++    // If rootUri is not null, get its value; otherwise keep as empty string
++    if (params.contains("rootUri") && !params["rootUri"].is_null()) {
++        reply.rootUri.file = params.value("rootUri", "");
++    }
+ 
+     nlohmann::json capabilities = params["capabilities"];
+     if (!capabilities.is_object()) {
+@@ -221,6 +225,19 @@ bool FromJSON(const nlohmann::json &params, InitializeParams &reply)
+             reply.rootUri.file = reply.initializationOptions.value("cangjieRootUri", "");
+             MessageHeaderEndOfLine::SetIsDeveco(true);
+         }
++        // Single file mode: if rootUri is empty, get workspace path from singleFilePath
++        if (reply.rootUri.file.empty() && reply.initializationOptions.contains("singleFilePath")) {
++            std::string singleFilePath = reply.initializationOptions.value("singleFilePath", "");
++            if (!singleFilePath.empty()) {
++                // Get parent directory of singleFilePath as rootUri
++                size_t lastSlashPos = singleFilePath.find_last_of("/\\");
++                if (lastSlashPos != std::string::npos) {
++                    reply.rootUri.file = URI::URIFromAbsolutePath(singleFilePath.substr(0, lastSlashPos)).ToString();
++                } else {
++                    reply.rootUri.file = URI::URIFromAbsolutePath(singleFilePath).ToString();
++                }
++            }
++        }
+     } else {
+         reply.initializationOptions = nullptr;
+     }
+diff --git a/cangjie-language-server/src/languageserver/CompilerCangjieProject.cpp b/cangjie-language-server/src/languageserver/CompilerCangjieProject.cpp
+index 908526b2..e21b270d 100644
+--- a/cangjie-language-server/src/languageserver/CompilerCangjieProject.cpp
++++ b/cangjie-language-server/src/languageserver/CompilerCangjieProject.cpp
+@@ -749,6 +749,9 @@ void CompilerCangjieProject::HandleFileNotInSource(const std::string &absName, c
+         pkgInfoMapNotInSrc[dirPath]->bufferCache[absName] = contents;
+     }
+     IncrementOnePkgCompile(absName, contents);
++    if (CIMapNotInSrc.find(dirPath) == CIMapNotInSrc.end()) {
++        CIMapNotInSrc[dirPath] = nullptr;
++    }
+ }
+ 
+ void CompilerCangjieProject::HandleNewPackage(const std::string &absName, const std::string &contents,
+@@ -1156,6 +1159,16 @@ void CompilerCangjieProject::InitParseCacheForSignatureHelp(const std::unique_pt
+ 
+ std::pair<CangjieFileKind, std::string> CompilerCangjieProject::GetCangjieFileKind(const std::string &filePath, bool isPkg) const
+ {
++    // Single-file mode: treat the single file and files in the same directory as IN_PROJECT_NOT_IN_SOURCE
++    if (isSingleFileMode && !singleFilePath.empty() && !isPkg) {
++        std::string normalizeInput = Normalize(filePath);
++        std::string normalizeSingleDir = GetDirPath(Normalize(singleFilePath));
++        std::string inputDir = GetDirPath(normalizeInput);
++        if (normalizeInput == Normalize(singleFilePath) || inputDir == normalizeSingleDir) {
++            return {CangjieFileKind::IN_PROJECT_NOT_IN_SOURCE, normalizeSingleDir};
++        }
++    }
++
+     std::string normalizeFilePath = Normalize(filePath);
+     std::string dirPath = isPkg ? normalizeFilePath : GetDirPath(normalizeFilePath);
+     if (pathToFullPkgName.find(dirPath) != pathToFullPkgName.end()) {
+@@ -1701,6 +1714,19 @@ bool CompilerCangjieProject::Compiler(const std::string &moduleUri,
+     }
+ 
+     workspace = FileStore::NormalizePath(URI::Resolve(moduleUri));
++
++    // Detect single-file mode from initializationOptions
++    if (initializationOptions.contains("singleFilePath")) {
++        std::string sfPath = initializationOptions.value("singleFilePath", "");
++        if (!sfPath.empty()) {
++            isSingleFileMode = true;
++#ifdef _WIN32
++            sfPath = NormalizeStringToGBK(sfPath);
++#endif
++            singleFilePath = FileStore::NormalizePath(sfPath);
++        }
++    }
++
+     std::string modulesHomeOption;
+     if (initializationOptions.contains(MODULES_HOME_OPTION)) {
+         modulesHomeOption = initializationOptions.value(MODULES_HOME_OPTION, "");
+diff --git a/cangjie-language-server/src/languageserver/CompilerCangjieProject.h b/cangjie-language-server/src/languageserver/CompilerCangjieProject.h
+index d7f5a81a..2b58dcd9 100644
+--- a/cangjie-language-server/src/languageserver/CompilerCangjieProject.h
++++ b/cangjie-language-server/src/languageserver/CompilerCangjieProject.h
+@@ -160,6 +160,9 @@ public:
+         return stdLibPath;
+     }
+ 
++    bool IsSingleFileMode() const { return isSingleFileMode; }
++    const std::string &GetSingleFilePath() const { return singleFilePath; }
++
+     std::string GetPathFromPkg(const std::string &fullPackageName)
+     {
+         auto found = pkgInfoMap.find(fullPackageName);
+@@ -699,6 +702,8 @@ private:
+     std::unordered_map<std::string, Modifier> pkgToModMap;
+     static bool useDB;
+     static bool incrementalOptimize;
++    bool isSingleFileMode = false;
++    std::string singleFilePath;
+ };
+ } // namespace ark
+ 
+-- 
+2.52.0.windows.1
+
