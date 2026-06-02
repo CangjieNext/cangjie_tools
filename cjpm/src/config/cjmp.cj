@@ -149,6 +149,7 @@ public enum OS <: ToString & Parsable<OS> {
 public enum Env <: ToString & Parsable<Env> {
     | HOS
     | GNU
+    | ANDROIDv7a
     | ANDROID
     | MINGW32
     | OHOS
@@ -159,6 +160,7 @@ public enum Env <: ToString & Parsable<Env> {
         match (this) {
             case HOS => "hos"
             case GNU => "gnu"
+            case ANDROIDv7a => "androideabi"
             case ANDROID => "android"
             case MINGW32 => "mingw32"
             case OHOS => "ohos"
@@ -172,6 +174,7 @@ public enum Env <: ToString & Parsable<Env> {
             case "hos" => HOS
             case "gnu" => GNU
             case "android" => ANDROID
+            case "androideabi" => ANDROIDv7a
             case "mingw32" => MINGW32
             case "ohos" => OHOS
             case _ => Unknown(value)
@@ -450,6 +453,7 @@ public struct FeatureDeducer <: Serializable<FeatureDeducer> {
 
         let feature = match ((triple.arch, triple.vendor, triple.os, triple.env)) {
             case (_, _, OS.LINUX, Env.ANDROID) => Feature.OS_ANDROID
+            case (_, _, OS.LINUX, Env.ANDROIDv7a) => Feature.OS_ANDROID
             case (_, _, OS.LINUX, Env.OHOS) => Feature.OS_OHOS
             case (_, Vendor.APPLE, OS.IOS, _) => Feature.OS_IOS
             case (_, _, OS.LINUX, _) => Feature.OS_LINUX
