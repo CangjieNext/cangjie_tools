@@ -962,8 +962,35 @@
             });
 
             var rootNodes = data.nodes.filter(function(n) {
-                return n.parent_id === 0 || n.depth === 0;
+                return n.parent_id === 0;
             });
+
+            // Merge cutoff nodes under virtual root into a single summary cutoff node
+            var cutoffNodes = rootNodes.filter(function(n) { return n.is_cutoff; });
+            var normalNodes = rootNodes.filter(function(n) { return !n.is_cutoff; });
+            if (cutoffNodes.length > 0) {
+                var cutoffTotalRetained = cutoffNodes.reduce(function(sum, n) {
+                    return sum + (n.retained_size || 0);
+                }, 0);
+                var cutoffTotalShallow = cutoffNodes.reduce(function(sum, n) {
+                    return sum + (n.shallow_size || 0);
+                }, 0);
+                var cutoffTotalInstances = cutoffNodes.reduce(function(sum, n) {
+                    return sum + (n.instance_count || 1);
+                }, 0);
+                normalNodes.push({
+                    id: 1000000000,
+                    class_name: '... (' + cutoffTotalInstances + ' instances)',
+                    retained_size: cutoffTotalRetained,
+                    shallow_size: cutoffTotalShallow,
+                    depth: 0,
+                    parent_id: 0,
+                    instance_count: cutoffTotalInstances,
+                    is_clustered: false,
+                    is_cutoff: true
+                });
+            }
+            rootNodes = normalNodes;
 
             // Sort by retained_size descending
             rootNodes.sort(function(a, b) {
@@ -1167,6 +1194,34 @@
                                 return (b.retained_size || 0) - (a.retained_size || 0);
                             });
 
+                            // Merge cutoff children into a single summary node
+                            var cutoffChildren = childNodes.filter(function(c) { return c.is_cutoff; });
+                            var normalChildren = childNodes.filter(function(c) { return !c.is_cutoff; });
+                            if (cutoffChildren.length > 0) {
+                                var cutoffTotalRetained = cutoffChildren.reduce(function(sum, c) {
+                                    return sum + (c.retained_size || 0);
+                                }, 0);
+                                var cutoffTotalShallow = cutoffChildren.reduce(function(sum, c) {
+                                    return sum + (c.shallow_size || 0);
+                                }, 0);
+                                var cutoffTotalInstances = cutoffChildren.reduce(function(sum, c) {
+                                    return sum + (c.instance_count || 1);
+                                }, 0);
+                                normalChildren.push({
+                                    id: 1000000000 + d.id,
+                                    class_name: '... (' + cutoffTotalInstances + ' instances)',
+                                    retained_size: cutoffTotalRetained,
+                                    shallow_size: cutoffTotalShallow,
+                                    depth: 0,
+                                    parent_id: d.id,
+                                    instance_count: cutoffTotalInstances,
+                                    is_clustered: false,
+                                    is_cutoff: true,
+                                    _hasChildren: false
+                                });
+                            }
+                            childNodes = normalChildren;
+
                             if (childNodes.length > 0) {
                                 // Found in local map
                                 d.children = childNodes.map(function(c) {
@@ -1180,7 +1235,34 @@
                                     var data = await res.json();
 
                                     if (data.nodes && data.nodes.length > 0) {
-                                        d.children = data.nodes.map(function(c) {
+                                        // Merge cutoff children into a single summary node
+                                        var apiCutoff = data.nodes.filter(function(c) { return c.is_cutoff; });
+                                        var apiNormal = data.nodes.filter(function(c) { return !c.is_cutoff; });
+                                        if (apiCutoff.length > 0) {
+                                            var apiCutoffRetained = apiCutoff.reduce(function(sum, c) {
+                                                return sum + (c.retained_size || 0);
+                                            }, 0);
+                                            var apiCutoffShallow = apiCutoff.reduce(function(sum, c) {
+                                                return sum + (c.shallow_size || 0);
+                                            }, 0);
+                                            var apiCutoffInstances = apiCutoff.reduce(function(sum, c) {
+                                                return sum + (c.instance_count || 1);
+                                            }, 0);
+                                            apiNormal.push({
+                                                id: 1000000000 + d.id,
+                                                class_name: '... (' + apiCutoffInstances + ' instances)',
+                                                retained_size: apiCutoffRetained,
+                                                shallow_size: apiCutoffShallow,
+                                                depth: 0,
+                                                parent_id: d.id,
+                                                instance_count: apiCutoffInstances,
+                                                is_clustered: false,
+                                                is_cutoff: true,
+                                                children: null,
+                                                _hasChildren: false
+                                            });
+                                        }
+                                        d.children = apiNormal.map(function(c) {
                                             var hasDominatedChildren = (c.retained_size || 0) > (c.shallow_size || 0);
                                             return {
                                                 id: c.id,
