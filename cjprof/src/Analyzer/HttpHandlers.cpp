@@ -326,6 +326,28 @@ std::string HttpHandlers::handleDominanceTree(const HttpContext& ctx)
         }
     }
 
+    // Collect IDs of nodes already in result
+    std::unordered_set<uint64_t> resultNodeIds;
+    for (const auto& nodeJson : result["nodes"]) {
+        if (nodeJson.contains("id")) {
+            resultNodeIds.insert(nodeJson["id"].get<uint64_t>());
+        }
+    }
+
+    // Merge cutoff nodes whose parent is not in result into root cutoff (parent_id=0)
+    std::vector<std::pair<uint64_t, int>> sortedCutoffEntries(parentCutoffCountMap.begin(), parentCutoffCountMap.end());
+    for (const auto& entry : sortedCutoffEntries) {
+        uint64_t parentId = entry.first;
+        if (parentId != 0 && resultNodeIds.find(parentId) == resultNodeIds.end()) {
+            parentCutoffCountMap[0] += entry.second;
+            parentCutoffRetainedMap[0] += parentCutoffRetainedMap[parentId];
+            parentCutoffShallowMap[0] += parentCutoffShallowMap[parentId];
+            parentCutoffCountMap.erase(parentId);
+            parentCutoffRetainedMap.erase(parentId);
+            parentCutoffShallowMap.erase(parentId);
+        }
+    }
+
     for (const auto& entry : parentCutoffCountMap) {
         uint64_t cutoffId = kCutoffIdOffset + entry.first;
         uint64_t cutoffRetained = parentCutoffRetainedMap[entry.first];
