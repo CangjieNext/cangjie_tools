@@ -945,6 +945,7 @@ ConstructorDiffNode ExpandConstructorDiffNode(
     uint32_t targetShallowSize = isTargetValid ? targetNode.shallowSize : 0;
 
     std::vector<InstanceNode> children;
+    std::vector<bool> childAddedStates;
     uint32_t childrenCount = 0;
     if (isBaseValid && isTargetValid) {
         auto baseChildren = ExpandConstructorNode(baseSnapshotId, baseNode.id, 0, baseNode.childrenCount).children;
@@ -955,23 +956,36 @@ ConstructorDiffNode ExpandConstructorDiffNode(
         for (auto& child : targetChildren) targetChildIds.emplace(child.id);
         std::vector<InstanceNode> diffNodes;
         for (const auto& node : baseChildren) {
-            if (!targetChildIds.count(node.id)) diffNodes.emplace_back(node);
+            if (!targetChildIds.count(node.id)) {
+                diffNodes.emplace_back(node);
+                childAddedStates.push_back(true);
+            }
         }
         for (const auto& node : targetChildren) {
             if (!baseChildIds.count(node.id)) {
                 diffNodes.emplace_back(node);
+                childAddedStates.push_back(false);
             }
         }
         childrenCount = diffNodes.size();
         children = getSubRange(diffNodes, startIndex, length);
+        childAddedStates = getSubRange(childAddedStates, startIndex, length);
     } else if (isTargetValid) {
         childrenCount = targetNode.childrenCount;
         auto targetChildren = ExpandConstructorNode(targetSnapshotId, targetNode.id, 0, targetNode.childrenCount).children;
         children = getSubRange(targetChildren, startIndex, length);
+        for (size_t i = 0; i < targetChildren.size(); ++i) {
+            childAddedStates.push_back(false);
+        }
+        childAddedStates = getSubRange(childAddedStates, startIndex, length);
     } else {
         childrenCount = baseNode.childrenCount;
         auto baseChildren = ExpandConstructorNode(baseSnapshotId, baseNode.id, 0, baseNode.childrenCount).children;
         children = getSubRange(baseChildren, startIndex, length);
+        for (size_t i = 0; i < baseChildren.size(); ++i) {
+            childAddedStates.push_back(true);
+        }
+        childAddedStates = getSubRange(childAddedStates, startIndex, length);
     }
 
     ConstructorDiffNode diffNode(
@@ -984,6 +998,7 @@ ConstructorDiffNode ExpandConstructorDiffNode(
         targetTotalSize
     );
     diffNode.children = children;
+    diffNode.childAddedStates = childAddedStates;
     diffNode.childrenCount = childrenCount;
     diffNode.startPosition = startIndex;
     diffNode.endPosition = startIndex + length - 1;
