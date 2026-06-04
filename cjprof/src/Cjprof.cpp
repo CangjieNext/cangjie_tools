@@ -86,12 +86,12 @@ DominanceTreeResult ComputeDominanceTree(
     }
 
     // Cooper et al. Algorithm
-    auto entryPostOrderedIndex = totalNodes - 1;
-    auto noEntry = totalNodes;
-    std::vector<size_t> idom(totalNodes, noEntry);
+    auto entryPostOrderedIndex = postOrder.size() - 1;
+    auto noEntry = postOrder.size();
+    std::vector<size_t> idom(postOrder.size(), noEntry);
     idom[entryPostOrderedIndex] = entryPostOrderedIndex;
 
-    std::vector<bool> affected(totalNodes, false);
+    std::vector<bool> affected(postOrder.size(), false);
     for (auto succ : graph[entry]) {
         affected[index2PostOrderIndex[succ]] = true;
     }
@@ -132,17 +132,19 @@ DominanceTreeResult ComputeDominanceTree(
     }
 
     std::vector<size_t> dom(totalNodes, noEntry);
-    for (size_t postOrderIndex = 0; postOrderIndex < totalNodes; ++postOrderIndex) {
+    for (size_t postOrderIndex = 0; postOrderIndex < postOrder.size(); ++postOrderIndex) {
         auto idx = postOrderIndex2Index[postOrderIndex];
         dom[idx] = postOrderIndex2Index[idom[postOrderIndex]];
     }
 
     std::vector<std::vector<size_t>> domTree(totalNodes);
     for (size_t v = 1; v <= n; ++v) {
-        domTree[dom[v]].push_back(v);
+        if (dom[v] != noEntry) {
+            domTree[dom[v]].push_back(v);
+        }
     }
 
-    return {dom, domTree};
+    return {dom, domTree, noEntry};
 }
 
 class RawHeapSnapshotData {
