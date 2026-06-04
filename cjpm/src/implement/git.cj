@@ -86,6 +86,12 @@ func getGitStoragePath(): Path {
     return Path(FINAL_CJPM_CONFIG_INFO.repository[REPO_CACHE_NAME].path).join("git")
 }
 
+// Map dependency key in cjpm.toml to a filesystem-safe cache directory name.
+// e.g. "org::demo" -> "org-demo"
+func gitDepCacheDirName(depName: String): String {
+    depName.replace("::", "-")
+}
+
 public func downloadGitDep(name: String, v: DepInfo): ?(String, String, Bool) {
     let gitStoragePath = getGitStoragePath()
     let git = GitCli()
@@ -101,7 +107,7 @@ public func downloadGitDep(name: String, v: DepInfo): ?(String, String, Bool) {
         return None
     }
     let targetCommit = v.commitId ?? git.getCommitHashFromName(url, v.branch ?? v.tag) ?? return None
-    let dependencyPath = gitStoragePath.join(name).join(targetCommit).toString()
+    let dependencyPath = gitStoragePath.join(gitDepCacheDirName(name)).join(targetCommit).toString()
     if (directoryExists(dependencyPath)) {
         return (dependencyPath, targetCommit, false)
     } else {
