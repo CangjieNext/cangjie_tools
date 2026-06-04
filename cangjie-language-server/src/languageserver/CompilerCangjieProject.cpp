@@ -2628,7 +2628,9 @@ void CompilerCangjieProject::BuildIndex(const std::unique_ptr<LSPCompilerInstanc
     }
 
     // Analyze unused symbols and produce diagnostics
-    AnalyzeUnusedSymbols(sc, *packages[0], pkgPath);
+    if (Options::GetInstance().IsOptionSet("test") || !isFullCompilation) {
+        AnalyzeUnusedSymbols(sc, *packages[0], pkgPath);
+    }
 
 #ifndef TEST_FLAG
     // Store the indexs and astdata
