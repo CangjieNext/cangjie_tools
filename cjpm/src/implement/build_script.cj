@@ -124,15 +124,15 @@ func runScriptExe(scriptConfig: ScriptConfig, commandArg: String): Bool {
     if (RUN_SCRIPT_CMD_MAP.contains(scriptConfig.moduleName)) {
         (cmd, exePath, env) = RUN_SCRIPT_CMD_MAP[scriptConfig.moduleName]
         if (scriptConfig.isVerbose) {
-            println("${cmd} ${commandArg}")
+            println(cmd)
         }
     } else {
         exePath = scriptConfig.scriptExe
         let envBuilder = getEnvBuilder(scriptConfig.scriptLdPath)
         let originalEnv = getVariables()
         if (scriptConfig.isVerbose) {
-            cmd = "Run build script: ${getCmdStr(envBuilder.asCliStrings(originalEnv), exePath, ArrayList<String>())}"
-            println("${cmd} ${commandArg}")
+            cmd = "Run build script: ${getCmdStr(envBuilder.asCliStrings(originalEnv), exePath, ArrayList<String>([commandArg]))}"
+ 	        println(cmd)
         }
         env = envBuilder.finish(HashMap<String, String>())
         for ((name,value) in env) {
