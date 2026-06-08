@@ -649,9 +649,11 @@ class DepModel {
             packageTasks.add(
                 spawn {
                     =>
-                    let flag: Bool = this.collectCjoInfo(cjoPath, pkgMap, false, libName, tomlPath)
-                    scanDepSem.release()
-                    return flag
+                    try {
+                        return this.collectCjoInfo(cjoPath, pkgMap, false, libName, tomlPath)
+                    } finally {
+                        scanDepSem.release()
+                    }
                 })
         }
 
@@ -689,9 +691,11 @@ class DepModel {
             packageTasks.add(
                 spawn {
                     =>
-                    let flag: Bool = this.collectCjoInfo(cjoPath, pkgMap, true, "", "")
-                    scanDepSem.release()
-                    return flag
+                    try {
+                        return this.collectCjoInfo(cjoPath, pkgMap, true, "", "")
+                    } finally {
+                        scanDepSem.release()
+                    }
                 })
         }
 
@@ -1140,15 +1144,18 @@ class DepModel {
             packageTasks.add(
                 spawn {
                     =>
-                    let pkgInfo: ResolveItem = ResolveItem(tomlInfo)
-                    pkgInfo.packagePath = pkg.sources
-                    pkgInfo.hasProdFiles = pkg.hasProdFiles
-                    pkgInfo.hasTestFiles = pkg.hasTestFiles
-                    pkgInfo.features = features
-                    pkgInfo.featureDeducer = deducer
-                    let (flag, mockUsed) = runPackageTask(pkgInfo, pkg.timeStamp, directDeps)
-                    scanDepSem.release()
-                    return (flag, mockUsed)
+                    try {
+                        let pkgInfo: ResolveItem = ResolveItem(tomlInfo)
+                        pkgInfo.packagePath = pkg.sources
+                        pkgInfo.hasProdFiles = pkg.hasProdFiles
+                        pkgInfo.hasTestFiles = pkg.hasTestFiles
+                        pkgInfo.features = features
+                        pkgInfo.featureDeducer = deducer
+                        let (flag, mockUsed) = runPackageTask(pkgInfo, pkg.timeStamp, directDeps)
+                        return (flag, mockUsed)
+                    } finally {
+                        scanDepSem.release()
+                    }
                 })
         }
 
@@ -1475,14 +1482,26 @@ func constructSource(modulePath: String, srcDir: String, sourceSets: SourceLocat
     }
 }
 
+private func cjmpSourceScanKey(src: CJMPSource): String {
+    let paths = src.allPaths.map { p: Path => canonicalize(p).toString() } |> collectArray
+    sort(paths)
+    String.join(paths, delimiter: "\0")
+}
+
 func getAllPkgs(srcDir: CJMPSource, rootPkgName: String): Array<PackageInfo> {
     var pkgDirQueue = [srcDir]
+    var visited = HashSet<String>()
     var validPkgs = ArrayList<PackageInfo>()
     var pathDepth = 0
     do {
         pathDepth++
         var temp = Array<CJMPSource>().iterator()
         for (pkgDir in pkgDirQueue) {
+            let scanKey = cjmpSourceScanKey(pkgDir)
+            if (visited.contains(scanKey)) {
+                continue
+            }
+            visited.add(scanKey)
             let p = initPackageInfo(pkgDir)
                 .inspectErr { e => println(e) }
                 .ok ?? continue
