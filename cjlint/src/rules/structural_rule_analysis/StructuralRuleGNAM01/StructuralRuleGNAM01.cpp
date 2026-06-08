@@ -5,6 +5,7 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 #include "StructuralRuleGNAM01.h"
+#include <algorithm>
 
 namespace {
 std::string GetFullPackageName(const Cangjie::AST::PackageSpec& pkg)
@@ -57,6 +58,13 @@ void StructuralRuleGNAM01::FileDeclHandler(const File &file)
     // Verify that package name hierarchy matches the directory structure
     auto pkgNameWithoutOrg = package.hasDoubleColon ? fullPkgName.substr(fullPkgName.find("::") + 2) : fullPkgName;
     auto pkgsSegs = FileUtil::SplitStr(pkgNameWithoutOrg, '.');
+    // remove the root package name
+    if (!pkgsSegs.empty()) {
+        (void)pkgsSegs.erase(pkgsSegs.begin());
+    }
+    if (pkgsSegs.empty()) {
+        return;
+    }
     auto filePath = FileUtil::GetDirPath(file.filePath);
     auto pathSegs = FileUtil::SplitStr(filePath, PATH_SEPARATOR.at(0));
     auto pkgMatchPath = std::search(pathSegs.rbegin(), pathSegs.rend(), pkgsSegs.rbegin(), pkgsSegs.rend());
