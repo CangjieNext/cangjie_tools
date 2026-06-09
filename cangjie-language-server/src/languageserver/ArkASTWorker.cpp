@@ -211,6 +211,13 @@ void ArkASTWorker::RunWithAST(const std::string &name,
         Logger::Instance().CleanKernelLog(std::this_thread::get_id());
         if (name == "SemanticTokens") {
             if (FileUtil::FileExist(file)) {
+                if (ast && ast->file && ast->packageInstance &&
+                    ast->packageInstance->package) {
+                    CompilerCangjieProject::GetInstance()->AnalyzeUnusedSymbolsForFile(
+                        file, *ast->file,
+                        *const_cast<Cangjie::AST::Package*>(
+                            ast->packageInstance->package.get()));
+                }
                 std::vector<DiagnosticToken> diagnostics = callback->GetDiagsOfCurFile(file);
                 callback->ReadyForDiagnostics(file, inputs.version, diagnostics);
             } else {
