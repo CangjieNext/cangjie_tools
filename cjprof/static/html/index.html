@@ -831,11 +831,13 @@
             // Start from palette index 1 to skip #e94560 (reserved for center node)
             var colorIndex = 1;
             var classColors = new Map();
-            function getColor(name) {
+            function getColor(name, retainedSize) {
                 if (!classColors.has(name)) {
-                    classColors.set(name, COLOR_PALETTE[colorIndex++ % COLOR_PALETTE.length]);
+                    classColors.set(name, { color: COLOR_PALETTE[colorIndex++ % COLOR_PALETTE.length], retainedSize: retainedSize || 0 });
+                } else if ((retainedSize || 0) > classColors.get(name).retainedSize) {
+                    classColors.get(name).retainedSize = retainedSize || 0;
                 }
-                return classColors.get(name);
+                return classColors.get(name).color;
             }
 
             // Convert node (relative depth, depth 0 to MAX_DEPTH = 5 layers)
@@ -854,7 +856,7 @@
                 } else if (isCenter) {
                     color = '#e94560';
                 } else {
-                    color = getColor(legendName);
+                    color = getColor(legendName, node.retained_size);
                 }
 
                 var result = {
@@ -898,6 +900,9 @@
                         }
                     });
 
+                    normalChildren.sort(function(a, b) {
+                        return (b.retained_size || 0) - (a.retained_size || 0);
+                    });
                     result.children = normalChildren.map(function(c) {
                         return convertNode(c, depth + 1, color);
                     });
@@ -973,6 +978,7 @@
                     radius: [0, '95%'],
                     data: data,
                     sort: 'desc',
+                    nodeClick: false,
                     emphasis: {
                         focus: 'ancestor',
                         itemStyle: { opacity: 1 }
@@ -998,7 +1004,10 @@
 
             var legend = document.getElementById('sunburst-legend');
             legend.innerHTML = '';
-            classColors.forEach(function(color, name) {
+            var sortedLegend = Array.from(classColors.entries()).sort(function(a, b) { return b[1].retainedSize - a[1].retainedSize; });
+            sortedLegend.forEach(function(entry) {
+                var name = entry[0];
+                var color = entry[1].color;
                 legend.innerHTML += '<div class="legend-item" title="' + escapeHtml(name) + '"><div class="legend-color" style="background:' + color + '"></div>' + escapeHtml(name) + '</div>';
             });
 
@@ -1040,6 +1049,7 @@
                     radius: [0, '95%'],
                     data: renderData.data,
                     sort: 'desc',
+                    nodeClick: false,
                     emphasis: {
                         focus: 'ancestor',
                         itemStyle: { opacity: 1 }
@@ -1065,7 +1075,10 @@
 
             var legend = document.getElementById('sunburst-legend');
             legend.innerHTML = '';
-            renderData.classColors.forEach(function(color, name) {
+            var sortedLegend = Array.from(renderData.classColors.entries()).sort(function(a, b) { return b[1].retainedSize - a[1].retainedSize; });
+            sortedLegend.forEach(function(entry) {
+                var name = entry[0];
+                var color = entry[1].color;
                 legend.innerHTML += '<div class="legend-item" title="' + escapeHtml(name) + '"><div class="legend-color" style="background:' + color + '"></div>' + escapeHtml(name) + '</div>';
             });
         }
