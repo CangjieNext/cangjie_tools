@@ -519,5 +519,83 @@ void MemIndex::GetExportSID(IDArray array, std::function<void(const CrossSymbol 
     (void)array;
     (void)callback;
 }
+
+void MemIndex::ForEachFileSymbol(const std::string &pkgName, const std::string &filePath,
+    std::function<bool(const Symbol &)> callback) const
+{
+    auto it = pkgSymsMap.find(pkgName);
+    if (it == pkgSymsMap.end()) {
+        return;
+    }
+    for (const auto &sym : it->second) {
+        if (sym.location.fileUri == filePath) {
+            if (!callback(sym)) {
+                return;
+            }
+        }
+    }
+}
+
+bool MemIndex::HasSymbolReference(SymbolID symId) const
+{
+    for (const auto &pkgRefs : pkgRefsMap) {
+        auto it = pkgRefs.second.find(symId);
+        if (it == pkgRefs.second.end()) {
+            continue;
+        }
+        for (const auto &ref : it->second) {
+            if ((static_cast<uint8_t>(ref.kind) & static_cast<uint8_t>(RefKind::REFERENCE)) != 0) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool MemIndex::IsSymbolOverridden(SymbolID symId) const
+{
+    for (const auto &pkgRelations : pkgRelationsMap) {
+        for (const auto &rel : pkgRelations.second) {
+            if (rel.predicate == RelationKind::RIDDEND_BY && rel.object == symId) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+SymbolID MemIndex::GetSymbolContainerId(SymbolID symId) const
+{
+    for (const auto &pkgRelations : pkgRelationsMap) {
+        for (const auto &rel : pkgRelations.second) {
+            if (rel.predicate == RelationKind::CONTAINED_BY && rel.subject == symId) {
+                return rel.object;
+            }
+        }
+    }
+    return INVALID_SYMBOL_ID;
+}
+
+bool MemIndex::HasReferencedConstructorChild(SymbolID symId) const
+{
+    for (const auto &pkgRelations : pkgRelationsMap) {
+        for (const auto &rel : pkgRelations.second) {
+            if (rel.predicate != RelationKind::CONTAINED_BY || rel.object != symId) {
+                continue;
+            }
+            for (const auto &pkgSyms : pkgSymsMap) {
+                for (const auto &sym : pkgSyms.second) {
+                    if (sym.id == rel.subject &&
+                        sym.symInfo.kind == lsp::SymbolKind::CONSTRUCTOR &&
+                        HasSymbolReference(rel.subject)) {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    return false;
+}
+
 } // namespace lsp
 } // namespace ark

@@ -628,6 +628,67 @@ void BackgroundIndexDB::FindCrossSymbolByName(const std::string &packageName, co
     }
 }
 
+void BackgroundIndexDB::ForEachFileSymbol(const std::string &pkgName, const std::string &filePath,
+    std::function<bool(const Symbol &)> callback) const
+{
+    db.GetPkgSymbols(pkgName, [&](const Symbol &sym) -> bool {
+        if (sym.location.fileUri == filePath) {
+            return callback(sym);
+        }
+        return true;
+    });
+}
+
+bool BackgroundIndexDB::HasSymbolReference(SymbolID symId) const
+{
+    bool found = false;
+    db.GetReferences(symId, RefKind::REFERENCE, [&](const Ref &) -> bool {
+        found = true;
+        return false;
+    });
+    return found;
+}
+
+bool BackgroundIndexDB::IsSymbolOverridden(SymbolID symId) const
+{
+    bool found = false;
+    db.GetRelationsRiddenUp(symId, RelationKind::RIDDEND_BY, [&](const Relation &) -> bool {
+        found = true;
+        return false;
+    });
+    return found;
+}
+
+SymbolID BackgroundIndexDB::GetSymbolContainerId(SymbolID symId) const
+{
+    SymbolID result = INVALID_SYMBOL_ID;
+    db.GetRelations(symId, RelationKind::CONTAINED_BY, [&](const Relation &rel) -> bool {
+        result = rel.object;
+        return false;
+    });
+    return result;
+}
+
+bool BackgroundIndexDB::HasReferencedConstructorChild(SymbolID symId) const
+{
+    bool found = false;
+    db.GetRelationsRiddenUp(symId, RelationKind::CONTAINED_BY, [&](const Relation &rel) -> bool {
+        bool isConstructor = false;
+        db.GetSymbolByID(GetArrayFromID(rel.subject), [&](const Symbol &sym) -> bool {
+            if (sym.symInfo.kind == lsp::SymbolKind::CONSTRUCTOR) {
+                isConstructor = true;
+            }
+            return false;
+        });
+        if (isConstructor && HasSymbolReference(rel.subject)) {
+            found = true;
+            return false;
+        }
+        return true;
+    });
+    return found;
+}
+
 } // namespace lsp
 } // namespace ark
 // LCOV_EXCL_STOP
