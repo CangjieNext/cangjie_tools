@@ -417,6 +417,10 @@ public:
         }
     }
 
+    void AnalyzeUnusedSymbolsForFile(const std::string &filePath,
+        const Cangjie::AST::File &astFile,
+        const Cangjie::AST::Package &package);
+
     lsp::MemIndex *GetMemIndex() const
     {
         return memIndex.get();
@@ -671,9 +675,6 @@ private:
     void BuildIndexFromCache(const std::string &package);
 
     void BuildIndex(const std::unique_ptr<LSPCompilerInstance> &ci, bool isFullCompilation = false);
-
-    void AnalyzeUnusedSymbols(const lsp::SymbolCollector &sc, const Cangjie::AST::Package &package,
-                              const std::string &pkgPath);
 
     bool LoadASTCache(const std::string &package);
 
