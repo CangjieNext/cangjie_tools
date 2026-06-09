@@ -98,11 +98,16 @@ void ConfigByOptions(ark::Options &opts, std::string& cachePath) {
         cachePath = opts.GetLongOption("cache-path").value();
         ark::CompilerCangjieProject::SetUseDB(!cachePath.empty());
     }
+    // else {
+    //     cachePath = "/root/workspace/cangjie/main/cangjie_tools/cangjie-language-server/output/bin";
+    //     ark::CompilerCangjieProject::SetUseDB(!cachePath.empty());
+    // }
 }
 } // namespace
 
 int main(int argc, const char *argv[], const char *envp[])
 {
+    sleep(10);
     ark::Environment environment = StringifyEnvironmentPointer(envp);
     ark::Options &opts = ark::Options::GetInstance();
     opts.Parse(argc, argv);
