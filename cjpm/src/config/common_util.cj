@@ -35,11 +35,13 @@ public func execAndToTerminal(exeTool: String, arguments: Array<String>, timeout
 public func execWithOutput(exeTool: String, arguments: ArrayList<String>,
     envMap!: HashMap<String, String> = HashMap<String, String>(), timeout!: Option<Duration> = None,
     workingDirectory!: ?Path = None, spawnForScript!: Bool = false): (Bool, String, String) {
-    let subProcess: SubProcess
+    var subProcessOpt: ?SubProcess = None
     var returnCode: Int64
     var outInfo = ""
     var errInfo = ""
+    var waited = false
     try {
+        let subProcess: SubProcess
         if (envMap.isEmpty()) {
             subProcess = launch(exeTool, arguments.toArray(), workingDirectory: workingDirectory,
                 stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
@@ -55,6 +57,7 @@ public func execWithOutput(exeTool: String, arguments: ArrayList<String>,
             subProcess = launch(exeTool, arguments.toArray(), environment: env, workingDirectory: workingDirectory,
                 stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
         }
+        subProcessOpt = subProcess
 
         if (spawnForScript) {
             let outInfoFuture = spawn {StringReader(subProcess.stdOutPipe).readToEnd()}
@@ -66,10 +69,24 @@ public func execWithOutput(exeTool: String, arguments: ArrayList<String>,
             errInfo = StringReader(subProcess.stdErrPipe).readToEnd()
         }
         returnCode = subProcess.wait(timeout: timeout)
+        waited = true
         return (returnCode == 0, outInfo, errInfo)
     } catch (e: Exception) {
         eprintln(e.message)
         return (false, outInfo, errInfo)
+    } finally {
+        // Fix fd leak: if reading the pipes or `wait(timeout)` throws (e.g. on timeout),
+        // `wait()` returns before its internal `closeStdStream()` runs, so the subprocess
+        // stdout/stderr pipe fds are never released. A large build (e.g. taibai) invokes
+        // this many times, gradually exhausting fds and eventually failing later with
+        // "Too many open files". Reclaim them here: terminate the child and wait() again,
+        // which triggers closeStdStream() to close the pipes.
+        if (!waited) {
+            if (let Some(sp) <- subProcessOpt) {
+                try { sp.terminate(force: true) } catch (_: Exception) {}
+                try { sp.wait() } catch (_: Exception) {}
+            }
+        }
     }
 }
 
