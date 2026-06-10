@@ -293,9 +293,11 @@ def install(args):
     log_output(output)
     if output.returncode != 0:
         LOG.fatal("install failed")
-    run_jni_script(["install"])
-
-    shutil.copytree(os.path.join(BUILD_DIR, "..", "bridge", "jni", "dist"), os.path.join(install_path, "lib"), dirs_exist_ok=True)
+    if not args.skip_jni:
+        run_jni_script(["install"])
+        shutil.copytree(os.path.join(BUILD_DIR, "..", "bridge", "jni", "dist"), os.path.join(install_path, "lib"), dirs_exist_ok=True)
+    else:
+        LOG.info("skipping JNI install (--skip-jni)\n")
     LOG.info("end install targets...")
 
 
@@ -365,6 +367,10 @@ def main():
     parser_install.add_argument(
         "--prefix", dest="install_prefix", help="target install prefix"
     )
+    parser_install.add_argument(
+        "--skip-jni",
+        action="store_true",
+        help="skip JNI/Java bridge install")
     parser_install.set_defaults(func=install)
 
     parser_clean = subparsers.add_parser("clean", help="clean build")

@@ -528,6 +528,26 @@
                 }
             });
 
+            // For cutoff-type nodes: their child_types reference child nodes whose parent_id
+            // may point to a different cutoff-type node (because cutoff-type nodes with the same
+            // className share a single cutoff-type child node for their sub-types).
+            // Since the sunburst view renders one center node at a time (not the full tree simultaneously),
+            // it's safe to add child_types references to the cutoff-type's children even if that
+            // child is already parented elsewhere — the sunburst only shows one sub-tree at a time.
+            nodeMap.forEach((node, key) => {
+                if (key.indexOf('::cutoff-type') !== -1 && node.child_types && node.child_types.length > 0) {
+                    node.child_types.forEach(function(childTypeId) {
+                        if (nodeMap.has(childTypeId)) {
+                            var child = nodeMap.get(childTypeId);
+                            // Add to this cutoff-type's children if not already present
+                            if (node.children.indexOf(child) === -1) {
+                                node.children.push(child);
+                            }
+                        }
+                    });
+                }
+            });
+
             // Root types: nodes whose parent_id is empty, not found in nodeMap, or self-referencing
             let rootTypes = [];
             nodeMap.forEach((node, key) => {

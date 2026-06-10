@@ -980,12 +980,39 @@ std::string HttpHandlers::handleDominanceTreeByType(const HttpContext& ctx)
                 }
             }
 
-            // If no parent found in TypeNodes, look in StandaloneCutoffs using index
+            // If no parent found in TypeNodes, try cutoff-type nodes from TypeNode cutoff_type_counts
+            if (parentId.empty() && !tn.parent_type.empty()) {
+                for (const auto& [otherKey, otherTn] : typeNodes) {
+                    auto retIt = otherTn.cutoff_type_retained.find(tn.parent_type);
+                    if (retIt != otherTn.cutoff_type_retained.end() && retIt->second >= threshold01) {
+                        if (otherTn.cutoff_type_counts.find(tn.parent_type) != otherTn.cutoff_type_counts.end()) {
+                            parentId = makeNodeId(tn.parent_type + "::cutoff-type", otherTn.class_name);
+                            break;
+                        }
+                    }
+                }
+            }
+            // If still no parent, look in StandaloneCutoffs — but only uncovered ones
             if (parentId.empty() && !tn.parent_type.empty()) {
                 auto pscIt = classNameToStandaloneCutoffKeys.find(tn.parent_type);
-                if (pscIt != classNameToStandaloneCutoffKeys.end() && !pscIt->second.empty()) {
-                    const auto& sk = pscIt->second[0];
-                    parentId = makeNodeId(standaloneCutoffs[sk].class_name + "::cutoff-type", standaloneCutoffs[sk].parent_type);
+                if (pscIt != classNameToStandaloneCutoffKeys.end()) {
+                    for (const auto& sk : pscIt->second) {
+                        bool scCovered = false;
+                        auto scParentTNIt = classNameToTypeNodeKeys.find(standaloneCutoffs[sk].parent_type);
+                        if (scParentTNIt != classNameToTypeNodeKeys.end()) {
+                            for (const auto& tk : scParentTNIt->second) {
+                                const auto& tv = typeNodes[tk];
+                                if (tv.cutoff_type_counts.find(standaloneCutoffs[sk].class_name) != tv.cutoff_type_counts.end()) {
+                                    scCovered = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!scCovered && standaloneCutoffs[sk].retained_size >= threshold01) {
+                            parentId = makeNodeId(standaloneCutoffs[sk].class_name + "::cutoff-type", standaloneCutoffs[sk].parent_type);
+                            break;
+                        }
+                    }
                 }
             }
         }
@@ -1102,18 +1129,53 @@ std::string HttpHandlers::handleDominanceTreeByType(const HttpContext& ctx)
         std::string nodeId = makeNodeId(sc.class_name + "::cutoff-type", sc.parent_type);
 
         // Compute parent_id for standalone cutoff using indexes
+        // Must point to a node that actually exists in the result.
+        // Priority: TypeNode > cutoff-type node from TypeNode's cutoff_type_counts > StandaloneCutoff
         std::string scParentId = "";
         if (!sc.parent_type.empty()) {
+            // 1. Try to find a TypeNode whose class_name == sc.parent_type
             auto ptnIt2 = classNameToTypeNodeKeys.find(sc.parent_type);
             if (ptnIt2 != classNameToTypeNodeKeys.end() && !ptnIt2->second.empty()) {
                 const auto& pk = ptnIt2->second[0];
                 scParentId = makeNodeId(typeNodes[pk].class_name, typeNodes[pk].parent_type);
             }
+            // 2. Try to find a cutoff-type node from some TypeNode's cutoff_type_counts
+            // that represents sc.parent_type (this is generated as part of that TypeNode's output)
+            if (scParentId.empty()) {
+                for (const auto& [otherKey, otherTn] : typeNodes) {
+                    auto retIt = otherTn.cutoff_type_retained.find(sc.parent_type);
+                    if (retIt != otherTn.cutoff_type_retained.end() && retIt->second >= threshold01) {
+                        // Check: this cutoff-type node is not covered (will be output by the parent TypeNode)
+                        // Verify the parent TypeNode's cutoff_type_counts contains sc.parent_type
+                        if (otherTn.cutoff_type_counts.find(sc.parent_type) != otherTn.cutoff_type_counts.end()) {
+                            scParentId = makeNodeId(sc.parent_type + "::cutoff-type", otherTn.class_name);
+                            break;
+                        }
+                    }
+                }
+            }
+            // 3. Try StandaloneCutoff — but only if it's not covered (will actually be output)
             if (scParentId.empty()) {
                 auto pscIt2 = classNameToStandaloneCutoffKeys.find(sc.parent_type);
-                if (pscIt2 != classNameToStandaloneCutoffKeys.end() && !pscIt2->second.empty()) {
-                    const auto& sk = pscIt2->second[0];
-                    scParentId = makeNodeId(standaloneCutoffs[sk].class_name + "::cutoff-type", standaloneCutoffs[sk].parent_type);
+                if (pscIt2 != classNameToStandaloneCutoffKeys.end()) {
+                    for (const auto& sk : pscIt2->second) {
+                        // Check this StandaloneCutoff is not covered by some TypeNode's cutoff_type_counts
+                        bool parentCovered = false;
+                        auto parentTypeNodeIt = classNameToTypeNodeKeys.find(standaloneCutoffs[sk].parent_type);
+                        if (parentTypeNodeIt != classNameToTypeNodeKeys.end()) {
+                            for (const auto& tk : parentTypeNodeIt->second) {
+                                const auto& tv = typeNodes[tk];
+                                if (tv.cutoff_type_counts.find(standaloneCutoffs[sk].class_name) != tv.cutoff_type_counts.end()) {
+                                    parentCovered = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!parentCovered && standaloneCutoffs[sk].retained_size >= threshold01) {
+                            scParentId = makeNodeId(standaloneCutoffs[sk].class_name + "::cutoff-type", standaloneCutoffs[sk].parent_type);
+                            break;
+                        }
+                    }
                 }
             }
         }
