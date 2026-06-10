@@ -206,8 +206,8 @@ cjprof heap -i ~/heap.data
 The output of the above command is as follows:
 
 ```text
-Object Type           Objects        Shallow Heap   Retained Heap
-====================  =============  =============  =============
+Object Type                                Objects      Shallow Heap   Retained Heap
+=========================================  ===========  =============  ============
 default::AAA                               1            80             400
 default::BBB                               4            32             196
 default::CCC                               2            16              32
@@ -223,8 +223,8 @@ cjprof heap --show-thread
 The output of the above command is as follows:
 
 ```text
-Object/Stack Frame                   Shallow Heap   Retained Heap
-===================================  =============  =============
+Object/Stack Frame                                       Shallow Heap  Retained Heap
+=======================================================  =============  ============
 thread0
   at Func2() (/home/test/test.cj:10)
     <local> default::AAA @ 0x7f1234567800                80            400
@@ -244,8 +244,8 @@ The output of the above command is as follows:
 
 ```text
 Objects with outgoing references:
-Object Type                          Shallow Heap   Retained Heap
-===================================  =============  =============
+Object Type                                              Shallow Heap  Retained Heap
+=======================================================  =============  ============
 default::AAA @ 0x7f1234567800                            80            400
   default::BBB @ 0x7f1234567880                          32             48
     default::CCC @ 0x7f12345678c0                        16             16
@@ -265,8 +265,8 @@ The output of the above command is as follows:
 
 ```text
 Objects with incoming references:
-Object Type                          Shallow Heap   Retained Heap
-===================================  =============  =============
+Object Type                                              Shallow Heap  Retained Heap
+=======================================================  =============  ============
 default::CCC @ 0x7f12345678c0                            16             16
   default::BBB @ 0x7f1234567880                          32             48
     default::AAA @ 0x7f1234567800                        80            400
