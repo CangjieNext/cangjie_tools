@@ -577,7 +577,8 @@ public:
                 ThreadInfo::Frame frame;
                 frame.funcName = rhs.strings[fr.funcName];
                 frame.id = std::hash<std::string>()(frame.funcName);
-                frame.fileName = rhs.strings[fr.fileName];
+                auto fileNameIt = rhs.strings.find(fr.fileName);
+                frame.fileName = (fileNameIt != rhs.strings.end()) ? fileNameIt->second : "";
                 frame.line = fr.line;
                 for (auto index : fr.locals) {
                     frame.locals.emplace_back(CreateInstanceNode(index));
