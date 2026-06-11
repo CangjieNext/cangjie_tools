@@ -282,7 +282,7 @@ std::string InlineFunction::GetReturnTypeString()
         return "";
     }
 
-    return retTy->GetTy()->name;
+    return GetString(*retTy->GetTy());
 }
 
 std::string InlineFunction::ReplaceParamsInCode(const std::string &code,
@@ -335,7 +335,7 @@ std::string InlineFunction::GetParamTypeString(FuncParam* param)
     if (!param || !param->GetTy()) {
         return "";
     }
-    return param->GetTy()->name;
+    return GetString(*param->GetTy());
 }
 
 void InlineFunction::ExtractParams()
@@ -493,25 +493,19 @@ Range InlineFunction::FindInsertPositionFromToken(std::string &indent)
     return insertRange;
 }
 
-TextEdit InlineFunction::InsertInlineBody()
-{
-    TextEdit edit;
-
-    if (!callExpr_ || !funcDecl_ || !funcDecl_->funcBody || !funcDecl_->funcBody->body) {
-        return edit;
-    }
-
-    std::string indent;
-    Range insertRange = FindInsertPosition(indent);
-    if (insertRange.end.IsZero()) {
-        return edit;
-    }
-
+std::string InlineFunction::generateInlineBody(std::string indent) {
+    std::ostringstream insertText;
     std::map<std::string, std::string> paramMap;
     for (const auto &[paramName, paramType, paramValue, needsExtract] : extractedParams_.params) {
         (void)paramType;
         if (needsExtract) {
-            paramMap[paramName] = GenerateParamVarName(paramName);
+            std::string newParamName = GenerateParamVarName(paramName);
+            paramMap[paramName] = newParamName;
+            insertText << indent << "var " << newParamName;
+            if (!paramType.empty()) {
+                insertText << ": " << paramType;
+            }
+            insertText << "\n";
         } else {
             paramMap[paramName] = paramValue;
         }
@@ -522,10 +516,8 @@ TextEdit InlineFunction::InsertInlineBody()
     std::string inlinedBody = TransformFunctionBody(
         funcDecl_->funcBody->body.get(), paramMap);
 
-    std::ostringstream insertText;
-
     if (hasReturnValue_) {
-        insertText << "var " << resultVarName_;
+        insertText << indent << "var " << resultVarName_;
         if (!returnType.empty()) {
             insertText << ": " << returnType;
         }
@@ -541,14 +533,33 @@ TextEdit InlineFunction::InsertInlineBody()
             }
         }
     }
-
-    insertText << indent;
     std::string newText = insertText.str();
+    size_t pos = newText.find_first_not_of(" \t");
+    if (pos != std::string::npos) {
+        newText = newText.substr(pos);
+    }
 
     if (baseExpr_) {
         std::regex thisRegex("\\bthis\\b");
         newText = std::regex_replace(newText, thisRegex, baseExpr_->ToString());
     }
+    return newText;
+}
+
+TextEdit InlineFunction::InsertInlineBody()
+{
+    TextEdit edit;
+
+    if (!callExpr_ || !funcDecl_ || !funcDecl_->funcBody || !funcDecl_->funcBody->body) {
+        return edit;
+    }
+
+    std::string indent;
+    Range insertRange = FindInsertPosition(indent);
+    if (insertRange.end.IsZero()) {
+        return edit;
+    }
+    std::string newText = generateInlineBody(indent);
 
     insertRange = TransformFromChar2IDE(insertRange);
     edit.range = insertRange;
@@ -700,6 +711,7 @@ std::optional<Tweak::Effect> InlineFunction::Apply(const Selection &sel)
         textEdits.push_back(replaceCallEdit);
     } else {
         TextEdit replaceCallEdit = ReplaceCallWithEmpty();
+        textEdits.push_back(replaceCallEdit);
     }
 
     std::string filePath = sel.arkAst->file->filePath;
