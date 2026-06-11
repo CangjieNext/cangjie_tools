@@ -102,6 +102,8 @@ private:
 
     Range FindInsertPositionFromToken(std::string &indent);
 
+    std::string GenerateInlineBody(std::string indent);
+
     TextEdit InsertParamDecls();
 
     TextEdit InsertInlineBody();
