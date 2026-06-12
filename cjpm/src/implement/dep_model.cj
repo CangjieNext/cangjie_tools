@@ -66,6 +66,12 @@ class DepModel {
     public var isCrossBin = false
     // Sub package map to super package
     public var superPkgSubMap: HashMap<String, String> = HashMap<String, String>()
+
+    // combined entry signal, populated during collection, consumed by dealWithSuperPkg.
+    // Non-workspace: whether the root module explicitly configured combined.
+    // Workspace: canonical paths of currentMembers that explicitly configured combined.
+    public var rootConfiguredCombined: Bool = false
+    public var combinedConfiguredMembers: HashSet<String> = HashSet<String>()
     // Binary dependencies record
     public var binDepCacheMap: HashMap<String, RequiresPackages> = HashMap<String, RequiresPackages>()
     // Package dependencies record (pkg without test)
@@ -328,9 +334,13 @@ class DepModel {
                 println("Warning: module '${tomlInfo.pkg.name}' will not be compiled as " +
                     "combined module when depended by build.cj")
             } else {
-                for ((pkgName, outputType) in tomlInfo.profile.build.combined) {
-                    this.superPkgMap[pkgName] = SuperPackageConfig(pkgName, outputType)
+                if (!COMMON_INFO.inWorkspace && (this.globalConfig.rootName == tomlInfo.pkg.name)) {
+                    this.rootConfiguredCombined = true
+                } else if (COMMON_INFO.inWorkspace &&
+                    COMMON_INFO.currentMembers.contains(getCanonicalPath(tomlInfo.pkg.path))) {
+                    this.combinedConfiguredMembers.add(getCanonicalPath(tomlInfo.pkg.path))
                 }
+                // dependency-level configs (non-entry) are recorded nowhere and ignored by design
             }
         }
 
@@ -407,9 +417,7 @@ class DepModel {
                 println("Warning: module '${tomlInfo.pkg.name}' will not be compiled as " +
                     "combined module when depended by build.cj")
             } else {
-                for ((pkgName, outputType) in tomlInfo.profile.build.combined) {
-                    this.superPkgMap[pkgName] = SuperPackageConfig(pkgName, outputType)
-                }
+                // repo deps are never entry modules; their combined configs are ignored
             }
         }
 
