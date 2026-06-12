@@ -49,8 +49,8 @@ func resolve(globalConfig: GlobalConfig, isScriptDep!: Bool = false): (DepModel,
     // combined is only used in cjpm build
     if (!dm.globalConfig.isPureBuild) {
         dm.superPkgMap.clear()
-    } else if (!dealWithSuperPkg(dm, globalConfig.isProjectCombine)) {
-        return (dm, false, mockUsed)
+    } else {
+        dealWithSuperPkg(dm, globalConfig.isProjectCombine)
     }
 
     // Circular dependency check.
@@ -75,73 +75,99 @@ func resolve(globalConfig: GlobalConfig, isScriptDep!: Bool = false): (DepModel,
     return (dm, true, mockUsed)
 }
 
-func checkCombinedConfiguration(dm: DepModel, isProjectCombine: Bool, notSupportSet: HashSet<String>): Bool {
-    if (!dm.superPkgMap.isEmpty() && !isProjectCombine) {
-        var flag = true
-        for ((moduleName, _) in dm.depAnalysisEngine.finalDepMap) {
-            if (!dm.superPkgMap.contains(moduleName) &&
-                !notSupportSet.contains(moduleName) &&
-                dm.packageDepMap.contains(moduleName) &&
-                !dm.packageDepMap[moduleName].isMacroPackage) {
-                eprintln("Error: field 'profile.build.combined' must be configured to combine module '${moduleName}'")
-                flag = false
-            }
-        }
-        return flag
+func isValidSuperPkgEntry(dm: DepModel, pkgName: String): Bool {
+    if (!dm.packageDepMap.contains(pkgName)) {
+        return false
     }
-    true
+    if (dm.packageDepMap[pkgName].isMacroPackage) {
+        return false
+    }
+    if (!isSupportCombine()) {
+        return false
+    }
+    return true
 }
 
-func dealWithSuperPkg(dm: DepModel, isProjectCombine: Bool): Bool {
-    let notSupportSet = HashSet<String>()
-    var superPkgInValidFlag = false;
-    for ((superPkgName, superPkgCfg) in dm.superPkgMap) {
-        if (!dm.packageDepMap.contains(superPkgName)) {
-            superPkgInValidFlag = true;
-            eprintln("Error: field 'profile.build.combined' is not supported for root package '${superPkgName}' " +
-                "which contain no source code for compilation")
-            continue
-        }
-        if (dm.packageDepMap[superPkgName].isMacroPackage) {
-            println("Warning: field 'profile.build.combined' is not supported for macro root package '${superPkgName}'")
-            notSupportSet.add(superPkgName)
-            continue
-        }
-        if (!isSupportCombine()) {
-            println("Warning: field 'profile.build.combined' only supports 'Linux/OHOS/Windows', " +
-                "so output targeted for module '${superPkgName}' will not be combined")
-            notSupportSet.add(superPkgName)
-            continue
-        }
-        for (pkgName in dm.packageDepMap.keys()) {
-            if (superPkgName != pkgName.split(".")[0] || superPkgName == pkgName) {
-                continue
-            }
-            superPkgCfg.subPkgSet.add(pkgName)
-            if (!dm.packageDepMap[pkgName].isMacroPackage) {
-                dm.packageDepMap[pkgName].outputType = Static
-            }
-        }
-        dm.packageDepMap[superPkgName].superPkgCfg = superPkgCfg
-        if (dm.packageDepMap[superPkgName].outputType != Dynamic) {
-            println("Warning: output-type of combined root package '${superPkgName}' in " +
-                "${Path(dm.globalConfig.rootPath).join(CONFIG_FILE_NAME).toString()} is not 'dynamic', " +
-                "final output will be dynamic library")
-            dm.packageDepMap[superPkgName].outputType = Dynamic
-        }
+func processSingleSuperPkg(dm: DepModel, superPkgName: String): Unit {
+    if (!dm.packageDepMap.contains(superPkgName)) {
+        eprintln("Error: field 'profile.build.combined' is not supported for root package '${superPkgName}' " +
+            "which contain no source code for compilation")
+        return
     }
-    if (superPkgInValidFlag) {
-        return false
+    if (dm.packageDepMap[superPkgName].isMacroPackage) {
+        println("Warning: field 'profile.build.combined' is not supported for macro root package '${superPkgName}'")
+        return
+    }
+    if (!isSupportCombine()) {
+        println("Warning: field 'profile.build.combined' only supports 'Linux/OHOS/Windows', " +
+            "so output targeted for module '${superPkgName}' will not be combined")
+        return
     }
 
-    dm.superPkgMap.remove(all: notSupportSet)
-    
-    if (!checkCombinedConfiguration(dm, isProjectCombine, notSupportSet)) {
-        return false
+    let superPkgCfg = SuperPackageConfig(superPkgName, Dynamic)
+    for (pkgName in dm.packageDepMap.keys()) {
+        if (superPkgName != pkgName.split(".")[0] || superPkgName == pkgName) {
+            continue
+        }
+        superPkgCfg.subPkgSet.add(pkgName)
+        if (!dm.packageDepMap[pkgName].isMacroPackage) {
+            dm.packageDepMap[pkgName].outputType = Static
+        }
+    }
+    dm.packageDepMap[superPkgName].superPkgCfg = superPkgCfg
+    if (dm.packageDepMap[superPkgName].outputType != Dynamic) {
+        println("Warning: output-type of combined root package '${superPkgName}' in " +
+            "${Path(dm.globalConfig.rootPath).join(CONFIG_FILE_NAME).toString()} is not 'dynamic', " +
+            "final output will be dynamic library")
+        dm.packageDepMap[superPkgName].outputType = Dynamic
+    }
+    dm.superPkgMap[superPkgName] = superPkgCfg
+}
+
+func dealWithSuperPkg(dm: DepModel, isProjectCombine: Bool): Unit {
+    // Determine whether the combined build strategy should actually take effect.
+    // Non-workspace: only when the root module explicitly configures combined and is valid.
+    // Workspace: only when every current member explicitly configures combined and is valid.
+    var combinedEffective = false
+    if (!isProjectCombine && !dm.superPkgMap.isEmpty()) {
+        if (!COMMON_INFO.inWorkspace) {
+            let rootName = dm.globalConfig.rootName
+            combinedEffective = dm.superPkgMap.contains(rootName) && isValidSuperPkgEntry(dm, rootName)
+        } else if (!COMMON_INFO.currentMembers.isEmpty()) {
+            combinedEffective = true
+            for (memberPath in COMMON_INFO.currentMembers) {
+                var memberIsCombined = false
+                for ((moduleName, finalDep) in dm.depAnalysisEngine.finalDepMap) {
+                    if (getCanonicalPath(finalDep.tomlInfo.pkg.path) == getCanonicalPath(memberPath) &&
+                        dm.superPkgMap.contains(moduleName) &&
+                        isValidSuperPkgEntry(dm, moduleName)) {
+                        memberIsCombined = true
+                        break
+                    }
+                }
+                if (!memberIsCombined) {
+                    combinedEffective = false
+                    break
+                }
+            }
+        }
+    }
+
+    // Reset superPkgMap and rebuild it only when combined is actually effective.
+    dm.superPkgMap.clear()
+    if (!combinedEffective) {
+        // Root/members did not request combined: treat combined as not enabled for this build.
+        // Any dependency-level combined configs are ignored without error.
+        return
+    }
+
+    // Auto-propagate combined config from root/members to all dependent source modules.
+    // processSingleSuperPkg handles validity checks and only adds valid modules to superPkgMap.
+    for ((moduleName, _) in dm.depAnalysisEngine.finalDepMap) {
+        processSingleSuperPkg(dm, moduleName)
     }
 
     dm.checkSuperPkgDep()
-    true
 }
 
 public func doCheck(memberModule: String, testCheck: Bool): Bool {
