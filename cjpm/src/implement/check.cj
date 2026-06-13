@@ -95,7 +95,16 @@ func checkCombinedConfiguration(dm: DepModel, isProjectCombine: Bool, notSupport
 func dealWithSuperPkg(dm: DepModel, isProjectCombine: Bool): Bool {
     let notSupportSet = HashSet<String>()
     var superPkgInValidFlag = false;
+    let compileTarget = getCompileTarget()
+    let configFilePath = Path(dm.globalConfig.rootPath).join(CONFIG_FILE_NAME).toString()
     for ((superPkgName, superPkgCfg) in dm.superPkgMap) {
+        if (compileTarget.contains("apple-ios") && isProjectCombine && dm.packageDepMap[superPkgName].outputType != Static) {
+            superPkgInValidFlag = true;
+            eprintln("Error: output-type of combined root package '${superPkgName}' in " +
+                "${configFilePath} is not 'static' for iOS " +
+                "when field 'combine-all-deps = true' is valid")
+            continue
+        }
         if (!dm.packageDepMap.contains(superPkgName)) {
             superPkgInValidFlag = true;
             eprintln("Error: field 'profile.build.combined' is not supported for root package '${superPkgName}' " +
@@ -107,8 +116,8 @@ func dealWithSuperPkg(dm: DepModel, isProjectCombine: Bool): Bool {
             notSupportSet.add(superPkgName)
             continue
         }
-        if (!isSupportCombine()) {
-            println("Warning: field 'profile.build.combined' only supports 'Linux/OHOS/Windows', " +
+        if (!(compileTarget.contains("apple-ios") && isProjectCombine) && !isSupportCombine()) {
+            println("Warning: field 'profile.build.combined' only supports 'Linux/OpenHarmony/Android/Windows', " +
                 "so output targeted for module '${superPkgName}' will not be combined")
             notSupportSet.add(superPkgName)
             continue
@@ -123,9 +132,9 @@ func dealWithSuperPkg(dm: DepModel, isProjectCombine: Bool): Bool {
             }
         }
         dm.packageDepMap[superPkgName].superPkgCfg = superPkgCfg
-        if (dm.packageDepMap[superPkgName].outputType != Dynamic) {
+        if (!compileTarget.contains("apple-ios") && dm.packageDepMap[superPkgName].outputType != Dynamic) {
             println("Warning: output-type of combined root package '${superPkgName}' in " +
-                "${Path(dm.globalConfig.rootPath).join(CONFIG_FILE_NAME).toString()} is not 'dynamic', " +
+                "${configFilePath} is not 'dynamic', " +
                 "final output will be dynamic library")
             dm.packageDepMap[superPkgName].outputType = Dynamic
         }
