@@ -887,7 +887,7 @@ class DepModel {
             propagatedFeatures[name] = HashSet()
         }
 
-        let target = if (crossCompileTarget.isEmpty()) { targetConfigName } else { crossCompileTarget }
+        let target = getCompileTarget()
         let triple = Triple.fromString(target).getOrThrow { err =>
             CliFailError("Error: invalid target '${target}': ${err}")
         }
@@ -1462,7 +1462,7 @@ func getActualName(pkgPath: String, rootPkgName: String): String {
 
 func constructSource(modulePath: String, srcDir: String, sourceSets: SourceLocations, deducer: FeatureDeducer, enabledFeatures: Array<Feature>, _globalFeatures: HashSet<Feature>): Result<(CJMPSource, HashSet<Feature>), String> {
     var _deducer = deducer
-    let target = if (crossCompileTarget.isEmpty()) { targetConfigName } else { crossCompileTarget }
+    let target = getCompileTarget()
     if (let Some(triple) <- Triple.fromString(target).ok) {
         _deducer = _deducer.deduceTargetFeatures(triple)
     }

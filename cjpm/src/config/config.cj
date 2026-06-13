@@ -45,6 +45,14 @@ public let CUR_PARALLEL_SIZE: AtomicInt64 = AtomicInt64(0)
 public var crossCompileTarget: String = ""
 public var targetConfigName: String = ""
 
+public func getCompileTarget(): String {
+    if (crossCompileTarget.isEmpty()) {
+        targetConfigName
+    } else {
+        crossCompileTarget
+    }
+}
+
 // Type for running resolve()
 public const RESOLVE_BUILD: String = "build"
 public const RESOLVE_TEST: String = "test"
@@ -1165,59 +1173,6 @@ public class GlobalConfig {
         this.enabledFeatures = globalConfig.enabledFeatures
         this.verifiedEnabledFeatures = globalConfig.verifiedEnabledFeatures
     }
-}
-
-public func linkPackage(libName: String, libPath: String, isLto: Bool): ArrayList<String> {
-    let processdLibName = swapOrgName(libName)
-    let res = ArrayList<String>()
-    let ltoFile = Path(libPath).join(makeLtoName(processdLibName)).toString()
-    if (isLto) {
-        if (fileExists(ltoFile)) {
-            res.add(ltoFile)
-            return res
-        }
-    }
-
-    if (fileExists(Path(libPath).join(makeCangjieStaticlibName(processdLibName))) || 
-        fileExists(Path(libPath).join("lib${processdLibName}.so")) || 
-        fileExists(Path(libPath).join("lib${processdLibName}.dll")) || 
-        fileExists(Path(libPath).join("lib${processdLibName}.dylib"))) {
-        res.add(all: ["-L", libPath, "-l${processdLibName}"])
-    } else if (fileExists(ltoFile)) {
-        res.add(ltoFile)
-    }
-
-    return res
-}
-
-public func forcedLinkPackage(libName: String, libPath: String, isLto: Bool): ArrayList<String> {
-    
-    let compileTarget = if (crossCompileTarget.isEmpty()) {
-        targetConfigName
-    } else {
-        crossCompileTarget
-    }
-    if (compileTarget.contains("darwin") || compileTarget.contains("apple")) {
-        return forcedLinkPackageForMac(libName, libPath, isLto)
-    } else {
-        return forcedLinkPackageForLinuxOrWin(libName, libPath, isLto)
-    }
-}
-
-public func forcedLinkPackageForLinuxOrWin(libName: String, libPath: String, isLto: Bool): ArrayList<String> {
-    return linkPackage(libName, libPath, isLto)
-}
-
-public func forcedLinkPackageForMac(libName: String, libPath: String, isLto: Bool): ArrayList<String> {
-    var res = ArrayList<String>()
-    let staticLibPath = Path(libPath).join(makeCangjieStaticlibName(libName)).toString()
-    let dyLibPath = Path(libPath).join("lib${libName}.dylib").toString()
-    if (fileExists(staticLibPath)) {
-        res.add(staticLibPath)
-    } else if (fileExists(dyLibPath)) {
-        res.add(all: linkPackage(libName, libPath, isLto))
-    }
-    return res
 }
 
 @When[os == "Windows"]
