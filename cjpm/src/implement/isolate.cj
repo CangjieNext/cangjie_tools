@@ -5,27 +5,19 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 package cjpm.implement
-import cjpm.config.*
 
 import cjpm.config.*
 
 public func supportLtoForTarget(compileTarget: String): Bool {
-    compileTarget.contains("linux")
+    compileTarget.contains("linux") || compileTarget.contains("apple-ios")
 }
 
 func supportLto(): Bool {
-    if (crossCompileTarget.isEmpty()) {
-        return supportLtoForTarget(targetConfigName)
-    }
-    return supportLtoForTarget(crossCompileTarget)
+    return supportLtoForTarget(getCompileTarget())
 }
 
 func isSupportCombine(): Bool {
-    let compileTarget = if (crossCompileTarget.isEmpty()) {
-            targetConfigName
-        } else {
-            crossCompileTarget
-        }
+    let compileTarget = getCompileTarget()
     let isTargetLinux = compileTarget.contains("linux")
     let isTargetAndroid = compileTarget.contains("android")
     let isTargetWindows = compileTarget.contains("windows") || compileTarget.contains("w64")
