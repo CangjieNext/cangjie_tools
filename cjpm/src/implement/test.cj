@@ -522,6 +522,36 @@ func appendLinkOption(option: String): Array<String> {
     return []
 }
 
+// Collect bin-dependencies link options for cjpm test (native + cross bin deps).
+func appendBinOptionForTest(res: ModuleResolve, requires: HashSet<String>, isLto: Bool): ArrayList<String> {
+    let binOptions = ArrayList<String>()
+    for ((_, eachModuleDepMap) in res.binDeps) {
+        for (depName in eachModuleDepMap.packageRequiresSort) {
+            if (!requires.contains(depName)) {
+                continue
+            }
+            let info = eachModuleDepMap.packageRequires[depName]
+            if (info.isMacroPackage) {
+                continue
+            }
+            binOptions.add(all: linkPackage(info.libName, info.libPath, isLto), at: 0)
+        }
+    }
+    for ((_, eachModuleDepMap) in res.crossBinDeps) {
+        for (depName in eachModuleDepMap.packageRequiresSort) {
+            if (!requires.contains(depName)) {
+                continue
+            }
+            let info = eachModuleDepMap.packageRequires[depName]
+            if (info.isMacroPackage) {
+                continue
+            }
+            binOptions.add(all: linkPackage(info.libName, info.libPath, isLto), at: 0)
+        }
+    }
+    return binOptions
+}
+
 func getLinkList(res: ModuleResolve, fullName: String, requires: HashSet<String>,
     testConfig: TestConfig): ArrayList<String> {
     let cLibNameList = HashSet<String>()

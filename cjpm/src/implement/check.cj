@@ -115,7 +115,8 @@ func processSingleSuperPkg(dm: DepModel, superPkgName: String): Unit {
         }
     }
     dm.packageDepMap[superPkgName].superPkgCfg = superPkgCfg
-    if (dm.packageDepMap[superPkgName].outputType != Dynamic) {
+    let compileTarget = getCompileTarget()
+    if (!compileTarget.contains("apple-ios") && dm.packageDepMap[superPkgName].outputType != Dynamic) {
         println("Warning: output-type of combined root package '${superPkgName}' in " +
             "${Path(dm.globalConfig.rootPath).join(CONFIG_FILE_NAME).toString()} is not 'dynamic', " +
             "final output will be dynamic library")
@@ -143,10 +144,29 @@ func reportInvalidSuperPkgEntry(dm: DepModel, pkgName: String): Unit {
     }
 }
 
+func validateIosProjectCombine(dm: DepModel): Bool {
+    let compileTarget = getCompileTarget()
+    if (!compileTarget.contains("apple-ios")) {
+        return true
+    }
+    let rootName = dm.globalConfig.rootName
+    if (!dm.packageDepMap.contains(rootName)) {
+        return true
+    }
+    if (dm.packageDepMap[rootName].outputType != Static) {
+        let configFilePath = Path(dm.globalConfig.rootPath).join(CONFIG_FILE_NAME).toString()
+        eprintln("Error: output-type of combined root package '${rootName}' in " +
+            "${configFilePath} is not 'static' for iOS " +
+            "when field 'combine-all-deps = true' is valid")
+        return false
+    }
+    return true
+}
+
 func dealWithSuperPkg(dm: DepModel, isProjectCombine: Bool): Bool {
     // Project-level combined has its own path; do not interfere.
     if (isProjectCombine) {
-        return true
+        return validateIosProjectCombine(dm)
     }
 
     // 1. Did the entry explicitly configure combined? (fact only, no validity check here)
