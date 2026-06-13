@@ -143,7 +143,18 @@ func crossCompileCheck(target: String): (Bool, Bool) {
         return (false, false)
     }
 
-    let REGEXP_CROSS_COMPILE = "^([-_a-zA-Z0-9]*)$"
+    if (target == "." || target == ".." || target.contains("..")) {
+        eprintln("Error: the cross-compile target '${target}' is wrong, the example is 'aarch64-hm-gnu'")
+        return (false, false)
+    }
+    for (segment in target.split("-")) {
+        if (segment == "." || segment == "..") {
+            eprintln("Error: the cross-compile target '${target}' is wrong, the example is 'aarch64-hm-gnu'")
+            return (false, false)
+        }
+    }
+
+    let REGEXP_CROSS_COMPILE = "^([-_a-zA-Z0-9.]*)$"
     var matched = Regex(REGEXP_CROSS_COMPILE)
     match (matched.find(target)) {
         case Some(_) =>
