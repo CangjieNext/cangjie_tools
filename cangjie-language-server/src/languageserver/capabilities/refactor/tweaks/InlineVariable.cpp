@@ -22,28 +22,23 @@ class InlineVariableSelectionRule : public TweakRule {
     bool Check(const Tweak::Selection &sel, std::map<std::string, std::string> &extraOptions) const override
     {
         auto root = sel.selectionTree.root();
-        if (!root || root->selected != SelectionTree::Selection::Complete) {
-            extraOptions.insert(std::make_pair("ErrorCode",
-                std::to_string(static_cast<int>(TweakRule::TweakError::ERROR_AST))));
-            return false;
+
+        auto toBeInline = root->node;
+        if (root->node->astKind == ASTKind::FUNC_ARG) {
+            auto funcArg = DynamicCast<FuncArg*>(root->node.get());
+            toBeInline = funcArg->expr;
         }
 
-        if (!root->node) {
-            extraOptions.insert(std::make_pair("ErrorCode",
-                std::to_string(static_cast<int>(TweakRule::TweakError::ERROR_AST))));
-            return false;
-        }
-
-        if (root->node->astKind != ASTKind::REF_EXPR) {
+        if (toBeInline->astKind != ASTKind::REF_EXPR) {
             extraOptions.insert(std::make_pair("ErrorCode",
                 std::to_string(static_cast<int>(InlineVariable::InlineVariableError::NOT_VAR_DECL_OR_REF))));
             return false;
         }
 
-        auto refExpr = DynamicCast<RefExpr*>(root->node.get());
+        auto refExpr = DynamicCast<RefExpr*>(toBeInline.get());
         if (!refExpr || refExpr->TestAttr(Attribute::LEFT_VALUE)) {
             extraOptions.insert(std::make_pair("ErrorCode",
-                std::to_string(static_cast<int>(TweakRule::TweakError::ERROR_AST))));
+                std::to_string(static_cast<int>(InlineVariable::InlineVariableError::LEFT_IN_DEC))));
             return false;
         }
 
@@ -83,17 +78,24 @@ bool InlineVariable::Prepare(const Selection &sel)
 
     ruleEngine.AddRule(std::make_unique<InlineVariableSelectionRule>());
 
-    return ruleEngine.CheckRules(sel, extraOptions);
+    ruleEngine.CheckRules(sel, extraOptions);
+    return true;
 }
 
 VarDecl* InlineVariable::GetVarDecl(const Selection &sel)
 {
     auto root = sel.selectionTree.root();
-    if (!root || !root->node || root->node->astKind != ASTKind::REF_EXPR) {
+    auto toBeInline = root->node;
+    if (root->node->astKind == ASTKind::FUNC_ARG) {
+        auto funcArg = DynamicCast<FuncArg*>(root->node.get());
+        toBeInline = funcArg->expr;
+    }
+
+    if (!toBeInline || toBeInline->astKind != ASTKind::REF_EXPR) {
         return nullptr;
     }
 
-    auto refExpr = DynamicCast<RefExpr*>(root->node.get());
+    auto refExpr = DynamicCast<RefExpr*>(toBeInline.get());
     if (!refExpr) {
         return nullptr;
     }
@@ -135,15 +137,10 @@ bool InlineVariable::NeedsParentheses(Expr* initExpr, const Selection &sel)
     return false;
 }
 
-TextEdit InlineVariable::ReplaceRefWithInitExpr(RefExpr* refExpr, const std::string &initExprCode)
+TextEdit InlineVariable::ReplaceRefWithInitExpr(const Selection &sel, const std::string &initExprCode)
 {
     TextEdit edit;
-
-    if (!refExpr) {
-        return edit;
-    }
-
-    Range refRange = {refExpr->begin, refExpr->end};
+    Range refRange = {sel.range.start, sel.range.end};
     refRange = TransformFromChar2IDE(refRange);
     edit.range = refRange;
     edit.newText = initExprCode;
@@ -164,16 +161,6 @@ std::optional<Tweak::Effect> InlineVariable::Apply(const Selection &sel)
         return std::nullopt;
     }
 
-    auto root = sel.selectionTree.root();
-    if (!root || !root->node || root->node->astKind != ASTKind::REF_EXPR) {
-        return std::nullopt;
-    }
-
-    auto refExpr = DynamicCast<RefExpr*>(root->node.get());
-    if (!refExpr) {
-        return std::nullopt;
-    }
-
     std::string initExprCode = GetSourceCode(varDecl->initializer, sel);
 
     bool needsParens = NeedsParentheses(varDecl->initializer.get(), sel);
@@ -183,7 +170,7 @@ std::optional<Tweak::Effect> InlineVariable::Apply(const Selection &sel)
 
     std::vector<TextEdit> textEdits;
 
-    TextEdit replaceEdit = ReplaceRefWithInitExpr(refExpr, initExprCode);
+    TextEdit replaceEdit = ReplaceRefWithInitExpr(sel, initExprCode);
     textEdits.push_back(replaceEdit);
 
     std::string filePath = sel.arkAst->file->filePath;

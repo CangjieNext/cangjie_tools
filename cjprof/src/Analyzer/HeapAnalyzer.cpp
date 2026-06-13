@@ -18,6 +18,12 @@
 
 static std::vector<std::pair<std::string, uint64_t>> g_phaseBreakdown;
 
+static std::string GetStringSafe(const std::map<Hprof::ID, std::string>& strings, Hprof::ID id)
+{
+    auto it = strings.find(id);
+    return it != strings.end() ? it->second : "";
+}
+
 static void AddPhase(const std::string& name, uint64_t ms)
 {
     g_phaseBreakdown.emplace_back(name, ms);
@@ -93,7 +99,7 @@ bool HeapAnalyzer::Analyze(bool verbose)
         AnalyzeObject();
     }
     auto t2 = std::chrono::steady_clock::now();
-if (!m_dumpReport) {
+    if (!m_dumpReport) {
         AnalyzeThread();
         FilterPlaceholderObjects();
     }
@@ -121,7 +127,11 @@ void HeapAnalyzer::ShowThread()
     for (auto thread : m_threads) {
         printf("%s\n", thread.name.c_str());
         for (auto frame : thread.frames) {
-            printf("  at %s (%s:%d)\n", frame.name.c_str(), frame.fileName.c_str(), frame.line);
+            if (frame.fileName.empty()) {
+                printf("  at %s\n", frame.name.c_str());
+            } else {
+                printf("  at %s (%s:%d)\n", frame.name.c_str(), frame.fileName.c_str(), frame.line);
+            }
             for (auto local : frame.locals) {
                 std::stringstream ss;
                 ss << local->name << " @ 0x" << std::hex << local->id;
@@ -211,6 +221,20 @@ void HeapAnalyzer::ShowReference(const std::string &objNameList, int maxDepth, b
 
     if (!str.empty()) {
         objNames.emplace(str);
+    }
+
+    if (!objNames.empty()) {
+        std::unordered_set<std::string> matchedNames;
+        for (auto obj : m_objects) {
+            if (objNames.count(obj->name) != 0) {
+                matchedNames.insert(obj->name);
+            }
+        }
+        for (const auto& name : objNames) {
+            if (matchedNames.find(name) == matchedNames.end()) {
+                printf("No objects found matching: %s\n", name.c_str());
+            }
+        }
     }
 
     const auto& locals = m_hprof.GetLocalsRoots();
@@ -415,7 +439,7 @@ void HeapAnalyzer::AnalyzeInstance()
         auto obj = GetObject(inst.first);
         auto cls = classes.at(inst.second.cls);
         obj->id = inst.first;
-        obj->name = ReplaceTypeName(strings.at(cls.name));
+        obj->name = ReplaceTypeName(GetStringSafe(strings, cls.name));
         obj->size = Align(cls.size);
         auto it = categories.find(inst.first);
         if (it != categories.end()) {
@@ -463,7 +487,7 @@ void HeapAnalyzer::AnalyzeArray()
         }
 
         auto cls = classes.at(arr.second.cls);
-        obj->name = ReplaceTypeName(strings.at(cls.name));
+        obj->name = ReplaceTypeName(GetStringSafe(strings, cls.name));
         obj->size += cls.size != 0 ?
             Align(uint64_t(cls.size) * (componentNums.find(obj->id) != componentNums.end() ?
                 componentNums.at(obj->id)
@@ -489,14 +513,18 @@ void HeapAnalyzer::AnalyzeThread()
     for (auto stackTrace : m_hprof.GetStackTraces()) {
         for (auto frame : stackTrace.second.frames) {
             stackTraces[stackTrace.first].push_back(
-                { strings.at(frames[frame].name), strings.at(frames[frame].fileName), int(frames[frame].line) }
+                { GetStringSafe(strings, frames[frame].name),
+                  GetStringSafe(strings, frames[frame].fileName),
+                  int(frames[frame].line)
+                }
             );
         }
     }
 
     std::map<Hprof::u4, Thread> threads;
     for (auto thread : m_hprof.GetThreads()) {
-        threads[thread.second.idx] = { strings.at(thread.second.name), stackTraces[thread.second.stackTraceIdx] };
+        threads[thread.second.idx] =
+            { GetStringSafe(strings, thread.second.name), stackTraces[thread.second.stackTraceIdx] };
     }
 
     for (auto local : m_hprof.GetLocalsRoots()) {
@@ -594,6 +622,7 @@ RawHeapSnapshot HeapAnalyzer::GetRawHeapSnapshot()
         RawHeapSnapshot::Node node = {};
         node.id = obj->id;
         GetRawHeapNodeType(node, locals, globals, unknown, arrays);
+        node.isPinned = (obj->category == static_cast<uint8_t>(ObjectCategory::PINNED_OBJECT));
         node.selfSize = obj->size;
         node.edgeCount = obj->outRef.size();
         node.nameIndex = GetRawHeapNameIndex(data, obj->name, nameIndexs);
@@ -768,6 +797,7 @@ static std::vector<cjprof::DominanceNode> BuildDominanceNodesFromHprof(const Hpr
     const auto& locals = hprof.GetLocalsRoots();
     const auto& globals = hprof.GetGlobalsRoots();
     const auto& unknown = hprof.GetUnknownRoots();
+    const auto& categories = hprof.GetObjectCategories();
 
     size_t n = instances.size() + arrays.size();
     if (n == 0) {
@@ -866,6 +896,15 @@ static std::vector<cjprof::DominanceNode> BuildDominanceNodesFromHprof(const Hpr
             gcRoots.push_back(it->second);
         }
     }
+    for (const auto& inst : instances) {
+        auto catIt = categories.find(inst.first);
+        if (catIt != categories.end() && catIt->second == ObjectCategory::PINNED_OBJECT) {
+            auto it = idToIndex.find(inst.first);
+            if (it != idToIndex.end() && std::find(gcRoots.begin(), gcRoots.end(), it->second) == gcRoots.end()) {
+                gcRoots.push_back(it->second);
+            }
+        }
+    }
 
     if (gcRoots.empty()) {
         return {};
@@ -899,6 +938,13 @@ static std::vector<cjprof::DominanceNode> BuildDominanceNodesFromHprof(const Hpr
     for (size_t v = 1; v <= n; ++v) {
         if (dom[v] == entry) {
             computeRetainedSize(v);
+        }
+    }
+
+    // unreachable nodes: retained = shallow
+    for (size_t i = 0; i < n; ++i) {
+        if (dom[i + 1] == result.noEntry) {
+            retainedSizes[i] = sizes[i];
         }
     }
 
@@ -942,11 +988,16 @@ static std::vector<cjprof::DominanceNode> BuildDominanceNodesFromHprof(const Hpr
         dn.retained_size = retainedSizes[i];
         dn.depth = depth[i] == UINT32_MAX ? 0 : depth[i];
         size_t parentOrdinal = dom[i + 1];
-        dn.parent_id = (parentOrdinal > 0 && parentOrdinal <= n) ? ids[parentOrdinal - 1] : 0;
+        if (parentOrdinal == result.noEntry) {
+            dn.parent_id = 0;
+        } else {
+            dn.parent_id = (parentOrdinal > 0 && parentOrdinal <= n) ? ids[parentOrdinal - 1] : 0;
+        }
         dn.instance_count = 1;
         dn.is_class_clustered = false;
         nodes.push_back(dn);
     }
+
     return nodes;
 }
 
@@ -975,7 +1026,7 @@ static std::vector<cjprof::DominanceNode> BuildDominanceNodes(const RawHeapSnaps
     // Identify GC Roots
     std::vector<size_t> gcRoots;
     for (size_t i = 0; i < n; ++i) {
-        if (preds[i].empty() || rhs.nodes[i].IsRoot()) {
+        if (preds[i].empty() || rhs.nodes[i].IsRoot() || rhs.nodes[i].isPinned) {
             gcRoots.push_back(i);
         }
     }
@@ -1004,6 +1055,13 @@ static std::vector<cjprof::DominanceNode> BuildDominanceNodes(const RawHeapSnaps
     for (size_t v = 1; v <= n; ++v) {
         if (dom[v] == entry) {
             computeRetainedSize(v);
+        }
+    }
+
+    // unreachable nodes: retained = shallow
+    for (size_t i = 0; i < n; ++i) {
+        if (dom[i + 1] == result.noEntry) {
+            retainedSizes[i] = rhs.nodes[i].selfSize;
         }
     }
 
@@ -1038,7 +1096,11 @@ static std::vector<cjprof::DominanceNode> BuildDominanceNodes(const RawHeapSnaps
         dn.retained_size = retainedSizes[i];
         dn.depth = depth[i] == UINT32_MAX ? 0 : depth[i];
         size_t parentOrdinal = dom[i + 1];
-        dn.parent_id = (parentOrdinal > 0 && parentOrdinal <= n) ? rhs.nodes[parentOrdinal - 1].id : 0;
+        if (parentOrdinal == result.noEntry) {
+            dn.parent_id = 0;
+        } else {
+            dn.parent_id = (parentOrdinal > 0 && parentOrdinal <= n) ? rhs.nodes[parentOrdinal - 1].id : 0;
+        }
         dn.instance_count = 1;
         dn.is_class_clustered = false;
         nodes.push_back(dn);
@@ -1274,11 +1336,13 @@ bool HeapAnalyzer::StartReportServer(int port)
     auto t_index_start = std::chrono::steady_clock::now();
     for (const auto& node : *context->dominanceNodes) {
         context->objectIdToRetainedSize[node.object_id] = node.retained_size;
+        context->objectIdToDominanceNode[node.object_id] = &node;
         if (node.parent_id != 0) {
             context->childrenByParentId[node.parent_id].push_back(&node);
         }
     }
     // Build object_id -> class_name index (reuse buildObjectIdToClassMap logic inline)
+    // Also build className -> DominanceNode* index for by-type handlers
     {
         std::unordered_map<uint64_t, std::string> classIdToNameMap;
         if (context->classes) {
@@ -1308,6 +1372,13 @@ bool HeapAnalyzer::StartReportServer(int port)
                     className = (it != classIdToNameMap.end()) ? it->second : "unknown";
                 }
                 context->objectIdToClassName[obj.object_id] = className;
+                // Build className -> DominanceNode* index (only for objects in dominance tree)
+                if (className != "unknown") {
+                    auto dnIt = context->objectIdToDominanceNode.find(obj.object_id);
+                    if (dnIt != context->objectIdToDominanceNode.end()) {
+                        context->classNameToDominanceNodes[className].push_back(dnIt->second);
+                    }
+                }
             }
         }
     }

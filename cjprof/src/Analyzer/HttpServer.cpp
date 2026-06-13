@@ -18,6 +18,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
+#include <limits.h>
 #endif
 
 namespace cjprof {
@@ -45,11 +46,45 @@ static std::string guessMimeType(const std::string& path)
     return "application/octet-stream";
 }
 
-HttpServer::HttpServer(int port) : port_(port) {}
+HttpServer::HttpServer(int port) : port_(port)
+{
+    staticRootPath_ = getExeDir() + "/../config/static";
+}
 
 HttpServer::~HttpServer()
 {
     stop();
+}
+
+std::string HttpServer::getExeDir()
+{
+#ifdef _WIN32
+    char buf[MAX_PATH];
+    GetModuleFileNameA(nullptr, buf, MAX_PATH);
+    // Find last backslash to get directory
+    char* lastSlash = strrchr(buf, '\\');
+    if (lastSlash) {
+        *lastSlash = '\0';
+    }
+    return std::string(buf);
+#else
+    char buf[PATH_MAX];
+    ssize_t len = readlink("/proc/self/exe", buf, PATH_MAX);
+    if (len > 0) {
+        buf[len] = '\0';
+        char* lastSlash = strrchr(buf, '/');
+        if (lastSlash) {
+            *lastSlash = '\0';
+        }
+        return std::string(buf);
+    }
+    // Fallback: use current working directory
+    char cwd[PATH_MAX];
+    if (getcwd(cwd, PATH_MAX)) {
+        return std::string(cwd);
+    }
+    return ".";
+#endif
 }
 
 bool HttpServer::isPortInUse(int port)
@@ -68,12 +103,9 @@ bool HttpServer::isPortInUse(int port)
         return false;
     }
 
-    int opt = 1;
-#ifdef _WIN32
-    setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
-#else
-    setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-#endif
+    // Note: Do NOT set SO_REUSEADDR here. On Windows, SO_REUSEADDR allows
+    // multiple sockets to bind the same port, making this test unreliable.
+    // Without it, bind() correctly detects ports already in use on all platforms.
 
     sockaddr_in addr = {};
     addr.sin_family = AF_INET;
@@ -170,8 +202,8 @@ void HttpServer::start()
     });
 
     // Static files under /static/
-    svr->Get(R"(/static/(.+))", [](const httplib::Request& req, httplib::Response& res) {
-        std::string filepath = "static/" + req.matches[1].str();
+    svr->Get(R"(/static/(.+))", [staticRoot = staticRootPath_](const httplib::Request& req, httplib::Response& res) {
+        std::string filepath = staticRoot + "/" + req.matches[1].str();
         std::ifstream file(filepath, std::ios::binary);
         if (!file) {
             res.status = 404;
@@ -183,8 +215,9 @@ void HttpServer::start()
     });
 
     // Root -> serve index.html directly
-    svr->Get("/", [](const httplib::Request&, httplib::Response& res) {
-        std::ifstream file("static/html/index.html", std::ios::binary);
+    svr->Get("/", [staticRoot = staticRootPath_](const httplib::Request&, httplib::Response& res) {
+        std::string filepath = staticRoot + "/html/index.html";
+        std::ifstream file(filepath, std::ios::binary);
         if (file) {
             std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
             res.set_content(content, "text/html");

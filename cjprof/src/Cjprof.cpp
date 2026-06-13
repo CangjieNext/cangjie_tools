@@ -47,6 +47,85 @@ static void dfs(size_t node,
     reversePostOrder.push_back(node);
 }
 
+struct PostOrderMaps {
+    const std::unordered_map<size_t, size_t>& postOrderIndex2Index;
+    const std::unordered_map<size_t, size_t>& index2PostOrderIndex;
+};
+
+static bool tryUpdateNewDom(
+    const std::vector<size_t>& idom,
+    size_t noEntry,
+    size_t entryPostOrderedIndex,
+    size_t retainerPostOrderIndex,
+    size_t& newDom)
+{
+    if (idom[retainerPostOrderIndex] == noEntry) {
+        return false;
+    }
+    if (newDom == noEntry) {
+        newDom = retainerPostOrderIndex;
+    } else {
+        newDom = intersect(idom, newDom, retainerPostOrderIndex);
+    }
+    return newDom == entryPostOrderedIndex;
+}
+
+static std::vector<size_t> computeIdom(
+    size_t entryPostOrderedIndex,
+    size_t noEntry,
+    const std::vector<std::vector<size_t>>& predList,
+    const std::vector<std::vector<size_t>>& graph,
+    const PostOrderMaps& maps)
+{
+    std::vector<size_t> idom(maps.postOrderIndex2Index.size(), noEntry);
+    idom[entryPostOrderedIndex] = entryPostOrderedIndex;
+
+    std::vector<bool> affected(maps.postOrderIndex2Index.size(), false);
+    for (auto succ : graph[0]) {
+        auto it = maps.index2PostOrderIndex.find(succ);
+        if (it != maps.index2PostOrderIndex.end()) {
+            affected[it->second] = true;
+        }
+    }
+
+    bool changed = true;
+    while (changed) {
+        changed = false;
+        for (auto postOrderIndex = entryPostOrderedIndex; postOrderIndex-- > 0;) {
+            if (!affected[postOrderIndex]) {
+                continue;
+            }
+            affected[postOrderIndex] = false;
+            if (idom[postOrderIndex] == entryPostOrderedIndex) {
+                continue;
+            }
+            auto newDom = noEntry;
+            for (auto p : predList[maps.postOrderIndex2Index.at(postOrderIndex)]) {
+                auto it = maps.index2PostOrderIndex.find(p);
+                if (it == maps.index2PostOrderIndex.end()) {
+                    continue; // skip unreachable predecessor
+                }
+                auto retainerPostOrderIndex = it->second;
+                if (tryUpdateNewDom(idom, noEntry, entryPostOrderedIndex,
+                                    retainerPostOrderIndex, newDom)) {
+                    break;
+                }
+            }
+            if (newDom != noEntry && idom[postOrderIndex] != newDom) {
+                idom[postOrderIndex] = newDom;
+                changed = true;
+                for (auto succ : graph[maps.postOrderIndex2Index.at(postOrderIndex)]) {
+                    auto it = maps.index2PostOrderIndex.find(succ);
+                    if (it != maps.index2PostOrderIndex.end()) {
+                        affected[it->second] = true;
+                    }
+                }
+            }
+        }
+    }
+    return idom;
+}
+
 DominanceTreeResult ComputeDominanceTree(
     size_t n,
     const std::vector<std::vector<size_t>>& succs,
@@ -86,63 +165,25 @@ DominanceTreeResult ComputeDominanceTree(
     }
 
     // Cooper et al. Algorithm
-    auto entryPostOrderedIndex = totalNodes - 1;
-    auto noEntry = totalNodes;
-    std::vector<size_t> idom(totalNodes, noEntry);
-    idom[entryPostOrderedIndex] = entryPostOrderedIndex;
-
-    std::vector<bool> affected(totalNodes, false);
-    for (auto succ : graph[entry]) {
-        affected[index2PostOrderIndex[succ]] = true;
-    }
-
-    bool changed = true;
-    while (changed) {
-        changed = false;
-        for (auto postOrderIndex = entryPostOrderedIndex; postOrderIndex-- > 0;) {
-            if (affected[postOrderIndex] == false) {
-                continue;
-            }
-            affected[postOrderIndex] = false;
-            if (idom[postOrderIndex] == entryPostOrderedIndex) {
-                continue;
-            }
-            auto newDom = noEntry;
-            for (auto p : predList[postOrderIndex2Index[postOrderIndex]]) {
-                auto retainerPostOrderIndex = index2PostOrderIndex[p];
-                if (idom[retainerPostOrderIndex] != noEntry) {
-                    if (newDom == noEntry) {
-                        newDom = retainerPostOrderIndex;
-                    } else {
-                        newDom = intersect(idom, newDom, retainerPostOrderIndex);
-                    }
-                    if (newDom == entryPostOrderedIndex) {
-                        break;
-                    }
-                }
-            }
-            if (newDom != noEntry && idom[postOrderIndex] != newDom) {
-                idom[postOrderIndex] = newDom;
-                changed = true;
-                for (auto succ : graph[postOrderIndex2Index[postOrderIndex]]) {
-                    affected[index2PostOrderIndex[succ]] = true;
-                }
-            }
-        }
-    }
+    auto entryPostOrderedIndex = postOrder.size() - 1;
+    auto noEntry = postOrder.size();
+    PostOrderMaps maps{postOrderIndex2Index, index2PostOrderIndex};
+    auto idom = computeIdom(entryPostOrderedIndex, noEntry, predList, graph, maps);
 
     std::vector<size_t> dom(totalNodes, noEntry);
-    for (size_t postOrderIndex = 0; postOrderIndex < totalNodes; ++postOrderIndex) {
+    for (size_t postOrderIndex = 0; postOrderIndex < postOrder.size(); ++postOrderIndex) {
         auto idx = postOrderIndex2Index[postOrderIndex];
         dom[idx] = postOrderIndex2Index[idom[postOrderIndex]];
     }
 
     std::vector<std::vector<size_t>> domTree(totalNodes);
     for (size_t v = 1; v <= n; ++v) {
-        domTree[dom[v]].push_back(v);
+        if (dom[v] != noEntry) {
+            domTree[dom[v]].push_back(v);
+        }
     }
 
-    return {dom, domTree};
+    return {dom, domTree, noEntry};
 }
 
 class RawHeapSnapshotData {
@@ -157,6 +198,7 @@ public:
         std::vector<uint32_t> children;     // child index in insNodes
         std::vector<uint32_t> references;   // parent index in insNodes
         bool isRoot;
+        bool isPinned = false;
     };
     struct ConNode {
         uint64_t id;
@@ -191,7 +233,7 @@ public:
 
         std::vector<size_t> gcRoots;
         for (size_t i = 0; i < n; ++i) {
-            if (preds[i].empty() || rhs.nodes[i].IsRoot()) {
+            if (preds[i].empty() || insNodes[i].isRoot || insNodes[i].isPinned) {
                 gcRoots.push_back(i);
             }
         }
@@ -341,6 +383,7 @@ public:
             insNode.nameIndex = node.nameIndex;
             insNode.shallowSize = node.selfSize;
             insNode.isRoot = node.IsRoot();
+            insNode.isPinned = node.isPinned;
             for (uint32_t i = 0; i < node.edgeCount; i++) {
                 if (edgeIndex + i >= rhs.edges.size()) break;
                 auto toNodeIndex = rhs.edges[edgeIndex + i].toNode;
@@ -534,7 +577,7 @@ public:
                 ThreadInfo::Frame frame;
                 frame.funcName = rhs.strings[fr.funcName];
                 frame.id = std::hash<std::string>()(frame.funcName);
-                frame.fileName = rhs.strings[fr.fileName];
+                frame.fileName = (fr.fileName < rhs.strings.size()) ? rhs.strings[fr.fileName] : "";
                 frame.line = fr.line;
                 for (auto index : fr.locals) {
                     frame.locals.emplace_back(CreateInstanceNode(index));
@@ -955,6 +998,38 @@ std::vector<T> getSubRange(const std::vector<T>& vec, size_t index, size_t lengt
     return {vec.begin() + start, vec.begin() + start + validLen};
 }
 
+static std::tuple<std::vector<InstanceNode>, std::vector<bool>, uint32_t> buildDiffChildrenAndStates(
+    const std::vector<InstanceNode>& baseChildren,
+    const std::vector<InstanceNode>& targetChildren,
+    uint32_t startIndex, uint32_t length)
+{
+    std::unordered_set<uint64_t> baseChildIds;
+    std::unordered_set<uint64_t> targetChildIds;
+    for (auto& child : baseChildren) baseChildIds.emplace(child.id);
+    for (auto& child : targetChildren) targetChildIds.emplace(child.id);
+
+    std::vector<InstanceNode> diffNodes;
+    std::vector<bool> states;
+    for (const auto& node : baseChildren) {
+        if (!targetChildIds.count(node.id)) {
+            diffNodes.emplace_back(node);
+            states.push_back(true);
+        }
+    }
+    for (const auto& node : targetChildren) {
+        if (!baseChildIds.count(node.id)) {
+            diffNodes.emplace_back(node);
+            states.push_back(false);
+        }
+    }
+
+    return {
+        getSubRange(diffNodes, startIndex, length),
+        getSubRange(states, startIndex, length),
+        static_cast<uint32_t>(diffNodes.size())
+    };
+}
+
 ConstructorDiffNode ExpandConstructorDiffNode(
     uint64_t baseSnapshotId, uint64_t targetSnapshotId, uint64_t nodeId, uint32_t startIndex, uint32_t length)
 {
@@ -986,38 +1061,29 @@ ConstructorDiffNode ExpandConstructorDiffNode(
     uint32_t targetShallowSize = isTargetValid ? targetNode.shallowSize : 0;
 
     std::vector<InstanceNode> children;
+    std::vector<bool> childAddedStates;
     uint32_t childrenCount = 0;
     if (isBaseValid && isTargetValid) {
         auto baseChildren = ExpandConstructorNode(
             baseSnapshotId, baseNode.id, 0, baseNode.childrenCount).children;
         auto targetChildren = ExpandConstructorNode(
             targetSnapshotId, targetNode.id, 0, targetNode.childrenCount).children;
-        std::unordered_set<uint64_t> baseChildIds;
-        std::unordered_set<uint64_t> targetChildIds;
-        for (auto& child : baseChildren) baseChildIds.emplace(child.id);
-        for (auto& child : targetChildren) targetChildIds.emplace(child.id);
-        std::vector<InstanceNode> diffNodes;
-        for (const auto& node : baseChildren) {
-            if (!targetChildIds.count(node.id)) diffNodes.emplace_back(node);
-        }
-        for (const auto& node : targetChildren) {
-            if (!baseChildIds.count(node.id)) {
-                diffNodes.emplace_back(node);
-            }
-        }
-        childrenCount = diffNodes.size();
-        children = getSubRange(diffNodes, startIndex, length);
+        std::tie(children, childAddedStates, childrenCount) = buildDiffChildrenAndStates(
+            baseChildren, targetChildren, startIndex, length);
     } else if (isTargetValid) {
         childrenCount = targetNode.childrenCount;
         auto targetChildren = ExpandConstructorNode(
             targetSnapshotId, targetNode.id, 0, targetNode.childrenCount).children;
         children = getSubRange(targetChildren, startIndex, length);
+        std::vector<bool> states(targetChildren.size(), false);
+        childAddedStates = getSubRange(states, startIndex, length);
     } else {
         childrenCount = baseNode.childrenCount;
         auto baseChildren = ExpandConstructorNode(
             baseSnapshotId, baseNode.id, 0, baseNode.childrenCount).children;
         children = getSubRange(baseChildren, startIndex, length);
-        children = getSubRange(baseChildren, startIndex, length);
+        std::vector<bool> states(baseChildren.size(), true);
+        childAddedStates = getSubRange(states, startIndex, length);
     }
 
     ConstructorDiffNode diffNode(
@@ -1030,6 +1096,7 @@ ConstructorDiffNode ExpandConstructorDiffNode(
         targetTotalSize
     );
     diffNode.children = children;
+    diffNode.childAddedStates = childAddedStates;
     diffNode.childrenCount = childrenCount;
     diffNode.startPosition = startIndex;
     diffNode.endPosition = startIndex + length - 1;

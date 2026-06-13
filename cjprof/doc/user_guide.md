@@ -148,6 +148,9 @@ Specifies the maximum display depth of object reference/referenced relationships
 `-d, --dump <pid>`
 Dumps the current heap memory of a Cangjie application, where `pid` is the process ID of the application. It also works if a child thread ID of the application is provided.
 
+`--dump-report[=<port>]`
+Starts an HTTP report server to view heap memory analysis results visually in a web browser. `port` specifies the server listening port, with a default of 8080. When specifying a port, use `=` to connect (e.g., `--dump-report=9090`); space separation is not supported. The server keeps running after analysis completes; press `Ctrl+C` to stop it.
+
 `-i, --input <file>`
 Specifies the heap memory data file to analyze. The default is `cjprof.data`.
 
@@ -155,7 +158,7 @@ Specifies the heap memory data file to analyze. The default is `cjprof.data`.
 Specifies the filename of the exported heap memory data. The default is `cjprof.data`.
 
 `--show-reference[=<objnames>]`
-Displays object reference relationships in the analysis report. `objnames` are the names of objects to display, separated by `;` for multiple objects. When not specified, all objects are displayed by default. If the object is a root node of the heap, the root node category of the heap it belongs to will also be displayed.
+Displays object reference relationships in the analysis report. `objnames` are the names of objects to display, which must be fully qualified names, separated by `;` for multiple objects. When not specified, all objects are displayed by default. If the object is a root node of the heap, the root node category of the heap it belongs to will also be displayed.
 
 `--incoming-reference`
 Displays referenced-by relationships of objects instead of reference relationships. Must be used together with `--show-reference`.
@@ -180,6 +183,19 @@ cjprof heap -d 12345 -o heap.data
 > Dumping heap memory sends a `SIG_USR1` signal to the target process. Exercise caution when unsure whether the target process is a Cangjie application, as sending the signal incorrectly may cause unexpected errors.
 > Both the directory of the running Cangjie program and the directory where the dump command is executed require write permissions; otherwise, the operation may fail due to insufficient permissions.
 
+- Start heap memory analysis report server.
+
+```text
+# Parse and analyze the heap memory data file heap.data in the current directory, start an HTTP report server on port 9090, and access http://localhost:9090 in a web browser to view the visual analysis report.
+cjprof heap -i heap.data --dump-report=9090
+```
+
+> **Note:**
+>
+> If a proxy is configured, the web page may not be accessible. You need to remove the proxy before accessing it through a web browser.
+
+The visual analysis report provides a dominance tree view, displaying the dominance relationships of heap objects. It supports two visualization modes: sunburst chart and tree chart. Objects can be displayed at two granularity levels: by object or by type. Objects whose proportion falls below the threshold are merged into summary nodes. A Top 10 ranking is provided, showing the top 10 objects by retained heap size.
+
 - Analyze heap memory data and display object information.
 
 ```text
@@ -190,11 +206,11 @@ cjprof heap -i ~/heap.data
 The output of the above command is as follows:
 
 ```text
-Object Type           Objects        Shallow Heap   Retained Heap
-====================  =============  =============  =============
-AAA                               1            80             400
-BBB                               4            32             196
-CCC                               2            16              32
+Object Type                                     Objects   Shallow Heap   Retained Heap
+=========================================  ============  =============  ==============
+default::AAA                                          1             80             400
+default::BBB                                          4             32             196
+default::CCC                                          2             16              32
 ```
 
 - Analyze heap memory data and display Cangjie thread stacks and object references.
@@ -207,55 +223,55 @@ cjprof heap --show-thread
 The output of the above command is as follows:
 
 ```text
-Object/Stack Frame                   Shallow Heap   Retained Heap
-===================================  =============  =============
+Object/Stack Frame                                Shallow Heap   Retained Heap
+===============================================  =============  ==============
 thread0
   at Func2() (/home/test/test.cj:10)
-    <local> AAA @ 0x7f1234567800                80            400
+    <local> default::AAA @ 0x7f1234567800                   80             400
   at Func1() (/home/test/test.cj:20)
-    <local> CCC @ 0x7f12345678c0                16             16
+    <local> default::CCC @ 0x7f12345678c0                   16              16
   at main (/home/test/test.cj:30)
 ```
 
 - Analyze heap memory data and display object reference relationships.
 
 ```text
-# Parse and analyze the heap memory data file cjprof.data (default file) in the current directory, displaying reference relationships of objects of type AAA and BBB.
-cjprof heap --show-reference="AAA;BBB"
+# Parse and analyze the heap memory data file cjprof.data (default file) in the current directory, displaying reference relationships of objects of type default::AAA and default::BBB.
+cjprof heap --show-reference="default::AAA;default::BBB"
 ```
 
 The output of the above command is as follows:
 
 ```text
 Objects with outgoing references:
-Object Type                          Shallow Heap   Retained Heap
-===================================  =============  =============
-AAA @ 0x7f1234567800                            80            400
-  BBB @ 0x7f1234567880                          32             48
-    CCC @ 0x7f12345678c0                        16             16
-  CCC @ 0x7f12345678e0                          16             16
-BBB @ 0x7f1234567880                            32             48
-  CCC @ 0x7f12345678c0                          16             16
+Object Type                                       Shallow Heap   Retained Heap
+===============================================  =============  ==============
+default::AAA @ 0x7f1234567800                               80             400
+  default::BBB @ 0x7f1234567880                             32              48
+    default::CCC @ 0x7f12345678c0                           16              16
+  default::CCC @ 0x7f12345678e0                             16              16
+default::BBB @ 0x7f1234567880                               32              48
+  default::CCC @ 0x7f12345678c0                             16              16
 ```
 
 - Analyze heap memory data and display referenced-by relationships of objects.
 
 ```text
-# Parse and analyze the heap memory data file cjprof.data (default file) in the current directory, displaying referenced-by relationships of objects of type CCC.
-cjprof heap --show-reference="CCC" --incoming-reference
+# Parse and analyze the heap memory data file cjprof.data (default file) in the current directory, displaying referenced-by relationships of objects of type default::CCC.
+cjprof heap --show-reference="default::CCC" --incoming-reference
 ```
 
 The output of the above command is as follows:
 
 ```text
 Objects with incoming references:
-Object Type                          Shallow Heap   Retained Heap
-===================================  =============  =============
-CCC @ 0x7f12345678c0                            16             16
-  BBB @ 0x7f1234567880                          32             48
-    AAA @ 0x7f1234567800                        80            400
-CCC @ 0x7f12345678e0                            16             16
-  AAA @ 0x7f1234567800                          80            400
+Object Type                                       Shallow Heap   Retained Heap
+===============================================  =============  ==============
+default::CCC @ 0x7f12345678c0                               16              16
+  default::BBB @ 0x7f1234567880                             32              48
+    default::AAA @ 0x7f1234567800                           80             400
+default::CCC @ 0x7f12345678e0                               16              16
+  default::AAA @ 0x7f1234567800                             80             400
 ```
 
 #### Heap Memory Analysis Report Explanation
@@ -638,6 +654,7 @@ Returns the diff Constructor node that the matched diff Instance node belongs to
 - int64_t sizeDelta: Difference between shallow heap size of added objects and removed objects
 - uint32_t baseTotalSize: Total heap size of base heap snapshot
 - uint32_t targetTotalSize: Total heap size of target heap snapshot
+- std::vector<bool> childAddedStates: List indicating whether each contained Instance node is added or removed
 
 ##### class ThreadInfo
 
