@@ -29,6 +29,11 @@ bool StartsWith(const std::string &text, const std::string &prefix)
     return text.size() >= prefix.size() && text.compare(0, prefix.size(), prefix) == 0;
 }
 
+bool IsGeneratedAnnotationBlock(const std::string &text)
+{
+    return StartsWith(text, "@!APILevel[");
+}
+
 std::string NormalizeHoverLineEndings(const std::string &text)
 {
     std::string result;
@@ -66,7 +71,7 @@ std::string EscapeMarkdownText(const std::string &text)
     escaped.reserve(text.size());
     for (char ch : text) {
         if (ch == '\\' || ch == '`' || ch == '*' || ch == '_' || ch == '[' || ch == ']' ||
-            ch == '<' || ch == '>' || ch == '#') {
+            ch == '<' || ch == '>' || ch == '#' || ch == '@') {
             escaped.push_back('\\');
         }
         escaped.push_back(ch);
@@ -102,7 +107,7 @@ HoverMarkdownBlocks CollectHoverMarkdownBlocks(const ark::Hover &hover)
             blocks.sourceInfo.push_back(block);
         } else if (StartsWith(block, "apiKey:") || StartsWith(block, "// In ")) {
             blocks.declarations.push_back(block);
-        } else if (!hasPrimaryDeclaration || StartsWith(block, "@")) {
+        } else if (!hasPrimaryDeclaration || IsGeneratedAnnotationBlock(block)) {
             blocks.declarations.push_back(block);
             hasPrimaryDeclaration = true;
         } else {

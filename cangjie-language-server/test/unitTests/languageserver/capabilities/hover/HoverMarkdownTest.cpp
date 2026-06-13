@@ -113,6 +113,23 @@ TEST(HoverMarkdownTest, EscapesMarkdownOutsideCodeFence)
     EXPECT_NE(result.find("```cangjie\npublic func name(): String\n```\n"), std::string::npos);
 }
 
+TEST(HoverMarkdownTest, EscapesAtSignInComments)
+{
+    ark::Hover hover = MakeHover({
+        "var cx: Int64",
+        "@Test",
+    });
+
+    EXPECT_EQ(ark::BuildHoverMarkdown(hover),
+        "```cangjie\n"
+        "var cx: Int64\n"
+        "```\n"
+        "\n"
+        "---\n"
+        "\n"
+        "\\@Test  \n");
+}
+
 TEST(HoverMarkdownTest, PreservesLineBreaksInCommentBlocks)
 {
     ark::Hover hover = MakeHover({
@@ -166,9 +183,6 @@ TEST(HoverMarkdownTest, ClassifiesShortPrefixesAndAtBlocks)
     EXPECT_EQ(ark::BuildHoverMarkdown(hover),
         "```cangjie\n"
         "Declared\n"
-        "@Deprecated[\n"
-        "    message: \"use next\"\n"
-        "]\n"
         "```\n"
         "\n"
         "---\n"
@@ -177,6 +191,11 @@ TEST(HoverMarkdownTest, ClassifiesShortPrefixesAndAtBlocks)
         "\n"
         "\n"
         "//  \n"
+        "\n"
+        "\n"
+        "\\@Deprecated\\[  \n"
+        "    message: \"use next\"  \n"
+        "\\]  \n"
         "\n"
         "\n"
         "Trailing comment.  \n");
