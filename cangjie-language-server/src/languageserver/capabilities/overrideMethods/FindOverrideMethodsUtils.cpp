@@ -5,6 +5,7 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 #include "FindOverrideMethodsUtils.h"
+#include "cangjie/AST/Node.h"
 #include "cangjie/Lex/Token.h"
 #include "../../common/Utils.h"
 
@@ -51,10 +52,15 @@ void FilterModifiers(Ptr<Decl> decl, std::vector<std::string>& modifiers)
         filterItems.insert("public");
     }
 
-    if (decl->astKind == ASTKind::EXTEND_DECL) {
+    if (decl->astKind  == ASTKind::STRUCT_DECL || decl->astKind == ASTKind::ENUM_DECL ||
+        decl->astKind == ASTKind::EXTEND_DECL) {
         filterItems.insert("open");
         filterItems.insert("override");
         filterItems.insert("redef");
+    }
+
+    if(decl->astKind  == ASTKind::ENUM_DECL || decl->astKind == ASTKind::EXTEND_DECL) {
+        filterItems.insert("mut");
     }
 
     for (auto it = modifiers.begin(); it != modifiers.end();) {
