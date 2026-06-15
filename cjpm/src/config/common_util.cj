@@ -59,20 +59,33 @@ public func execWithOutput(exeTool: String, arguments: ArrayList<String>,
         return (false, outInfo, errInfo)
     }
 
-    let outInfoFuture = spawn {StringReader(subProcess.stdOutPipe).readToEnd()}
     let errInfoFuture = spawn {StringReader(subProcess.stdErrPipe).readToEnd()}
 
     var success = false
-    try {
-        let returnCode = subProcess.wait(timeout: timeout)
-        success = returnCode == 0
-    } catch (e: Exception) {
-        try { subProcess.terminate(force: true) } catch (_: Exception) {}
-        eprintln(e.message)
+    if (let Some(t) <- timeout) {
+        let outInfoFuture = spawn {StringReader(subProcess.stdOutPipe).readToEnd()}
+        try {
+            outInfo = outInfoFuture.get(t)
+        } catch (_: TimeoutException) {
+            try { subProcess.terminate(force: true) } catch (_: Exception) {}
+            try { outInfo = outInfoFuture.get() } catch (_: Exception) {}
+        }
+    } else {
+        try {
+            outInfo = StringReader(subProcess.stdOutPipe).readToEnd()
+        } catch (e: Exception) {
+            try { subProcess.terminate(force: true) } catch (_: Exception) {}
+            eprintln(e.message)
+        }
     }
 
-    try { outInfo = outInfoFuture.get() } catch (_: Exception) {}
     try { errInfo = errInfoFuture.get() } catch (_: Exception) {}
+
+    try {
+        let returnCode = subProcess.wait()
+        success = returnCode == 0
+    } catch (_: Exception) {}
+
     return (success, outInfo, errInfo)
 }
 
