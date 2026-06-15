@@ -45,7 +45,7 @@ func doLint(tomlInfo: TomlInfo, isVerbose: Bool, targetDir!: String = TARGET): B
                 let cmdStr: String = "cjlint -f ${path} 2>&1"
                 println("check codes in ${path}: ${cmdStr}")
             }
-            let (flag, outInfo, errInfo) = execWithOutput("cjlint", ArrayList<String>(["-f", path.toString()]), envMap: cjlintEnv, spawnForScript: true)
+            let (flag, outInfo, errInfo) = execWithOutput("cjlint", ArrayList<String>(["-f", path.toString()]), envMap: cjlintEnv)
             let output: String = errInfo + outInfo
             print(output)
             totalflag &&= flag
@@ -68,7 +68,7 @@ func doLint(tomlInfo: TomlInfo, isVerbose: Bool, targetDir!: String = TARGET): B
             println("check codes in ${tomlInfo.pkg.srcDir.value}: ${cmdStr}")
         }
         let cjlintEnv = exportCjlintDylib()
-        let (flag, outInfo, errInfo) = execWithOutput("cjlint", ArrayList<String>(["-f", tomlInfo.pkg.srcDir.value]), envMap: cjlintEnv, spawnForScript: true)
+        let (flag, outInfo, errInfo) = execWithOutput("cjlint", ArrayList<String>(["-f", tomlInfo.pkg.srcDir.value]), envMap: cjlintEnv)
         let output: String = errInfo + outInfo
         print(output)
         if (!flag) {

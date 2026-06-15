@@ -34,9 +34,8 @@ public func execAndToTerminal(exeTool: String, arguments: Array<String>, timeout
 // Execute the command and store the output.
 public func execWithOutput(exeTool: String, arguments: ArrayList<String>,
     envMap!: HashMap<String, String> = HashMap<String, String>(), timeout!: Option<Duration> = None,
-    workingDirectory!: ?Path = None, spawnForScript!: Bool = false): (Bool, String, String) {
+    workingDirectory!: ?Path = None): (Bool, String, String) {
     let subProcess: SubProcess
-    var returnCode: Int64
     var outInfo = ""
     var errInfo = ""
     try {
@@ -55,22 +54,26 @@ public func execWithOutput(exeTool: String, arguments: ArrayList<String>,
             subProcess = launch(exeTool, arguments.toArray(), environment: env, workingDirectory: workingDirectory,
                 stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
         }
-
-        if (spawnForScript) {
-            let outInfoFuture = spawn {StringReader(subProcess.stdOutPipe).readToEnd()}
-            let errInfoFuture = spawn {StringReader(subProcess.stdErrPipe).readToEnd()}
-            outInfo = outInfoFuture.get()
-            errInfo = errInfoFuture.get()
-        } else {
-            outInfo = StringReader(subProcess.stdOutPipe).readToEnd()
-            errInfo = StringReader(subProcess.stdErrPipe).readToEnd()
-        }
-        returnCode = subProcess.wait(timeout: timeout)
-        return (returnCode == 0, outInfo, errInfo)
     } catch (e: Exception) {
         eprintln(e.message)
         return (false, outInfo, errInfo)
     }
+
+    let outInfoFuture = spawn {StringReader(subProcess.stdOutPipe).readToEnd()}
+    let errInfoFuture = spawn {StringReader(subProcess.stdErrPipe).readToEnd()}
+
+    var success = false
+    try {
+        let returnCode = subProcess.wait(timeout: timeout)
+        success = returnCode == 0
+    } catch (e: Exception) {
+        try { subProcess.terminate(force: true) } catch (_: Exception) {}
+        eprintln(e.message)
+    }
+
+    try { outInfo = outInfoFuture.get() } catch (_: Exception) {}
+    try { errInfo = errInfoFuture.get() } catch (_: Exception) {}
+    return (success, outInfo, errInfo)
 }
 
 // Execute command, and print the output indirectly.
