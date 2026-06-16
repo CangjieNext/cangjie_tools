@@ -425,6 +425,92 @@ public func normalizeTarget(target: String): String {
     return target
 }
 
+/*
+ * TOML table headers split on '.', so target triples with dotted version numbers such as
+ * `aarch64-apple-ios17.5` are parsed as nested tables (`aarch64-apple-ios17` -> `5` -> ...).
+ * Reassemble those segments before deserializing TargetConfig entries.
+ */
+public func flattenTargetConfigTable(dms: DataModelStruct): DataModelStruct {
+    let merged = HashMap<String, DataModelStruct>()
+    for (field in dms.getFields()) {
+        match (field.getData()) {
+            case node: DataModelStruct =>
+                for ((name, config) in mergeVersionSplitTargetSegments(field.getName(), node)) {
+                    if (merged.contains(name)) {
+                        merged[name] = mergeTargetConfigDataModel(merged[name], config)
+                    } else {
+                        merged.add(name, config)
+                    }
+                }
+            case _ => ()
+        }
+    }
+    let fields = ArrayList<Field>()
+    for ((name, config) in merged) {
+        fields.add(Field(name, config))
+    }
+    return DataModelStruct(fields)
+}
+
+func isVersionContinuationSegment(key: String): Bool {
+    if (key.isEmpty()) {
+        return false
+    }
+    for (c in key.runes()) {
+        return c >= r'0' && c <= r'9'
+    }
+    return false
+}
+
+func mergeVersionSplitTargetSegments(baseName: String, node: DataModelStruct): ArrayList<(String, DataModelStruct)> {
+    let directFields = ArrayList<Field>()
+    let versionChildren = ArrayList<(String, DataModelStruct)>()
+
+    for (field in node.getFields()) {
+        match (field.getData()) {
+            case child: DataModelStruct =>
+                if (isVersionContinuationSegment(field.getName())) {
+                    versionChildren.add((field.getName(), child))
+                } else {
+                    directFields.add(field)
+                }
+            case _ => directFields.add(field)
+        }
+    }
+
+    let results = ArrayList<(String, DataModelStruct)>()
+    if (!directFields.isEmpty()) {
+        results.add((baseName, DataModelStruct(directFields)))
+    }
+    for ((seg, child) in versionChildren) {
+        results.add(all: mergeVersionSplitTargetSegments("${baseName}.${seg}", child))
+    }
+    return results
+}
+
+func mergeTargetConfigDataModel(a: DataModelStruct, b: DataModelStruct): DataModelStruct {
+    let fields = HashMap<String, DataModel>()
+    for (field in a.getFields()) {
+        fields.add(field.getName(), field.getData())
+    }
+    for (field in b.getFields()) {
+        if (fields.contains(field.getName())) {
+            match ((fields[field.getName()], field.getData())) {
+                case (existing: DataModelStruct, incoming: DataModelStruct) =>
+                    fields[field.getName()] = mergeTargetConfigDataModel(existing, incoming)
+                case (_, incoming) => fields[field.getName()] = incoming
+            }
+        } else {
+            fields.add(field.getName(), field.getData())
+        }
+    }
+    let mergedFields = ArrayList<Field>()
+    for ((name, data) in fields) {
+        mergedFields.add(Field(name, data))
+    }
+    return DataModelStruct(mergedFields)
+}
+
 public func combineDependencies(path: String, oriDeps: HashMap<String, DepInfo>, newDeps: HashMap<String, DepInfo>,
     targetName: String): Bool {
     for ((depName, newDep) in newDeps) {

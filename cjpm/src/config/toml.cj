@@ -107,8 +107,9 @@ public class TomlInfo <: Serializable<TomlInfo> {
         result.ffi = ForeignInterfaces.deserialize((dms.get("ffi") as DataModelStruct) ?? DataModelStruct())
         result.crossFfi = ForeignInterfaces.deserialize((dms.get("ffi") as DataModelStruct) ?? DataModelStruct())
         result.profile = Profile.deserialize((dms.get(PROFILE) as DataModelStruct) ?? DataModelStruct())
-        result.targetConfigMap = HashMap<String, TargetConfig>.deserialize(
+        let targetConfigDms = flattenTargetConfigTable(
             (dms.get(TARGET_CONFIG) as DataModelStruct) ?? DataModelStruct())
+        result.targetConfigMap = HashMap<String, TargetConfig>.deserialize(targetConfigDms)
         for ((targetName, targetConfig) in result.targetConfigMap) {
             targetConfig.targetName = targetName
             targetConfig.commonTargetInfo.targetName = targetName

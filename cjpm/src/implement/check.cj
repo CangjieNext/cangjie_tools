@@ -49,7 +49,8 @@ func resolve(globalConfig: GlobalConfig, isScriptDep!: Bool = false): (DepModel,
     // combined is only used in cjpm build
     if (!dm.globalConfig.isPureBuild) {
         dm.superPkgMap.clear()
-    } else if (!dealWithSuperPkg(dm, globalConfig.isProjectCombine)) {
+    } else if (!applySuperPkgCombineState(dm, globalConfig.isProjectCombine)) {
+        // Validate and apply profile.build.combined state (see lto_combine_state.cj).
         return (dm, false, mockUsed)
     }
 
@@ -59,8 +60,8 @@ func resolve(globalConfig: GlobalConfig, isScriptDep!: Bool = false): (DepModel,
     }
 
     if (globalConfig.isProjectCombine) {
-        dm.readyPkgs.removeIf {v => v == globalConfig.rootName}
-        dm.readyPkgs.add(globalConfig.rootName)
+        // Project lto-combine root must link after all .bc dependencies are built.
+        applyProjectCombineBuildOrder(dm, globalConfig.rootName)
     }
 
     // Check parent-child package accessLevel.
@@ -68,89 +69,9 @@ func resolve(globalConfig: GlobalConfig, isScriptDep!: Bool = false): (DepModel,
         return (dm, false, mockUsed)
     }
 
-    for ((superPkgName, _) in dm.superPkgMap) {
-        dm.packageDepMap[superPkgName].requires.remove(all: dm.packageDepMap[superPkgName].forcedRequires)
-    }
+    stripSuperPkgForcedRequires(dm)
 
     return (dm, true, mockUsed)
-}
-
-func checkCombinedConfiguration(dm: DepModel, isProjectCombine: Bool, notSupportSet: HashSet<String>): Bool {
-    if (!dm.superPkgMap.isEmpty() && !isProjectCombine) {
-        var flag = true
-        for ((moduleName, _) in dm.depAnalysisEngine.finalDepMap) {
-            if (!dm.superPkgMap.contains(moduleName) &&
-                !notSupportSet.contains(moduleName) &&
-                dm.packageDepMap.contains(moduleName) &&
-                !dm.packageDepMap[moduleName].isMacroPackage) {
-                eprintln("Error: field 'profile.build.combined' must be configured to combine module '${moduleName}'")
-                flag = false
-            }
-        }
-        return flag
-    }
-    true
-}
-
-func dealWithSuperPkg(dm: DepModel, isProjectCombine: Bool): Bool {
-    let notSupportSet = HashSet<String>()
-    var superPkgInValidFlag = false;
-    let compileTarget = getCompileTarget()
-    let configFilePath = Path(dm.globalConfig.rootPath).join(CONFIG_FILE_NAME).toString()
-    for ((superPkgName, superPkgCfg) in dm.superPkgMap) {
-        if (compileTarget.contains("apple-ios") && isProjectCombine && dm.packageDepMap[superPkgName].outputType != Static) {
-            superPkgInValidFlag = true;
-            eprintln("Error: output-type of combined root package '${superPkgName}' in " +
-                "${configFilePath} is not 'static' for iOS " +
-                "when field 'combine-all-deps = true' is valid")
-            continue
-        }
-        if (!dm.packageDepMap.contains(superPkgName)) {
-            superPkgInValidFlag = true;
-            eprintln("Error: field 'profile.build.combined' is not supported for root package '${superPkgName}' " +
-                "which contain no source code for compilation")
-            continue
-        }
-        if (dm.packageDepMap[superPkgName].isMacroPackage) {
-            println("Warning: field 'profile.build.combined' is not supported for macro root package '${superPkgName}'")
-            notSupportSet.add(superPkgName)
-            continue
-        }
-        if (!(compileTarget.contains("apple-ios") && isProjectCombine) && !isSupportCombine()) {
-            println("Warning: field 'profile.build.combined' only supports 'Linux/OpenHarmony/Android/Windows', " +
-                "so output targeted for module '${superPkgName}' will not be combined")
-            notSupportSet.add(superPkgName)
-            continue
-        }
-        for (pkgName in dm.packageDepMap.keys()) {
-            if (superPkgName != pkgName.split(".")[0] || superPkgName == pkgName) {
-                continue
-            }
-            superPkgCfg.subPkgSet.add(pkgName)
-            if (!dm.packageDepMap[pkgName].isMacroPackage) {
-                dm.packageDepMap[pkgName].outputType = Static
-            }
-        }
-        dm.packageDepMap[superPkgName].superPkgCfg = superPkgCfg
-        if (!compileTarget.contains("apple-ios") && dm.packageDepMap[superPkgName].outputType != Dynamic) {
-            println("Warning: output-type of combined root package '${superPkgName}' in " +
-                "${configFilePath} is not 'dynamic', " +
-                "final output will be dynamic library")
-            dm.packageDepMap[superPkgName].outputType = Dynamic
-        }
-    }
-    if (superPkgInValidFlag) {
-        return false
-    }
-
-    dm.superPkgMap.remove(all: notSupportSet)
-    
-    if (!checkCombinedConfiguration(dm, isProjectCombine, notSupportSet)) {
-        return false
-    }
-
-    dm.checkSuperPkgDep()
-    true
 }
 
 public func doCheck(memberModule: String, testCheck: Bool): Bool {
