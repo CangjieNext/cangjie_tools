@@ -1355,7 +1355,7 @@ func verifyConfigForTest(cfg: TomlInfo, testConfig: TestConfig): Bool {
     }
 
     if (!testConfig.profile.ltoValue.isEmpty()) {
-        testConfig.isLto = supportLto()
+        testConfig.isLto = supportLtoForCurrentTarget()
         testConfig.ltoValue = testConfig.profile.ltoValue
     }
 
