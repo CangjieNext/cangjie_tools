@@ -453,28 +453,48 @@ public struct Triple <: ToString {
         }
     }
 
+    private static func extractAppleOsVersion(value: String): (OS, ApiVersion) {
+        if (!value.startsWith("ios")) {
+            let (osName, version) = extractApiVersion(value)
+            return (OS.parse(osName), version)
+        }
+        let versionSuffix = value["ios".size..]
+        if (versionSuffix.isEmpty() || versionSuffix.contains(".")) {
+            return (OS.IOS, None)
+        }
+        let (osName, version) = extractApiVersion(value)
+        return (OS.parse(osName), version)
+    }
+
+    private static func isValidTripleSegment(segment: String): Bool {
+        !segment.isEmpty() && Regex("^[a-zA-Z][-_a-zA-Z0-9.]*$").matches(segment)
+    }
+
     public static func fromString(triple: String): Result<Triple, String> {
         let errmesg = Result<Triple, String>.Err(
             "The target-triple must be of form {ARCH}-{VENDOR}-{SYSTEM}-{ENV} or {ARCH}-{SYSTEM}-{ENV}. Got: ${triple}"
         )
-        if (!Regex("^[a-zA-Z][-_a-zA-Z0-9]*$").matches(triple)) {
-            return errmesg
-        }
         let data = triple.split("-")
         if (data.size != 3 && data.size != 4) {
             return errmesg
         }
+        for (segment in data) {
+            if (!isValidTripleSegment(segment)) {
+                return errmesg
+            }
+        }
 
         if (data[1] == "apple") {
-            // example: arm64-apple-ios11-sim 
+            // example: arm64-apple-ios11-sim
             // example: aarch64-apple-darwin
-            let env = if (data.size == 4) { Env.parse(data[3]) } else { Env.NOT_AVAILABLE } 
-            let (os, version) = extractApiVersion(data[2])
+            // example: aarch64-apple-ios17.5
+            let env = if (data.size == 4) { Env.parse(data[3]) } else { Env.NOT_AVAILABLE }
+            let (os, version) = extractAppleOsVersion(data[2])
             return Ok(Triple(
                 triple,
                 arch: Arch.parse(data[0]),
                 vendor: Vendor.parse(data[1]),
-                os: OS.parse(os),
+                os: os,
                 env: env,
                 apiVersion: version
             ))

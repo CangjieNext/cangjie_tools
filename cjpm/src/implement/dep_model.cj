@@ -269,28 +269,6 @@ class DepModel {
         return true
     }
 
-    func isProjectCombineCheck(tomlInfo: TomlInfo): Bool {
-        if (tomlInfo.pkg.packageConfiguration.contains(this.globalConfig.rootName) &&
-            tomlInfo.pkg.packageConfiguration[this.globalConfig.rootName].combineAllDeps) {
-            if (tomlInfo.profile.build.combined.isEmpty()) {
-                eprintln("Error: field " +
-                    "'package.package-configuration.${this.globalConfig.rootName}.combine-all-deps = true' " +
-                    "is invalid when field 'profile.build.combined' is empty")
-                return false
-            }
-            if (this.globalConfig.isForScript) {
-                println("Warning: module '${tomlInfo.pkg.name}' will not be compiled as " +
-                    "combine-all-deps module when depended by build.cj")
-            } else if (this.globalConfig.isTest) {
-                println("Warning: module '${tomlInfo.pkg.name}' will not be compiled as " +
-                    "combine-all-deps module for test")
-            } else {
-                this.globalConfig.isProjectCombine = true
-            }
-        }
-        return true
-    }
-
     func depCheck(path: String, preName: String, prePath: String, requires: ?DepInfo): BuildCheckResult {
         // Check the path exists.
         if (!directoryExists(path)) {
@@ -320,7 +298,7 @@ class DepModel {
                 }
             }
 
-            if (!isProjectCombineCheck(tomlInfo)) {
+            if (!checkProjectCombineAtDepResolve(this.globalConfig, tomlInfo)) {
                 return FAILED_BUILD_CHECK_RESULT
             }
             let (flag, _) = this.processDependencyModule(this.lockedMap, "", "", true)
@@ -333,13 +311,13 @@ class DepModel {
             if (this.globalConfig.isForScript) {
                 println("Warning: module '${tomlInfo.pkg.name}' will not be compiled as " +
                     "combined module when depended by build.cj")
+            } else if (!COMMON_INFO.inWorkspace && (this.globalConfig.rootName == tomlInfo.pkg.name)) {
+                this.rootConfiguredCombined = true
+            } else if (COMMON_INFO.inWorkspace &&
+                COMMON_INFO.currentMembers.contains(getCanonicalPath(tomlInfo.pkg.path))) {
+                this.combinedConfiguredMembers.add(getCanonicalPath(tomlInfo.pkg.path))
             } else {
-                if (!COMMON_INFO.inWorkspace && (this.globalConfig.rootName == tomlInfo.pkg.name)) {
-                    this.rootConfiguredCombined = true
-                } else if (COMMON_INFO.inWorkspace &&
-                    COMMON_INFO.currentMembers.contains(getCanonicalPath(tomlInfo.pkg.path))) {
-                    this.combinedConfiguredMembers.add(getCanonicalPath(tomlInfo.pkg.path))
-                }
+                registerModuleCombineFromToml(this.globalConfig, tomlInfo, this.superPkgMap)
             }
         }
 

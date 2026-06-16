@@ -385,30 +385,6 @@ public func getFinalEnvValue(envName: String, envValue: String, spliceType: Spli
     }
 }
 
-public func verifyCombinedField(cfg: TomlInfo, path: String): Bool {
-    var flag = true
-    let configFilePath = Path(path).join(CONFIG_FILE_NAME).toString()
-    let compileTarget = getCompileTarget()
-    for ((pkgName, outputType) in cfg.profile.build.combined) {
-        if (pkgName != cfg.pkg.name) {
-            eprintln("Error: field 'profile.build.combined' in ${configFilePath} " +
-            "can only used for root package '${cfg.pkg.name}', current value is '${pkgName}'")
-            flag = false
-            continue
-        }
-        if (!compileTarget.contains("apple-ios") && outputType != Dynamic) {
-            eprintln("Error: field 'profile.build.combined.${cfg.pkg.name}' in " +
-                "${configFilePath} can only configured as 'dynamic'")
-            flag = false
-            continue
-        }
-        eprintln("Warning: field 'profile.build.combined' in '${configFilePath}' " +
-            "is experimental, it is unstable and has some limitations, " +
-            "please refer to related documentation for more details")
-    }
-    return flag
-}
-
 func verifyCustomizedOption(customizedOption: HashMap<String, String>, path: String): Bool {
     for ((k, v) in customizedOption) {
         if (!customizedOptionCheck(k, path)) {
