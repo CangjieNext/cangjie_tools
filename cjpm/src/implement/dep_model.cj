@@ -263,28 +263,6 @@ class DepModel {
         return true
     }
 
-    func isProjectCombineCheck(tomlInfo: TomlInfo): Bool {
-        if (tomlInfo.pkg.packageConfiguration.contains(this.globalConfig.rootName) &&
-            tomlInfo.pkg.packageConfiguration[this.globalConfig.rootName].combineAllDeps) {
-            if (tomlInfo.profile.build.combined.isEmpty()) {
-                eprintln("Error: field " +
-                    "'package.package-configuration.${this.globalConfig.rootName}.combine-all-deps = true' " +
-                    "is invalid when field 'profile.build.combined' is empty")
-                return false
-            }
-            if (this.globalConfig.isForScript) {
-                println("Warning: module '${tomlInfo.pkg.name}' will not be compiled as " +
-                    "combine-all-deps module when depended by build.cj")
-            } else if (this.globalConfig.isTest) {
-                println("Warning: module '${tomlInfo.pkg.name}' will not be compiled as " +
-                    "combine-all-deps module for test")
-            } else {
-                this.globalConfig.isProjectCombine = true
-            }
-        }
-        return true
-    }
-
     func depCheck(path: String, preName: String, prePath: String, requires: ?DepInfo): BuildCheckResult {
         // Check the path exists.
         if (!directoryExists(path)) {
@@ -314,7 +292,7 @@ class DepModel {
                 }
             }
 
-            if (!isProjectCombineCheck(tomlInfo)) {
+            if (!checkProjectCombineAtDepResolve(this.globalConfig, tomlInfo)) {
                 return FAILED_BUILD_CHECK_RESULT
             }
             let (flag, _) = this.processDependencyModule(this.lockedMap, "", "", true)
@@ -324,14 +302,8 @@ class DepModel {
         }
 
         if (!tomlInfo.profile.build.combined.isEmpty() && !this.globalConfig.isProjectCombine) {
-            if (this.globalConfig.isForScript) {
-                println("Warning: module '${tomlInfo.pkg.name}' will not be compiled as " +
-                    "combined module when depended by build.cj")
-            } else {
-                for ((pkgName, outputType) in tomlInfo.profile.build.combined) {
-                    this.superPkgMap[pkgName] = SuperPackageConfig(pkgName, outputType)
-                }
-            }
+            // Record module-level combine config from dependency modules; see lto_combine_policy.cj
+            registerModuleCombineFromToml(this.globalConfig, tomlInfo, this.superPkgMap)
         }
 
         if (let Some(depInfo) <- requires) {
@@ -403,14 +375,8 @@ class DepModel {
 
         // configuration of project-level combine
         if (!tomlInfo.profile.build.combined.isEmpty() && !this.globalConfig.isProjectCombine) {
-            if (this.globalConfig.isForScript) {
-                println("Warning: module '${tomlInfo.pkg.name}' will not be compiled as " +
-                    "combined module when depended by build.cj")
-            } else {
-                for ((pkgName, outputType) in tomlInfo.profile.build.combined) {
-                    this.superPkgMap[pkgName] = SuperPackageConfig(pkgName, outputType)
-                }
-            }
+            // Record module-level combine config from dependency modules; see lto_combine_policy.cj
+            registerModuleCombineFromToml(this.globalConfig, tomlInfo, this.superPkgMap)
         }
 
         finalDep.tomlInfo = tomlInfo

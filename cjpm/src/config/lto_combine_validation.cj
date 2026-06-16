@@ -1,0 +1,37 @@
+// Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+// This source file is part of the Cangjie project, licensed under Apache-2.0
+// with Runtime Library Exception.
+//
+// See https://cangjie-lang.cn/pages/LICENSE for license information.
+
+package cjpm.config
+
+import std.fs.*
+
+// LTO/combine validation at cjpm.toml load time (called from verifyModuleConfigPre).
+
+// Validate profile.build.combined field shape and emit experimental warning.
+public func verifyCombinedField(cfg: TomlInfo, path: String): Bool {
+    var flag = true
+    let configFilePath = Path(path).join(CONFIG_FILE_NAME).toString()
+    let compileTarget = getCompileTarget()
+    for ((pkgName, outputType) in cfg.profile.build.combined) {
+        if (pkgName != cfg.pkg.name) {
+            eprintln("Error: field 'profile.build.combined' in ${configFilePath} " +
+                "can only used for root package '${cfg.pkg.name}', current value is '${pkgName}'")
+            flag = false
+            continue
+        }
+        if (!isIosTarget(compileTarget) && outputType != Dynamic) {
+            // Non-iOS combined modules must produce a dynamic root library.
+            eprintln("Error: field 'profile.build.combined.${cfg.pkg.name}' in " +
+                "${configFilePath} can only configured as 'dynamic'")
+            flag = false
+            continue
+        }
+        eprintln("Warning: field 'profile.build.combined' in '${configFilePath}' " +
+            "is experimental, it is unstable and has some limitations, " +
+            "please refer to related documentation for more details")
+    }
+    return flag
+}
