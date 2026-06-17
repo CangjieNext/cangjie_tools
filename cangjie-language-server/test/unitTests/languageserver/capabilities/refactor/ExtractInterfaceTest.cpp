@@ -5,6 +5,7 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 #include "gtest/gtest.h"
+#include "ArkAST.h"
 #include "cangjie/AST/Node.h"
 #include "CompletionType.h"
 #include <nlohmann/json.hpp>
@@ -52,6 +53,8 @@ std::string ResolveTargetFilePath(const std::string &targetPath, const std::stri
 bool IsValidPackageName(const std::string &packageName);
 bool IsTypeReferenceMatch(const Cangjie::AST::Type &type, const Cangjie::AST::Decl &targetDecl,
     const Range &referenceRange);
+bool IsLikelyTypeReferenceText(const ArkAST &ast, const Range &referenceRange);
+bool IsLikelyImplementationClassReferenceText(const ArkAST &ast, const Range &referenceRange);
 size_t FindHeaderClauseInsertOffset(const std::string &headerText);
 struct InterfaceInfo {
     struct MemberMeta {
@@ -72,6 +75,10 @@ struct InterfaceInfo {
     std::unordered_map<std::string, std::string> memberComments;
 };
 std::string BuildInterfaceMemberHeader(const std::string &member, const InterfaceInfo::MemberMeta *meta);
+std::string BuildInterfaceDeclText(const InterfaceInfo &info, const std::string &packageName, bool withMethodBodies);
+void FilterMembersBySelection(InterfaceInfo &info,
+                              const std::unordered_set<std::string> &chosen,
+                              bool hasSelectedMembersOption);
 TextEdit InsertInterfaceDeclToTargetFile(const std::string &targetPath, const InterfaceInfo &info);
 void AppendCreateFileDocumentChange(Tweak::Effect &effect, const std::string &targetPath, const TextEdit &edit);
 } // namespace ark
@@ -157,6 +164,7 @@ TEST(ExtractInterfaceTest, SelectedMembersAndTypes)
 
     auto parsedFromJson = ParseSelectedMembers({{"selectedMembers", "[\"func c(): Bool\"]"}});
     EXPECT_TRUE(parsedFromJson.count("func c(): Bool") > 0);
+    EXPECT_TRUE(ParseSelectedMembers({{"selectedMembers", "[]"}}).empty());
     auto parsedFromText = ParseSelectedMembers({{"selectedMembers", "func d(): Unit\nfunc e(): Rune"}});
     EXPECT_TRUE(parsedFromText.count("func d(): Unit") > 0);
     EXPECT_TRUE(parsedFromText.count("func e(): Rune") > 0);
@@ -296,6 +304,25 @@ TEST(ExtractInterfaceTest, TypeReferenceMatchCoversTargetAndRangeBranches)
     EXPECT_FALSE(IsTypeReferenceMatch(zeroPositionType, targetDecl, fullRange));
 }
 
+TEST(ExtractInterfaceTest, LikelyTypeReferenceTextRejectsConstructorCall)
+{
+    const std::string sourceText =
+        "func consume(person: Person) { Person() }\n";
+    DiagnosticEngine diagEngine;
+    SourceManager sourceManager;
+    sourceManager.AddSource("test.cj", sourceText);
+    auto file = OwnedPtr<File>(new File());
+    file->begin = {1, 1, 1};
+    file->end = {1, 1, static_cast<int>(sourceText.size())};
+    std::pair<std::string, std::string> paths = {"test.cj", sourceText};
+    ArkAST arkAst(paths, file.get(), diagEngine, nullptr, &sourceManager);
+
+    EXPECT_TRUE(IsLikelyTypeReferenceText(arkAst, {{1, 1, 22}, {1, 1, 28}}));
+    EXPECT_FALSE(IsLikelyTypeReferenceText(arkAst, {{1, 1, 32}, {1, 1, 38}}));
+    EXPECT_FALSE(IsLikelyImplementationClassReferenceText(arkAst, {{1, 1, 22}, {1, 1, 28}}));
+    EXPECT_TRUE(IsLikelyImplementationClassReferenceText(arkAst, {{1, 1, 32}, {1, 1, 38}}));
+}
+
 TEST(ExtractInterfaceTest, HeaderClauseInsertOffsetCoversWhereBodyAndFallback)
 {
     std::string headerWithWhere = "class Box<T>   where T <: ToString {";
@@ -322,6 +349,37 @@ TEST(ExtractInterfaceTest, InterfaceMemberHeaderCoversMetaCombinations)
     mutOperatorMeta.isOperator = true;
     EXPECT_EQ(BuildInterfaceMemberHeader("+ (rhs: Person): Person", &mutOperatorMeta),
         "    mut operator func + (rhs: Person): Person");
+}
+
+TEST(ExtractInterfaceTest, BuildInterfaceDeclAllowsNoSelectedMembers)
+{
+    InterfaceInfo info;
+    info.name = "Person";
+
+    EXPECT_EQ(BuildInterfaceDeclText(info, "", true),
+        "public interface Person {\n"
+        "}\n");
+}
+
+TEST(ExtractInterfaceTest, FilterMembersBySelectionKeepsExplicitEmptySelection)
+{
+    InterfaceInfo noOptionInfo;
+    noOptionInfo.members = {"printName(): String", "age(): Int64"};
+    FilterMembersBySelection(noOptionInfo, {}, false);
+    EXPECT_EQ(noOptionInfo.members.size(), 2);
+
+    InterfaceInfo emptySelectionInfo;
+    emptySelectionInfo.members = {"printName(): String", "age(): Int64"};
+    FilterMembersBySelection(emptySelectionInfo, {}, true);
+    EXPECT_TRUE(emptySelectionInfo.members.empty());
+
+    InterfaceInfo selectedInfo;
+    selectedInfo.members = {"printName(): String", "age(): Int64"};
+    std::unordered_set<std::string> chosen;
+    AddSelectedMemberSignature(chosen, "printName(): String");
+    FilterMembersBySelection(selectedInfo, chosen, true);
+    ASSERT_EQ(selectedInfo.members.size(), 1);
+    EXPECT_EQ(selectedInfo.members[0], "printName(): String");
 }
 
 TEST(ExtractInterfaceTest, AppendCreateFileDocumentChangeAddsCreateAndEditEntries)
