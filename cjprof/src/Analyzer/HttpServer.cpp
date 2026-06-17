@@ -25,24 +25,19 @@ namespace cjprof {
 
 static std::string guessMimeType(const std::string& path)
 {
-    if (path.find(".html") != std::string::npos) {
-        return "text/html";
+    size_t lastDot = path.rfind('.');
+    if (lastDot == std::string::npos) {
+        return "application/octet-stream";
     }
-    if (path.find(".js") != std::string::npos) {
-        return "application/javascript";
-    }
-    if (path.find(".css") != std::string::npos) {
-        return "text/css";
-    }
-    if (path.find(".json") != std::string::npos) {
-        return "application/json";
-    }
-    if (path.find(".png") != std::string::npos) {
-        return "image/png";
-    }
-    if (path.find(".jpg") != std::string::npos || path.find(".jpeg") != std::string::npos) {
-        return "image/jpeg";
-    }
+    std::string ext = path.substr(lastDot + 1);
+    if (ext == "html" || ext == "htm") return "text/html";
+    if (ext == "js") return "application/javascript";
+    if (ext == "css") return "text/css";
+    if (ext == "json") return "application/json";
+    if (ext == "png") return "image/png";
+    if (ext == "jpg" || ext == "jpeg") return "image/jpeg";
+    if (ext == "svg") return "image/svg+xml";
+    if (ext == "ico") return "image/x-icon";
     return "application/octet-stream";
 }
 
@@ -152,7 +147,13 @@ void HttpServer::start()
         uint64_t parentId = 0;
         auto it = req.params.find("parent_id");
         if (it != req.params.end()) {
-            parentId = std::stoull(it->second);
+            try {
+                parentId = std::stoull(it->second);
+            } catch (const std::exception&) {
+                res.status = 400;
+                res.set_content("{\"error\":\"Invalid parent_id\"}", "application/json");
+                return;
+            }
         }
         res.set_content(HttpHandlers::handleDominanceChildren(*ctx, parentId), "application/json");
     });
@@ -162,6 +163,11 @@ void HttpServer::start()
         auto it = req.params.find("node_id");
         if (it != req.params.end()) {
             nodeId = it->second;
+            if (nodeId.size() > 256) {
+                res.status = 400;
+                res.set_content("{\"error\":\"node_id too long (max 256)\"}", "application/json");
+                return;
+            }
         }
         res.set_content(HttpHandlers::handleDominanceChildrenByType(*ctx, nodeId), "application/json");
     });
@@ -172,6 +178,7 @@ void HttpServer::start()
 
     svr->Get("/api/dominance/cluster-expand", [ctx](const httplib::Request& req, httplib::Response& res) {
         std::vector<uint64_t> instanceIds;
+        constexpr size_t MAX_INSTANCE_IDS = 1000;
         auto it = req.params.find("instance_ids");
         if (it != req.params.end()) {
             // Parse comma-separated instance IDs
@@ -179,6 +186,11 @@ void HttpServer::start()
             std::stringstream ss(idsStr);
             std::string idStr;
             while (std::getline(ss, idStr, ',')) {
+                if (instanceIds.size() >= MAX_INSTANCE_IDS) {
+                    res.status = 400;
+                    res.set_content("{\"error\":\"Too many instance_ids (max 1000)\"}", "application/json");
+                    return;
+                }
                 try {
                     instanceIds.push_back(std::stoull(idStr));
                 } catch (...) {
@@ -203,15 +215,67 @@ void HttpServer::start()
 
     // Static files under /static/
     svr->Get(R"(/static/(.+))", [staticRoot = staticRootPath_](const httplib::Request& req, httplib::Response& res) {
-        std::string filepath = staticRoot + "/" + req.matches[1].str();
-        std::ifstream file(filepath, std::ios::binary);
+        std::string requested = req.matches[1].str();
+        if (requested.find("..") != std::string::npos) {
+            res.status = 400;
+            res.set_content("Bad Request", "text/plain");
+            return;
+        }
+        std::string filepath = staticRoot + "/" + requested;
+#ifdef _WIN32
+        char buf[MAX_PATH];
+        DWORD len = GetFullPathNameA(filepath.c_str(), MAX_PATH, buf, nullptr);
+        if (len == 0 || len >= MAX_PATH) {
+            res.status = 500;
+            res.set_content("Internal Server Error", "text/plain");
+            return;
+        }
+        char rootBuf[MAX_PATH];
+        DWORD rootLen = GetFullPathNameA(staticRoot.c_str(), MAX_PATH, rootBuf, nullptr);
+        if (rootLen == 0 || strncmp(buf, rootBuf, rootLen) != 0) {
+            res.status = 403;
+            res.set_content("Forbidden", "text/plain");
+            return;
+        }
+        size_t resolvedLen = strlen(buf);
+        if (resolvedLen > static_cast<size_t>(rootLen) && buf[rootLen] != '\\' && buf[rootLen] != '/') {
+            res.status = 403;
+            res.set_content("Forbidden", "text/plain");
+            return;
+        }
+        std::string safePath(buf);
+#else
+        char buf[PATH_MAX];
+        char* realRoot = realpath(staticRoot.c_str(), nullptr);
+        char* realPath = realpath(filepath.c_str(), nullptr);
+        if (!realRoot || !realPath || strncmp(realPath, realRoot, strlen(realRoot)) != 0) {
+            free(realRoot);
+            free(realPath);
+            res.status = 403;
+            res.set_content("Forbidden", "text/plain");
+            return;
+        }
+        size_t rLen = strlen(realRoot);
+        size_t pLen = strlen(realPath);
+        if (pLen > rLen && realPath[rLen] != '/') {
+            free(realRoot);
+            free(realPath);
+            res.status = 403;
+            res.set_content("Forbidden", "text/plain");
+            return;
+        }
+        std::string safePath(realPath);
+        free(realRoot);
+        free(realPath);
+#endif
+        std::ifstream file(safePath, std::ios::binary);
         if (!file) {
             res.status = 404;
             res.set_content("Not Found", "text/plain");
             return;
         }
         std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-        res.set_content(content, guessMimeType(filepath));
+        res.set_content(content, guessMimeType(safePath));
     });
 
     // Root -> serve index.html directly
