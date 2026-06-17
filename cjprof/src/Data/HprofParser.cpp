@@ -124,10 +124,16 @@ void HprofParserV2::ParseStackTrace(bool verbose)
     u4 idx = ReadAndSwap<u4>();
     m_dataRef.stackTraces[idx].thread = ReadAndSwap<u4>();
     u4 frameNum = ReadAndSwap<u4>();
+    constexpr u4 MAX_FRAME_NUM = 65536;
+    if (frameNum > MAX_FRAME_NUM) {
+        frameNum = MAX_FRAME_NUM;
+    }
 
     // V2: frames are fixed u4 (regardless of idSize)
     for (size_t i = 0; i < frameNum; i++) {
-        m_dataRef.stackTraces[idx].frames.push_back(ReadAndSwap<u4>());
+        auto frameId = ReadAndSwap<u4>();
+        if (frameId == 0) { break; }
+        m_dataRef.stackTraces[idx].frames.push_back(frameId);
     }
 
     if (verbose) {

@@ -387,6 +387,11 @@ bool DatabaseCache::load(const std::string& heapFilePath,
         for (size_t i = 0; i < objects.size(); ++i) {
             const auto& info = objectRefsInfos[i];
             if (info.refs_count > 0) {
+                if (info.refs_offset > flatRefs.size() ||
+                    info.refs_count > flatRefs.size() - info.refs_offset) {
+                    LOG_ERROR("Cache file corrupt: refs offset/count out of bounds");
+                    return false;
+                }
                 objects[i].refs.assign(
                     flatRefs.begin() + info.refs_offset,
                     flatRefs.begin() + info.refs_offset + info.refs_count);
@@ -437,6 +442,11 @@ bool DatabaseCache::load(const std::string& heapFilePath,
         for (size_t i = 0; i < dominanceNodes.size(); ++i) {
             const auto& info = nodeChildrenInfos[i];
             if (info.children_count > 0) {
+                if (info.children_offset > flatChildren.size() ||
+                    info.children_count > flatChildren.size() - info.children_offset) {
+                    LOG_ERROR("Cache file corrupt: children offset/count out of bounds");
+                    return false;
+                }
                 dominanceNodes[i].children.assign(
                     flatChildren.begin() + info.children_offset,
                     flatChildren.begin() + info.children_offset + info.children_count);

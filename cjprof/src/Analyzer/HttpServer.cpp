@@ -152,7 +152,13 @@ void HttpServer::start()
         uint64_t parentId = 0;
         auto it = req.params.find("parent_id");
         if (it != req.params.end()) {
-            parentId = std::stoull(it->second);
+            try {
+                parentId = std::stoull(it->second);
+            } catch (const std::exception&) {
+                res.status = 400;
+                res.set_content("{\"error\":\"Invalid parent_id\"}", "application/json");
+                return;
+            }
         }
         res.set_content(HttpHandlers::handleDominanceChildren(*ctx, parentId), "application/json");
     });
@@ -203,15 +209,52 @@ void HttpServer::start()
 
     // Static files under /static/
     svr->Get(R"(/static/(.+))", [staticRoot = staticRootPath_](const httplib::Request& req, httplib::Response& res) {
-        std::string filepath = staticRoot + "/" + req.matches[1].str();
-        std::ifstream file(filepath, std::ios::binary);
+        std::string requested = req.matches[1].str();
+        if (requested.find("..") != std::string::npos) {
+            res.status = 400;
+            res.set_content("Bad Request", "text/plain");
+            return;
+        }
+        std::string filepath = staticRoot + "/" + requested;
+#ifdef _WIN32
+        char buf[MAX_PATH];
+        DWORD len = GetFullPathNameA(filepath.c_str(), MAX_PATH, buf, nullptr);
+        if (len == 0 || len >= MAX_PATH) {
+            res.status = 500;
+            res.set_content("Internal Server Error", "text/plain");
+            return;
+        }
+        char rootBuf[MAX_PATH];
+        DWORD rootLen = GetFullPathNameA(staticRoot.c_str(), MAX_PATH, rootBuf, nullptr);
+        if (rootLen == 0 || strncmp(buf, rootBuf, rootLen) != 0) {
+            res.status = 403;
+            res.set_content("Forbidden", "text/plain");
+            return;
+        }
+        std::string safePath(buf);
+#else
+        char buf[PATH_MAX];
+        char* realRoot = realpath(staticRoot.c_str(), nullptr);
+        char* realPath = realpath(filepath.c_str(), nullptr);
+        if (!realRoot || !realPath || strncmp(realPath, realRoot, strlen(realRoot)) != 0) {
+            free(realRoot);
+            free(realPath);
+            res.status = 403;
+            res.set_content("Forbidden", "text/plain");
+            return;
+        }
+        std::string safePath(realPath);
+        free(realRoot);
+        free(realPath);
+#endif
+        std::ifstream file(safePath, std::ios::binary);
         if (!file) {
             res.status = 404;
             res.set_content("Not Found", "text/plain");
             return;
         }
         std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-        res.set_content(content, guessMimeType(filepath));
+        res.set_content(content, guessMimeType(safePath));
     });
 
     // Root -> serve index.html directly
