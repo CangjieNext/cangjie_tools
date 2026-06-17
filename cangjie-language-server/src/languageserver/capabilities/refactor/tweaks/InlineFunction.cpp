@@ -564,7 +564,7 @@ TextEdit InlineFunction::InsertInlineBody()
     return edit;
 }
 
-TextEdit InlineFunction::ReplaceCallWithVar()
+TextEdit InlineFunction::ReplaceCallWithVar(const Selection &sel)
 {
     TextEdit edit;
 
@@ -573,6 +573,8 @@ TextEdit InlineFunction::ReplaceCallWithVar()
     }
 
     Range callRange = {callExpr_->begin, callExpr_->end};
+    PositionUTF8ToIDE(sel.arkAst->tokens, callRange.start, *sel.arkAst->file);
+    PositionUTF8ToIDE(sel.arkAst->tokens, callRange.end, *sel.arkAst->file);
     callRange = TransformFromChar2IDE(callRange);
     edit.range = callRange;
     edit.newText = resultVarName_;
@@ -703,7 +705,7 @@ std::optional<Tweak::Effect> InlineFunction::Apply(const Selection &sel)
     }
 
     if (hasReturnValue_) {
-        TextEdit replaceCallEdit = ReplaceCallWithVar();
+        TextEdit replaceCallEdit = ReplaceCallWithVar(sel);
         textEdits.push_back(replaceCallEdit);
     } else {
         TextEdit replaceCallEdit = ReplaceCallWithEmpty();
