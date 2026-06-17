@@ -2539,10 +2539,10 @@ void CompilerCangjieProject::BuildIndex(const std::unique_ptr<LSPCompilerInstanc
 {
     (void)isFullCompilation;
     auto packages = ci->GetSourcePackages();
-    if (!packages[0] || !ci->typeManager) {
+    std::string curPkgName = ci->pkgNameForPath;
+    if (!packages[0] || !ci->typeManager || packages[0]->fullPackageName != curPkgName) {
         return;
     }
-    std::string curPkgName = ci->pkgNameForPath;
     if (pkgInfoMap.find(curPkgName) == pkgInfoMap.end()) {
         return;
     }
