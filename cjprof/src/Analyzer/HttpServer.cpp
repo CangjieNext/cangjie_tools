@@ -23,26 +23,27 @@
 
 namespace cjprof {
 
+constexpr int HTTP_STATUS_BAD_REQUEST = 400;
+constexpr int HTTP_STATUS_NOT_FOUND = 404;
+
+constexpr size_t MAX_NODE_ID_LENGTH = 256;
+
+
 static std::string guessMimeType(const std::string& path)
 {
-    if (path.find(".html") != std::string::npos) {
-        return "text/html";
+    size_t lastDot = path.rfind('.');
+    if (lastDot == std::string::npos) {
+        return "application/octet-stream";
     }
-    if (path.find(".js") != std::string::npos) {
-        return "application/javascript";
-    }
-    if (path.find(".css") != std::string::npos) {
-        return "text/css";
-    }
-    if (path.find(".json") != std::string::npos) {
-        return "application/json";
-    }
-    if (path.find(".png") != std::string::npos) {
-        return "image/png";
-    }
-    if (path.find(".jpg") != std::string::npos || path.find(".jpeg") != std::string::npos) {
-        return "image/jpeg";
-    }
+    std::string ext = path.substr(lastDot + 1);
+    if (ext == "html" || ext == "htm") return "text/html";
+    if (ext == "js") return "application/javascript";
+    if (ext == "css") return "text/css";
+    if (ext == "json") return "application/json";
+    if (ext == "png") return "image/png";
+    if (ext == "jpg" || ext == "jpeg") return "image/jpeg";
+    if (ext == "svg") return "image/svg+xml";
+    if (ext == "ico") return "image/x-icon";
     return "application/octet-stream";
 }
 
@@ -152,7 +153,13 @@ void HttpServer::start()
         uint64_t parentId = 0;
         auto it = req.params.find("parent_id");
         if (it != req.params.end()) {
-            parentId = std::stoull(it->second);
+            try {
+                parentId = std::stoull(it->second);
+            } catch (const std::exception&) {
+                res.status = HTTP_STATUS_BAD_REQUEST;
+                res.set_content("{\"error\":\"Invalid parent_id\"}", "application/json");
+                return;
+            }
         }
         res.set_content(HttpHandlers::handleDominanceChildren(*ctx, parentId), "application/json");
     });
@@ -162,6 +169,11 @@ void HttpServer::start()
         auto it = req.params.find("node_id");
         if (it != req.params.end()) {
             nodeId = it->second;
+            if (nodeId.size() > MAX_NODE_ID_LENGTH) {
+                res.status = HTTP_STATUS_BAD_REQUEST;
+                res.set_content("{\"error\":\"node_id too long (max 256)\"}", "application/json");
+                return;
+            }
         }
         res.set_content(HttpHandlers::handleDominanceChildrenByType(*ctx, nodeId), "application/json");
     });
@@ -172,6 +184,7 @@ void HttpServer::start()
 
     svr->Get("/api/dominance/cluster-expand", [ctx](const httplib::Request& req, httplib::Response& res) {
         std::vector<uint64_t> instanceIds;
+        constexpr size_t MAX_INSTANCE_IDS = 1000;
         auto it = req.params.find("instance_ids");
         if (it != req.params.end()) {
             // Parse comma-separated instance IDs
@@ -179,6 +192,11 @@ void HttpServer::start()
             std::stringstream ss(idsStr);
             std::string idStr;
             while (std::getline(ss, idStr, ',')) {
+                if (instanceIds.size() >= MAX_INSTANCE_IDS) {
+                    res.status = HTTP_STATUS_BAD_REQUEST;
+                    res.set_content("{\"error\":\"Too many instance_ids (max 1000)\"}", "application/json");
+                    return;
+                }
                 try {
                     instanceIds.push_back(std::stoull(idStr));
                 } catch (...) {
@@ -203,10 +221,16 @@ void HttpServer::start()
 
     // Static files under /static/
     svr->Get(R"(/static/(.+))", [staticRoot = staticRootPath_](const httplib::Request& req, httplib::Response& res) {
-        std::string filepath = staticRoot + "/" + req.matches[1].str();
+        std::string requested = req.matches[1].str();
+        if (requested.find("..") != std::string::npos) {
+            res.status = HTTP_STATUS_BAD_REQUEST;
+            res.set_content("Bad Request", "text/plain");
+            return;
+        }
+        std::string filepath = staticRoot + "/" + requested;
         std::ifstream file(filepath, std::ios::binary);
         if (!file) {
-            res.status = 404;
+            res.status = HTTP_STATUS_NOT_FOUND;
             res.set_content("Not Found", "text/plain");
             return;
         }
@@ -222,7 +246,7 @@ void HttpServer::start()
             std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
             res.set_content(content, "text/html");
         } else {
-            res.status = 404;
+            res.status = HTTP_STATUS_NOT_FOUND;
             res.set_content("Not Found", "text/plain");
         }
     });
