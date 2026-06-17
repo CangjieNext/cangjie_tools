@@ -5,12 +5,24 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 #include "capabilities/refactor/tweaks/IntroduceParameter.h"
+#include "ArkAST.h"
+#include "capabilities/refactor/TweakUtils.h"
 #include "gtest/gtest.h"
+#include <memory>
 
 using namespace ark;
 using namespace Cangjie::AST;
 
+namespace ark {
+bool IntroducedParameterTypeBreaksPublicSignature(Cangjie::AST::FuncDecl &funcDecl, Ptr<Cangjie::AST::Ty> ty);
+} // namespace ark
+
 namespace {
+template <typename T> OwnedPtr<T> MakeOwner()
+{
+    return OwnedPtr<T>(new T());
+}
+
 OwnedPtr<FuncParamList> MakeParamList(Position rightParenPos)
 {
     auto paramList = OwnedPtr<FuncParamList>(new FuncParamList());

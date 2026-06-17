@@ -38,6 +38,74 @@ OwnedPtr<VarDecl> MakeFieldDecl(int beginLine, int endLine)
     return fieldDecl;
 }
 
+OwnedPtr<LitConstExpr> MakeIntLiteral(Position begin, Position end)
+{
+    auto expr = MakeOwner<LitConstExpr>();
+    expr->begin = begin;
+    expr->end = end;
+    expr->SetTy(Ptr<Ty>(new PrimitiveTy(TypeKind::TYPE_INT64)));
+    return expr;
+}
+
+OwnedPtr<RefExpr> MakeRefExpr(Position begin, Position end)
+{
+    auto expr = MakeOwner<RefExpr>();
+    expr->begin = begin;
+    expr->end = end;
+    expr->SetTy(Ptr<Ty>(new PrimitiveTy(TypeKind::TYPE_INT64)));
+    return expr;
+}
+
+OwnedPtr<RefExpr> MakeRefToDecl(Decl &decl, Position begin, Position end, TypeKind typeKind = TypeKind::TYPE_INT64)
+{
+    auto expr = MakeOwner<RefExpr>();
+    expr->begin = begin;
+    expr->end = end;
+    expr->ref.target = &decl;
+    expr->SetTy(Ptr<Ty>(new PrimitiveTy(typeKind)));
+    return expr;
+}
+
+OwnedPtr<RefExpr> MakeRefToDeclWithTy(Decl &decl, Position begin, Position end, Ptr<Ty> ty)
+{
+    auto expr = MakeOwner<RefExpr>();
+    expr->begin = begin;
+    expr->end = end;
+    expr->ref.target = &decl;
+    expr->SetTy(ty);
+    return expr;
+}
+
+OwnedPtr<BinaryExpr> MakeAddExpr(OwnedPtr<Expr> leftExpr, OwnedPtr<Expr> rightExpr, Position begin, Position end)
+{
+    auto expr = MakeOwner<BinaryExpr>();
+    expr->leftExpr = std::move(leftExpr);
+    expr->rightExpr = std::move(rightExpr);
+    expr->begin = begin;
+    expr->end = end;
+    expr->SetTy(Ptr<Ty>(new PrimitiveTy(TypeKind::TYPE_INT64)));
+    return expr;
+}
+
+OwnedPtr<TupleLit> MakeTupleLit(Position begin, Position end, std::vector<Ptr<Ty>> elementTys)
+{
+    auto expr = MakeOwner<TupleLit>();
+    expr->begin = begin;
+    expr->end = end;
+    expr->SetTy(Ptr<Ty>(new TupleTy(std::move(elementTys))));
+    return expr;
+}
+
+OwnedPtr<MemberAccess> MakeMemberAccess(OwnedPtr<Expr> baseExpr, Position begin, Position end)
+{
+    auto expr = MakeOwner<MemberAccess>();
+    expr->begin = begin;
+    expr->end = end;
+    expr->baseExpr = std::move(baseExpr);
+    expr->SetTy(Ptr<Ty>(new PrimitiveTy(TypeKind::TYPE_UNIT)));
+    return expr;
+}
+
 void ExpectRangePosition(const ark::Range &range, const Position &start, const Position &end)
 {
     EXPECT_EQ(range.start, start);
