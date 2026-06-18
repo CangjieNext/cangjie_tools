@@ -195,10 +195,6 @@ void SelectionTree::printSelection(const SelectionTreeNode* node, int level) con
 
 void SelectionTree::MatchSelectedScope(Ptr<Node> node, Position start, Position end)
 {
-    if (scope != Scope::UNKNOWN) {
-        return;
-    }
-
     switch (node->astKind) {
         case ASTKind::VAR_DECL: {
             if (node->TestAttr(Attribute::GLOBAL)) {
