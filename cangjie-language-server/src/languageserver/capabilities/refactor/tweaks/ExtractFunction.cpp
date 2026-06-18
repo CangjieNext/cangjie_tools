@@ -248,8 +248,8 @@ class ExtractFunctionSelectionRule : public TweakRule {
             containExpr = true;
         }
 
-        if (sel.selectionTree.SelectedScope() == SelectionTree::Scope::FUNC_BODY
-            && sel.selectionTree.TargetDecl() && sel.selectionTree.TargetDecl()->TestAttr(Attribute::CONSTRUCTOR)) {
+        if ((sel.selectionTree.SelectedScope() & SelectionTree::Scope::FUNC_BODY) == SelectionTree::Scope::FUNC_BODY &&
+        sel.selectionTree.TargetDecl() && sel.selectionTree.TargetDecl()->TestAttr(Attribute::CONSTRUCTOR)) {
             isConstructor = true;
         }
         SelectionTree::Walk(root, [&root, &extraOptions, &isValid, &containExpr, &containMemVarAssign]
@@ -300,7 +300,8 @@ class ExtractFunctionSelectionRule : public TweakRule {
     bool PreCheck(const Tweak::Selection &sel, std::map<std::string, std::string> &extraOptions) const
     {
         auto root = sel.selectionTree.root();
-        if (sel.selectionTree.SelectedScope() == SelectionTree::Scope::MEMBER_VAR) {
+        if ((sel.selectionTree.SelectedScope() & SelectionTree::Scope::MEMBER_VAR) ==
+            SelectionTree::Scope::MEMBER_VAR) {
             extraOptions.insert(std::make_pair("ErrorCode",
                 std::to_string(static_cast<int>(ExtractFunction::ExtractFunctionError::CONTAIN_MEMBER_VAR_INIT))));
             return false;
@@ -317,9 +318,9 @@ class ExtractFunctionSelectionRule : public TweakRule {
             }
         }
 
-        if (sel.selectionTree.SelectedScope() == SelectionTree::Scope::FUNC_BODY
-            && sel.selectionTree.TargetDecl()
-            && sel.selectionTree.TargetDecl()->TestAttr(Attribute::ENUM_CONSTRUCTOR)) {
+        if ((sel.selectionTree.SelectedScope() & SelectionTree::Scope::FUNC_BODY) == SelectionTree::Scope::FUNC_BODY &&
+             sel.selectionTree.TargetDecl() &&
+             sel.selectionTree.TargetDecl()->TestAttr(Attribute::ENUM_CONSTRUCTOR)) {
             extraOptions.insert(std::make_pair("ErrorCode",
                 std::to_string(static_cast<int>(ExtractFunction::ExtractFunctionError::INVALID_CODE_SEGMENT))));
             return false;
@@ -1057,7 +1058,7 @@ void ExtractFunction::AddMutParamVariable(std::string &mutParams, Cangjie::AST::
 
     bool needRemoveParam = false;
     std::string targetName = target->identifier;
-    std::unordered_set<std::string> scopeNames = FindReferencesImpl::GetSelectedUesScopeNames(target, 
+    std::unordered_set<std::string> scopeNames = FindReferencesImpl::GetSelectedUesScopeNames(target,
         *sel.arkAst, sel.range);
     if (function.returnValue.has_value() && targetName == function.returnValue->name) {
         scopeNames.insert(scopeName);
