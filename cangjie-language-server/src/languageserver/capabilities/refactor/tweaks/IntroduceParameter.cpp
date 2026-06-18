@@ -55,6 +55,15 @@ static bool IsLocalVariableTarget(const Ptr<Cangjie::AST::Node> &target)
         Attribute::GLOBAL, Attribute::IN_CLASSLIKE, Attribute::IN_STRUCT, Attribute::IN_ENUM);
 }
 
+static bool IsMemberVariableReference(const Ptr<Cangjie::AST::Node> &target)
+{
+    if (!target || target->astKind != ASTKind::VAR_DECL) {
+        return false;
+    }
+    return target->TestAnyAttr(
+        Attribute::IN_CLASSLIKE, Attribute::IN_STRUCT, Attribute::IN_ENUM);
+}
+
 static bool IsLocalVariableDeclaredInTargetFunction(
     const Ptr<Cangjie::AST::Node> &target, Cangjie::AST::FuncDecl &funcDecl)
 {
@@ -705,27 +714,77 @@ static std::optional<ArgumentReplacement> BuildReferenceReplacement(
     Cangjie::AST::RefExpr &refExpr)
 {
     auto target = DynamicCast<Cangjie::AST::FuncParam *>(refExpr.GetTarget().get());
-    if (!target) {
-        return std::nullopt;
+    if (target) {
+        for (std::size_t index = 0; index < paramList.params.size(); ++index) {
+            if (!paramList.params[index] || paramList.params[index].get() != target) {
+                continue;
+            }
+            auto arg = FindCallSiteArgByParam(callExpr, *paramList.params[index], index);
+            if (!arg || !arg->expr) {
+                return std::nullopt;
+            }
+            Range refRange = {refExpr.begin, refExpr.end};
+            if (refRange.start < context.range.start || refRange.end > context.range.end) {
+                return std::nullopt;
+            }
+            auto argExpr = arg->expr.get();
+            std::string argText =
+                context.sel.arkAst->sourceManager->GetContentBetween(argExpr->begin, argExpr->end);
+            return ArgumentReplacement{refRange, argText};
+        }
     }
 
-    for (std::size_t index = 0; index < paramList.params.size(); ++index) {
-        if (!paramList.params[index] || paramList.params[index].get() != target) {
-            continue;
-        }
-        auto arg = FindCallSiteArgByParam(callExpr, *paramList.params[index], index);
-        if (!arg || !arg->expr) {
-            return std::nullopt;
-        }
+    auto varTarget = DynamicCast<Cangjie::AST::VarDecl *>(refExpr.GetTarget().get());
+    if (varTarget && IsMemberVariableReference(refExpr.GetTarget())) {
         Range refRange = {refExpr.begin, refExpr.end};
         if (refRange.start < context.range.start || refRange.end > context.range.end) {
             return std::nullopt;
         }
-        auto argExpr = arg->expr.get();
-        std::string argText =
-            context.sel.arkAst->sourceManager->GetContentBetween(argExpr->begin, argExpr->end);
-        return ArgumentReplacement{refRange, argText};
+
+        if (varTarget->initializer) {
+            std::string initText = context.sel.arkAst->sourceManager->GetContentBetween(
+                varTarget->initializer->begin, 
+                varTarget->initializer->end
+            );
+            return ArgumentReplacement{refRange, initText};
+        }
     }
+
+    return std::nullopt;
+}
+
+static std::optional<ArgumentReplacement> BuildMemberAccessReplacement(
+    const CallSiteContext &context,
+    Cangjie::AST::CallExpr &callExpr,
+    Cangjie::AST::MemberAccess &memberAccess)
+{
+    if (!memberAccess.baseExpr || memberAccess.baseExpr->ToString() != "this") {
+        return std::nullopt;
+    }
+
+    auto target = memberAccess.GetTarget();
+    if (!target || target->astKind != ASTKind::VAR_DECL) {
+        return std::nullopt;
+    }
+
+    auto varDecl = DynamicCast<Cangjie::AST::VarDecl *>(target.get());
+    if (!varDecl || !IsMemberVariableReference(target)) {
+        return std::nullopt;
+    }
+
+    Range memberRange = {memberAccess.begin, memberAccess.end};
+    if (memberRange.start < context.range.start || memberRange.end > context.range.end) {
+        return std::nullopt;
+    }
+
+    if (varDecl->initializer) {
+        std::string initText = context.sel.arkAst->sourceManager->GetContentBetween(
+            varDecl->initializer->begin, 
+            varDecl->initializer->end
+        );
+        return ArgumentReplacement{memberRange, initText};
+    }
+
     return std::nullopt;
 }
 
@@ -747,15 +806,23 @@ static std::vector<ArgumentReplacement> CollectCallSiteArgumentReplacements(
         if (node->begin < context.range.start || node->end > context.range.end) {
             return VisitAction::SKIP_CHILDREN;
         }
-        if (node->astKind != ASTKind::REF_EXPR) {
+        if (node->astKind == ASTKind::REF_EXPR) {
+            auto refExpr = DynamicCast<Cangjie::AST::RefExpr *>(node.get());
+            if (refExpr) {
+                if (auto replacement = BuildReferenceReplacement(context, callExpr, paramList, *refExpr)) {
+                    replacements.push_back(*replacement);
+                }
+            }
             return VisitAction::WALK_CHILDREN;
         }
-        auto refExpr = DynamicCast<Cangjie::AST::RefExpr *>(node.get());
-        if (!refExpr) {
+        if (node->astKind == ASTKind::MEMBER_ACCESS) {
+            auto memberAccess = DynamicCast<Cangjie::AST::MemberAccess *>(node.get());
+            if (memberAccess) {
+                if (auto replacement = BuildMemberAccessReplacement(context, callExpr, *memberAccess)) {
+                    replacements.push_back(*replacement);
+                }
+            }
             return VisitAction::WALK_CHILDREN;
-        }
-        if (auto replacement = BuildReferenceReplacement(context, callExpr, paramList, *refExpr)) {
-            replacements.push_back(*replacement);
         }
         return VisitAction::WALK_CHILDREN;
     }).Walk();

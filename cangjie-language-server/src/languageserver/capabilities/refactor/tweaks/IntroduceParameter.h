@@ -19,7 +19,8 @@ public:
         INVALID_SCOPE,
         INVALID_TYPE,
         PUBLIC_DECL_USES_NON_PUBLIC_TYPE,
-        MEMBER_ASSIGN_IN_CONSTRUCTOR
+        MEMBER_ASSIGN_IN_CONSTRUCTOR,
+        MEMBER_VAR_NO_INITIALIZER
     };
 
     const std::string Id() const override
