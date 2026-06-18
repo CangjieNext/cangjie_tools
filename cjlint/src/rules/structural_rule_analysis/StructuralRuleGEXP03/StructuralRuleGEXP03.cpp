@@ -86,9 +86,12 @@ std::string StructuralRuleGEXP03::GetOperandName(const AssignExpr& assignExpr)
      */
     if (!assignExpr.leftValue && desugarExpr && desugarExpr->astKind == ASTKind::ASSIGN_EXPR) {
         auto assignDesugar = StaticCast<AssignExpr*>(desugarExpr.get().get());
+        if (!assignDesugar->leftValue) {
+            return "";
+        }
         name = this->diagEngine->GetSourceManager().GetContentBetween(assignDesugar->leftValue->GetBegin().fileID,
             assignDesugar->leftValue->GetBegin(), assignDesugar->leftValue->GetEnd());
-    } else {
+    } else if (assignExpr.leftValue) {
         name = this->diagEngine->GetSourceManager().GetContentBetween(
             assignExpr.leftValue->GetBegin().fileID, assignExpr.leftValue->GetBegin(), assignExpr.leftValue->GetEnd());
     }
@@ -114,7 +117,8 @@ void StructuralRuleGEXP03::SideEffectChecker(Ptr<Node> node)
                 }
 
                 auto callExpr = StaticAs<ASTKind::CALL_EXPR>(assignExpr.desugarExpr.get());
-                if (sideEffectSet.find(callExpr->resolvedFunction->identifier.Begin()) != sideEffectSet.end()) {
+                if (callExpr->resolvedFunction &&
+                    sideEffectSet.find(callExpr->resolvedFunction->identifier.Begin()) != sideEffectSet.end()) {
                     Diagnose(
                         assignExpr.begin, assignExpr.end, CodeCheckDiagKind::G_EXP_03_side_effect_information, name);
                 }
@@ -124,6 +128,9 @@ void StructuralRuleGEXP03::SideEffectChecker(Ptr<Node> node)
             [this](const IncOrDecExpr& incOrDecExpr) {
                 if (incOrDecExpr.desugarExpr != nullptr) {
                     return VisitAction::WALK_CHILDREN;
+                }
+                if (!incOrDecExpr.expr) {
+                    return VisitAction::SKIP_CHILDREN;
                 }
                 Diagnose(incOrDecExpr.begin, incOrDecExpr.end, CodeCheckDiagKind::G_EXP_03_side_effect_information,
                     incOrDecExpr.expr->ToString());
@@ -167,6 +174,9 @@ void StructuralRuleGEXP03::SideEffectFuncFinder(Ptr<Node> node)
 
     Walker walker(node, [this](Ptr<Node> node) -> VisitAction {
         match (*node)([this](const FuncDecl& funcDecl) {
+            if (!funcDecl.funcBody || !funcDecl.funcBody->body) {
+                return;
+            }
             if (!funcDecl.TestAttr(AST::Attribute::IN_CLASSLIKE) && !funcDecl.TestAttr(AST::Attribute::IN_STRUCT)) {
                 GlobalRefChecker(
                     funcDecl.funcBody->body.get(), funcDecl.identifier.Begin(), funcDecl.identifier.Begin());
@@ -229,7 +239,9 @@ void StructuralRuleGEXP03::ProcessRefFuncInfo(const RefExpr& refExpr, const Cang
                 continue;
             } else {
                 (void)checkedFunc.insert(func->identifier.Begin());
-                GlobalRefChecker(func->funcBody->body.get(), originFuncPosition, func->identifier.Begin());
+                if (func->funcBody && func->funcBody->body) {
+                    GlobalRefChecker(func->funcBody->body.get(), originFuncPosition, func->identifier.Begin());
+                }
             }
         }
     }
@@ -273,7 +285,9 @@ void StructuralRuleGEXP03::ClassRefCheckerDetail(const RefExpr& refExpr, const C
                 continue;
             } else {
                 (void)checkedFunc.insert(func->identifier.Begin());
-                ClassRefChecker(func->funcBody->body.get(), originFuncPosition, func->identifier.Begin());
+                if (func->funcBody && func->funcBody->body) {
+                    ClassRefChecker(func->funcBody->body.get(), originFuncPosition, func->identifier.Begin());
+                }
             }
         }
     }

@@ -188,7 +188,9 @@ void StructuralRuleGCON03::BaseClassFinder(Ptr<Cangjie::AST::Node> node)
                     return pair.first.first == classDecl.identifier;
                 });
             if (result) {
-                CheckBaseClassFuncSafe(classDecl.body->decls, classDecl.identifier);
+                if (classDecl.body) {
+                    CheckBaseClassFuncSafe(classDecl.body->decls, classDecl.identifier);
+                }
             }
         });
         return VisitAction::WALK_CHILDREN;
