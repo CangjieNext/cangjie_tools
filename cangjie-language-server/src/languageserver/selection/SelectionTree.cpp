@@ -233,7 +233,6 @@ void SelectionTree::MatchSelectedScope(Ptr<Node> node, Position start, Position 
             if (start < node->begin || end > node->end) {
                 return;
             }
-            scope = Scope::TYPE_DECL;
             targetDecl = node;
             return;
         }
