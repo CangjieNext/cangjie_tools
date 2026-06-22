@@ -295,7 +295,7 @@ public class TransObject {
     private func genSuperCallWithArktsObject(totalProperties: ArrayList<Property>, fromJSValueItem: Tokens) {
         for (i in 0..totalProperties.size) {
             let arkProp = totalProperties[i]
-            var proName = Token(TokenKind.IDENTIFIER, arkProp.cjKey)
+            let proName = Token(TokenKind.IDENTIFIER, arkProp.cjKey)
             let tsType = arkProp.typeNode
             let ctxToken = Tokens(Token(TokenKind.IDENTIFIER, "getMainContext()"))
 
@@ -314,13 +314,7 @@ public class TransObject {
         }
     }
 
-    private func generateTokenWithoutArktsObject(modifiersTokens: Tokens, templateClassNameToken: Token, parent: Tokens,
-        classConstraintsToken: Tokens): Tokens {
-        let property = Tokens()
-        let jsValueConvertToken = Tokens()
-
-        genPropWithOutArktsObject(property, jsValueConvertToken, templateClassNameToken)
-
+    private func buildPropertyVarDeclare(): Tokens {
         let varDeclare = Tokens()
         for (arkProp in arkProperties) {
             let prefix = if (arkProp.isReadOnly()) {
@@ -328,7 +322,7 @@ public class TransObject {
             } else {
                 Token(TokenKind.IDENTIFIER, "var")
             }
-            var proName = Token(TokenKind.IDENTIFIER, arkProp.cjKey)
+            let proName = Token(TokenKind.IDENTIFIER, arkProp.cjKey)
             let propType = arkProp.typeNode.toCJTypeTokens()
             if (arkProp.isOptional) {
                 let (typeToken, defToken) = if (let Some(def) <- arkProp.defValue) {
@@ -342,10 +336,21 @@ public class TransObject {
             }
             varDeclare.append(nl)
         }
+        varDeclare
+    }
+
+    private func generateTokenWithoutArktsObject(modifiersTokens: Tokens, templateClassNameToken: Token, parent: Tokens,
+        classConstraintsToken: Tokens): Tokens {
+        let property = Tokens()
+        let jsValueConvertToken = Tokens()
+
+        genPropWithOutArktsObject(property, jsValueConvertToken, templateClassNameToken)
+
+        let varDeclare = buildPropertyVarDeclare()
 
         let assignment = Tokens()
         for (arkProp in arkProperties) {
-            var proName = Token(TokenKind.IDENTIFIER, arkProp.cjKey)
+            let proName = Token(TokenKind.IDENTIFIER, arkProp.cjKey)
             assignment.append(quote(this.$(proName) = $(proName)))
             assignment.append(nl)
         }
