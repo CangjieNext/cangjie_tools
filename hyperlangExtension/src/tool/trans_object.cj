@@ -314,13 +314,7 @@ public class TransObject {
         }
     }
 
-    private func generateTokenWithoutArktsObject(modifiersTokens: Tokens, templateClassNameToken: Token, parent: Tokens,
-        classConstraintsToken: Tokens): Tokens {
-        let property = Tokens()
-        let jsValueConvertToken = Tokens()
-
-        genPropWithOutArktsObject(property, jsValueConvertToken, templateClassNameToken)
-
+    private func buildPropertyVarDeclare(): Tokens {
         let varDeclare = Tokens()
         for (arkProp in arkProperties) {
             let prefix = if (arkProp.isReadOnly()) {
@@ -342,6 +336,17 @@ public class TransObject {
             }
             varDeclare.append(nl)
         }
+        varDeclare
+    }
+
+    private func generateTokenWithoutArktsObject(modifiersTokens: Tokens, templateClassNameToken: Token, parent: Tokens,
+        classConstraintsToken: Tokens): Tokens {
+        let property = Tokens()
+        let jsValueConvertToken = Tokens()
+
+        genPropWithOutArktsObject(property, jsValueConvertToken, templateClassNameToken)
+
+        let varDeclare = buildPropertyVarDeclare()
 
         let assignment = Tokens()
         for (arkProp in arkProperties) {
