@@ -6,6 +6,7 @@
 
 #include "StructuralRuleGEXP02.h"
 #include <cmath>
+#include <cstring>
 #include <limits>
 
 using namespace Cangjie;
@@ -25,7 +26,8 @@ struct Float16 {
     uint16_t value;
     explicit Float16(float f)
     {
-        uint32_t i = *reinterpret_cast<uint32_t*>(&f);
+        uint32_t i;
+        std::memcpy(&i, &f, sizeof(f));
         uint32_t sign = (i >> 16) & 0x8000;
         int exponent = ((i >> 23) & 0xff) - 112;
         uint32_t mantissa = i & 0x7fffff;
@@ -62,7 +64,8 @@ struct Float16 {
         // single-precision floating-point number, that is, increases the exponent by 112.
         exponent += 112;
         uint32_t i = (sign << 31) | (exponent << 23) | (mantissa << 13);
-        float f = *reinterpret_cast<float*>(&i);
+        float f;
+        std::memcpy(&f, &i, sizeof(i));
         return f;
     }
 };
