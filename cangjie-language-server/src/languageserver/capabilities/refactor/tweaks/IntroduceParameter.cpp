@@ -167,6 +167,8 @@ static std::string ReplaceParameterNamesWithCallArguments(
     const CallSiteContext &context, Cangjie::AST::CallExpr &callExpr, Cangjie::AST::FuncParamList &paramList);
 static std::string ReplaceThisReceiverAtCallSite(
     const CallSiteContext &context, Cangjie::AST::CallExpr &callExpr, const std::string &argumentText);
+static std::optional<std::string> GetMemberVariableInitializer(
+    const Tweak::Selection &sel, Cangjie::AST::MemberAccess &memberAccess);
 static bool ShouldIntroduceNamedParameter(Cangjie::AST::FuncDecl &funcDecl);
 static std::string BuildNewParamText(
     Cangjie::AST::FuncDecl &funcDecl, const std::string &paramName, const std::string &typeName);
@@ -938,6 +940,17 @@ static std::vector<ArgumentReplacement> CollectCallSiteArgumentReplacements(
         if (node->end < context.range.start || node->begin > context.range.end) {
             return VisitAction::SKIP_CHILDREN;
         }
+        if (node->astKind == ASTKind::MEMBER_ACCESS) {
+            auto memberAccess = DynamicCast<Cangjie::AST::MemberAccess *>(node.get());
+            if (memberAccess && node->begin >= context.range.start && node->end <= context.range.end) {
+                auto initValue = GetMemberVariableInitializer(context.sel, *memberAccess);
+                if (initValue) {
+                    Range memberRange = {memberAccess->begin, memberAccess->end};
+                    replacements.push_back(ArgumentReplacement{memberRange, *initValue});
+                }
+            }
+            return VisitAction::WALK_CHILDREN;
+        }
         if (node->astKind != ASTKind::REF_EXPR) {
             return VisitAction::WALK_CHILDREN;
         }
@@ -1102,18 +1115,56 @@ static std::string ReplaceParameterNamesWithCallArguments(
     return result;
 }
 
+static std::optional<std::string> GetMemberVariableInitializer(
+    const Tweak::Selection &sel, Cangjie::AST::MemberAccess &memberAccess)
+{
+    if (!sel.arkAst || !sel.arkAst->sourceManager) {
+        return std::nullopt;
+    }
+
+    auto refExpr = DynamicCast<Cangjie::AST::RefExpr *>(memberAccess.baseExpr.get());
+    if (!refExpr || !refExpr->isThis) {
+        return std::nullopt;
+    }
+
+    if (!memberAccess.target) {
+        return std::nullopt;
+    }
+
+    auto varDecl = DynamicCast<Cangjie::AST::VarDecl *>(memberAccess.target.get());
+    if (!varDecl || !varDecl->initializer) {
+        return std::nullopt;
+    }
+
+    auto initExpr = varDecl->initializer.get();
+    if (!initExpr) {
+        return std::nullopt;
+    }
+
+    if (initExpr->astKind != ASTKind::LIT_CONST_EXPR) {
+        return std::nullopt;
+    }
+
+    return sel.arkAst->sourceManager->GetContentBetween(initExpr->begin, initExpr->end);
+}
+
 static std::string ReplaceThisReceiverAtCallSite(
     const CallSiteContext &context, Cangjie::AST::CallExpr &callExpr, const std::string &argumentText)
 {
-    if (!context.sel.arkAst || !context.sel.arkAst->sourceManager || !callExpr.baseFunc) {
+    if (!context.sel.arkAst || !context.sel.arkAst->sourceManager) {
         return argumentText;
     }
-    auto memberAccess = DynamicCast<Cangjie::AST::MemberAccess *>(callExpr.baseFunc.get());
-    if (!memberAccess || !memberAccess->baseExpr) {
-        return argumentText;
+
+    std::string receiverText;
+    
+    if (callExpr.baseFunc && callExpr.baseFunc->astKind == ASTKind::MEMBER_ACCESS) {
+        auto memberAccess = DynamicCast<Cangjie::AST::MemberAccess *>(callExpr.baseFunc.get());
+        if (memberAccess && memberAccess->baseExpr) {
+            receiverText = context.sel.arkAst->sourceManager->GetContentBetween(
+                memberAccess->baseExpr->begin, memberAccess->baseExpr->end);
+        }
     }
-    std::string receiverText = context.sel.arkAst->sourceManager->GetContentBetween(
-        memberAccess->baseExpr->begin, memberAccess->baseExpr->end);
+
     if (receiverText.empty()) {
         return argumentText;
     }
