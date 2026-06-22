@@ -6,6 +6,7 @@
 
 #include "StructuralRuleGEXP02.h"
 #include <cmath>
+#include <cstring>
 #include <limits>
 
 using namespace Cangjie;
