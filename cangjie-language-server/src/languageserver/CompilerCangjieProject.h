@@ -184,8 +184,31 @@ public:
         if (it == packageInstanceCache.end() || !it->second || !it->second->package) {
             return ret;
         }
+        // depend on ci cache
         for (auto &file: it->second->package->files) {
             ret.push_back(file->fileName);
+        }
+        return ret;
+    }
+
+    std::vector<std::string> GetFilesInPkgByPkgInfo(const std::string &pkgPath) const
+    {
+        std::vector<std::string> ret;
+        if (pathToFullPkgName.find(pkgPath) == pathToFullPkgName.end()) {
+            return ret;
+        }
+        std::string pkgName = pathToFullPkgName.at(pkgPath);
+        auto it = pkgInfoMap.find(pkgName);
+        if (it == pkgInfoMap.end()) {
+            return ret;
+        }
+        auto& pkgInfo = it->second;
+        if (!pkgInfo) {
+            return ret;
+        }
+        std::lock_guard<std::mutex> lock(pkgInfo->pkgInfoMutex);
+        for (auto &item: pkgInfo->bufferCache) {
+            ret.push_back(FileUtil::GetFileName(item.first));
         }
         return ret;
     }

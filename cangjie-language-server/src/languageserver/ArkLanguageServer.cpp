@@ -811,7 +811,7 @@ void ArkLanguageServer::WrapClientWatchedFiles(std::vector<FileWatchedEvent> &ch
         std::vector<std::string> fileVec;
         if (event.type == FileChangeType::DELETED && CheckIsDirectory(file, true) &&
             CheckFileInCangjieProject(filePath)) {
-            fileVec = CompilerCangjieProject::GetInstance()->GetFilesInPkg(file); // multi folder
+            fileVec = CompilerCangjieProject::GetInstance()->GetFilesInPkgByPkgInfo(file); // multi folder
         } else if (event.type == FileChangeType::CREATED && CheckIsDirectory(file) &&
                 CheckFileInCangjieProject(filePath)) {
             fileVec = GetAllFilesUnderCurrentPath(file, CANGJIE_FILE_EXTENSION, false);
