@@ -159,7 +159,7 @@ void TraveDepthLimitedDirs(
     while ((dir = readdir(pd)) != nullptr) {
         std::string dName = std::string(dir->d_name);
         std::string subFileOrDir = PathJoin(path, dName);
-        (void)stat(subFileOrDir.c_str(), &statBuf); // use lstat if want to ignore symbolic-link-dir
+        (void)lstat(subFileOrDir.c_str(), &statBuf);
         if (S_ISDIR(statBuf.st_mode)) {
             // continue if present dir or  parent dir
             if (dName == "." || dName == "..") {
