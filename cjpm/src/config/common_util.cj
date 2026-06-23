@@ -9,12 +9,25 @@ package cjpm.config
 import std.collection.*
 import std.fs.*
 import std.regex.*
-import std.io.*
 import std.process.*
 import std.runtime.*
 import std.env.*
 
 foreign func system(command: CString): Int32
+
+@C
+struct CjpmExecOutput {
+    let exitCode: Int64 = -1
+    let outInfo: CString = CString(CPointer<UInt8>())
+    let errInfo: CString = CString(CPointer<UInt8>())
+    let failure: CString = CString(CPointer<UInt8>())
+}
+
+foreign func CJPM_EXEC_RunWithOutput(command: CString, arguments: CPointer<CString>, argCount: UIntNative,
+    environments: CPointer<CString>, envCount: UIntNative, workingDirectory: CString,
+    timeoutNs: Int64): CPointer<CjpmExecOutput>
+
+foreign func CJPM_EXEC_FreeOutput(output: CPointer<CjpmExecOutput>): Unit
 
 // Simply execute the command.
 // For expand command and without env config
@@ -34,39 +47,75 @@ public func execAndToTerminal(exeTool: String, arguments: Array<String>, timeout
 // Execute the command and store the output.
 public func execWithOutput(exeTool: String, arguments: ArrayList<String>,
     envMap!: HashMap<String, String> = HashMap<String, String>(), timeout!: Option<Duration> = None,
-    workingDirectory!: ?Path = None, spawnForScript!: Bool = false): (Bool, String, String) {
-    let subProcess: SubProcess
-    var returnCode: Int64
-    var outInfo = ""
-    var errInfo = ""
+    workingDirectory!: ?Path = None): (Bool, String, String) {
+    var outInfo: String = ""
+    var errInfo: String = ""
     try {
-        if (envMap.isEmpty()) {
-            subProcess = launch(exeTool, arguments.toArray(), workingDirectory: workingDirectory,
-                stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
-        } else {
+        var argumentCStrings: Array<CString> = (arguments |> map { arg: String =>
+            unsafe { LibC.mallocCString(arg) }
+        } |> collectArray)
+        var envCStrings: Array<CString> = Array<CString>()
+        if (!envMap.isEmpty()) {
             let env = HashMap<String, String>(getVariables())
             for ((k, v) in envMap) {
-                if (env.contains(k)) {
-                    env[k] = v + env[k]
-                } else {
-                    env[k] = v
-                }
+                env[k] = if (env.contains(k)) { v + env[k] } else { v }
             }
-            subProcess = launch(exeTool, arguments.toArray(), environment: env, workingDirectory: workingDirectory,
-                stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
+            envCStrings = env |> map<(String, String), CString> {
+                item: (String, String) => unsafe { LibC.mallocCString("${item[0]}=${item[1]}") }
+            } |> collectArray
+        }
+        var commandCString: CString = unsafe { LibC.mallocCString(exeTool) }
+        var workingDirCString: CString = match (workingDirectory) {
+            case Some(dir) => unsafe { LibC.mallocCString(dir.toString()) }
+            case _ => CString(CPointer<UInt8>())
+        }
+        let timeoutNs = match (timeout) {
+            case Some(duration) => duration.toNanoseconds()
+            case _ => -1
         }
 
-        if (spawnForScript) {
-            let outInfoFuture = spawn {StringReader(subProcess.stdOutPipe).readToEnd()}
-            let errInfoFuture = spawn {StringReader(subProcess.stdErrPipe).readToEnd()}
-            outInfo = outInfoFuture.get()
-            errInfo = errInfoFuture.get()
-        } else {
-            outInfo = StringReader(subProcess.stdOutPipe).readToEnd()
-            errInfo = StringReader(subProcess.stdErrPipe).readToEnd()
+        let argumentHandle = unsafe { acquireArrayRawData(argumentCStrings) }
+        let envHandle = unsafe { acquireArrayRawData(envCStrings) }
+        var resultPtr: CPointer<CjpmExecOutput> = CPointer<CjpmExecOutput>()
+        try {
+            resultPtr = unsafe {
+                CJPM_EXEC_RunWithOutput(commandCString, argumentHandle.pointer, UIntNative(argumentCStrings.size),
+                    envHandle.pointer, UIntNative(envCStrings.size), workingDirCString, timeoutNs)
+            }
+        } finally {
+            unsafe {
+                releaseArrayRawData(argumentHandle)
+                releaseArrayRawData(envHandle)
+                if (!commandCString.isNull()) {
+                    LibC.free(commandCString)
+                }
+                if (!workingDirCString.isNull()) {
+                    LibC.free(workingDirCString)
+                }
+                for (arg in argumentCStrings) {
+                    LibC.free(arg)
+                }
+                for (env in envCStrings) {
+                    LibC.free(env)
+                }
+            }
         }
-        returnCode = subProcess.wait(timeout: timeout)
-        return (returnCode == 0, outInfo, errInfo)
+        if (resultPtr.isNull()) {
+            eprintln("Error: failed to execute command '${exeTool}'")
+            return (false, outInfo, errInfo)
+        }
+        try {
+            let result = unsafe { resultPtr.read() }
+            outInfo = if (result.outInfo.isNull()) { "" } else { result.outInfo.toString() }
+            errInfo = if (result.errInfo.isNull()) { "" } else { result.errInfo.toString() }
+            let failure = if (result.failure.isNull()) { "" } else { result.failure.toString() }
+            if (!failure.isEmpty()) {
+                eprintln(failure)
+            }
+            return (result.exitCode == 0 && failure.isEmpty(), outInfo, errInfo)
+        } finally {
+            unsafe { CJPM_EXEC_FreeOutput(resultPtr) }
+        }
     } catch (e: Exception) {
         eprintln(e.message)
         return (false, outInfo, errInfo)
