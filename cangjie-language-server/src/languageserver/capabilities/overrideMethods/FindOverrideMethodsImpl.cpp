@@ -25,6 +25,9 @@ const std::string SPACE = " ";
 
 void ApplyReplace(std::unique_ptr<TypeDetail>& detail, const std::unordered_map<std::string, std::string>& replace)
 {
+    if (!detail) {
+        return;
+    }
     for (auto& item: replace) {
         detail->SetIdentifier(item.first, item.second);
     }
@@ -161,6 +164,9 @@ void ExtractReplace(const Ptr<InheritableDecl>& decl, std::unordered_map<Ptr<Inh
             }
             if (inheritedDecl && inheritedType->GetTy()) {
                 auto originalDetail = ResolveType(inheritedDecl->GetTy());
+                if (!originalDetail) {
+                    continue;
+                }
                 auto newDetail = ResolveType(inheritedType->GetTy());
                 ApplyReplace(newDetail, replace);
                 std::unordered_map<std::string, std::string> myReplace;

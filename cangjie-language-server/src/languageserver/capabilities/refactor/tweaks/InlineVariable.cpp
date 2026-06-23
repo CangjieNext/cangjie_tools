@@ -22,10 +22,20 @@ class InlineVariableSelectionRule : public TweakRule {
     bool Check(const Tweak::Selection &sel, std::map<std::string, std::string> &extraOptions) const override
     {
         auto root = sel.selectionTree.root();
+        if (!root || !root->node) {
+            extraOptions.insert(std::make_pair("ErrorCode",
+                std::to_string(static_cast<int>(InlineVariable::InlineVariableError::NOT_VAR_DECL_OR_REF))));
+            return false;
+        }
 
         auto toBeInline = root->node;
         if (root->node->astKind == ASTKind::FUNC_ARG) {
             auto funcArg = DynamicCast<FuncArg*>(root->node.get());
+            if (!funcArg || !funcArg->expr) {
+                extraOptions.insert(std::make_pair("ErrorCode",
+                    std::to_string(static_cast<int>(InlineVariable::InlineVariableError::NOT_VAR_DECL_OR_REF))));
+                return false;
+            }
             toBeInline = funcArg->expr;
         }
 
@@ -56,7 +66,7 @@ class InlineVariableSelectionRule : public TweakRule {
         }
 
         auto varDecl = DynamicCast<VarDecl*>(target);
-        if (!varDecl->initializer) {
+        if (!varDecl || !varDecl->initializer) {
             extraOptions.insert(std::make_pair("ErrorCode",
                 std::to_string(static_cast<int>(InlineVariable::InlineVariableError::NO_INIT_EXPR))));
             return false;
@@ -85,9 +95,15 @@ bool InlineVariable::Prepare(const Selection &sel)
 VarDecl* InlineVariable::GetVarDecl(const Selection &sel)
 {
     auto root = sel.selectionTree.root();
+    if (!root || !root->node) {
+        return nullptr;
+    }
     auto toBeInline = root->node;
     if (root->node->astKind == ASTKind::FUNC_ARG) {
         auto funcArg = DynamicCast<FuncArg*>(root->node.get());
+        if (!funcArg || !funcArg->expr) {
+            return nullptr;
+        }
         toBeInline = funcArg->expr;
     }
 
