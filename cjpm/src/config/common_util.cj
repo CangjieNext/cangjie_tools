@@ -13,8 +13,113 @@ import std.io.*
 import std.process.*
 import std.runtime.*
 import std.env.*
+import std.sync.Mutex
 
 foreign func system(command: CString): Int32
+
+// Start a native OS thread to read one subprocess pipe through the callback.
+foreign func CJPM_EXEC_StartPipeReader(readerId: Int64, callback: CFunc<(Int64) -> Unit>): CPointer<Unit>
+
+// Wait until the native pipe reader thread exits.
+foreign func CJPM_EXEC_JoinPipeReader(reader: CPointer<Unit>): Bool
+
+// Free the native pipe reader handle after it has been joined or failed to start.
+foreign func CJPM_EXEC_FreePipeReader(reader: CPointer<Unit>): Unit
+
+// Keep the Cangjie stream and collected result for one native pipe reader thread.
+private class PipeReaderContext {
+    let readOutput: () -> String
+    var output: String = ""
+    var error: String = ""
+
+    init(readOutput: () -> String) {
+        this.readOutput = readOutput
+    }
+
+    static func create<T>(stream: T): PipeReaderContext where T <: InputStream {
+        PipeReaderContext({ => StringReader(stream).readToEnd() })
+    }
+
+    func readToEnd(): String {
+        this.readOutput()
+    }
+}
+
+private class PipeReaderContextManager {
+    static let MUTEX = Mutex()
+    static var nextReaderId: Int64 = 0
+    static let CONTEXTS = HashMap<Int64, PipeReaderContext>()
+
+    static func add<T>(stream: T): Int64 where T <: InputStream {
+        synchronized(MUTEX) {
+            nextReaderId++
+            CONTEXTS[nextReaderId] = PipeReaderContext.create(stream)
+            nextReaderId
+        }
+    }
+
+    static func get(readerId: Int64): ?PipeReaderContext {
+        synchronized(MUTEX) {
+            CONTEXTS.get(readerId)
+        }
+    }
+
+    static func remove(readerId: Int64): ?PipeReaderContext {
+        synchronized(MUTEX) {
+            CONTEXTS.remove(readerId)
+        }
+    }
+
+    static func setResult(readerId: Int64, context: PipeReaderContext, output: String, error: String): Unit {
+        synchronized(MUTEX) {
+            if (CONTEXTS.contains(readerId)) {
+                context.output = output
+                context.error = error
+            }
+        }
+    }
+}
+
+// C callback run by the native pipe reader thread to drain one Cangjie InputStream.
+@C
+func readPipeToEnd(readerId: Int64): Unit {
+    let context = PipeReaderContextManager.get(readerId)
+    let readerContext = if (let Some(value) <- context) { value } else { return }
+    var output = ""
+    var error = ""
+    try {
+        output = readerContext.readToEnd()
+    } catch (e: Exception) {
+        error = e.message
+    }
+    PipeReaderContextManager.setResult(readerId, readerContext, output, error)
+}
+
+// Join one native pipe reader and return its collected output and error message.
+private func joinPipeReader(readerId: Int64, reader: CPointer<Unit>): (String, String) {
+    var joinFailed = false
+    try {
+        if (reader.isNull() || !unsafe { CJPM_EXEC_JoinPipeReader(reader) }) {
+            joinFailed = true
+        }
+    } finally {
+        if (!reader.isNull()) {
+            unsafe { CJPM_EXEC_FreePipeReader(reader) }
+        }
+    }
+    let context = PipeReaderContextManager.remove(readerId)
+    let readerContext = if (let Some(value) <- context) {
+        value
+    } else {
+        return ("", if (joinFailed) { "Failed to join pipe reader." } else { "" })
+    }
+    let error = if (joinFailed && readerContext.error.isEmpty()) {
+        "Failed to join pipe reader."
+    } else {
+        readerContext.error
+    }
+    return (readerContext.output, error)
+}
 
 // Simply execute the command.
 // For expand command and without env config
@@ -34,7 +139,7 @@ public func execAndToTerminal(exeTool: String, arguments: Array<String>, timeout
 // Execute the command and store the output.
 public func execWithOutput(exeTool: String, arguments: ArrayList<String>,
     envMap!: HashMap<String, String> = HashMap<String, String>(), timeout!: Option<Duration> = None,
-    workingDirectory!: ?Path = None, spawnForScript!: Bool = false): (Bool, String, String) {
+    workingDirectory!: ?Path = None): (Bool, String, String) {
     let subProcess: SubProcess
     var returnCode: Int64
     var outInfo = ""
@@ -56,17 +161,29 @@ public func execWithOutput(exeTool: String, arguments: ArrayList<String>,
                 stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
         }
 
-        if (spawnForScript) {
-            let outInfoFuture = spawn {StringReader(subProcess.stdOutPipe).readToEnd()}
-            let errInfoFuture = spawn {StringReader(subProcess.stdErrPipe).readToEnd()}
-            outInfo = outInfoFuture.get()
-            errInfo = errInfoFuture.get()
-        } else {
-            outInfo = StringReader(subProcess.stdOutPipe).readToEnd()
-            errInfo = StringReader(subProcess.stdErrPipe).readToEnd()
+        let outReaderId = PipeReaderContextManager.add(subProcess.stdOutPipe)
+        let errReaderId = PipeReaderContextManager.add(subProcess.stdErrPipe)
+        let outReader = unsafe { CJPM_EXEC_StartPipeReader(outReaderId, readPipeToEnd) }
+        let errReader = unsafe { CJPM_EXEC_StartPipeReader(errReaderId, readPipeToEnd) }
+        if (outReader.isNull() || errReader.isNull()) {
+            eprintln("Error: failed to start pipe reader for '${exeTool}'")
+            subProcess.terminate(force: true)
+            let _ = joinPipeReader(outReaderId, outReader)
+            let _ = joinPipeReader(errReaderId, errReader)
+            return (false, outInfo, errInfo)
+        }
+        let (out, outError) = joinPipeReader(outReaderId, outReader)
+        let (err, errError) = joinPipeReader(errReaderId, errReader)
+        outInfo = out
+        errInfo = err
+        if (!outError.isEmpty()) {
+            eprintln(outError)
+        }
+        if (!errError.isEmpty()) {
+            eprintln(errError)
         }
         returnCode = subProcess.wait(timeout: timeout)
-        return (returnCode == 0, outInfo, errInfo)
+        return (returnCode == 0 && outError.isEmpty() && errError.isEmpty(), outInfo, errInfo)
     } catch (e: Exception) {
         eprintln(e.message)
         return (false, outInfo, errInfo)
