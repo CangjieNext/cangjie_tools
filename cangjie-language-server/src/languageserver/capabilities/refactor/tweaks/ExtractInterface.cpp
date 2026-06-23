@@ -1204,6 +1204,15 @@ bool IsParamTypeReferenceRange(const FuncParam &param, const Range &referenceRan
     return typeRange.has_value() && typeRange->start == referenceRange.start && typeRange->end == referenceRange.end;
 }
 
+bool IsExtendTargetTypeReferenceRange(const ExtendDecl &decl, const Range &referenceRange)
+{
+    if (!decl.extendedType) {
+        return false;
+    }
+    auto typeRange = GetTypeReferenceRange(*decl.extendedType);
+    return typeRange.has_value() && typeRange->start == referenceRange.start && typeRange->end == referenceRange.end;
+}
+
 bool IsFuncParamUsedInBody(const FuncParam &param, const FuncBody &funcBody)
 {
     if (!funcBody.body) {
@@ -1286,6 +1295,11 @@ bool ShouldExcludeTypeReferenceReplacement(const Node &node, const Range &refere
     bool shouldExclude = false;
     ConstWalker(&node, [&shouldExclude, &referenceRange](Ptr<const Node> child) {
         if (shouldExclude || !child) {
+            return VisitAction::STOP_NOW;
+        }
+        auto extendDecl = DynamicCast<const ExtendDecl*>(child.get());
+        if (extendDecl && IsExtendTargetTypeReferenceRange(*extendDecl, referenceRange)) {
+            shouldExclude = true;
             return VisitAction::STOP_NOW;
         }
         auto funcParam = DynamicCast<const FuncParam*>(child.get());
@@ -1629,7 +1643,7 @@ std::optional<TextEdit> BuildOverrideBeforeFuncEdit(const FuncDecl &func, Source
     return TextEdit{range, "override "};
 }
 
-std::optional<TextEdit> BuildRedefAfterStaticEdit(const FuncDecl &func, SourceManager *sm)
+std::optional<TextEdit> BuildRedefStaticFuncEdit(const FuncDecl &func, SourceManager *sm)
 {
     if (!sm) {
         return std::nullopt;
@@ -1645,20 +1659,16 @@ std::optional<TextEdit> BuildRedefAfterStaticEdit(const FuncDecl &func, SourceMa
     }
 
     size_t redefPos = TweakUtils::FindTokenBoundaryPos(header, "redef");
-    if (redefPos != std::string::npos && redefPos > staticPos && redefPos < funcPos) {
+    if (redefPos != std::string::npos && redefPos < funcPos) {
         return std::nullopt;
     }
 
-    size_t insertTokenPos = staticPos + std::string("static").size();
-    while (insertTokenPos < header.size() && std::isspace(static_cast<unsigned char>(header[insertTokenPos]))) {
-        ++insertTokenPos;
-    }
+    Cangjie::Position start = TweakUtils::PositionAtOffset(headerBegin, header, staticPos);
+    Cangjie::Position end = TweakUtils::PositionAtOffset(headerBegin, header, funcPos + std::string("func").size());
 
-    Cangjie::Position insertPos = TweakUtils::PositionAtOffset(headerBegin, header, insertTokenPos);
-
-    Range range{insertPos, insertPos};
+    Range range{start, end};
     range = TransformFromChar2IDE(range);
-    return TextEdit{range, "redef "};
+    return TextEdit{range, "redef static func"};
 }
 
 size_t FindHeaderClauseInsertOffset(const std::string &headerText)
@@ -1856,13 +1866,21 @@ bool AddInterfaceMemberEdits(const FuncDecl &func,
                              const SelectedEditsRequest &request,
                              bool isStatic)
 {
+    if (isStatic) {
+        auto redefEdit = BuildRedefStaticFuncEdit(func, sm);
+        if (redefEdit.has_value()) {
+            request.edits.push_back(std::move(*redefEdit));
+        }
+        return true;
+    }
+
     auto removeVisibilityEdit = BuildRemoveVisibilityEdit(func, sm);
     if (!removeVisibilityEdit.has_value()) {
         return false;
     }
-    removeVisibilityEdit->newText = isStatic ? "" : "override ";
+    removeVisibilityEdit->newText = "override ";
     request.edits.push_back(std::move(*removeVisibilityEdit));
-    return !isStatic;
+    return true;
 }
 
 bool AddConcreteVisibilityEdits(const FuncDecl &func,
@@ -1922,7 +1940,7 @@ void AddOverrideOrRedefEdit(const FuncDecl &func,
 {
     bool isStatic = func.TestAttr(Cangjie::AST::Attribute::STATIC);
     if (isStatic && allowRedef) {
-        auto redefEdit = BuildRedefAfterStaticEdit(func, sm);
+        auto redefEdit = BuildRedefStaticFuncEdit(func, sm);
         if (redefEdit.has_value()) {
             request.edits.push_back(std::move(*redefEdit));
         }
@@ -2040,6 +2058,47 @@ void CollectSelectedEditsFromTarget(const TargetDecl &target, SelectedEditsReque
             return;
         default:
             return;
+    }
+}
+
+bool DirectlyInheritsTarget(const InheritableDecl &decl, const Decl &targetDecl)
+{
+    for (const auto &inherited : decl.inheritedTypes) {
+        if (!inherited) {
+            continue;
+        }
+        auto inheritedTarget = inherited->GetTarget();
+        if (inheritedTarget && CheckDeclEqual(*inheritedTarget, targetDecl)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void CollectSelectedEditsFromInterfaceImplementor(Decl &decl, const Decl &targetDecl, SelectedEditsRequest &request)
+{
+    if (auto *classDecl = DynamicCast<ClassDecl *>(&decl)) {
+        if (DirectlyInheritsTarget(*classDecl, targetDecl)) {
+            CollectSelectedEditsFromType(*classDecl, request, false, true);
+        }
+        return;
+    }
+    if (auto *structDecl = DynamicCast<StructDecl *>(&decl)) {
+        if (DirectlyInheritsTarget(*structDecl, targetDecl)) {
+            CollectSelectedEditsFromType(*structDecl, request, false, true);
+        }
+        return;
+    }
+    if (auto *interfaceDecl = DynamicCast<InterfaceDecl *>(&decl)) {
+        if (!CheckDeclEqual(*interfaceDecl, targetDecl) && DirectlyInheritsTarget(*interfaceDecl, targetDecl)) {
+            CollectSelectedEditsFromType(*interfaceDecl, request, true, true);
+        }
+        return;
+    }
+    if (auto *enumDecl = DynamicCast<EnumDecl *>(&decl)) {
+        if (DirectlyInheritsTarget(*enumDecl, targetDecl)) {
+            CollectSelectedEditsFromType(*enumDecl, request, false, true);
+        }
     }
 }
 
@@ -2569,6 +2628,27 @@ void AddSelectedMemberEdits(ApplyContext &context)
     CollectSelectedEditsFromTarget(context.target, request);
 }
 
+void AddInterfaceImplementorMemberEdits(ApplyContext &context)
+{
+    if (context.target.kind != TargetKind::INTERFACE || context.chosen.empty() || !context.sel.arkAst ||
+        !context.sel.arkAst->file || !context.target.interfaceDecl) {
+        return;
+    }
+
+    SelectedEditsRequest request{
+        context.sel,
+        context.chosen,
+        context.effect.applyEdits[context.sourceUri],
+        false
+    };
+    for (auto &decl : context.sel.arkAst->file->decls) {
+        if (!decl) {
+            continue;
+        }
+        CollectSelectedEditsFromInterfaceImplementor(*decl.get(), *context.target.interfaceDecl, request);
+    }
+}
+
 Cangjie::AST::Decl *ResolveTypeReplacementTargetDecl(const TargetDecl &target)
 {
     switch (target.kind) {
@@ -2649,6 +2729,7 @@ std::optional<Tweak::Effect> ExtractInterface::Apply(const Tweak::Selection &sel
     AddImplementationImportsAndInheritance(context);
     AddRenameOriginalClassEdit(context);
     AddSelectedMemberEdits(context);
+    AddInterfaceImplementorMemberEdits(context);
     AddTypeReferenceReplacementEdits(context);
     return context.effect;
 }

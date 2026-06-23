@@ -109,3 +109,31 @@ class Consumer {
         return person.location()
     }
 }
+
+open class BaseGreeter {
+    public func greet(): String {
+        "Hello"
+    }
+}
+
+extend BaseGreeter {
+    public func greetLoudly(): String {
+        "${greet()}!!!"
+    }
+}
+
+interface NamedType {
+    static func typeName(): String
+}
+
+class ClassA <: NamedType {
+    public static func typeName(): String {
+        "ClassA"
+    }
+}
+
+class ClassB <: NamedType {
+    public static func typeName(): String {
+        "ClassB"
+    }
+}
