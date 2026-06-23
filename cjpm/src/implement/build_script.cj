@@ -141,7 +141,7 @@ func runScriptExe(scriptConfig: ScriptConfig, commandArg: String): Bool {
         RUN_SCRIPT_CMD_MAP.add(scriptConfig.moduleName, (cmd, exePath, env))
     }
     let (flag, outInfo, errInfo) = execWithOutput(exePath, ArrayList<String>([commandArg]), envMap: env,
-        workingDirectory: Path(scriptConfig.modulePath), spawnForScript: true)
+        workingDirectory: Path(scriptConfig.modulePath))
     let output: String = errInfo + outInfo
     try {
         File.appendTo(scriptConfig.scriptLog, output.toArray())
@@ -404,6 +404,19 @@ func isRebuild(scriptConfig: ScriptConfig, buildConfig: BuildConfig): Bool {
     return preHash != curHash
 }
 
+func compileScriptExe(scriptConfig: ScriptConfig, envs: HashMap<String, String>, args: ArrayList<String>): Bool {
+    let result = execWithOutput(COMPILE_TOOL, args, envMap: envs)
+    if (!result[1].isEmpty()) {
+        println(result[1])
+    }
+    if (!result[0]) {
+        eprintln(result[2])
+        eprintln("Error: failed to build script ${scriptConfig.scriptPath}")
+        return false
+    }
+    return true
+}
+
 func makeScriptExe(scriptConfig: ScriptConfig, buildConfig: BuildConfig): Bool {
     if (!isRebuild(scriptConfig, buildConfig)) {
         return true
@@ -414,14 +427,7 @@ func makeScriptExe(scriptConfig: ScriptConfig, buildConfig: BuildConfig): Bool {
     }
 
     let (envs, args) = getCompileArgs(scriptConfig, buildConfig) ?? return false
-    let (flag, outInfo, errInfo) = execWithOutput(COMPILE_TOOL, args, envMap: envs, spawnForScript: true)
-
-    if (!outInfo.isEmpty()) {
-        println(outInfo)
-    }
-    if (!flag) {
-        eprintln(errInfo)
-        eprintln("Error: failed to build script ${scriptConfig.scriptPath}")
+    if (!compileScriptExe(scriptConfig, envs, args)) {
         return false
     }
 
