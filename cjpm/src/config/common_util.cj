@@ -13,8 +13,95 @@ import std.io.*
 import std.process.*
 import std.runtime.*
 import std.env.*
+import std.sync.*
 
 foreign func system(command: CString): Int32
+
+foreign func CJPM_EXEC_StartPipeReader(readerId: Int64, callback: CFunc<(Int64) -> Unit>): CPointer<Unit>
+
+foreign func CJPM_EXEC_JoinPipeReader(reader: CPointer<Unit>): Bool
+
+foreign func CJPM_EXEC_FreePipeReader(reader: CPointer<Unit>): Unit
+
+private class PipeReaderContext {
+    let stream: InputStream
+    var output: String = ""
+    var error: String = ""
+
+    init(stream: InputStream) {
+        this.stream = stream
+    }
+}
+
+private let pipeReaderMutex = Mutex()
+private var nextPipeReaderId: Int64 = 0
+private let pipeReaderContexts = HashMap<Int64, PipeReaderContext>()
+
+private func addPipeReaderContext(stream: InputStream): Int64 {
+    synchronized(pipeReaderMutex) {
+        nextPipeReaderId++
+        pipeReaderContexts[nextPipeReaderId] = PipeReaderContext(stream)
+        nextPipeReaderId
+    }
+}
+
+private func getPipeReaderContext(readerId: Int64): ?PipeReaderContext {
+    synchronized(pipeReaderMutex) {
+        pipeReaderContexts.get(readerId)
+    }
+}
+
+private func removePipeReaderContext(readerId: Int64): ?PipeReaderContext {
+    synchronized(pipeReaderMutex) {
+        pipeReaderContexts.remove(readerId)
+    }
+}
+
+@C
+func readPipeToEnd(readerId: Int64): Unit {
+    let context = getPipeReaderContext(readerId)
+    if (context.isNone()) {
+        return
+    }
+    let readerContext = context.getOrThrow()
+    var output = ""
+    var error = ""
+    try {
+        output = StringReader(readerContext.stream).readToEnd()
+    } catch (e: Exception) {
+        error = e.message
+    }
+    synchronized(pipeReaderMutex) {
+        if (pipeReaderContexts.contains(readerId)) {
+            readerContext.output = output
+            readerContext.error = error
+        }
+    }
+}
+
+private func joinPipeReader(readerId: Int64, reader: CPointer<Unit>): (String, String) {
+    var joinFailed = false
+    try {
+        if (reader.isNull() || !unsafe { CJPM_EXEC_JoinPipeReader(reader) }) {
+            joinFailed = true
+        }
+    } finally {
+        if (!reader.isNull()) {
+            unsafe { CJPM_EXEC_FreePipeReader(reader) }
+        }
+    }
+    let context = removePipeReaderContext(readerId)
+    if (context.isNone()) {
+        return ("", if (joinFailed) { "Failed to join pipe reader." } else { "" })
+    }
+    let readerContext = context.getOrThrow()
+    let error = if (joinFailed && readerContext.error.isEmpty()) {
+        "Failed to join pipe reader."
+    } else {
+        readerContext.error
+    }
+    return (readerContext.output, error)
+}
 
 // Simply execute the command.
 // For expand command and without env config
@@ -34,7 +121,7 @@ public func execAndToTerminal(exeTool: String, arguments: Array<String>, timeout
 // Execute the command and store the output.
 public func execWithOutput(exeTool: String, arguments: ArrayList<String>,
     envMap!: HashMap<String, String> = HashMap<String, String>(), timeout!: Option<Duration> = None,
-    workingDirectory!: ?Path = None, spawnForScript!: Bool = false): (Bool, String, String) {
+    workingDirectory!: ?Path = None): (Bool, String, String) {
     let subProcess: SubProcess
     var returnCode: Int64
     var outInfo = ""
@@ -56,17 +143,29 @@ public func execWithOutput(exeTool: String, arguments: ArrayList<String>,
                 stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
         }
 
-        if (spawnForScript) {
-            let outInfoFuture = spawn {StringReader(subProcess.stdOutPipe).readToEnd()}
-            let errInfoFuture = spawn {StringReader(subProcess.stdErrPipe).readToEnd()}
-            outInfo = outInfoFuture.get()
-            errInfo = errInfoFuture.get()
-        } else {
-            outInfo = StringReader(subProcess.stdOutPipe).readToEnd()
-            errInfo = StringReader(subProcess.stdErrPipe).readToEnd()
+        let outReaderId = addPipeReaderContext(subProcess.stdOutPipe)
+        let errReaderId = addPipeReaderContext(subProcess.stdErrPipe)
+        let outReader = unsafe { CJPM_EXEC_StartPipeReader(outReaderId, readPipeToEnd) }
+        let errReader = unsafe { CJPM_EXEC_StartPipeReader(errReaderId, readPipeToEnd) }
+        if (outReader.isNull() || errReader.isNull()) {
+            eprintln("Error: failed to start pipe reader for '${exeTool}'")
+            subProcess.terminate(force: true)
+            let _ = joinPipeReader(outReaderId, outReader)
+            let _ = joinPipeReader(errReaderId, errReader)
+            return (false, outInfo, errInfo)
+        }
+        let (out, outError) = joinPipeReader(outReaderId, outReader)
+        let (err, errError) = joinPipeReader(errReaderId, errReader)
+        outInfo = out
+        errInfo = err
+        if (!outError.isEmpty()) {
+            eprintln(outError)
+        }
+        if (!errError.isEmpty()) {
+            eprintln(errError)
         }
         returnCode = subProcess.wait(timeout: timeout)
-        return (returnCode == 0, outInfo, errInfo)
+        return (returnCode == 0 && outError.isEmpty() && errError.isEmpty(), outInfo, errInfo)
     } catch (e: Exception) {
         eprintln(e.message)
         return (false, outInfo, errInfo)
