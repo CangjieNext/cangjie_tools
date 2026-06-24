@@ -82,6 +82,9 @@ private:
 
     std::string GetIndent(Position pos);
 
+    std::string regex_replace_n(
+        const std::string &input, const std::regex &pattern, const std::string &replacement, size_t n);
+
     std::string TransformFunctionBody(Block* block, const std::map<std::string, std::string> &paramMap);
 
     std::string TransformReturnStatement(ReturnExpr* returnExpr, const std::map<std::string, std::string> &paramMap);
