@@ -30,6 +30,7 @@ int main(int argc, char **argv, const char **envp)
         return OK;
     }
     ParamsInCJLint params;
+
     int i = 1;
     while (i < argc) {
         std::string arg = argv[i];
