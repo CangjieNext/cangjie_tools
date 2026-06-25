@@ -966,7 +966,7 @@
                                    '<div>Shallow: <span style="color:#00d9ff;">' + formatBytes(d.shallow_size || 0) + '</span></div>' +
                                    backHint;
                         }
-                        var instanceInfo = d.instance_count > 1 ?
+                        var instanceInfo = (sunburstGranularity === 'type' && d.instance_count >= 1) ?
                             '<div>Instances: <span style="color:#ff9f43;">' + d.instance_count + '</span></div>' : '';
                         return '<div style="font-weight:bold;color:#e94560;margin-bottom:4px;">' + escapeHtml(d.name || d.class_name || 'Object') + '</div>' +
                                instanceInfo +
@@ -1038,7 +1038,7 @@
                                    '<div>Shallow: <span style="color:#00d9ff;">' + formatBytes(d.shallow_size || 0) + '</span></div>' +
                                    backHint;
                         }
-                        var instanceInfo = d.instance_count > 1 ?
+                        var instanceInfo = (sunburstGranularity === 'type' && d.instance_count >= 1) ?
                             '<div>Instances: <span style="color:#ff9f43;">' + d.instance_count + '</span></div>' : '';
                         return '<div style="font-weight:bold;color:#e94560;margin-bottom:4px;">' + escapeHtml(d.name || d.class_name || 'Object') + '</div>' +
                                instanceInfo +
@@ -1503,7 +1503,7 @@
                         var name = d.class_name || 'Object';
                         name = escapeHtml(name);
                         var extra = '';
-                        if (d.is_clustered && d.instance_count > 1) {
+                        if (currentGranularity === 'type' && d.instance_count >= 1) {
                             extra = '<div>Instances: <span style="color:#ff9f43;">' + d.instance_count + '</span></div>';
                         }
                         return '<div style="font-weight:bold;color:#e94560;margin-bottom:4px;word-break:break-all;">' + name + '</div>' +
@@ -1540,7 +1540,7 @@
                             var d = params.data;
                             var name = d.class_name || ('obj' + d.id);
                             // Show instance count for clustered nodes
-                            if (d.is_clustered && d.instance_count > 1) {
+                            if (currentGranularity === 'type' && d.instance_count >= 1) {
                                 name = name + ' (' + d.instance_count + ')';
                             }
                             // Show expand indicator
