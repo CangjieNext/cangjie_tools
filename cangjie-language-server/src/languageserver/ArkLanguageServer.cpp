@@ -2420,6 +2420,8 @@ void ArkLanguageServer::OnCodeAction(const CodeActionParams &params, nlohmann::j
         ReplyError(id);
         return;
     }
+    EnsureTweakBufferSynced(file, GetContentsByFile(file));
+
     std::string uri = params.textDocument.uri.file;
     Range range;
     range.start = Cangjie::Position{
