@@ -10,6 +10,7 @@
 #include <mutex>
 #include <utility>
 #include <cctype>
+#include <regex>
 
 #include "cangjie/Frontend/CompilerInstance.h"
 #include "capabilities/semanticHighlight/SemanticTokensAdaptor.h"
@@ -56,6 +57,18 @@ ValueOrError BuildTweakWorkspaceEditValue(Tweak::Effect effect)
     ToJSON(editParams, res);
 
     return ValueOrError(ValueOrErrorCheck::VALUE, res);
+}
+
+void EnsureTweakBufferSynced(const std::string &file, const std::string &contents)
+{
+    auto buffer = CompilerCangjieProject::GetInstance()->GetContentByFile(file);
+    std::regex reg("\r\n");
+    std::string replaceStr = "\n";
+    std::string bufferResult = std::regex_replace(buffer, reg, replaceStr);
+    std::string contentsResult = std::regex_replace(contents, reg, replaceStr);
+    if (!contents.empty() && bufferResult != contentsResult) {
+        CompilerCangjieProject::GetInstance()->CompilerOneFile(file, contents);
+    }
 }
 } // namespace
 
@@ -2482,17 +2495,7 @@ void ArkLanguageServer::OnCommandApplyTweak(const TweakArgs &args, nlohmann::jso
         ReplyError(id);
         return;
     }
-    if (args.tweakID == "ExtractVariable") {
-        auto buffer = CompilerCangjieProject::GetInstance()->GetContentByFile(file);
-        auto contents = GetContentsByFile(file);
-        std::regex reg("\r\n");
-        std::string replaceStr = "\n";
-        std::string bufferResult = std::regex_replace(buffer, reg, replaceStr);
-        std::string contentsResult = std::regex_replace(contents, reg, replaceStr);
-        if (!buffer.empty() && bufferResult != contentsResult) {
-            CompilerCangjieProject::GetInstance()->CompilerOneFile(file, contents);
-        }
-    }
+    EnsureTweakBufferSynced(file, GetContentsByFile(file));
 
     auto fileId = CompilerCangjieProject::GetInstance()->GetFileID(args.file.file);
     if (!fileId) {
