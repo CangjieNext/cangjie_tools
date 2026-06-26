@@ -347,6 +347,40 @@ Range TweakUtils::GetCompleteExprRange(const SelectionTree &selectionTree)
     return range;
 }
 
+Ptr<Expr> TweakUtils::GetSelectedCompleteExpr(const SelectionTree &selectionTree)
+{
+    Ptr<Expr> selectedExpr = nullptr;
+    auto root = selectionTree.root();
+    if (!root || !root->node) {
+        return nullptr;
+    }
+    SelectionTree::Walk(root, [&selectedExpr](const SelectionTree::SelectionTreeNode *treeNode) {
+        if (!treeNode || !treeNode->node) {
+            return SelectionTree::WalkAction::STOP_NOW;
+        }
+        if (treeNode->selected == SelectionTree::Selection::Complete && treeNode->node->IsExpr()) {
+            auto expr = DynamicCast<Expr *>(treeNode->node.get());
+            if (expr && (!selectedExpr || (expr->begin <= selectedExpr->begin && expr->end >= selectedExpr->end))) {
+                selectedExpr = expr;
+            }
+        }
+        return SelectionTree::WalkAction::WALK_CHILDREN;
+    });
+    return selectedExpr;
+}
+
+Range TweakUtils::GetSelectedCompleteExprRange(const SelectionTree &selectionTree)
+{
+    Range range;
+    auto expr = GetSelectedCompleteExpr(selectionTree);
+    if (!expr) {
+        return range;
+    }
+    range.start = expr->begin;
+    range.end = expr->end;
+    return range;
+}
+
 const SelectionTree::SelectionTreeNode *TweakUtils::GetCompleteExprNode(const SelectionTree &selectionTree,
     const Range &range)
 {

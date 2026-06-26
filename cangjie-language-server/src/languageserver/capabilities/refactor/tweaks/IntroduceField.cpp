@@ -444,6 +444,16 @@ class IntroduceFieldRule : public TweakRule {
             return false;
         }
         auto funcDecl = IntroduceField::GetTargetFunc(sel);
+        std::string typeName = GetIntroduceFieldTypeName(sel.selectionTree, range);
+        if (typeName.empty()) {
+            typeName = GetExplicitTypeName(sel);
+        }
+        if (!memberInitializerTarget && funcDecl &&
+            IntroduceField::IsImmutableStructMemberFieldAssignment(sel, range, typeName, *funcDecl)) {
+            extraOptions.insert(std::make_pair("ErrorCode", std::to_string(static_cast<int>(
+                IntroduceField::IntroduceFieldError::INVALID_IMMUTABLE_STRUCT_MEMBER_FIELD_ASSIGNMENT))));
+            return false;
+        }
         if (!memberInitializerTarget && (!funcDecl || !IntroduceField::IsSupportedTargetFunc(*funcDecl))) {
             extraOptions.insert(std::make_pair("ErrorCode",
                 std::to_string(static_cast<int>(IntroduceField::IntroduceFieldError::INVALID_SCOPE))));
@@ -459,10 +469,6 @@ class IntroduceFieldRule : public TweakRule {
             extraOptions.insert(std::make_pair("ErrorCode",
                 std::to_string(static_cast<int>(IntroduceField::IntroduceFieldError::INVALID_CONST_INITIALIZER))));
             return false;
-        }
-        std::string typeName = GetIntroduceFieldTypeName(sel.selectionTree, range);
-        if (typeName.empty()) {
-            typeName = GetExplicitTypeName(sel);
         }
         if (typeName.empty()) {
             extraOptions.insert(std::make_pair("ErrorCode",
@@ -563,8 +569,12 @@ std::map<std::string, std::string> IntroduceField::ExtraOptions()
 
 Ptr<Cangjie::AST::FuncDecl> IntroduceField::GetTargetFunc(const Selection &sel)
 {
+    Range range = GetIntroduceFieldExprRange(sel.selectionTree, sel.range);
+    if (range.start == Position{0, 0, 0} || range.start == range.end) {
+        range = TweakUtils::GetCompleteExprRange(sel.selectionTree);
+    }
     return TweakUtils::GetTargetFunc(
-        sel.selectionTree, sel.arkAst, TweakUtils::GetCompleteExprRange(sel.selectionTree));
+        sel.selectionTree, sel.arkAst, range);
 }
 
 bool IntroduceField::IsSupportedTargetFunc(Cangjie::AST::FuncDecl &funcDecl)

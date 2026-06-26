@@ -27,8 +27,12 @@ public:
 
     static Range GetCompleteExprRange(const SelectionTree &selectionTree);
 
+    static Range GetSelectedCompleteExprRange(const SelectionTree &selectionTree);
+
     static const SelectionTree::SelectionTreeNode *GetCompleteExprNode(
         const SelectionTree &selectionTree, const Range &range);
+
+    static Ptr<Expr> GetSelectedCompleteExpr(const SelectionTree &selectionTree);
 
     static Ptr<FuncDecl> FindEnclosingFunc(const ArkAST &arkAst, const Range &range);
 
