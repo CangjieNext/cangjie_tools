@@ -91,6 +91,28 @@ public func testDefaultValue(): Unit {
     let r2 = greet(name: "Cangjie")
 }
 
+enum RGBColor {
+| Red(UInt8)
+| Green(UInt8)
+| Blue(UInt8)
+
+    public func getValue(): UInt8 {
+        var a = 9
+        let color = RGBColor.Red(200)
+        match (this) {
+            case Red(v) => v
+            case Green(v) => v
+            case Blue(v) => v
+        }
+    }
+}
+
+func main3() {
+    let color = RGBColor.Red(200)
+    var aa1 = color.getValue()
+    println("red value: ${color.getValue()}")
+}
+
 func compoundAssignSample(a: Int64): Unit {
     a += 2
     a -= 2
@@ -109,4 +131,8 @@ func bitCompoundAssignSample(): Unit {
     bit |= 0b1000
     bit &= 0b1111
     bit ^= 0b1111
+}
+
+func multiParamSum(a: Int64, b: Int64, c: Int64, d: Int64, e: Int64): Int64 {
+    a + 1 + b + c + d + e + 7
 }
