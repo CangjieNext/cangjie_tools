@@ -1915,6 +1915,51 @@ void SymbolCollector::CreateNamedArgRef(const CallExpr &ce)
     }
 }
 
+void SymbolCollector::CreateResolvedFunctionRef(const CallExpr& ce, const std::string& filePath)
+{
+    auto funcDecl = DynamicCast<FuncDecl*>(ce.resolvedFunction.get());
+    if (!funcDecl) {
+        return;
+    }
+    if (!IsGlobalOrMemberOrItsParam(*funcDecl)) {
+        return;
+    }
+    if (!ce.curFile) {
+        return;
+    }
+    
+    auto begin = ce.GetBegin();
+    auto identifier = GetRefIdentifier(*funcDecl);
+    auto offset = (identifier == "[]" || identifier == "()") ? 1 : CountUnicodeCharacters(identifier);
+    auto end = begin + offset;
+    
+    auto uri = ce.curFile->filePath;
+    if (begin.fileID != ce.begin.fileID && !ce.curFile->macroCallFilePath.empty()) {
+        uri = ce.curFile->macroCallFilePath;
+    }
+    
+    if (uri.empty()) {
+        return;
+    }
+    
+    SymbolLocation loc{begin, end, uri};
+    Ref refInfo{.location = loc, .kind = RefKind::REFERENCE, .container = GetContextID()};
+    UpdatePos(refInfo.location, ce, filePath);
+    
+    (void)symbolRefMap[GetDeclSymbolID(*funcDecl)].emplace_back(refInfo);
+    
+    // Also create reference to the outer class for constructor calls
+    // This ensures the class is not reported as unused when only its constructor is called
+    if (funcDecl->TestAttr(Attribute::CONSTRUCTOR) || funcDecl->TestAttr(Attribute::PRIMARY_CONSTRUCTOR)) {
+        if (funcDecl->outerDecl && IsGlobalOrMemberOrItsParam(*funcDecl->outerDecl)) {
+            auto classId = GetDeclSymbolID(*funcDecl->outerDecl);
+            if (classId != INVALID_SYMBOL_ID) {
+                (void)symbolRefMap[classId].emplace_back(refInfo);
+            }
+        }
+    }
+}
+
 void SymbolCollector::CollectRelations(
     const std::unordered_set<Ptr<InheritableDecl>> &inheritableDecls)
 {
@@ -2171,6 +2216,9 @@ void SymbolCollector::CollectNode(Ptr<Node> node, const std::string& filePath, A
         CreateRef(*ref, filePath);
     } else if (auto ce = DynamicCast<CallExpr *>(node); ce && !ce->desugarExpr) {
         CreateNamedArgRef(*ce);
+        if (ce->resolvedFunction && ce->curFile) {
+            CreateResolvedFunctionRef(*ce, filePath);
+        }
     } else if (auto type = DynamicCast<Type *>(node)) {
         CreateTypeRef(*type, filePath);
     }
