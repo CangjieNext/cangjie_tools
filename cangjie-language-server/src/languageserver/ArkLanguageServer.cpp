@@ -834,7 +834,7 @@ void ArkLanguageServer::WrapClientWatchedFiles(std::vector<FileWatchedEvent> &ch
             });
         } else if (event.type == FileChangeType::CREATED && CheckIsDirectory(file) &&
                 CheckFileInCangjieProject(filePath)) {
-            fileVec = GetAllFilesUnderCurrentPath(file, CANGJIE_FILE_EXTENSION, false);
+            fileVec = GetAllFilesUnderCurrentPath(file, CANGJIE_FILE_EXTENSION(), false);
         }
         for (const auto& item : fileVec) {
             TextDocumentIdentifier textDocument;
@@ -866,7 +866,8 @@ void ArkLanguageServer::OnDidChangeWatchedFiles(const DidChangeWatchedFilesParam
 // LCOV_EXCL_STOP
 bool ArkLanguageServer::CheckFileInCangjieProject(const std::string &filePath, bool ignoreMacro) const
 {
-    if (filePath.empty() || (ignoreMacro && Cangjie::FileUtil::HasExtension(filePath, CANGJIE_MACRO_FILE_EXTENSION))) {
+    if (filePath.empty() || (ignoreMacro && Cangjie::FileUtil::HasExtension(filePath,
+        CANGJIE_MACRO_FILE_EXTENSION()))) {
         return false;
     }
     return CompilerCangjieProject::GetInstance()->GetCangjieFileKind(filePath).first != CangjieFileKind::MISSING;
@@ -1003,7 +1004,7 @@ void ArkLanguageServer::OnFileRefactor(const FileRefactorReqParams &params, nloh
     logger.LogMessage(MessageType::MSG_LOG, "ArkLanguageServer::OnFileRefactor in");
 
     std::string file = FileStore::NormalizePath(URI::Resolve(params.file.uri.file));
-    if (FileUtil::GetFileExtension(file) != CONSTANTS::CANGJIE_FILE_EXTENSION) {
+    if (FileUtil::GetFileExtension(file) != CONSTANTS::CANGJIE_FILE_EXTENSION()) {
         ReplyError(id);
         return;
     }
@@ -1246,13 +1247,13 @@ std::vector<DiagnosticToken> ArkLanguageServer::GetDiagsOfCurFile(std::string fi
 void ArkLanguageServer::RemoveDiagOfCurPkg(const std::string& dirName)
 {
     std::lock_guard<std::mutex> lock(fixItsMutex);
-    std::vector<std::string> files = GetAllFilesUnderCurrentPath(dirName, CANGJIE_FILE_EXTENSION, false);
+    std::vector<std::string> files = GetAllFilesUnderCurrentPath(dirName, CANGJIE_FILE_EXTENSION(), false);
     for (auto &iter : files) {
         LowFileName(iter);
         std::string path = JoinPath(dirName, iter);
         (void)fixItsMap.erase(path);
     }
-    files = GetAllFilesUnderCurrentPath(dirName, CANGJIE_MACRO_FILE_EXTENSION, false);
+    files = GetAllFilesUnderCurrentPath(dirName, CANGJIE_MACRO_FILE_EXTENSION(), false);
     for (auto &iter : files) {
         std::string path = JoinPath(dirName, iter);
         (void) fixItsMap.erase(path);
@@ -2110,6 +2111,10 @@ static bool ShouldHandleEnumVariant(const Decl* decl, const ArkAST* arkAst)
 static bool ProcessDeclDeleteRange(const Decl* decl,
     const MacroExpandDecl* parentMacroExpandDecl, Range& deleteRange, const ArkAST* arkAst)
 {
+    if (ShouldHandleEnumVariant(decl, arkAst)) {
+        HandleEnumVariant(decl, arkAst, deleteRange);
+    }
+    
     if (ShouldHandleCurMacroCall(decl)) {
         if (IsAnnotationMacro(decl)) {
             return HandleAnnotationMacro(decl, deleteRange);
@@ -2122,8 +2127,6 @@ static bool ProcessDeclDeleteRange(const Decl* decl,
         HandleOuterMacroExpand(decl, deleteRange);
     } else if (ShouldHandleParentMacroExpand(decl, parentMacroExpandDecl)) {
         HandleParentMacroExpand(decl, parentMacroExpandDecl, deleteRange);
-    } else if (ShouldHandleEnumVariant(decl, arkAst)) {
-        HandleEnumVariant(decl, arkAst, deleteRange);
     }
     return false;
 }
