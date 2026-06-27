@@ -1914,6 +1914,7 @@ size_t CountExtractableMembers(const TargetDecl &target)
     }
 }
 // LCOV_EXCL_BR_STOP
+// NOLINTNEXTLINE(G.NAM.02-CPP)
 class ExtractInterfaceSelectionRule : public TweakRule {
 public:
     bool Check(const Tweak::Selection &sel, std::map<std::string, std::string> &extraOptions) const override
@@ -2132,19 +2133,29 @@ void CollectMembersFromTarget(const TargetDecl &target, const Tweak::Selection &
 {
     switch (target.kind) {
         case TargetKind::CLASS:
-            CollectMembersFromType(*target.classDecl, sel, info);
+            if (target.classDecl) {
+                CollectMembersFromType(*target.classDecl, sel, info);
+            }
             return;
         case TargetKind::STRUCT:
-            CollectMembersFromType(*target.structDecl, sel, info);
+            if (target.structDecl) {
+                CollectMembersFromType(*target.structDecl, sel, info);
+            }
             return;
         case TargetKind::INTERFACE:
-            CollectMembersFromType(*target.interfaceDecl, sel, info);
+            if (target.interfaceDecl) {
+                CollectMembersFromType(*target.interfaceDecl, sel, info);
+            }
             return;
         case TargetKind::ENUM:
-            CollectMembersFromType(*target.enumDecl, sel, info);
+            if (target.enumDecl) {
+                CollectMembersFromType(*target.enumDecl, sel, info);
+            }
             return;
         case TargetKind::EXTEND:
-            CollectMembersFromType(*target.extendDecl, sel, info);
+            if (target.extendDecl) {
+                CollectMembersFromType(*target.extendDecl, sel, info);
+            }
             return;
         default:
             return;

@@ -9,7 +9,7 @@
 #include "TweakRegistry.h"
 
 namespace ark {
-Tweak::Selection::Selection(ArkAST &arkAst, Range &range,
+Tweak::Selection::Selection(ArkAST &arkAst, const Range &range,
                             SelectionTree &&selectionTree, std::map<std::string, std::string> extraOptions)
     : arkAst(&arkAst), range(range), selectionTree(std::move(selectionTree))
 {
@@ -36,6 +36,9 @@ std::optional<std::unique_ptr<Tweak>> Tweak::PrepareTweak(std::string id, const 
             continue;
         }
         auto tweak = TweakRegistry::Create(id);
+        if (!tweak) {
+            return std::nullopt;
+        }
         if (!tweak->Prepare(selection)) {
             return std::nullopt;
         }

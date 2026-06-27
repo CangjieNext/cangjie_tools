@@ -110,3 +110,46 @@ func bitCompoundAssignSample(): Unit {
     bit &= 0b1111
     bit ^= 0b1111
 }
+
+func outer(a: Int64): Int64 {
+    func inner(b: Int64): Int64 {
+        b * 2
+    }
+    inner(a) + 1
+}
+
+public func testNestedFunction(): Unit {
+    let result = outer(10)
+    println("outer(10) = ${result}")
+}
+
+enum RGBColor {
+| Red(UInt8)
+| Green(UInt8)
+| Blue(UInt8)
+
+    public func getValue(): UInt8 {
+        var a = 9
+        let color = RGBColor.Red(200)
+        match (this) {
+            case Red(v) => v
+            case Green(v) => v
+            case Blue(v) => v
+        }
+    }
+
+    public func next(base: Int64): Int64 {
+        return base + 8
+    }
+}
+
+func main3() {
+    let color = RGBColor.Red(200)
+    var aa = color.next(8)
+    var aa1 = color.getValue()
+    println("红色值: ${color.getValue()}")
+}
+
+func multiParamSum(a: Int64, b: Int64, c: Int64, d: Int64, e: Int64): Int64 {
+    a + 1 + b + c + d + e + 7
+}
