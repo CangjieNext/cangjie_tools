@@ -82,3 +82,21 @@ struct Temperature {
         a+1
     }
 }
+
+class MathTool {
+    static func add(base: Int64): Int64 {
+        var bit: Int32 = 0b0001
+        bit <<= 1
+        bit >>= 1
+        bit |= 0b1000
+        bit &= 0b1111
+        bit ^= 0b1111
+        return base
+    }
+}
+
+private func nestedFunctionFieldSample() {
+    func companame() {
+        let a = 3
+    }
+}
