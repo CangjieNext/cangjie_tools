@@ -339,13 +339,34 @@ func isBinary(fileInfo: FileInfo): Bool {
  * Verify if a file path match a rule for include/exclude
  * 'path' should always be a file, and has already been transfered into relative path, with '\' replaced by '/'
  */
+func bundleRuleContainsGlobMeta(rule: String): Bool {
+    rule.contains('*') || rule.contains('?') || rule.contains('[')
+}
+
+/*
+ * Normalize pure path rules (no glob metacharacters) before pattern matching.
+ * Collapses redundant separators and resolves '.' / '..' segments via Path.normalize().
+ */
+func normalizeBundleRule(rule: String): String {
+    let trimmed = rule.trimAscii()
+    if (bundleRuleContainsGlobMeta(trimmed)) {
+        return trimmed
+    }
+    let hadTrailingSlash = trimmed.endsWith("/")
+    var normalized = Path(trimmed).normalize().toString().replace("\\", "/")
+    if (hadTrailingSlash && !normalized.endsWith("/")) {
+        normalized += "/"
+    }
+    return normalized
+}
+
 func isPathIncluded(path: String, rule: String): Bool {
     if (rule.isEmpty() || rule.startsWith("#")) {
         return false
     }
 
     var regexRule = ""
-    var processedpattern = rule.trimAscii()
+    var processedpattern = normalizeBundleRule(rule)
 
     // process rules start with '/'
     if (processedpattern.startsWith("/")) {
