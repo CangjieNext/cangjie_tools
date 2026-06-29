@@ -1035,19 +1035,6 @@ func parallelCompileTests(
         })
     }
 
-    // Compile test runner
-    sem.acquire()
-    testFut.add(
-        spawn {
-            =>
-            try {
-                TestRunner.generateSources(testConfig)
-                return TestRunner.compile(testConfig)
-            } finally {
-                sem.release()
-            }
-        })
-
     for (f in testFut) {
         try {
             let res = f.get() // Wait for the thread to complete
@@ -1057,6 +1044,12 @@ func parallelCompileTests(
         } catch (e: Exception) {
             testFlag = false
         }
+    }
+
+    // Compile test runner after all package tests finish to avoid concurrent cjc races
+    TestRunner.generateSources(testConfig)
+    if (!TestRunner.compile(testConfig)) {
+        testFlag = false
     }
 
     if (!logger.unsafeWait()) {

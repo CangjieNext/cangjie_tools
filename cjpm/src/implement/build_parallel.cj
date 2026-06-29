@@ -2002,7 +2002,7 @@ private func addEndTime(fullName: String): Unit {
 private func specifyCjcJobs(args: ArrayList<String>, cjcParallelConfig: CjcParallelConfig): Unit {
     CUR_PARALLEL_SIZE.fetchAdd(1)
 
-    if (futJudge(args)) {
+    if (hasJobsArg(args)) {
         return
     }
 
@@ -2024,16 +2024,14 @@ private func calculateParallel(currentParalla: Int64): Int64 {
     }
 }
 
-private func futJudge(args: ArrayList<String>): Bool {
-    let tmp = args.toString()
-    let fut1: Future<Bool> = spawn {
-        let regexParallel = Regex("-j[[:space:]]*(?:[[:digit:]]|=[[:digit:]])")
-        regexParallel.matches(tmp)
+private func hasJobsArg(args: ArrayList<String>): Bool {
+    for (arg in args) {
+        // Covers `-j`, `-j8`, `-j=8`, `-j 8` (single token), `--jobs`, `--jobs=8`, `--jobs 8`.
+        if (arg.startsWith("-j") || arg.startsWith("--jobs")) {
+            return true
+        }
     }
-    let fut2: Future<Bool> = spawn {
-        tmp.contains("--jobs") || args.contains("-j")
-    }
-    return (fut1.get() || fut2.get())
+    return false
 }
 
 // EXCEPTIONS
