@@ -87,6 +87,7 @@ const unsigned int PROPER_THREAD_COUNT = MAX_THREAD_COUNT == 1 ? MAX_THREAD_COUN
 const int LSP_ERROR_CODE = 503;
 const int SCRIPT_DEPENDENCY_IMPORT_ERROR_CODE = 504;
 CompilerCangjieProject *CompilerCangjieProject::instance = nullptr;
+std::once_flag CompilerCangjieProject::initFlag;
 bool CompilerCangjieProject::useDB = false;
 bool CompilerCangjieProject::incrementalOptimize = true;
 
@@ -192,41 +193,44 @@ void CompilerCangjieProject::ClearCacheForDelete(const std::string &fullPkgName,
                                                  bool isInModule)
 {
     if (isInModule) {
+        std::string realPkgName = GetRealPackageName(fullPkgName);
+        std::unique_lock<std::shared_mutex> pathLock(pathMapMtx);
+        std::unique_lock<std::shared_mutex> ciLock(cimapMtx);
+        std::unique_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
         this->pathToFullPkgName.erase(dirPath);
         this->pkgInfoMap.erase(fullPkgName);
-        std::string realPkgName = GetRealPackageName(fullPkgName);
         if (this->realPkgToFullPkgName.find(realPkgName) != this->realPkgToFullPkgName.end()) {
             this->realPkgToFullPkgName[realPkgName].erase(fullPkgName);
             if (this->realPkgToFullPkgName[realPkgName].empty()) {
                 this->realPkgToFullPkgName.erase(realPkgName);
             }
         }
-        // delete CIMap[pkgName]
-        if (pLRUCache->HasCache(fullPkgName)) {
-            for (auto &iter : pLRUCache->Get(fullPkgName)->upstreamPkgs) {
-                LSPCompilerInstance::dependentPackageMap[iter].downstreamPkgs.erase(fullPkgName);
-            }
-        }
-        this->pLRUCache->EraseCache(fullPkgName);
         this->CIMap.erase(fullPkgName);
     } else {
+        std::unique_lock<std::shared_mutex> ciLock(cimapMtx);
+        std::unique_lock<std::shared_mutex> pkgLock(pkgInfoMapNotInSrcMtx);
         this->pkgInfoMapNotInSrc.erase(dirPath);
-        // delete CIMapNotInSrc[pkgName]
-        if (pLRUCache->HasCache(dirPath)) {
-            for (auto &iter : pLRUCache->Get(dirPath)->upstreamPkgs) {
-                LSPCompilerInstance::dependentPackageMap[iter].downstreamPkgs.erase(dirPath);
-            }
-        }
-        this->pLRUCache->EraseCache(dirPath);
         this->CIMapNotInSrc.erase(dirPath);
     }
+    const std::string &cacheKey = isInModule ? fullPkgName : dirPath;
+    if (pLRUCache->HasCache(cacheKey)) {
+        auto &ci = pLRUCache->Get(cacheKey);
+        if (ci) {
+            for (auto &iter : ci->upstreamPkgs) {
+                LSPCompilerInstance::dependentPackageMap[iter].downstreamPkgs.erase(cacheKey);
+            }
+        }
+    }
+    this->pLRUCache->EraseCache(cacheKey);
     LSPCompilerInstance::astDataMap.erase(fullPkgName);
-    this->packageInstanceCache.erase(dirPath);
+    {
+        std::unique_lock<std::shared_mutex> pkgLock(pkgInstanceCacheMtx);
+        this->packageInstanceCache.erase(dirPath);
+    }
 }
 
 void CompilerCangjieProject::IncrementForFileDelete(const std::string &fileName)
 {
-    // fix linux delete file crash
     std::string absName = FileStore::NormalizePath(fileName);
     std::string dirPath = GetDirPath(absName);
     std::string notInSrcCacheKey = GetNotInSrcCacheKey(absName);
@@ -234,12 +238,24 @@ void CompilerCangjieProject::IncrementForFileDelete(const std::string &fileName)
 
     Ptr<Package> package;
     bool isInModule = GetCangjieFileKind(absName).first != CangjieFileKind::IN_PROJECT_NOT_IN_SOURCE;
-    if ((isInModule && pkgInfoMap.find(fullPkgName) == pkgInfoMap.end()) ||
-        (!isInModule && pkgInfoMapNotInSrc.find(notInSrcCacheKey) == pkgInfoMapNotInSrc.end())) {
-        return;
+    if (isInModule) {
+        std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
+        auto it = pkgInfoMap.find(fullPkgName);
+        if (it == pkgInfoMap.end()) {
+            return;
+        }
+        std::lock_guard<std::mutex> lock(it->second->pkgInfoMutex);
+        it->second->bufferCache.erase(absName);
+    } else {
+        std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapNotInSrcMtx);
+        auto it = pkgInfoMapNotInSrc.find(notInSrcCacheKey);
+        if (it == pkgInfoMapNotInSrc.end()) {
+            return;
+        }
+        std::lock_guard<std::mutex> lock(it->second->pkgInfoMutex);
+        it->second->bufferCache.erase(absName);
     }
     if (isInModule) {
-        pkgInfoMap[fullPkgName]->bufferCache.erase(absName);
         IncrementCompile(absName, "", true);
         fullPkgName = GetFullPkgName(absName);
         if (!pLRUCache->HasCache(fullPkgName)) {
@@ -247,7 +263,6 @@ void CompilerCangjieProject::IncrementForFileDelete(const std::string &fileName)
         }
         package = pLRUCache->Get(fullPkgName)->GetSourcePackages()[0];
     } else {
-        pkgInfoMapNotInSrc[notInSrcCacheKey]->bufferCache.erase(absName);
         IncrementCompileForFileNotInSrc(absName, "", true);
         if (!pLRUCache->HasCache(notInSrcCacheKey)) {
             return;
@@ -270,6 +285,7 @@ std::string CompilerCangjieProject::GetFullPkgName(const std::string &filePath) 
 {
     std::string normalizePath = Normalize(filePath);
     std::string dirPath = GetDirPath(normalizePath);
+    std::shared_lock<std::shared_mutex> lock(pathMapMtx);
     if (pathToFullPkgName.find(dirPath) == pathToFullPkgName.end()) {
         return GetRealPkgNameFromPath(dirPath);
     }
@@ -279,6 +295,7 @@ std::string CompilerCangjieProject::GetFullPkgName(const std::string &filePath) 
 std::string CompilerCangjieProject::GetFullPkgByDir(const std::string &dirPath) const
 {
     std::string normalizePath = Normalize(dirPath);
+    std::shared_lock<std::shared_mutex> lock(pathMapMtx);
     if (pathToFullPkgName.find(normalizePath) != pathToFullPkgName.end()) {
         return pathToFullPkgName.at(normalizePath);
     }
@@ -319,15 +336,19 @@ std::string CompilerCangjieProject::GetNotInSrcCacheKey(const std::string &fileP
 
 void CompilerCangjieProject::IncrementCompile(const std::string &filePath, const std::string &contents, bool isDelete)
 {
-    // Create new compiler instance and set some required options.
     Trace::Log("Start incremental compilation for package: ", filePath);
     auto fullPkgName = GetFullPkgName(filePath);
-    // Remove diagnostics for the current package
-    ClearDiagnosticsForPkg(*pkgInfoMap[fullPkgName]);
-    // Construct a compiler instance for compilation.
-    auto &invocation = pkgInfoMap[fullPkgName]->compilerInvocation;
-    auto ci = std::make_unique<LSPCompilerInstance>(callback, *invocation, GetDiagnosticEngine(),
-        fullPkgName, moduleManager);
+    std::unique_ptr<LSPCompilerInstance> ci;
+    {
+        std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
+        auto it = pkgInfoMap.find(fullPkgName);
+        if (it == pkgInfoMap.end()) {
+            return;
+        }
+        ClearDiagnosticsForPkg(*it->second);
+        ci = std::make_unique<LSPCompilerInstance>(callback, *it->second->compilerInvocation,
+            GetDiagnosticEngine(), fullPkgName, moduleManager);
+    }
     ci->cangjieHome = modulesHome;
     ci->loadSrcFilesFromCache = true;
 
@@ -377,9 +398,14 @@ void CompilerCangjieProject::UpdateBufferCache(const std::string &fullPkgName, c
                                                const std::string &contents, bool isDelete)
 {
     if (!isDelete && !Cangjie::FileUtil::HasExtension(filePath, CANGJIE_MACRO_FILE_EXTENSION)) {
-        if (filePath.find(pkgInfoMap[fullPkgName]->modulePath) != std::string::npos) {
-            std::lock_guard<std::mutex> lock(pkgInfoMap[fullPkgName]->pkgInfoMutex);
-            pkgInfoMap[fullPkgName]->bufferCache[filePath] = contents;
+        std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
+        auto it = pkgInfoMap.find(fullPkgName);
+        if (it == pkgInfoMap.end()) {
+            return;
+        }
+        if (filePath.find(it->second->modulePath) != std::string::npos) {
+            std::lock_guard<std::mutex> lock(it->second->pkgInfoMutex);
+            it->second->bufferCache[filePath] = contents;
         }
     }
 }
@@ -442,6 +468,7 @@ void CompilerCangjieProject::PostCompileProcess(const std::string &fullPkgName, 
 
 void CompilerCangjieProject::RemoveOldRealPkgMapping(const std::string &oldRealPkgName, const std::string &fullPkgName)
 {
+    std::unique_lock<std::shared_mutex> lock(pathMapMtx);
     if (this->realPkgToFullPkgName.find(oldRealPkgName) != this->realPkgToFullPkgName.end()) {
         this->realPkgToFullPkgName[oldRealPkgName].erase(fullPkgName);
         if (this->realPkgToFullPkgName[oldRealPkgName].empty()) {
@@ -454,6 +481,9 @@ void CompilerCangjieProject::UpdatePkgInfoMapping(
     std::string &fullPkgName, const std::string &pkgName,
     const std::unique_ptr<LSPCompilerInstance> &ci, bool &redefined)
 {
+    std::unique_lock<std::shared_mutex> pathLock(pathMapMtx);
+    std::unique_lock<std::shared_mutex> ciLock(cimapMtx);
+    std::unique_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
     if (pkgInfoMap[fullPkgName]->isSourceDir && pkgName != GetRealPackageName(fullPkgName)) {
         std::string newFullPkgName = pkgName;
         if (pkgInfoMap[fullPkgName]->pkgType != PkgType::NORMAL && !pkgInfoMap[fullPkgName]->sourceSetName.empty()) {
@@ -469,7 +499,12 @@ void CompilerCangjieProject::UpdatePkgInfoMapping(
             pkgInfoMap[newFullPkgName] = std::move(pkgInfoMap[fullPkgName]);
             pkgInfoMap.erase(fullPkgName);
             std::string oldRealPkgName = GetRealPackageName(fullPkgName);
-            RemoveOldRealPkgMapping(oldRealPkgName, fullPkgName);
+            if (realPkgToFullPkgName.find(oldRealPkgName) != realPkgToFullPkgName.end()) {
+                realPkgToFullPkgName[oldRealPkgName].erase(fullPkgName);
+                if (realPkgToFullPkgName[oldRealPkgName].empty()) {
+                    realPkgToFullPkgName.erase(oldRealPkgName);
+                }
+            }
             pLRUCache->EraseCache(fullPkgName);
             CIMap.erase(fullPkgName);
             LSPCompilerInstance::astDataMap.erase(fullPkgName);
@@ -483,8 +518,13 @@ bool CompilerCangjieProject::UpdateDependencies(
     std::string &fullPkgName, const std::unique_ptr<LSPCompilerInstance> &ci)
 {
     {
-        std::lock_guard<std::mutex> lock(pkgInfoMap[fullPkgName]->pkgInfoMutex);
-        ci->SetBufferCache(pkgInfoMap[fullPkgName]->bufferCache);
+        std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
+        auto it = pkgInfoMap.find(fullPkgName);
+        if (it == pkgInfoMap.end()) {
+            return false;
+        }
+        std::lock_guard<std::mutex> lock(it->second->pkgInfoMutex);
+        ci->SetBufferCache(it->second->bufferCache);
     }
     ci->PreCompileProcess();
     auto packages = ci->GetSourcePackages();
@@ -492,24 +532,22 @@ bool CompilerCangjieProject::UpdateDependencies(
         return false;
     }
     std::string pkgName;
-    // Files is empty when you delete all files in package.
     if (packages[0]->files.empty()) {
         pkgName = GetRealPackageName(fullPkgName);
     } else {
         pkgName = moduleManager->GetExpectedPkgName(*packages[0]->files[0]);
     }
     bool redefined = false;
-    {
-        std::lock_guard<std::mutex> lock(pkgInfoMap[fullPkgName]->pkgInfoMutex);
-        UpdatePkgInfoMapping(fullPkgName, pkgName, ci, redefined);
-    }
+    UpdatePkgInfoMapping(fullPkgName, pkgName, ci, redefined);
     ci->UpdateDepGraph(graph, fullPkgName);
     if (!ci->GetSourcePackages()[0]->files.empty()) {
         if (ci->GetSourcePackages()[0]->files[0]->package) {
             auto mod = GetPackageSpecMod(ci->GetSourcePackages()[0]->files[0]->package.get());
+            std::unique_lock<std::shared_mutex> modLock(pkgToModMtx);
             (void)pkgToModMap.insert_or_assign(fullPkgName, mod);
         }
     } else {
+        std::unique_lock<std::shared_mutex> modLock(pkgToModMtx);
         (void)pkgToModMap.insert_or_assign(fullPkgName, ark::Modifier::UNDEFINED);
     }
     if (!redefined) {
@@ -557,13 +595,21 @@ void CompilerCangjieProject::SubmitTasksToPool(const std::unordered_set<std::str
                 Trace::Log("finish execute task", package);
                 return;
             }
-            ClearDiagnosticsForPkg(*pkgInfoMap[package]);
-            auto &invocation = pkgInfoMap[package]->compilerInvocation;
-            auto ci = std::make_unique<LSPCompilerInstance>(callback, *invocation, GetDiagnosticEngine(),
-                package, moduleManager);
-            ci->cangjieHome = modulesHome;
-            ci->loadSrcFilesFromCache = true;
-            ci->SetBufferCache(pkgInfoMap[package]->bufferCache);
+            std::unique_ptr<LSPCompilerInstance> ci;
+            {
+                std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
+                auto it = pkgInfoMap.find(package);
+                if (it == pkgInfoMap.end()) {
+                    thrdPool->TaskCompleted(taskId);
+                    return;
+                }
+                ClearDiagnosticsForPkg(*it->second);
+                ci = std::make_unique<LSPCompilerInstance>(callback, *it->second->compilerInvocation,
+                    GetDiagnosticEngine(), package, moduleManager);
+                ci->cangjieHome = modulesHome;
+                ci->loadSrcFilesFromCache = true;
+                ci->SetBufferCache(it->second->bufferCache);
+            }
             ci->upstreamSourceSetName = GetUpStreamSourceSetName(package);
             if (!ci->upstreamSourceSetName.empty()) {
                 std::string realPkgName = GetRealPackageName(package);
@@ -604,20 +650,38 @@ void CompilerCangjieProject::IncrementOnePkgCompile(const std::string &filePath,
 {
     std::string fullPkgName = GetFullPkgName(filePath);
     std::string notInSrcCacheKey = GetNotInSrcCacheKey(filePath);
-    if (pkgInfoMap.find(fullPkgName) == pkgInfoMap.end()) {
-        if (pkgInfoMapNotInSrc.find(notInSrcCacheKey) == pkgInfoMapNotInSrc.end()) {
+    bool inModule = false;
+    {
+        std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
+        inModule = pkgInfoMap.find(fullPkgName) != pkgInfoMap.end();
+    }
+    if (!inModule) {
+        bool notInSrc = false;
+        {
+            std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapNotInSrcMtx);
+            notInSrc = pkgInfoMapNotInSrc.find(notInSrcCacheKey) != pkgInfoMapNotInSrc.end();
+        }
+        if (!notInSrc) {
             return;
         }
         if (!Cangjie::FileUtil::HasExtension(filePath, CANGJIE_MACRO_FILE_EXTENSION)) {
-            std::lock_guard<std::mutex> lock(pkgInfoMapNotInSrc[notInSrcCacheKey]->pkgInfoMutex);
-            pkgInfoMapNotInSrc[notInSrcCacheKey]->bufferCache[filePath] = contents;
+            std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapNotInSrcMtx);
+            auto it = pkgInfoMapNotInSrc.find(notInSrcCacheKey);
+            if (it != pkgInfoMapNotInSrc.end()) {
+                std::lock_guard<std::mutex> lock(it->second->pkgInfoMutex);
+                it->second->bufferCache[filePath] = contents;
+            }
         }
         IncrementTempPkgCompileNotInSrc(notInSrcCacheKey);
         return;
     }
     if (!Cangjie::FileUtil::HasExtension(filePath, CANGJIE_MACRO_FILE_EXTENSION)) {
-        std::lock_guard<std::mutex> lock(pkgInfoMap[fullPkgName]->pkgInfoMutex);
-        pkgInfoMap[fullPkgName]->bufferCache[filePath] = contents;
+        std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
+        auto it = pkgInfoMap.find(fullPkgName);
+        if (it != pkgInfoMap.end()) {
+            std::lock_guard<std::mutex> lock(it->second->pkgInfoMutex);
+            it->second->bufferCache[filePath] = contents;
+        }
     }
     IncrementCompile(filePath, contents);
 }
@@ -625,17 +689,21 @@ void CompilerCangjieProject::IncrementOnePkgCompile(const std::string &filePath,
 void CompilerCangjieProject::IncrementTempPkgCompile(const std::string &basicString)
 {
     std::string fullPkgName = basicString;
-    if (pkgInfoMap.find(basicString) == pkgInfoMap.end()) {
-        return;
+    std::unique_ptr<LSPCompilerInstance> newCI;
+    {
+        std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
+        auto it = pkgInfoMap.find(basicString);
+        if (it == pkgInfoMap.end()) {
+            return;
+        }
+        ClearDiagnosticsForPkg(*it->second);
+        newCI = std::make_unique<LSPCompilerInstance>(callback, *it->second->compilerInvocation,
+            GetDiagnosticEngine(), fullPkgName, moduleManager);
     }
-    ClearDiagnosticsForPkg(*pkgInfoMap[fullPkgName]);
-    auto newCI = std::make_unique<LSPCompilerInstance>(callback, *pkgInfoMap[fullPkgName]->compilerInvocation,
-        GetDiagnosticEngine(), fullPkgName, moduleManager);
     if (newCI == nullptr) {
         return;
     }
     newCI->cangjieHome = modulesHome;
-    // update cache and read code from cache
     newCI->loadSrcFilesFromCache = true;
     newCI->upstreamSourceSetName = GetUpStreamSourceSetName(fullPkgName);
     if (!newCI->upstreamSourceSetName.empty()) {
@@ -665,12 +733,17 @@ void CompilerCangjieProject::IncrementTempPkgCompile(const std::string &basicStr
 void CompilerCangjieProject::IncrementTempPkgCompileNotInSrc(const std::string &fullPkgName)
 {
     std::string cacheKey = fullPkgName;
-    if (pkgInfoMapNotInSrc.find(cacheKey) == pkgInfoMapNotInSrc.end()) {
-        return;
+    std::unique_ptr<LSPCompilerInstance> newCI;
+    {
+        std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapNotInSrcMtx);
+        auto it = pkgInfoMapNotInSrc.find(cacheKey);
+        if (it == pkgInfoMapNotInSrc.end()) {
+            return;
+        }
+        ClearDiagnosticsForPkg(*it->second);
+        newCI = std::make_unique<LSPCompilerInstance>(callback, *it->second->compilerInvocation,
+            GetDiagnosticEngine(), "", moduleManager);
     }
-    ClearDiagnosticsForPkg(*pkgInfoMapNotInSrc[cacheKey]);
-    auto newCI = std::make_unique<LSPCompilerInstance>(callback, *pkgInfoMapNotInSrc[cacheKey]->compilerInvocation,
-        GetDiagnosticEngine(), "", moduleManager);
     newCI->cangjieHome = modulesHome;
     newCI->loadSrcFilesFromCache = true;
     newCI->SetActiveFilePath("");
@@ -698,18 +771,23 @@ void CompilerCangjieProject::IncrementCompileForFileNotInSrc(const std::string &
                                                              bool isDelete)
 {
     std::string cacheKey = GetNotInSrcCacheKey(filePath);
-    if (pkgInfoMapNotInSrc.find(cacheKey) == pkgInfoMapNotInSrc.end()) {
-        return;
-    }
-    ClearDiagnosticsForPkg(*pkgInfoMapNotInSrc[cacheKey]);
-    auto newCI = std::make_unique<LSPCompilerInstance>(callback, *pkgInfoMapNotInSrc[cacheKey]->compilerInvocation,
+    std::unique_ptr<LSPCompilerInstance> newCI;
+    {
+        std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapNotInSrcMtx);
+        auto it = pkgInfoMapNotInSrc.find(cacheKey);
+        if (it == pkgInfoMapNotInSrc.end()) {
+            return;
+        }
+        ClearDiagnosticsForPkg(*it->second);
+        newCI = std::make_unique<LSPCompilerInstance>(callback, *it->second->compilerInvocation,
                                                        GetDiagnosticEngine(), "", moduleManager);
-    newCI->cangjieHome = modulesHome;
-    newCI->SetActiveFilePath(filePath);
-    // update cache and read code from cache
-    newCI->loadSrcFilesFromCache = true;
-    if (!isDelete && !Cangjie::FileUtil::HasExtension(filePath, CANGJIE_MACRO_FILE_EXTENSION)) {
-        pkgInfoMapNotInSrc[cacheKey]->bufferCache[filePath] = contents;
+        newCI->cangjieHome = modulesHome;
+        newCI->SetActiveFilePath(filePath);
+        newCI->loadSrcFilesFromCache = true;
+        if (!isDelete && !Cangjie::FileUtil::HasExtension(filePath, CANGJIE_MACRO_FILE_EXTENSION)) {
+            std::lock_guard<std::mutex> lock(it->second->pkgInfoMutex);
+            it->second->bufferCache[filePath] = contents;
+        }
     }
     if (!ParseAndUpdateNotInSrcDep(cacheKey, newCI)) {
         return;
@@ -813,16 +891,34 @@ void CompilerCangjieProject::CompilerOneFile(
 void CompilerCangjieProject::HandleFileNotInSource(const std::string &absName, const std::string &contents)
 {
     std::string cacheKey = GetNotInSrcCacheKey(absName);
-    if (pkgInfoMapNotInSrc.find(cacheKey) == pkgInfoMapNotInSrc.end()) {
-        pkgInfoMapNotInSrc[cacheKey] = std::make_unique<PkgInfo>(cacheKey, "", "", callback);
+    {
+        std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapNotInSrcMtx);
+        if (pkgInfoMapNotInSrc.find(cacheKey) == pkgInfoMapNotInSrc.end()) {
+            pkgLock.unlock();
+            std::unique_lock<std::shared_mutex> pkgLockUnique(pkgInfoMapNotInSrcMtx);
+            if (pkgInfoMapNotInSrc.find(cacheKey) == pkgInfoMapNotInSrc.end()) {
+                pkgInfoMapNotInSrc[cacheKey] = std::make_unique<PkgInfo>(cacheKey, "", "", callback);
+            }
+        }
     }
     if (!Cangjie::FileUtil::HasExtension(absName, CANGJIE_MACRO_FILE_EXTENSION)) {
-        std::lock_guard<std::mutex> lock(pkgInfoMapNotInSrc[cacheKey]->pkgInfoMutex);
-        pkgInfoMapNotInSrc[cacheKey]->bufferCache[absName] = contents;
+        std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapNotInSrcMtx);
+        auto it = pkgInfoMapNotInSrc.find(cacheKey);
+        if (it != pkgInfoMapNotInSrc.end()) {
+            std::lock_guard<std::mutex> lock(it->second->pkgInfoMutex);
+            it->second->bufferCache[absName] = contents;
+        }
     }
     IncrementOnePkgCompile(absName, contents);
-    if (CIMapNotInSrc.find(cacheKey) == CIMapNotInSrc.end()) {
-        CIMapNotInSrc[cacheKey] = nullptr;
+    {
+        std::shared_lock<std::shared_mutex> ciLock(cimapMtx);
+        if (CIMapNotInSrc.find(cacheKey) == CIMapNotInSrc.end()) {
+            ciLock.unlock();
+            std::unique_lock<std::shared_mutex> ciLockUnique(cimapMtx);
+            if (CIMapNotInSrc.find(cacheKey) == CIMapNotInSrc.end()) {
+                CIMapNotInSrc[cacheKey] = nullptr;
+            }
+        }
     }
 }
 
@@ -831,8 +927,11 @@ void CompilerCangjieProject::HandleNewPackage(const std::string &absName, const 
 {
     auto [fullPkgName, pkgType, isDefaultPkg] = DeterminePkgNameAndType(modulePath, dirPath, absName);
     auto moduleInfo = moduleManager->moduleInfoMap[modulePath];
-    pkgInfoMap[fullPkgName] =
-        std::make_unique<PkgInfo>(dirPath, moduleInfo.modulePath, moduleInfo.moduleName, callback, pkgType);
+    {
+        std::unique_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
+        pkgInfoMap[fullPkgName] =
+            std::make_unique<PkgInfo>(dirPath, moduleInfo.modulePath, moduleInfo.moduleName, callback, pkgType);
+    }
 
     UpdateRelatedPackageStatus(fullPkgName);
     InitPkgInfoBuffer(fullPkgName, absName, contents, isDefaultPkg);
@@ -873,52 +972,74 @@ void CompilerCangjieProject::UpdateRelatedPackageStatus(const std::string &fullP
 {
     std::string upstreamSourceSet = GetUpStreamSourceSetName(fullPkgName);
     std::string upstreamFullPkgName = upstreamSourceSet + "-" + GetRealPackageName(fullPkgName);
-    if (pkgInfoMap.find(upstreamFullPkgName) != pkgInfoMap.end()) {
-        pkgInfoMap[upstreamFullPkgName]->compilerInvocation->globalOptions.outputMode =
-            Cangjie::GlobalOptions::OutputMode::CHIR;
-        cjoManager->UpdateStatus({upstreamFullPkgName}, DataStatus::STALE);
+    {
+        std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
+        if (pkgInfoMap.find(upstreamFullPkgName) != pkgInfoMap.end()) {
+            pkgInfoMap[upstreamFullPkgName]->compilerInvocation->globalOptions.outputMode =
+                Cangjie::GlobalOptions::OutputMode::CHIR;
+        }
     }
+    cjoManager->UpdateStatus({upstreamFullPkgName}, DataStatus::STALE);
 
     auto found = fullPkgName.find_last_of(DOT);
     if (found != std::string::npos) {
         auto subPkgName = fullPkgName.substr(0, found);
-        if (pkgInfoMap.find(subPkgName) != pkgInfoMap.end() &&
-            pkgInfoMap[subPkgName]->compilerInvocation->globalOptions.noSubPkg) {
-            pkgInfoMap[subPkgName]->compilerInvocation->globalOptions.noSubPkg = false;
-            cjoManager->UpdateStatus({subPkgName}, DataStatus::STALE);
+        {
+            std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
+            if (pkgInfoMap.find(subPkgName) != pkgInfoMap.end() &&
+                pkgInfoMap[subPkgName]->compilerInvocation->globalOptions.noSubPkg) {
+                pkgInfoMap[subPkgName]->compilerInvocation->globalOptions.noSubPkg = false;
+            }
         }
+        cjoManager->UpdateStatus({subPkgName}, DataStatus::STALE);
     }
 }
 
 void CompilerCangjieProject::InitPkgInfoBuffer(const std::string &fullPkgName, const std::string &absName,
                                                const std::string &contents, bool isDefaultPkg)
 {
+    std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
+    auto it = pkgInfoMap.find(fullPkgName);
+    if (it == pkgInfoMap.end()) {
+        return;
+    }
     if (!Cangjie::FileUtil::HasExtension(absName, CANGJIE_MACRO_FILE_EXTENSION)) {
-        pkgInfoMap[fullPkgName]->bufferCache[absName] = contents;
+        std::lock_guard<std::mutex> lock(it->second->pkgInfoMutex);
+        it->second->bufferCache[absName] = contents;
     }
     if (isDefaultPkg) {
-        pkgInfoMap[fullPkgName]->isSourceDir = true;
+        it->second->isSourceDir = true;
     }
 }
 
 void CompilerCangjieProject::UpdatePkgMaps(const std::string &fullPkgName, const std::string &dirPath)
 {
-    pathToFullPkgName[dirPath] = fullPkgName;
     std::string realPkgName = GetRealPackageName(fullPkgName);
+    std::unique_lock<std::shared_mutex> pathLock(pathMapMtx);
+    pathToFullPkgName[dirPath] = fullPkgName;
     realPkgToFullPkgName[realPkgName].insert(fullPkgName);
+    pathLock.unlock();
+    std::unique_lock<std::shared_mutex> ciLock(cimapMtx);
     CIMap.insert_or_assign(fullPkgName, nullptr);
 }
 
 void CompilerCangjieProject::ProcessInvalidPackage(const std::string &fullPkgName, const std::string &sourcePath)
 {
-    bool invalid = pkgInfoMap.find(fullPkgName) != pkgInfoMap.end() && pkgInfoMap[fullPkgName]->isSourceDir &&
-                   pLRUCache->HasCache(fullPkgName) && pLRUCache->Get(fullPkgName) != nullptr;
-    if (!invalid) {
+    {
+        std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
+        if (pkgInfoMap.find(fullPkgName) == pkgInfoMap.end() || !pkgInfoMap[fullPkgName]->isSourceDir) {
+            return;
+        }
+    }
+    if (!pLRUCache->HasCache(fullPkgName) || pLRUCache->Get(fullPkgName) == nullptr) {
         return;
     }
 
     std::string defaultPkgName = DEFAULT_PACKAGE_NAME;
     std::string newFullPkgName = defaultPkgName;
+    std::unique_lock<std::shared_mutex> pathLock(pathMapMtx);
+    std::unique_lock<std::shared_mutex> ciLock(cimapMtx);
+    std::unique_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
     if (pkgInfoMap[fullPkgName]->pkgType != PkgType::NORMAL &&
         !pkgInfoMap[fullPkgName]->sourceSetName.empty()) {
         newFullPkgName = pkgInfoMap[fullPkgName]->sourceSetName + "-" + defaultPkgName;
@@ -933,9 +1054,14 @@ void CompilerCangjieProject::ProcessInvalidPackage(const std::string &fullPkgNam
         }
     }
     auto setRes = pLRUCache->Set(newFullPkgName, pLRUCache->Get(fullPkgName));
+    pathLock.unlock();
+    ciLock.unlock();
+    pkgLock.unlock();
     EraseOtherCache(setRes);
     pLRUCache->EraseCache(fullPkgName);
+    std::unique_lock<std::shared_mutex> ciLock2(cimapMtx);
     CIMap.erase(fullPkgName);
+    std::unique_lock<std::shared_mutex> pathLock2(pathMapMtx);
     pathToFullPkgName[sourcePath] = newFullPkgName;
     realPkgToFullPkgName[GetRealPackageName(newFullPkgName)].insert(newFullPkgName);
 }
@@ -968,20 +1094,27 @@ void CompilerCangjieProject::IncrementCompileForComplete(
     const std::string &name, const std::string &filePath, Position pos, const std::string &contents)
 {
     std::string fullPkgName = GetFullPkgName(filePath);
+    std::lock_guard<std::mutex> ciLock(ciForCompleteMtx);
     if (incrementalOptimize && CIForComplete && CIForComplete->pkgNameForPath == fullPkgName) {
         UpdateCIForParse(CIForComplete, fullPkgName, filePath, contents);
         CIForComplete->CompilePassForComplete(cjoManager, graph, pos, name);
         InitParseCacheForComplete(CIForComplete, fullPkgName);
     } else {
-        // delete and add new CI
-        auto newCI = std::make_unique<LSPCompilerInstance>(
-            callback, *pkgInfoMap[fullPkgName]->compilerInvocation, GetDiagnosticEngine(),
-            fullPkgName, moduleManager);
+        std::unique_ptr<LSPCompilerInstance> newCI;
+        {
+            std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
+            auto it = pkgInfoMap.find(fullPkgName);
+            if (it == pkgInfoMap.end()) {
+                return;
+            }
+            newCI = std::make_unique<LSPCompilerInstance>(
+                callback, *it->second->compilerInvocation, GetDiagnosticEngine(),
+                fullPkgName, moduleManager);
+        }
         if (newCI == nullptr) {
             return;
         }
         newCI->cangjieHome = modulesHome;
-        // update cache and read code from cache
         newCI->loadSrcFilesFromCache = true;
 
         UpdateCIForParse(newCI, fullPkgName, filePath, contents);
@@ -994,14 +1127,23 @@ void CompilerCangjieProject::IncrementCompileForComplete(
 void CompilerCangjieProject::IncrementCompileForSignatureHelp(const std::string &filePath, const std::string &contents)
 {
     std::string fullPkgName = GetFullPkgName(filePath);
+    std::lock_guard<std::mutex> ciLock(ciForSignatureHelpMtx);
     if (incrementalOptimize && CIForSignatureHelp && CIForSignatureHelp->pkgNameForPath == fullPkgName) {
         UpdateCIForParse(CIForSignatureHelp, fullPkgName, filePath, contents);
         CIForSignatureHelp->PreCompileProcess();
         InitParseCacheForSignatureHelp(CIForSignatureHelp, fullPkgName);
     } else {
-        auto newCI = std::make_unique<LSPCompilerInstance>(
-            callback, *pkgInfoMap[fullPkgName]->compilerInvocation, GetDiagnosticEngine(),
-            fullPkgName, moduleManager);
+        std::unique_ptr<LSPCompilerInstance> newCI;
+        {
+            std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
+            auto it = pkgInfoMap.find(fullPkgName);
+            if (it == pkgInfoMap.end()) {
+                return;
+            }
+            newCI = std::make_unique<LSPCompilerInstance>(
+                callback, *it->second->compilerInvocation, GetDiagnosticEngine(),
+                fullPkgName, moduleManager);
+        }
         if (newCI == nullptr) {
             return;
         }
@@ -1018,18 +1160,25 @@ void CompilerCangjieProject::UpdateCIForParse(const std::unique_ptr<LSPCompilerI
                                               const std::string &contents)
 {
     ci->SetActiveFilePath(filePath);
-    if (pkgInfoMap[fullPkgName]->bufferCache.count(filePath) &&
-        !Cangjie::FileUtil::HasExtension(filePath, CANGJIE_MACRO_FILE_EXTENSION)) {
-        {
-            std::lock_guard<std::mutex> lock(pkgInfoMap[fullPkgName]->pkgInfoMutex);
-            pkgInfoMap[fullPkgName]->bufferCache[filePath] = contents;
+    {
+        std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
+        auto it = pkgInfoMap.find(fullPkgName);
+        if (it == pkgInfoMap.end()) {
+            return;
         }
-        std::lock_guard lock(ci->fileStatusLock);
-        if (ci->fileStatus.find(filePath) != ci->fileStatus.end()) {
-            ci->fileStatus[filePath] = CompilerInstance::SrcCodeChangeState::CHANGED;
+        if (it->second->bufferCache.count(filePath) &&
+            !Cangjie::FileUtil::HasExtension(filePath, CANGJIE_MACRO_FILE_EXTENSION)) {
+            {
+                std::lock_guard<std::mutex> lock(it->second->pkgInfoMutex);
+                it->second->bufferCache[filePath] = contents;
+            }
+            std::lock_guard lock(ci->fileStatusLock);
+            if (ci->fileStatus.find(filePath) != ci->fileStatus.end()) {
+                ci->fileStatus[filePath] = CompilerInstance::SrcCodeChangeState::CHANGED;
+            }
         }
+        ci->SetBufferCacheForParse(it->second->bufferCache);
     }
-    ci->SetBufferCacheForParse(pkgInfoMap[fullPkgName]->bufferCache);
     HandleUpstreamSourceSet(fullPkgName, ci);
 }
 
@@ -1038,19 +1187,33 @@ std::unique_ptr<LSPCompilerInstance> CompilerCangjieProject::GetCIForDotComplete
     const std::string &filePath, Position pos, std::string &contents)
 {
     std::string fullPkgName = GetFullPkgName(filePath);
-    auto newCI = std::make_unique<LSPCompilerInstance>(callback, *pkgInfoMap[fullPkgName]->compilerInvocation,
-        GetDiagnosticEngine(), fullPkgName, moduleManager);
-    if (!newCI) {
-        return nullptr;
+    std::unique_ptr<LSPCompilerInstance> newCI;
+    {
+        std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
+        auto it = pkgInfoMap.find(fullPkgName);
+        if (it == pkgInfoMap.end()) {
+            return nullptr;
+        }
+        newCI = std::make_unique<LSPCompilerInstance>(callback, *it->second->compilerInvocation,
+            GetDiagnosticEngine(), fullPkgName, moduleManager);
+        if (!newCI) {
+            return nullptr;
+        }
+        newCI->cangjieHome = modulesHome;
+        newCI->loadSrcFilesFromCache = true;
     }
-    newCI->cangjieHome = modulesHome;
-    newCI->loadSrcFilesFromCache = true;
-    // Get the file content before enter "."
     if (!DeleteCharForPosition(contents, pos.line, pos.column - 1)) {
         return nullptr;
     }
-
-    newCI->SetBufferCache(pkgInfoMap[fullPkgName]->bufferCache);
+    {
+        std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
+        auto it = pkgInfoMap.find(fullPkgName);
+        if (it == pkgInfoMap.end()) {
+            return nullptr;
+        }
+        std::lock_guard<std::mutex> lock(it->second->pkgInfoMutex);
+        newCI->SetBufferCache(it->second->bufferCache);
+    }
     if (newCI->bufferCache.count(filePath) &&
         !Cangjie::FileUtil::HasExtension(filePath, CANGJIE_MACRO_FILE_EXTENSION)) {
         newCI->bufferCache[filePath] = contents;
@@ -1063,16 +1226,25 @@ std::unique_ptr<LSPCompilerInstance> CompilerCangjieProject::GetCIForFileRefacto
 {
     Logger::Instance().LogMessage(MessageType::MSG_LOG, "FileRefactor: Start compilation for package: " + filePath);
     std::string fullPkgName = GetFullPkgName(filePath);
-    if (pkgInfoMap.find(fullPkgName) == pkgInfoMap.end()) {
-        return nullptr;
+    std::unique_ptr<LSPCompilerInstance> ci;
+    {
+        std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
+        auto it = pkgInfoMap.find(fullPkgName);
+        if (it == pkgInfoMap.end()) {
+            return nullptr;
+        }
+        ci = std::make_unique<LSPCompilerInstance>(callback, *it->second->compilerInvocation,
+            GetDiagnosticEngine(), fullPkgName, moduleManager);
+        if (!ci) {
+            return nullptr;
+        }
+        ci->cangjieHome = modulesHome;
+        ci->loadSrcFilesFromCache = true;
+        {
+            std::lock_guard<std::mutex> lock(it->second->pkgInfoMutex);
+            ci->SetBufferCache(it->second->bufferCache);
+        }
     }
-    auto &invocation = pkgInfoMap[fullPkgName]->compilerInvocation;
-    // auto &diag = pkgInfoMap[package]->diag;
-    auto ci = std::make_unique<LSPCompilerInstance>(callback, *invocation, GetDiagnosticEngine(),
-        fullPkgName, moduleManager);
-    ci->cangjieHome = modulesHome;
-    ci->loadSrcFilesFromCache = true;
-    ci->SetBufferCache(pkgInfoMap[fullPkgName]->bufferCache);
     ci->upstreamSourceSetName = GetUpStreamSourceSetName(fullPkgName);
     if (!ci->upstreamSourceSetName.empty()) {
         std::string realPkgName = GetRealPackageName(fullPkgName);
@@ -1097,26 +1269,33 @@ void CompilerCangjieProject::IncrementCompileForCompleteNotInSrc(
     const std::string &name, const std::string &filePath, const std::string &contents)
 {
     std::string cacheKey = GetNotInSrcCacheKey(filePath);
-    if (pkgInfoMapNotInSrc.find(cacheKey) == pkgInfoMapNotInSrc.end()) {
-        return;
+    std::unique_ptr<LSPCompilerInstance> newCI;
+    {
+        std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapNotInSrcMtx);
+        auto it = pkgInfoMapNotInSrc.find(cacheKey);
+        if (it == pkgInfoMapNotInSrc.end()) {
+            return;
+        }
+        newCI = std::make_unique<LSPCompilerInstance>(
+            callback, *it->second->compilerInvocation,
+            GetDiagnosticEngine(), "", moduleManager);
+        if (newCI == nullptr) {
+            return;
+        }
+        newCI->cangjieHome = modulesHome;
+        newCI->SetActiveFilePath(filePath);
+        newCI->loadSrcFilesFromCache = true;
+        {
+            std::lock_guard<std::mutex> lock(it->second->pkgInfoMutex);
+            if (it->second->bufferCache.count(filePath)) {
+                it->second->bufferCache[filePath] = contents;
+            }
+            newCI->SetBufferCacheForParse(it->second->bufferCache);
+        }
     }
-
-    auto newCI = std::make_unique<LSPCompilerInstance>(
-        callback, *pkgInfoMapNotInSrc[cacheKey]->compilerInvocation,
-        GetDiagnosticEngine(), "", moduleManager);
-    if (newCI == nullptr) {
-        return;
-    }
-    newCI->cangjieHome = modulesHome;
-    newCI->SetActiveFilePath(filePath);
-    // update cache and read code from cache
-    newCI->loadSrcFilesFromCache = true;
-    if (pkgInfoMapNotInSrc[cacheKey]->bufferCache.count(filePath)) {
-        pkgInfoMapNotInSrc[cacheKey]->bufferCache[filePath] = contents;
-    }
-    newCI->SetBufferCacheForParse(pkgInfoMapNotInSrc[cacheKey]->bufferCache);
 
     newCI->CompilePassForComplete(cjoManager, graph, INVALID_POSITION, name);
+    std::lock_guard<std::mutex> ciLock(ciForCompleteMtx);
     CIForComplete = std::move(newCI);
     InitParseCacheForComplete(CIForComplete, "");
 }
@@ -1125,26 +1304,33 @@ void CompilerCangjieProject::IncrementCompileForSignatureHelpNotInSrc(const std:
     const std::string &contents)
 {
     std::string cacheKey = GetNotInSrcCacheKey(filePath);
-    if (pkgInfoMapNotInSrc.find(cacheKey) == pkgInfoMapNotInSrc.end()) {
-        return;
+    std::unique_ptr<LSPCompilerInstance> newCI;
+    {
+        std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapNotInSrcMtx);
+        auto it = pkgInfoMapNotInSrc.find(cacheKey);
+        if (it == pkgInfoMapNotInSrc.end()) {
+            return;
+        }
+        newCI = std::make_unique<LSPCompilerInstance>(
+            callback, *it->second->compilerInvocation,
+            GetDiagnosticEngine(), "", moduleManager);
+        if (newCI == nullptr) {
+            return;
+        }
+        newCI->cangjieHome = modulesHome;
+        newCI->SetActiveFilePath(filePath);
+        newCI->loadSrcFilesFromCache = true;
+        {
+            std::lock_guard<std::mutex> lock(it->second->pkgInfoMutex);
+            if (it->second->bufferCache.count(filePath)) {
+                it->second->bufferCache[filePath] = contents;
+            }
+            newCI->SetBufferCache(it->second->bufferCache);
+        }
     }
-
-    auto newCI = std::make_unique<LSPCompilerInstance>(
-        callback, *pkgInfoMapNotInSrc[cacheKey]->compilerInvocation,
-        GetDiagnosticEngine(), "", moduleManager);
-    if (newCI == nullptr) {
-        return;
-    }
-    newCI->cangjieHome = modulesHome;
-    newCI->SetActiveFilePath(filePath);
-    // update cache and read code from cache
-    newCI->loadSrcFilesFromCache = true;
-    if (pkgInfoMapNotInSrc[cacheKey]->bufferCache.count(filePath)) {
-        pkgInfoMapNotInSrc[cacheKey]->bufferCache[filePath] = contents;
-    }
-    newCI->SetBufferCache(pkgInfoMapNotInSrc[cacheKey]->bufferCache);
 
     newCI->PreCompileProcess();
+    std::lock_guard<std::mutex> ciLock(ciForSignatureHelpMtx);
     CIForSignatureHelp = std::move(newCI);
     InitParseCacheForSignatureHelp(CIForSignatureHelp, "");
 }
@@ -1152,6 +1338,7 @@ void CompilerCangjieProject::IncrementCompileForSignatureHelpNotInSrc(const std:
 void CompilerCangjieProject::InitParseCacheForComplete(const std::unique_ptr<LSPCompilerInstance> &lspCI,
     const std::string &pkgForPath)
 {
+    std::unique_lock<std::shared_mutex> parseLock(parseCacheForCompleteMtx);
     for (auto pkg : lspCI->GetSourcePackages()) {
         auto pkgInstance = std::make_unique<PackageInstance>(lspCI->diag, *lspCI->importManager);
         pkgInstance->package = pkg;
@@ -1160,6 +1347,7 @@ void CompilerCangjieProject::InitParseCacheForComplete(const std::unique_ptr<LSP
         for (auto &file : pkg->files) {
             std::string contents;
             if (!pkgForPath.empty()) {
+                std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
                 if (pkgInfoMap.find(pkgForPath) == pkgInfoMap.end()) {
                     continue;
                 }
@@ -1170,6 +1358,7 @@ void CompilerCangjieProject::InitParseCacheForComplete(const std::unique_ptr<LSP
                 contents = pkgInfoMap[pkgForPath]->bufferCache[file->filePath];
             } else {
                 std::string cacheKey = GetNotInSrcCacheKey(file->filePath);
+                std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapNotInSrcMtx);
                 if (pkgInfoMapNotInSrc.find(cacheKey) == pkgInfoMapNotInSrc.end()) {
                     continue;
                 }
@@ -1193,6 +1382,7 @@ void CompilerCangjieProject::InitParseCacheForComplete(const std::unique_ptr<LSP
 void CompilerCangjieProject::InitParseCacheForSignatureHelp(const std::unique_ptr<LSPCompilerInstance> &lspCI,
     const std::string &pkgForPath)
 {
+    std::unique_lock<std::shared_mutex> parseLock(parseCacheForSignatureHelpMtx);
     for (auto pkg : lspCI->GetSourcePackages()) {
         auto pkgInstance = std::make_unique<PackageInstance>(lspCI->diag, *lspCI->importManager);
         pkgInstance->package = pkg;
@@ -1201,6 +1391,7 @@ void CompilerCangjieProject::InitParseCacheForSignatureHelp(const std::unique_pt
         for (auto &file : pkg->files) {
             std::string contents;
             if (!pkgForPath.empty()) {
+                std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
                 if (pkgInfoMap.find(pkgForPath) == pkgInfoMap.end()) {
                     continue;
                 }
@@ -1211,6 +1402,7 @@ void CompilerCangjieProject::InitParseCacheForSignatureHelp(const std::unique_pt
                 contents = pkgInfoMap[pkgForPath]->bufferCache[file->filePath];
             } else {
                 std::string cacheKey = GetNotInSrcCacheKey(file->filePath);
+                std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapNotInSrcMtx);
                 if (pkgInfoMapNotInSrc.find(cacheKey) == pkgInfoMapNotInSrc.end()) {
                     continue;
                 }
@@ -1300,29 +1492,28 @@ bool CompilerCangjieProject::InitCache(const std::unique_ptr<LSPCompilerInstance
 
         for (auto &file : pkg->files) {
             auto filePath = file->filePath;
-            // filePath maybe a dir not a file
             if (GetFileExtension(filePath) != "cj") { continue; }
             LowFileName(filePath);
             std::string contents;
             if (isInModule) {
-                if (pkgInfoMap.find(pkgForPath) == pkgInfoMap.end()) {
+                std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
+                auto it = pkgInfoMap.find(pkgForPath);
+                if (it == pkgInfoMap.end()) {
                     continue;
                 }
-                if (!IsUnderPath(pkgInfoMap[pkgForPath]->packagePath, filePath)) {
+                if (!IsUnderPath(it->second->packagePath, filePath)) {
                     continue;
                 }
-                {
-                    std::lock_guard<std::mutex> lock(pkgInfoMap[pkgForPath]->pkgInfoMutex);
-                    contents = pkgInfoMap[pkgForPath]->bufferCache[filePath];
-                }
+                std::lock_guard<std::mutex> lock(it->second->pkgInfoMutex);
+                contents = it->second->bufferCache[filePath];
             } else {
-                if (pkgInfoMapNotInSrc.find(cacheKey) == pkgInfoMapNotInSrc.end()) {
+                std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapNotInSrcMtx);
+                auto it = pkgInfoMapNotInSrc.find(cacheKey);
+                if (it == pkgInfoMapNotInSrc.end()) {
                     continue;
                 }
-                {
-                    std::lock_guard<std::mutex> lock(pkgInfoMapNotInSrc[cacheKey]->pkgInfoMutex);
-                    contents = pkgInfoMapNotInSrc[cacheKey]->bufferCache[filePath];
-                }
+                std::lock_guard<std::mutex> lock(it->second->pkgInfoMutex);
+                contents = it->second->bufferCache[filePath];
             }
             std::pair<std::string, std::string> paths = {filePath, contents};
             auto arkAST = std::make_unique<ArkAST>(paths, file.get(), lspCI->diag, pkgInstance.get(),
@@ -1339,6 +1530,7 @@ bool CompilerCangjieProject::InitCache(const std::unique_ptr<LSPCompilerInstance
         }
         {
             std::unique_lock lock(fileCacheMtx);
+            std::unique_lock<std::shared_mutex> pkgLock(pkgInstanceCacheMtx);
             this->packageInstanceCache[cacheKey] = std::move(pkgInstance);
         }
     }
@@ -1348,10 +1540,14 @@ bool CompilerCangjieProject::InitCache(const std::unique_ptr<LSPCompilerInstance
 bool CompilerCangjieProject::InitPackage(const std::string &packagePath, const std::string &fullPackageName,
                                          const ModuleInfo &moduleInfo, PkgType pkgType)
 {
-    pkgInfoMap[fullPackageName] = std::make_unique<PkgInfo>(packagePath, moduleInfo.modulePath,
-                                                            moduleInfo.moduleName, callback, pkgType);
+    {
+        std::unique_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
+        pkgInfoMap[fullPackageName] = std::make_unique<PkgInfo>(packagePath, moduleInfo.modulePath,
+                                                                moduleInfo.moduleName, callback, pkgType);
+    }
     auto allFiles = GetAllFilesUnderCurrentPath(packagePath, CANGJIE_FILE_EXTENSION, false);
     if (allFiles.empty()) {
+        std::unique_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
         (void)pkgInfoMap.erase(fullPackageName);
         return false;
     }
@@ -1359,19 +1555,30 @@ bool CompilerCangjieProject::InitPackage(const std::string &packagePath, const s
     if (pkgType == PkgType::SPECIFIC) {
         std::string upstreamSourceSet = GetUpStreamSourceSetName(fullPackageName);
         std::string upstreamFullPkgName = upstreamSourceSet + "-" + GetRealPackageName(fullPackageName);
+        std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
         if (pkgInfoMap.find(upstreamFullPkgName) != pkgInfoMap.end()) {
             pkgInfoMap[upstreamFullPkgName]->compilerInvocation->globalOptions.outputMode =
                 Cangjie::GlobalOptions::OutputMode::CHIR;
         }
     }
 
-    this->pathToFullPkgName[packagePath] = fullPackageName;
-    std::string realPkgName = GetRealPackageName(fullPackageName);
-    realPkgToFullPkgName[realPkgName].insert(fullPackageName);
-    for (auto &file : allFiles) {
-        auto filePath = NormalizePath(JoinPath(packagePath, file));
-        LowFileName(filePath);
-        (void)pkgInfoMap[fullPackageName]->bufferCache.emplace(filePath, GetFileContents(filePath));
+    {
+        std::unique_lock<std::shared_mutex> pathLock(pathMapMtx);
+        this->pathToFullPkgName[packagePath] = fullPackageName;
+        std::string realPkgName = GetRealPackageName(fullPackageName);
+        realPkgToFullPkgName[realPkgName].insert(fullPackageName);
+    }
+    {
+        std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
+        auto it = pkgInfoMap.find(fullPackageName);
+        if (it != pkgInfoMap.end()) {
+            std::lock_guard<std::mutex> lock(it->second->pkgInfoMutex);
+            for (auto &file : allFiles) {
+                auto filePath = NormalizePath(JoinPath(packagePath, file));
+                LowFileName(filePath);
+                (void)it->second->bufferCache.emplace(filePath, GetFileContents(filePath));
+            }
+        }
     }
     return true;
 }
@@ -1403,19 +1610,25 @@ void CompilerCangjieProject::InitOneModule(const ModuleInfo &moduleInfo)
     }
 
     if (InitPackage(sourcePath, rootPackageName, moduleInfo, pkgType)) {
-        pkgInfoMap[rootPackageName]->isSourceDir = true;
+        std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
+        auto it = pkgInfoMap.find(rootPackageName);
+        if (it != pkgInfoMap.end()) {
+            it->second->isSourceDir = true;
+        }
     }
 
-    // init child path packages
     InitSubPackages(sourcePath, rootPackageName, moduleInfo, pkgType);
 
-    // init specific path
     if (!moduleInfo.isCommonSpecificModule) {
         return;
     }
     for (const auto &path : moduleInfo.commonSpecificPaths.second) {
-        if (pkgInfoMap.find(rootPackageName) == pkgInfoMap.end()) {
-            // can not find common root package, skip
+        bool pkgExists = false;
+        {
+            std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
+            pkgExists = pkgInfoMap.find(rootPackageName) != pkgInfoMap.end();
+        }
+        if (!pkgExists) {
             continue;
         }
         // init specific root path package
@@ -1588,23 +1801,43 @@ void CompilerCangjieProject::InitPkgInfoAndParse()
 // LCOV_EXCL_START
 void CompilerCangjieProject::EraseOtherCache(const std::string &fullPkgName)
 {
-    if (fullPkgName.empty() || pkgInfoMap.find(fullPkgName) == pkgInfoMap.end() ||
-        !(IsFromCIMap(fullPkgName) || PkgIsFromCIMapNotInSrc(fullPkgName))) {
+    if (fullPkgName.empty()) {
         return;
     }
-    if (IsFromCIMap(fullPkgName)) {
-        auto dirPath = pkgInfoMap[fullPkgName]->packagePath;
-        // erase fileCache and packageInstanceCache
-        for (const auto &file : pkgInfoMap[fullPkgName]->bufferCache) {
-            auto absPath = FileStore::NormalizePath(file.first);
-            if (fileCache.find(absPath) == fileCache.end()) { continue; }
+    bool inCIMap = false;
+    bool inCIMapNotInSrc = false;
+    std::string dirPath;
+    std::vector<std::string> filePaths;
+    {
+        std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
+        auto it = pkgInfoMap.find(fullPkgName);
+        if (it != pkgInfoMap.end()) {
+            inCIMap = IsFromCIMap(fullPkgName);
+            inCIMapNotInSrc = PkgIsFromCIMapNotInSrc(fullPkgName);
+            if (inCIMap) {
+                dirPath = it->second->packagePath;
+                for (const auto &file : it->second->bufferCache) {
+                    filePaths.push_back(file.first);
+                }
+            }
+        }
+    }
+    if (!inCIMap && !inCIMapNotInSrc) {
+        return;
+    }
+    if (inCIMap) {
+        for (const auto &filePath : filePaths) {
+            auto absPath = FileStore::NormalizePath(filePath);
             {
                 std::unique_lock<std::recursive_mutex> lock(fileCacheMtx);
                 fileCache[absPath] = nullptr;
                 fileCache.erase(absPath);
             }
         }
-        packageInstanceCache.erase(dirPath);
+        {
+            std::unique_lock<std::shared_mutex> pkgLock(pkgInstanceCacheMtx);
+            packageInstanceCache.erase(dirPath);
+        }
 #ifdef __linux__
         (void) malloc_trim(0);
 #elif __APPLE__
@@ -1612,19 +1845,27 @@ void CompilerCangjieProject::EraseOtherCache(const std::string &fullPkgName)
 #endif
         return;
     }
-    //  PkgIsFromCIMapNotInSrc
-    const auto dirPath = pkgInfoMapNotInSrc[fullPkgName]->packagePath;
-    for (const auto &file : pkgInfoMapNotInSrc[fullPkgName]->bufferCache) {
-        auto absPath = FileStore::NormalizePath(file.first);
-        if (fileCache.find(absPath) == fileCache.end()) { continue; }
-        {
-            std::unique_lock<std::recursive_mutex> lock(fileCacheMtx);
-            fileCache.erase(absPath);
+    {
+        std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapNotInSrcMtx);
+        auto it = pkgInfoMapNotInSrc.find(fullPkgName);
+        if (it == pkgInfoMapNotInSrc.end()) {
+            return;
+        }
+        dirPath = it->second->packagePath;
+        for (const auto &file : it->second->bufferCache) {
+            auto absPath = FileStore::NormalizePath(file.first);
+            {
+                std::unique_lock<std::recursive_mutex> lock(fileCacheMtx);
+                fileCache.erase(absPath);
+            }
         }
     }
-    packageInstanceCache.erase(dirPath);
+    {
+        std::unique_lock<std::shared_mutex> pkgLock(pkgInstanceCacheMtx);
+        packageInstanceCache.erase(dirPath);
+    }
 #ifdef __linux__
-    (void) malloc_trim(0);
+        (void) malloc_trim(0);
 #elif __APPLE__
     (void) malloc_zone_pressure_relief(malloc_default_zone(), 0);
 #endif
@@ -1930,12 +2171,12 @@ CompilerCangjieProject *CompilerCangjieProject::GetInstance()
 
 void CompilerCangjieProject::InitInstance(Callbacks *cb, lsp::IndexDatabase *arkIndexDB)
 {
-    if (instance == nullptr) {
+    std::call_once(initFlag, [&]() {
         instance = new(std::nothrow) CompilerCangjieProject(cb, arkIndexDB);
         if (instance == nullptr) {
             Logger::Instance().LogMessage(MessageType::MSG_WARNING, "CompilerCangjieProject::InitInstance fail.");
         }
-    }
+    });
 }
 
 Ptr<Package> CompilerCangjieProject::GetSourcePackagesByPkg(const std::string &fullPkgName)
@@ -1998,18 +2239,20 @@ void CompilerCangjieProject::UpdateBuffCache(const std::string &file, bool isCon
 {
     auto fullPkgName = GetFullPkgName(file);
     auto notInSrcCacheKey = GetNotInSrcCacheKey(file);
-    if (pkgInfoMap.find(fullPkgName) != pkgInfoMap.end() &&
-        !Cangjie::FileUtil::HasExtension(file, CANGJIE_MACRO_FILE_EXTENSION)) {
-        {
-            std::lock_guard<std::mutex> lock(pkgInfoMap[fullPkgName]->pkgInfoMutex);
-            pkgInfoMap[fullPkgName]->bufferCache[file] = callback->GetContentsByFile(file);
+    if (!Cangjie::FileUtil::HasExtension(file, CANGJIE_MACRO_FILE_EXTENSION)) {
+        std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
+        auto it = pkgInfoMap.find(fullPkgName);
+        if (it != pkgInfoMap.end()) {
+            std::lock_guard<std::mutex> lock(it->second->pkgInfoMutex);
+            it->second->bufferCache[file] = callback->GetContentsByFile(file);
         }
     }
-    if (pkgInfoMapNotInSrc.find(notInSrcCacheKey) != pkgInfoMapNotInSrc.end() &&
-        !Cangjie::FileUtil::HasExtension(file, CANGJIE_MACRO_FILE_EXTENSION)) {
-        {
-            std::lock_guard<std::mutex> lock(pkgInfoMapNotInSrc[notInSrcCacheKey]->pkgInfoMutex);
-            pkgInfoMapNotInSrc[notInSrcCacheKey]->bufferCache[file] = callback->GetContentsByFile(file);
+    if (!Cangjie::FileUtil::HasExtension(file, CANGJIE_MACRO_FILE_EXTENSION)) {
+        std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapNotInSrcMtx);
+        auto it = pkgInfoMapNotInSrc.find(notInSrcCacheKey);
+        if (it != pkgInfoMapNotInSrc.end()) {
+            std::lock_guard<std::mutex> lock(it->second->pkgInfoMutex);
+            it->second->bufferCache[file] = callback->GetContentsByFile(file);
         }
     }
     if (isContentChange) {
@@ -2402,11 +2645,19 @@ bool CompilerCangjieProject::CheckNeedCompiler(const std::string &fileName)
     if (!cjoManager->CheckStatus({fullPkgName}).empty()) {
         return true;
     }
-    if (pkgInfoMap.find(fullPkgName) != pkgInfoMap.end()) {
-        return pkgInfoMap[fullPkgName]->needReCompile;
+    {
+        std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
+        auto it = pkgInfoMap.find(fullPkgName);
+        if (it != pkgInfoMap.end()) {
+            return it->second->needReCompile;
+        }
     }
-    if (pkgInfoMapNotInSrc.find(notInSrcCacheKey) != pkgInfoMapNotInSrc.end()) {
-        return pkgInfoMapNotInSrc[notInSrcCacheKey]->needReCompile;
+    {
+        std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapNotInSrcMtx);
+        auto it = pkgInfoMapNotInSrc.find(notInSrcCacheKey);
+        if (it != pkgInfoMapNotInSrc.end()) {
+            return it->second->needReCompile;
+        }
     }
     return false;
 }
@@ -2460,9 +2711,11 @@ std::string CompilerCangjieProject::GetPathBySource(const Node &node, unsigned i
 void CompilerCangjieProject::ClearParseCache(const std::string &actionName)
 {
     if (actionName == "Completion") {
+        std::unique_lock<std::shared_mutex> lock(parseCacheForCompleteMtx);
         packageInstanceCacheForComplete.reset();
         fileCacheForComplete.clear();
     } else if (actionName == "SignatureHelp") {
+        std::unique_lock<std::shared_mutex> lock(parseCacheForSignatureHelpMtx);
         packageInstanceCacheForSignatureHelp.reset();
         fileCacheForSignatureHelp.clear();
     }
@@ -2509,8 +2762,15 @@ void CompilerCangjieProject::GetDiagCurEditFile(const std::string &file)
 
 void CompilerCangjieProject::StoreAllPackagesCache()
 {
-    for (const auto &pkgInfo : pkgInfoMap) {
-        StorePackageCache(pkgInfo.first);
+    std::vector<std::string> pkgNames;
+    {
+        std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
+        for (const auto &pkgInfo : pkgInfoMap) {
+            pkgNames.push_back(pkgInfo.first);
+        }
+    }
+    for (const auto &pkgName : pkgNames) {
+        StorePackageCache(pkgName);
     }
 }
 // LCOV_EXCL_START
@@ -2543,17 +2803,21 @@ void CompilerCangjieProject::BuildIndex(const std::unique_ptr<LSPCompilerInstanc
         return;
     }
     std::string curPkgName = ci->pkgNameForPath;
-    if (pkgInfoMap.find(curPkgName) == pkgInfoMap.end()) {
-        return;
+    std::string pkgPath;
+    {
+        std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
+        auto it = pkgInfoMap.find(curPkgName);
+        if (it == pkgInfoMap.end()) {
+            return;
+        }
+        pkgPath = it->second->packagePath;
     }
-    std::string pkgPath = pkgInfoMap[curPkgName]->packagePath;
     std::map<std::string, std::unique_ptr<ArkAST>> astMap;
     std::map<int, std::vector<std::string>> fileMap;
     for (auto pkg : ci->GetSourcePackages()) {
         if (pkg->files.empty()) {
             continue;
         }
-        // if pkg->files[0]->filePath is a dir file we need dirPath is pkgForPath
         std::string dirPath = Normalize(GetDirPath(pkg->files[0]->filePath));
         if (GetFileExtension(pkg->files[0]->filePath) != "cj") {
             dirPath = Normalize(pkg->files[0]->filePath);
@@ -2567,18 +2831,30 @@ void CompilerCangjieProject::BuildIndex(const std::unique_ptr<LSPCompilerInstanc
             if (!IsUnderPath(pkgPath, filePath)) {
                 continue;
             }
-            // filePath maybe a dir not a file
             if (GetFileExtension(filePath) != "cj") { continue; }
             LowFileName(filePath);
             std::string contents;
 
             {
-                std::lock_guard<std::mutex> lock(pkgInfoMap[curPkgName]->pkgInfoMutex);
-                contents = pkgInfoMap[curPkgName]->bufferCache[filePath];
+                std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
+                auto it = pkgInfoMap.find(curPkgName);
+                if (it == pkgInfoMap.end()) {
+                    continue;
+                }
+                std::lock_guard<std::mutex> lock(it->second->pkgInfoMutex);
+                contents = it->second->bufferCache[filePath];
             }
 
             std::pair<std::string, std::string> paths = {filePath, contents};
-            auto arkAST = std::make_unique<ArkAST>(paths, file.get(), ci->diag, packageInstanceCache[dirPath].get(),
+            PackageInstance *pkgInst = nullptr;
+            {
+                std::shared_lock<std::shared_mutex> pkgLock(pkgInstanceCacheMtx);
+                auto it = packageInstanceCache.find(dirPath);
+                if (it != packageInstanceCache.end()) {
+                    pkgInst = it->second.get();
+                }
+            }
+            auto arkAST = std::make_unique<ArkAST>(paths, file.get(), ci->diag, pkgInst,
                                                    &ci->GetSourceManager());
             std::string absName = FileStore::NormalizePath(filePath);
             std::string moduleName = SplitFullPackage(curPkgName).first;
@@ -2598,7 +2874,10 @@ void CompilerCangjieProject::BuildIndex(const std::unique_ptr<LSPCompilerInstanc
                 std::unique_lock<std::recursive_mutex> lock(fileCacheMtx);
                 astMap[absName] = std::move(arkAST);
             }
-            (void)unusedSymbolsAnalyzedFileSet.erase(filePath);
+            {
+                std::lock_guard<std::mutex> unusedLock(unusedSymbolsMtx);
+                (void)unusedSymbolsAnalyzedFileSet.erase(filePath);
+            }
         }
     }
 
@@ -2644,11 +2923,15 @@ void CompilerCangjieProject::BuildIndex(const std::unique_ptr<LSPCompilerInstanc
 
 void CompilerCangjieProject::UpdateOnDisk(const std::string &path)
 {
-    auto found = pathToFullPkgName.find(FileUtil::GetDirPath(path));
-    if (found == pathToFullPkgName.end()) {
-        return;
+    std::string pkgName;
+    {
+        std::shared_lock<std::shared_mutex> lock(pathMapMtx);
+        auto found = pathToFullPkgName.find(FileUtil::GetDirPath(path));
+        if (found == pathToFullPkgName.end()) {
+            return;
+        }
+        pkgName = found->second;
     }
-    std::string pkgName = found->second;
     cacheManager->Store(pkgName, Digest(GetPathFromPkg(pkgName)), LSPCompilerInstance::astDataMap[pkgName].first);
 }
 
@@ -2664,6 +2947,7 @@ Position CompilerCangjieProject::getPackageNameErrPos(const File &file) const
 
 std::string CompilerCangjieProject::Denoising(std::string candidate)
 {
+    std::shared_lock<std::shared_mutex> lock(pathMapMtx);
     return realPkgToFullPkgName.count(candidate) ? candidate : "";
 }
 
@@ -2687,11 +2971,12 @@ ark::Modifier CompilerCangjieProject::GetPackageSpecMod(Node *node)
 bool CompilerCangjieProject::IsVisibleForPackage(const std::string &curPkgName, const std::string &importPkgName)
 {
     std::string realPkgName = GetRealPackageName(importPkgName);
+    std::shared_lock<std::shared_mutex> modLock(pkgToModMtx);
     auto found = pkgToModMap.find(realPkgName);
     if (found == pkgToModMap.end()) {
         return false;
     }
-    auto importModifer = pkgToModMap[realPkgName];
+    auto importModifer = found->second;
     auto relation = ::GetPkgRelation(curPkgName, realPkgName);
     return importModifer == Modifier::PUBLIC ||
            (importModifer == Modifier::PROTECTED && relation != PkgRelation::NONE) ||
@@ -2728,7 +3013,10 @@ void CompilerCangjieProject::BuildIndexFromCjo()
             continue;
         }
         auto cjoPkgName = cjoPkg->fullPackageName;
-        pkgToModMap.insert_or_assign(cjoPkgName, GetModifilerByAccessLevel(cjoPkg->accessible));
+        {
+            std::unique_lock<std::shared_mutex> modLock(pkgToModMtx);
+            pkgToModMap.insert_or_assign(cjoPkgName, GetModifilerByAccessLevel(cjoPkg->accessible));
+        }
         bool toUpdateDB = true;
         std::string digest;
         if (useDB) {
@@ -2883,16 +3171,19 @@ bool CompilerCangjieProject::IsCombinedSym(const std::string &curModule, const s
 void CompilerCangjieProject::UpdateFileStatusInCI(const std::string& pkgName, const std::string& file,
     CompilerInstance::SrcCodeChangeState state)
 {
-    // Update file status in CI for parse
-    // Currently, only CHANGED state is updated in CI
-    if (CIForComplete && CIForComplete->pkgNameForPath == pkgName) {
-        std::lock_guard lock(CIForComplete->fileStatusLock);
-        CIForComplete->fileStatus[file] = state;
+    {
+        std::lock_guard<std::mutex> ciLock(ciForCompleteMtx);
+        if (CIForComplete && CIForComplete->pkgNameForPath == pkgName) {
+            std::lock_guard lock(CIForComplete->fileStatusLock);
+            CIForComplete->fileStatus[file] = state;
+        }
     }
-
-    if (CIForSignatureHelp && CIForSignatureHelp->pkgNameForPath == pkgName) {
-        std::lock_guard lock(CIForSignatureHelp->fileStatusLock);
-        CIForSignatureHelp->fileStatus[file] = state;
+    {
+        std::lock_guard<std::mutex> ciLock(ciForSignatureHelpMtx);
+        if (CIForSignatureHelp && CIForSignatureHelp->pkgNameForPath == pkgName) {
+            std::lock_guard lock(CIForSignatureHelp->fileStatusLock);
+            CIForSignatureHelp->fileStatus[file] = state;
+        }
     }
 }
 
@@ -2906,10 +3197,12 @@ std::unique_ptr<DiagnosticEngine> CompilerCangjieProject::GetDiagnosticEngine()
 
 bool CompilerCangjieProject::IsCommonSpecificPkg(const std::string &realPkgName)
 {
+    std::shared_lock<std::shared_mutex> pathLock(pathMapMtx);
     if (realPkgToFullPkgName.find(realPkgName) == realPkgToFullPkgName.end()) {
         return false;
     }
     std::string fullPackageName = *realPkgToFullPkgName[realPkgName].begin();
+    std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
     if (pkgInfoMap.find(fullPackageName) == pkgInfoMap.end()) {
         return false;
     }
@@ -2924,10 +3217,12 @@ std::vector<std::string> CompilerCangjieProject::GetCommonSpecificSourceSetGraph
 {
     std::vector<std::string> graph;
     std::string realPkgName = GetRealPackageName(pkgName);
+    std::shared_lock<std::shared_mutex> pathLock(pathMapMtx);
     if (realPkgToFullPkgName.find(realPkgName) == realPkgToFullPkgName.end()) {
         return graph;
     }
     std::string fullPackageName = *realPkgToFullPkgName[realPkgName].begin();
+    std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
     if (pkgInfoMap.find(fullPackageName) == pkgInfoMap.end()) {
         return graph;
     }
@@ -3072,8 +3367,11 @@ void CompilerCangjieProject::AnalyzeUnusedSymbolsForFile(
     const Cangjie::AST::File& astFile,
     const Cangjie::AST::Package& package)
 {
-    if (unusedSymbolsAnalyzedFileSet.count(filePath) != 0) {
-        return;
+    {
+        std::lock_guard<std::mutex> unusedLock(unusedSymbolsMtx);
+        if (unusedSymbolsAnalyzedFileSet.count(filePath) != 0) {
+            return;
+        }
     }
 
     auto* index = GetIndex();
@@ -3091,6 +3389,9 @@ void CompilerCangjieProject::AnalyzeUnusedSymbolsForFile(
         callback->UpdateDiagnostic(filePath, diag);
     }
 
-    (void)unusedSymbolsAnalyzedFileSet.insert(filePath);
+    {
+        std::lock_guard<std::mutex> unusedLock(unusedSymbolsMtx);
+        (void)unusedSymbolsAnalyzedFileSet.insert(filePath);
+    }
 }
 } // namespace ark

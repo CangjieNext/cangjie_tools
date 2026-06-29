@@ -96,6 +96,17 @@ public:
     std::mutex indexMtx;
     std::recursive_mutex fileCacheMtx;
     std::atomic_bool isIdentical = true;
+    mutable std::shared_mutex pathMapMtx;
+    mutable std::shared_mutex pkgInfoMapMtx;
+    mutable std::shared_mutex pkgInfoMapNotInSrcMtx;
+    mutable std::mutex ciForCompleteMtx;
+    mutable std::mutex ciForSignatureHelpMtx;
+    mutable std::shared_mutex parseCacheForCompleteMtx;
+    mutable std::shared_mutex parseCacheForSignatureHelpMtx;
+    mutable std::shared_mutex pkgInstanceCacheMtx;
+    mutable std::shared_mutex pkgToModMtx;
+    mutable std::mutex unusedSymbolsMtx;
+    static std::once_flag initFlag;
     static CompilerCangjieProject *GetInstance();
     static bool GetUseDB()
     {
@@ -133,12 +144,16 @@ public:
 
     ArkAST *GetParseArkAST(const std::string &taskName, const std::string &fileName)
     {
-        if (taskName == "Completion" &&
-            fileCacheForComplete.find(fileName) != fileCacheForComplete.end()) {
-            return fileCacheForComplete[fileName].get();
-        } else if (taskName == "SignatureHelp" &&
-            fileCacheForSignatureHelp.find(fileName) != fileCacheForSignatureHelp.end()) {
-            return fileCacheForSignatureHelp[fileName].get();
+        if (taskName == "Completion") {
+            std::shared_lock<std::shared_mutex> lock(parseCacheForCompleteMtx);
+            if (fileCacheForComplete.find(fileName) != fileCacheForComplete.end()) {
+                return fileCacheForComplete[fileName].get();
+            }
+        } else if (taskName == "SignatureHelp") {
+            std::shared_lock<std::shared_mutex> lock(parseCacheForSignatureHelpMtx);
+            if (fileCacheForSignatureHelp.find(fileName) != fileCacheForSignatureHelp.end()) {
+                return fileCacheForSignatureHelp[fileName].get();
+            }
         }
         return nullptr;
     }
@@ -147,11 +162,13 @@ public:
     {
         if (!node) { return false; }
         std::string fullPkgName = GetPkgNameFromNode(node);
+        std::shared_lock<std::shared_mutex> lock(cimapMtx);
         return CIMap.find(fullPkgName) != CIMap.end() || CIMapNotInSrc.find(fullPkgName) != CIMapNotInSrc.end();
     }
     // LCOV_EXCL_STOP
     bool PkgIsFromCIMap(const std::string &fullPkgName) const
     {
+        std::shared_lock<std::shared_mutex> lock(cimapMtx);
         return CIMap.find(fullPkgName)!=CIMap.end();
     }
 
@@ -165,21 +182,24 @@ public:
 
     std::string GetPathFromPkg(const std::string &fullPackageName)
     {
+        std::shared_lock<std::shared_mutex> lock(pkgInfoMapMtx);
         auto found = pkgInfoMap.find(fullPackageName);
         if (found != pkgInfoMap.end()) {
-            return pkgInfoMap[fullPackageName]->packagePath;
+            return found->second->packagePath;
         }
         return {};
     }
 
     bool PkgIsFromCIMapNotInSrc(const std::string &fullPkgName) const
     {
+        std::shared_lock<std::shared_mutex> lock(cimapMtx);
         return CIMapNotInSrc.find(fullPkgName)!=CIMapNotInSrc.end();
     }
     // LCOV_EXCL_START
     std::vector<std::string> GetFilesInPkg(const std::string &pkgPath) const
     {
         std::vector<std::string> ret;
+        std::shared_lock<std::shared_mutex> lock(pkgInstanceCacheMtx);
         auto it = packageInstanceCache.find(pkgPath);
         if (it == packageInstanceCache.end() || !it->second || !it->second->package) {
             return ret;
@@ -246,6 +266,7 @@ public:
 
     std::vector<std::string> GetCiMapList()
     {
+        std::shared_lock<std::shared_mutex> lock(cimapMtx);
         std::vector<std::string> ciMap = {};
         for (auto &item:CIMap) {
             ciMap.push_back(item.first);
@@ -264,6 +285,7 @@ public:
     // LCOV_EXCL_START
     std::vector<std::string> GetCIMapNotInSrcList()
     {
+        std::shared_lock<std::shared_mutex> lock(cimapMtx);
         std::vector<std::string> ciMap = {};
         for (auto &item:CIMapNotInSrc) {
             ciMap.push_back(item.first);
@@ -288,6 +310,7 @@ public:
             pkgInfoMap.find(fullPkgName) == pkgInfoMap.end()) { return curDecl; }
         auto fileName = curDecl->curFile->fileName;
         auto dirPath = GetPathFromPkg(fullPkgName);
+        std::shared_lock<std::shared_mutex> pkgLock(pkgInstanceCacheMtx);
         if (packageInstanceCache.find(dirPath) == packageInstanceCache.end() ||
             !packageInstanceCache[dirPath]->package) {
             return curDecl;
@@ -499,13 +522,16 @@ public:
 
     std::unordered_set<std::string> GetPkgNameList()
     {
+        std::shared_lock<std::shared_mutex> lock(pkgInfoMapMtx);
         return Utils::GetKeys(pkgInfoMap);
     }
 
     std::string GetContentByFile(const std::string& filePath)
     {
         auto fullPkgName = GetFullPkgName(filePath);
+        std::shared_lock<std::shared_mutex> pkgLock(pkgInfoMapMtx);
         if (auto found = pkgInfoMap.find(fullPkgName); found != pkgInfoMap.end()) {
+            std::lock_guard<std::mutex> lock(found->second->pkgInfoMutex);
             if (auto buffer = found->second->bufferCache.find(filePath); buffer != found->second->bufferCache.end()) {
                 return buffer->second;
             }
@@ -719,7 +745,7 @@ private:
     std::unordered_set<std::string> unusedSymbolsAnalyzedFileSet{};
     std::unordered_map<std::string, std::string> pathToFullPkgName;  // key: package path
     std::unordered_map<std::string, std::unordered_set<std::string>> realPkgToFullPkgName;
-    std::mutex cimapMtx;
+    mutable std::shared_mutex cimapMtx;
     // value used in full compilation, then key will be used in incremental compilation to search package was compiled
     std::unordered_map<std::string, std::unique_ptr<LSPCompilerInstance>> CIMap;
     std::unordered_map<std::string, std::unique_ptr<LSPCompilerInstance>> CIMapNotInSrc;
