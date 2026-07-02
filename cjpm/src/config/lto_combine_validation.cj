@@ -10,6 +10,15 @@ import std.fs.*
 
 // LTO/combine validation at cjpm.toml load time (called from verifyModuleConfigPre).
 
+public func isLtoConfiguredInToml(tomlInfo: TomlInfo): Bool {
+    !tomlInfo.profile.build.ltoValue.isEmpty() || !tomlInfo.profile.build.lto.level.isEmpty()
+}
+
+public func reportIosCombinedRequiresLto(): Unit {
+    eprintln("Error: on iOS, 'profile.build.combined' requires 'profile.build.lto' to be enabled; " +
+        "module-level combine without LTO is not supported")
+}
+
 // Validate profile.build.combined field shape and emit experimental warning.
 public func verifyCombinedField(cfg: TomlInfo, path: String): Bool {
     var flag = true
@@ -22,7 +31,15 @@ public func verifyCombinedField(cfg: TomlInfo, path: String): Bool {
             flag = false
             continue
         }
-        if (!isIosTarget(compileTarget) && outputType != Dynamic) {
+        if (isIosTarget(compileTarget)) {
+            // iOS only supports module lto-combine (static root). LTO may live on the build root toml.
+            if (outputType != Static) {
+                eprintln("Error: field 'profile.build.combined.${cfg.pkg.name}' in " +
+                    "${configFilePath} must be configured as 'static' on iOS")
+                flag = false
+                continue
+            }
+        } else if (outputType != Dynamic) {
             // Non-iOS combined modules must produce a dynamic root library.
             eprintln("Error: field 'profile.build.combined.${cfg.pkg.name}' in " +
                 "${configFilePath} can only configured as 'dynamic'")
