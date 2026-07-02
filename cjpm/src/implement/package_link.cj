@@ -13,7 +13,7 @@ import cjpm.config.*
 // Package link argument builders shared by normal build, module combine, and project lto-combine.
 // Used from build.cj (getBuildArgs/getForcedLibArgs), test.cj, and lto-combine root linking.
 
-// iosCombineBitcodeOnly: iOS project lto-combine root — link .bc only, no .a/-L/-l fallback.
+// iosCombineBitcodeOnly: iOS lto-combine root — link .bc only, no .a/-L/-l fallback.
 func linkPackageImpl(libName: String, libPath: String, isLto: Bool, iosCombineBitcodeOnly: Bool): ArrayList<String> {
     let processdLibName = swapOrgName(libName)
     let res = ArrayList<String>()
@@ -39,7 +39,7 @@ func linkPackageImpl(libName: String, libPath: String, isLto: Bool, iosCombineBi
 }
 
 public func linkPackage(libName: String, libPath: String, compileTask: CompileTask): ArrayList<String> {
-    linkPackageImpl(libName, libPath, compileTask.combineFlags.isLto, isIosProjectCombineCompileTask(compileTask))
+    linkPackageImpl(libName, libPath, compileTask.combineFlags.isLto, isIosLtoCombineLinkTask(compileTask))
 }
 
 // For test / cross-compile test paths that have no CompileTask.
@@ -61,6 +61,9 @@ public func forcedLinkPackageForLinuxOrWin(libName: String, libPath: String, com
 }
 
 public func forcedLinkPackageForMac(libName: String, libPath: String, compileTask: CompileTask): ArrayList<String> {
+    if (isIosModuleLtoCombineRootCompileTask(compileTask)) {
+        return linkPackage(libName, libPath, compileTask)
+    }
     var res = ArrayList<String>()
     let staticLibPath = Path(libPath).join(makeCangjieStaticlibName(libName)).toString()
     let dyLibPath = Path(libPath).join("lib${libName}.dylib").toString()
@@ -191,10 +194,10 @@ func getCLibLinkMap(compileTask: CompileTask, buildConfig: BuildConfig): HashMap
     }
 }
 
-// Append cLib for forced-link flows. Skipped on iOS lto-combine root (linked in Xcode).
+// Append cLib for forced-link flows. Skipped on iOS lto-combine roots (linked in Xcode).
 func appendForcedCLibLinkOptions(options: ArrayList<String>, compileTask: CompileTask, buildConfig: BuildConfig,
     cLibNameList: ArrayList<String>): Unit {
-    if (isIosProjectCombineCompileTask(compileTask)) {
+    if (isIosLtoCombineLinkTask(compileTask)) {
         return
     }
     let cLibLinkMap = getCLibLinkMap(compileTask, buildConfig)
@@ -265,8 +268,8 @@ func getLtoCombineBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig):
     return res
 }
 
-// Extra cjc flags for iOS project lto-combine root static library output.
-func getIosProjectCombineLtoCompileArgs(): ArrayList<String> {
+// Extra cjc flags for iOS lto-combine root native staticlib output (project or module).
+func getIosLtoCombineNativeStaticlibCompileArgs(): ArrayList<String> {
     let res = ArrayList<String>()
     res.add(all: extractOptionByString("--lto-staticlib-format=native"))
     res

@@ -300,6 +300,8 @@ func getResolveData(buildConfig: BuildConfig, tomlInfo: TomlInfo, isScriptDep: B
                 return Option<ModuleResolve>.None
             }
             applyProjectCombinePackageOutputType(buildConfig, k, pkg)
+        } else if (ltoCombineMode.usesModuleLtoCombine) {
+            applyModuleLtoCombinePackageOutputType(buildConfig, k, pkg)
         }
         resolves.add(dm.packageDepMap[k])
     }
@@ -571,7 +573,7 @@ func getDepLinkCommand(compileTask: CompileTask, buildConfig: BuildConfig): Arra
 func getOutput(compileTask: CompileTask): Option<String> {
     match (compileTask.outputType) {
         case Static =>
-            if (compileTask.combineFlags.isLto && !isIosProjectCombineCompileTask(compileTask)) {
+            if (compileTask.combineFlags.isLto && !isIosLtoCombineLinkTask(compileTask)) {
                 makeLtoName(compileTask.filename)
             } else {
                 makeCangjieStaticlibName(compileTask.filename)
@@ -693,7 +695,9 @@ func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList
     binOptions.add(all: libPathOptions, at: 0)
     binOptions.add(all: crosslibPathOptions, at: 0)
     res.add(all: binOptions)
-    res.add(all: getMinimizedCLibLinkStr(getCLibLinkMap(compileTask, buildConfig), cLibNameList))
+    if (!isIosModuleLtoCombineRootCompileTask(compileTask)) {
+        res.add(all: getMinimizedCLibLinkStr(getCLibLinkMap(compileTask, buildConfig), cLibNameList))
+    }
 
     if (isLinkTask) {
         stdDeps.add(all: binStdDeps)
@@ -744,6 +748,12 @@ func getForcedLibArgs(compileTask: CompileTask, buildConfig: BuildConfig): Array
     // it will be added into `binDepSet`.
     // So we should remove it from `binDepSet` because we only need link it once.
     binDepSet.remove(all: linkSort)
+    if (isIosModuleLtoCombineRootCompileTask(compileTask)) {
+        allOptions.add(all: appendOptionForBindep(buildConfig.binDepMap, binDepSet, compileTask), at: 0)
+        allOptions.add(all: appendOptionForBindep(buildConfig.crossBinDepMap, binDepSet, compileTask), at: 0)
+        addForcedLibArgs(res, allOptions, compileTask.target)
+        return res
+    }
     allOptions.add(all: getForcedBinDep(compileTask, buildConfig, binDepSet))
     appendForcedCLibLinkOptions(allOptions, compileTask, buildConfig, cLibNameList)
     addForcedLibArgs(res, allOptions, compileTask.target)
