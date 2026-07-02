@@ -13,7 +13,8 @@ import cjpm.config.*
 // LTO/combine state mutations on DepModel and ResolveItem.
 // Validation is done in lto_combine_policy.cj before calling into this module.
 
-// For one combined module root: collect sub-packages, force them to Static, set root to Dynamic.
+// For one combined module root: collect sub-packages, force them to Static.
+// Non-iOS roots become Dynamic; iOS module lto-combine roots stay Static for Xcode.
 func applyModuleCombineForSuperPkg(dm: DepModel, superPkgName: String, superPkgCfg: SuperPackageConfig,
     compileTarget: String, configFilePath: String): Unit {
     for (pkgName in dm.packageDepMap.keys()) {
@@ -26,7 +27,9 @@ func applyModuleCombineForSuperPkg(dm: DepModel, superPkgName: String, superPkgC
         }
     }
     dm.packageDepMap[superPkgName].superPkgCfg = superPkgCfg
-    if (!isIosTarget(compileTarget) && dm.packageDepMap[superPkgName].outputType != Dynamic) {
+    if (isIosTarget(compileTarget)) {
+        dm.packageDepMap[superPkgName].outputType = Static
+    } else if (dm.packageDepMap[superPkgName].outputType != Dynamic) {
         warnCombinedRootOutputTypeNotDynamic(superPkgName, configFilePath)
         dm.packageDepMap[superPkgName].outputType = Dynamic
     }
@@ -42,6 +45,11 @@ func applySuperPkgCombineState(dm: DepModel, isProjectCombine: Bool): Bool {
         return valid
     }
 
+    if (isIosTarget(compileTarget) && iosModuleCombineConfigured(dm) && !isBuildLtoConfigured(dm)) {
+        reportIosCombinedRequiresLto()
+        return false
+    }
+
     // Entry configured combined: propagate to all source modules in the dependency graph.
     if (isCombinedEntryConfigured(dm)) {
         if (!validateCombinedEntry(dm)) {
@@ -51,7 +59,8 @@ func applySuperPkgCombineState(dm: DepModel, isProjectCombine: Bool): Bool {
             if (!dm.packageDepMap.contains(moduleName)) {
                 continue
             }
-            let superPkgCfg = SuperPackageConfig(moduleName, Dynamic)
+            let rootOutputType = if (isIosTarget(compileTarget)) { Static } else { Dynamic }
+            let superPkgCfg = SuperPackageConfig(moduleName, rootOutputType)
             applyModuleCombineForSuperPkg(dm, moduleName, superPkgCfg, compileTarget, configFilePath)
             dm.superPkgMap[moduleName] = superPkgCfg
         }
@@ -92,6 +101,17 @@ func stripSuperPkgForcedRequires(dm: DepModel): Unit {
     for ((superPkgName, _) in dm.superPkgMap) {
         dm.packageDepMap[superPkgName].requires.remove(all: dm.packageDepMap[superPkgName].forcedRequires)
     }
+}
+
+// Build-config phase: iOS module lto-combine superPkg roots must be Static (native staticlib).
+func applyModuleLtoCombinePackageOutputType(buildConfig: BuildConfig, pkgName: String, pkg: ResolveItem): Unit {
+    if (!isIosTarget(getCompileTarget()) || !buildConfig.isLto) {
+        return
+    }
+    if (!buildConfig.superPkgMap.contains(pkgName)) {
+        return
+    }
+    pkg.outputType = Static
 }
 
 // Build-config phase: project lto-combine assigns Static to deps, Dynamic (or Static on iOS) to root.

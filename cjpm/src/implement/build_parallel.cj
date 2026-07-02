@@ -440,7 +440,7 @@ private func createArtifactGroup(compileTask: CompileTask, buildConfig: BuildCon
 
     match (compileTask.outputType) {
         case Static => 
-            let name = if (compileTask.combineFlags.isLto && !isIosProjectCombineCompileTask(compileTask)) {
+            let name = if (compileTask.combineFlags.isLto && !isIosLtoCombineLinkTask(compileTask)) {
                 makeLtoName(compileTask.filename)
             } else {
                 makeCangjieStaticlibName(compileTask.filename)

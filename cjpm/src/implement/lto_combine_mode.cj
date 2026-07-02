@@ -179,6 +179,21 @@ func isIosProjectCombineCompileTask(compileTask: CompileTask): Bool {
     isIosProjectCombineRoot(compileTask.combineFlags.isProjectCombined, getCompileTarget())
 }
 
+// iOS module lto-combine superPkg root (ModuleCombineLink, not combine-all-deps).
+func isIosModuleLtoCombineRootCompileTask(compileTask: CompileTask): Bool {
+    let flags = compileTask.combineFlags
+    isIosTarget(getCompileTarget()) && flags.isLto && flags.isCombined && !flags.isProjectCombined
+}
+
+// iOS project or module lto-combine root performing the merge link / native staticlib output.
+func isIosLtoCombineLinkTask(compileTask: CompileTask): Bool {
+    let flags = compileTask.combineFlags
+    if (!isIosTarget(getCompileTarget()) || !flags.isLto) {
+        return false
+    }
+    flags.isProjectCombined || flags.isCombined
+}
+
 // Append --lto and related compiler flags for one CompileTask.
 func appendLtoCompileArgs(res: ArrayList<String>, compileTask: CompileTask): Unit {
     let flags = compileTask.combineFlags
@@ -193,7 +208,7 @@ func appendLtoCompileArgs(res: ArrayList<String>, compileTask: CompileTask): Uni
         let keepPkgVisibilityStr = String.join(flags.keepPkgVisibility.getOrThrow(), delimiter: ",")
         res.add(all: extractOptionByString("--lto-keep-pkg-visibility=\"${keepPkgVisibilityStr}\""))
     }
-    if (isIosProjectCombineCompileTask(compileTask)) {
-        res.add(all: getIosProjectCombineLtoCompileArgs())
+    if (isIosLtoCombineLinkTask(compileTask)) {
+        res.add(all: getIosLtoCombineNativeStaticlibCompileArgs())
     }
 }
