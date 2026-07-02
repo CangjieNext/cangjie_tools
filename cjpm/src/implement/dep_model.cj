@@ -67,7 +67,7 @@ class DepModel {
     // Sub package map to super package
     public var superPkgSubMap: HashMap<String, String> = HashMap<String, String>()
 
-    // combined entry signal, populated during collection, consumed by dealWithSuperPkg.
+    // combined entry signal, populated during collection, consumed by applySuperPkgCombineState.
     // Non-workspace: whether the root module explicitly configured combined.
     // Workspace: canonical paths of currentMembers that explicitly configured combined.
     public var rootConfiguredCombined: Bool = false
@@ -316,8 +316,6 @@ class DepModel {
             } else if (COMMON_INFO.inWorkspace &&
                 COMMON_INFO.currentMembers.contains(getCanonicalPath(tomlInfo.pkg.path))) {
                 this.combinedConfiguredMembers.add(getCanonicalPath(tomlInfo.pkg.path))
-            } else {
-                registerModuleCombineFromToml(this.globalConfig, tomlInfo, this.superPkgMap)
             }
         }
 
