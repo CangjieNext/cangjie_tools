@@ -11,7 +11,8 @@ package cjpm.config
 
 // Platform descriptions used in user-facing warnings/errors.
 public let LTO_SUPPORTED_PLATFORMS: String = "Linux/OpenHarmony/Android/iOS"
-public let MODULE_COMBINE_SUPPORTED_PLATFORMS: String = "Linux/OpenHarmony/Android/Windows"
+// iOS supports module combine only together with LTO (module lto-combine).
+public let MODULE_COMBINE_SUPPORTED_PLATFORMS: String = "Linux/OpenHarmony/Android/Windows (iOS: combined + LTO only)"
 
 // Whether the compile target supports LTO (profile.build.lto).
 public func supportLtoForTarget(compileTarget: String): Bool {
@@ -39,13 +40,20 @@ public func isIosTarget(compileTarget: String): Bool {
     compileTarget.contains("apple-ios")
 }
 
-// iOS project lto-combine uses a dedicated link path; treat module combine as supported
-// even when supportModuleCombineForTarget is false for the current target.
-public func supportModuleCombine(compileTarget: String, isProjectCombine: Bool): Bool {
-    if (isIosTarget(compileTarget) && isProjectCombine) {
-        return true
+// Whether module-level combine is supported for the target.
+// On iOS, combine is only valid when LTO is enabled (module or project lto-combine).
+public func supportModuleCombine(compileTarget: String, isProjectCombine: Bool, hasLto: Bool): Bool {
+    if (isIosTarget(compileTarget)) {
+        return hasLto
+    }
+    if (isProjectCombine) {
+        return supportLtoForTarget(compileTarget)
     }
     return supportModuleCombineForTarget(compileTarget)
+}
+
+public func supportModuleCombineForCurrentTarget(hasLto: Bool): Bool {
+    supportModuleCombine(getCompileTarget(), false, hasLto)
 }
 
 // True when linking the iOS project lto-combine root (bitcode-only, no native fallback).
