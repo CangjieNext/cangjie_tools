@@ -1038,6 +1038,23 @@ void ArkServer::FindCodeLens(const std::string &file, const Callback<ValueOrErro
 
 void ArkServer::ChangeWatchedFiles(const std::string &file, FileChangeType type, DocCache *docMgr) const
 {
+    // CREATED does not depend on the AST cache that RunWithAST would build before
+    // running the action: its action only calls AddDoc, which itself schedules a
+    // compilation via Update. Running it through RunWithAST caused a redundant
+    // pre-check compilation (IncrementOnePkgCompile, triggered because the new
+    // file has no SemaCache) that doubled the diagnostics publishing. Handle
+    // CREATED directly here to compile the file exactly once.
+    if (type == FileChangeType::CREATED) {
+        Logger::Instance().LogMessage(MessageType::MSG_INFO, "creat the file:  " + file);
+        std::string contents = docMgr->GetDoc(file).contents;
+        if (docMgr->GetDoc(file).version == -1) {
+            contents = GetFileContents(file);
+        }
+        int64_t version = docMgr->AddDoc(file, 0, contents);
+        AddDoc(file, contents, version, ark::NeedDiagnostics::YES, true);
+        return;
+    }
+
     auto action = [this, file, type, docMgr](const InputsAndAST &input) {
         if (type == FileChangeType::CHANGED) {
             Logger::Instance().LogMessage(MessageType::MSG_INFO, "change the file:  " + file);
@@ -1057,16 +1074,6 @@ void ArkServer::ChangeWatchedFiles(const std::string &file, FileChangeType type,
                 UpdateFileStatusInCI(pkgName, file, CompilerInstance::SrcCodeChangeState::CHANGED);
             return;
             // LCOV_EXCL_STOP
-        }
-        if (type == FileChangeType::CREATED) {
-            Logger::Instance().LogMessage(MessageType::MSG_INFO, "creat the file:  " + file);
-            std::string contents = docMgr->GetDoc(file).contents;
-            if (docMgr->GetDoc(file).version == -1) {
-                contents = GetFileContents(file);
-            }
-            int64_t version = docMgr->AddDoc(file, 0, contents);
-            AddDoc(file, contents, version, ark::NeedDiagnostics::YES, true);
-            return;
         }
         // LCOV_EXCL_START
         if (type == FileChangeType::DELETED) {
