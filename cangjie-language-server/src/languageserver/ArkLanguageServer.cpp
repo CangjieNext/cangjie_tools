@@ -817,7 +817,10 @@ void ArkLanguageServer::WrapClientWatchedFiles(std::vector<FileWatchedEvent> &ch
         std::set<std::string> fileNameSet;
         std::string file = FileStore::NormalizePath(URI::Resolve(event.textDocument.uri.file));
         // 3 indicate ".cj" string length
-        if (file.rfind(".cj") == file.size() - 3 &&
+        // Exclude directories whose name happens to end with ".cj"; they must fall
+        // through to the directory-expansion branch below instead of being treated
+        // as a single .cj source file.
+        if (file.rfind(".cj") == file.size() - 3 && !CheckIsDirectory(file) &&
         fileNameSet.find(event.textDocument.uri.file) == fileNameSet.end()) {
             (void)fileNameSet.insert(event.textDocument.uri.file);
             changes.push_back({event.textDocument, event.type}); // if this is a cj file
