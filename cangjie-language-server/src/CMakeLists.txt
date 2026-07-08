@@ -161,7 +161,7 @@ elseif (COMPILER_TYPE MATCHES "Ninja")    #Compiling Using the ninja
         set_target_properties(cangjie-lsp PROPERTIES
                 IMPORTED_LOCATION ${CANGJIE_LIB_DIR}/libcangjie-lsp.dylib
                 )
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath,@loader_path/../lib")
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-export_dynamic -Wl,-rpath,@loader_path/../lib")
     elseif(CROSS_WINDOWS)
         target_link_libraries(LSPServer -lcangjie-lsp)
         add_library(cangjie-lsp SHARED IMPORTED)
@@ -177,11 +177,14 @@ elseif (COMPILER_TYPE MATCHES "Ninja")    #Compiling Using the ninja
         set(CMAKE_SHARED_LINKER_FLAGS "-Wl,--no-insert-timestamp")
     else()
         set(LINK_FLAGS "-Wl,-z,relro,-z,now,-z,noexecstack")
+        # export dynamic symbols so backtrace_symbols can resolve server frames
+        # even when -s strips .symtab in Release builds
+        set(EXPORT_DYNAMIC_FLAG "-Wl,--export-dynamic")
         if (CMAKE_BUILD_TYPE MATCHES "Release")
             set(STRIP_FLAG "-s")
         endif()
         set(SAFE_EXE_LINK_FLAG "-pie")
-        set(CMAKE_EXE_LINKER_FLAGS "${LINK_FLAGS} ${SAFE_EXE_LINK_FLAG} ${STRIP_FLAG}")
+        set(CMAKE_EXE_LINKER_FLAGS "${LINK_FLAGS} ${SAFE_EXE_LINK_FLAG} ${EXPORT_DYNAMIC_FLAG} ${STRIP_FLAG}")
         set(CMAKE_SHARED_LINKER_FLAGS "${LINK_FLAGS} ${STRIP_FLAG}")
         set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath,@loader_path/../lib")
         target_link_libraries(LSPServer libcangjie-lsp.so ${CMAKE_DL_LIBS})

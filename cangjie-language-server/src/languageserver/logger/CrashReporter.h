@@ -7,16 +7,16 @@
 #ifndef LSPSERVER_CRASHREPORTER_H
 #define LSPSERVER_CRASHREPORTER_H
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
 #include <execinfo.h>
-#endif
 #include <csignal>
+#endif
 
 namespace ark {
 class CrashReporter {
 public:
-#ifdef __linux__
-    static void SignalHandler(int sig);
+#if defined(__linux__) || defined(__APPLE__)
+    static void SignalHandler(int sig, siginfo_t *info, void *context);
 #endif
     static void RegisterHandlers();
 

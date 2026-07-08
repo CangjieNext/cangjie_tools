@@ -16,11 +16,18 @@
 
 namespace {
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
 constexpr size_t STACK_SIZE = 50;
 constexpr size_t SIGNAL_NUM = 3;
 constexpr int SIGNALS[SIGNAL_NUM] = {SIGABRT, SIGSEGV, SIGPIPE};
+// Alternate stack size for signal handler. Large enough to run the handler
+// even when the original stack has been exhausted (stack overflow).
+constexpr size_t SIG_ALT_STACK_SIZE = 64 * 1024;
+// Static buffer so we never need malloc/free in or around the signal path.
+// BSS-backed; lifetime equals process lifetime.
+alignas(max_align_t) char g_sigAltStack[SIG_ALT_STACK_SIZE];
 #endif
+
 // LCOV_EXCL_START
 void MessageInfoHandler()
 {
@@ -53,7 +60,7 @@ void KernelLogHandler(const std::thread::id &threadId)
     ofs.close();
 }
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
 void PrintStackTraceOnSignal(std::ostream &os)
 {
     ark::Logger &logger = ark::Logger::Instance();
@@ -69,6 +76,20 @@ void PrintStackTraceOnSignal(std::ostream &os)
     os << log.str();
     free(backtraces);
     _Exit(EXIT_FAILURE);
+}
+
+void WriteSignalContext(std::ostream &os, int sig, siginfo_t *info)
+{
+    std::stringstream ss;
+    ss << "signal: " << sig << std::endl;
+    if (info != nullptr) {
+        if (sig == SIGSEGV) {
+            // si_addr is the faulting memory access address for SIGSEGV.
+            ss << "faulting address: 0x" << std::hex << reinterpret_cast<uintptr_t>(info->si_addr) << std::endl;
+        }
+        ss << "signal code: " << info->si_code << std::endl;
+    }
+    os << ss.str();
 }
 #elif defined(_WIN32)
 std::string ReportException(const LPEXCEPTION_POINTERS &lpExceptionInfo)
@@ -143,17 +164,21 @@ void InitStack(DWORD &dwImageType, STACKFRAME64 &frame, const CONTEXT &context)
 } // namespace
 
 namespace ark {
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
 
-void CrashReporter::SignalHandler(int sig)
+void CrashReporter::SignalHandler(int sig, siginfo_t *info, void *context)
 {
+    (void)context;
     std::string baseDir = Logger::GetLogPath();
     std::string dotLogDir = Cangjie::FileUtil::JoinPath(baseDir, ".log");
     (void)Cangjie::FileUtil::CreateDirs(dotLogDir + FILE_SEPARATOR);
     std::ofstream ofs{dotLogDir + FILE_SEPARATOR + "crash.dump", std::ios::app};
     if (sig == SIGSEGV) {
         ofs << "LSPServer has received a SIGSEGV signal. The crash stack is as follows:" << std::endl;
+    } else if (sig == SIGABRT) {
+        ofs << "LSPServer has received a SIGABRT signal. The crash stack is as follows:" << std::endl;
     }
+    WriteSignalContext(ofs, sig, info);
     MessageInfoHandler();
     KernelLogHandler(std::this_thread::get_id());
     ::PrintStackTraceOnSignal(ofs);
@@ -169,15 +194,26 @@ void SigpipeHandler(int unused)
 
 void CrashReporter::RegisterHandlers()
 {
+    // Install alternate stack so the handler can still run when the crashing
+    // thread has overflowed its stack (SIGSEGV inside the original stack guard).
+    stack_t altStack;
+    altStack.ss_sp = g_sigAltStack;
+    altStack.ss_size = SIG_ALT_STACK_SIZE;
+    altStack.ss_flags = 0;
+    if (sigaltstack(&altStack, nullptr) == -1) {
+        // Continue without alt stack; the handler will use the regular stack.
+    }
+
     struct sigaction act;
-    act.sa_handler = SignalHandler;
+    act.sa_sigaction = SignalHandler;
     (void)sigemptyset(&act.sa_mask);
-    act.sa_flags = SA_RESETHAND;
+    act.sa_flags = SA_RESETHAND | SA_SIGINFO | SA_ONSTACK;
     for (auto &sig : SIGNALS) {
         if (sig == SIGPIPE) {
             struct sigaction actSigpipe;
             actSigpipe.sa_handler = SigpipeHandler;
             (void)sigemptyset(&actSigpipe.sa_mask);
+            actSigpipe.sa_flags = 0;
             (void)sigaction(sig, &actSigpipe, nullptr);
             continue;
         }
@@ -244,8 +280,5 @@ void CrashReporter::RegisterHandlers()
 {
     AddVectoredExceptionHandler(0, VectoredExceptionHandler);
 }
-#elif defined(__APPLE__)
-void CrashReporter::RegisterHandlers()
-{}
 #endif
 } // namespace ark
