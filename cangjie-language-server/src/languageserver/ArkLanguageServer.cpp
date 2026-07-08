@@ -2510,6 +2510,9 @@ void ArkLanguageServer::OnCommandApplyTweak(const TweakArgs &args, nlohmann::jso
         std::string contentsResult = std::regex_replace(contents, reg, replaceStr);
         if (!buffer.empty() && bufferResult != contentsResult) {
             CompilerCangjieProject::GetInstance()->CompilerOneFile(file, contents);
+            std::vector<DiagnosticToken> diagnostics = GetDiagsOfCurFile(file);
+            std::int64_t version = DocMgr.GetDoc(file).version;
+            ReadyForDiagnostics(file, version, diagnostics);
         }
     }
 

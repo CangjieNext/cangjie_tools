@@ -325,6 +325,9 @@ void ArkASTWorker::DoCompletionWithASTCache(
     bool shouldIncrementCompile = !CompilerCangjieProject::GetInstance()->pLRUCache->HasCache(fullPkgName);
     if (shouldIncrementCompile) {
         CompilerCangjieProject::GetInstance()->IncrementOnePkgCompile(absName, inputs.contents);
+        std::vector<DiagnosticToken> diagnostics =
+            callback->GetDiagsOfCurFile(absName);
+        callback->ReadyForDiagnostics(absName, inputs.version, diagnostics);
     }
 
     if (!IsFromCIMap(fullPkgName) && !IsFromCIMapNotInSrc(fullPkgName)) {
