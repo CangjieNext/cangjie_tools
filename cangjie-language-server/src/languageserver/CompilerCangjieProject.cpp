@@ -276,6 +276,11 @@ std::string CompilerCangjieProject::GetFullPkgName(const std::string &filePath) 
     return pathToFullPkgName.at(dirPath);
 }
 // LCOV_EXCL_STOP
+bool CompilerCangjieProject::IsKnownPackageDirectory(const std::string &path) const
+{
+    return pathToFullPkgName.find(Normalize(path)) != pathToFullPkgName.end();
+}
+
 std::string CompilerCangjieProject::GetFullPkgByDir(const std::string &dirPath) const
 {
     std::string normalizePath = Normalize(dirPath);
