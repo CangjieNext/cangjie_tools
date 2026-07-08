@@ -236,6 +236,8 @@ public:
 
     std::string GetFullPkgByDir(const std::string &dirPath) const;
 
+    bool IsKnownPackageDirectory(const std::string &path) const;
+
     Ptr<Package> GetSourcePackagesByPkg(const std::string &fullPkgName);
 
     std::string GetModuleSrcPath(const std::string &modulePath, const std::string &targetPath = "");

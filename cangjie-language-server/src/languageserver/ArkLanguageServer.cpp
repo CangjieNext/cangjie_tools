@@ -813,11 +813,18 @@ void ArkLanguageServer::OnDocumentLink(const DocumentLinkParams &params, nlohman
 void ArkLanguageServer::WrapClientWatchedFiles(std::vector<FileWatchedEvent> &changes,
                                                const DidChangeWatchedFilesParam &params) const
 {
+    const std::string cjExt = ".cj";
     for (auto &event : params.changes) {
         std::set<std::string> fileNameSet;
         std::string file = FileStore::NormalizePath(URI::Resolve(event.textDocument.uri.file));
-        // 3 indicate ".cj" string length
-        if (file.rfind(".cj") == file.size() - 3 &&
+        bool isDir = CheckIsDirectory(file);
+        // If the path has already been deleted, stat() returns false for directories as well.
+        // Consult the in-memory package registry to determine whether the deleted path was
+        // previously a known package directory.
+        if (!isDir && event.type == FileChangeType::DELETED && file.rfind(cjExt) == file.size() - cjExt.size()) {
+            isDir = CompilerCangjieProject::GetInstance()->IsKnownPackageDirectory(file);
+        }
+        if (file.rfind(cjExt) == file.size() - cjExt.size() && !isDir &&
         fileNameSet.find(event.textDocument.uri.file) == fileNameSet.end()) {
             (void)fileNameSet.insert(event.textDocument.uri.file);
             changes.push_back({event.textDocument, event.type}); // if this is a cj file
