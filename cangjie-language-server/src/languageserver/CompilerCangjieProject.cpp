@@ -426,7 +426,6 @@ void CompilerCangjieProject::PostCompileProcess(const std::string &fullPkgName, 
 
     if (!isDelete) {
         ValidateScriptDependencyImports(ci, filePath);
-        EmitDiagsOfFile(filePath);
     }
 
     if (isDelete) {

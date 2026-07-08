@@ -2510,6 +2510,13 @@ void ArkLanguageServer::OnCommandApplyTweak(const TweakArgs &args, nlohmann::jso
         std::string contentsResult = std::regex_replace(contents, reg, replaceStr);
         if (!buffer.empty() && bufferResult != contentsResult) {
             CompilerCangjieProject::GetInstance()->CompilerOneFile(file, contents);
+            // Publish diagnostics after the forced recompile so the client's
+            // Problems panel reflects the current code state. (IncrementCompile
+            // cleared stale diags via RemoveDiagOfCurPkg internally; here we send
+            // the freshly regenerated diagnostics to the client.)
+            std::vector<DiagnosticToken> diagnostics = GetDiagsOfCurFile(file);
+            std::int64_t version = DocMgr.GetDoc(file).version;
+            ReadyForDiagnostics(file, version, diagnostics);
         }
     }
 

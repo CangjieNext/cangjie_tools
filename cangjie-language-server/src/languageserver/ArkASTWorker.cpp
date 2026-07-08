@@ -325,6 +325,15 @@ void ArkASTWorker::DoCompletionWithASTCache(
     bool shouldIncrementCompile = !CompilerCangjieProject::GetInstance()->pLRUCache->HasCache(fullPkgName);
     if (shouldIncrementCompile) {
         CompilerCangjieProject::GetInstance()->IncrementOnePkgCompile(absName, inputs.contents);
+        // Publish diagnostics after the cache-miss compile so the client's
+        // Problems panel reflects the current code state. IncrementCompile
+        // cleared stale package diagnostics internally (via RemoveDiagOfCurPkg)
+        // before regenerating them; without an explicit publish the client
+        // would keep displaying stale or empty diagnostics until the next
+        // user action triggers a ReadyForDiagnostics.
+        std::vector<DiagnosticToken> diagnostics =
+            callback->GetDiagsOfCurFile(absName);
+        callback->ReadyForDiagnostics(absName, inputs.version, diagnostics);
     }
 
     if (!IsFromCIMap(fullPkgName) && !IsFromCIMapNotInSrc(fullPkgName)) {
