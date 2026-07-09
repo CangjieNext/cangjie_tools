@@ -348,7 +348,8 @@ void CompilerCangjieProject::IncrementCompile(const std::string &filePath, const
     CompileAndCheckDownstream(fullPkgName, ci);
     PostCompileProcess(fullPkgName, filePath, ci, cycles, isDelete);
 
-    pLRUCache->Set(fullPkgName, ci);
+    auto evictedKey = pLRUCache->Set(fullPkgName, ci);
+    EraseOtherCache(evictedKey);
     Trace::Log("Finish incremental compilation for package: ", fullPkgName);
 }
 
@@ -466,6 +467,7 @@ void CompilerCangjieProject::UpdatePkgInfoMapping(
             std::string realPkgName = GetRealPackageName(newFullPkgName);
             realPkgToFullPkgName[realPkgName].insert(newFullPkgName);
             pkgInfoMap[fullPkgName]->packageName = SplitFullPackage(pkgName).second;
+            EraseOtherCache(fullPkgName);
             pkgInfoMap[newFullPkgName] = std::move(pkgInfoMap[fullPkgName]);
             pkgInfoMap.erase(fullPkgName);
             std::string oldRealPkgName = GetRealPackageName(fullPkgName);
@@ -659,7 +661,8 @@ void CompilerCangjieProject::IncrementTempPkgCompile(const std::string &basicStr
     newCI->CompileAfterParse(cjoManager, graph);
     BuildIndex(newCI);
     InitCache(newCI, fullPkgName);
-    pLRUCache->Set(fullPkgName, newCI);
+    auto evictedKey = pLRUCache->Set(fullPkgName, newCI);
+    EraseOtherCache(evictedKey);
 }
 
 void CompilerCangjieProject::IncrementTempPkgCompileNotInSrc(const std::string &fullPkgName)
@@ -691,7 +694,8 @@ void CompilerCangjieProject::IncrementTempPkgCompileNotInSrc(const std::string &
     }
     BuildIndex(newCI);
     InitCache(newCI, fullPkgName, false);
-    pLRUCache->Set(fullPkgName, newCI);
+    auto evictedKey = pLRUCache->Set(fullPkgName, newCI);
+    EraseOtherCache(evictedKey);
 }
 
 void CompilerCangjieProject::IncrementCompileForFileNotInSrc(const std::string &filePath, const std::string &contents,
@@ -718,7 +722,8 @@ void CompilerCangjieProject::IncrementCompileForFileNotInSrc(const std::string &
     ValidateScriptDependencyImports(newCI, filePath);
     BuildIndex(newCI);
     InitCache(newCI, cacheKey, false);
-    pLRUCache->Set(cacheKey, newCI);
+    auto evictedKey = pLRUCache->Set(cacheKey, newCI);
+    EraseOtherCache(evictedKey);
 }
 
 bool CompilerCangjieProject::ParseAndUpdateNotInSrcDep(const std::string &dirPath,
