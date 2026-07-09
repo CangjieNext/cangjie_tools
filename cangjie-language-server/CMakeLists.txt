@@ -43,6 +43,11 @@ function(cangjie_lsp_enable_strict_warnings target_name)
             "$<$<COMPILE_LANGUAGE:CXX>:-Wfloat-equal>"
             "$<$<COMPILE_LANGUAGE:CXX>:-Wno-pragmas>"
         )
+        if (CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
+            list(APPEND strict_warning_options
+                "$<$<COMPILE_LANGUAGE:CXX>:-Wno-error=invalid-specialization>"
+            )
+        endif ()
     endif ()
     if (strict_warning_options)
         target_compile_options(${target_name} PRIVATE ${strict_warning_options})
