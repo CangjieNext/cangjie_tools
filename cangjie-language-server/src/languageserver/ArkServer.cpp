@@ -1038,12 +1038,11 @@ void ArkServer::FindCodeLens(const std::string &file, const Callback<ValueOrErro
 
 void ArkServer::ChangeWatchedFiles(const std::string &file, FileChangeType type, DocCache *docMgr) const
 {
-    // CREATED does not depend on the AST cache that RunWithAST would build before
-    // running the action: its action only calls AddDoc, which itself schedules a
-    // compilation via Update. Running it through RunWithAST caused a redundant
-    // pre-check compilation (IncrementOnePkgCompile, triggered because the new
-    // file has no SemaCache) that doubled the diagnostics publishing. Handle
-    // CREATED directly here to compile the file exactly once.
+    // CREATED and CHANGED do not depend on the AST cache that RunWithAST would
+    // build before running the action: their action only calls AddDoc, which
+    // itself schedules a compilation via Update. Running them through RunWithAST
+    // caused a redundant pre-check compilation (IncrementOnePkgCompile) that
+    // doubled compilation and diagnostics publishing. Handle them directly here.
     if (type == FileChangeType::CREATED) {
         Logger::Instance().LogMessage(MessageType::MSG_INFO, "creat the file:  " + file);
         std::string contents = docMgr->GetDoc(file).contents;
@@ -1054,27 +1053,39 @@ void ArkServer::ChangeWatchedFiles(const std::string &file, FileChangeType type,
         AddDoc(file, contents, version, ark::NeedDiagnostics::YES, true);
         return;
     }
+    if (type == FileChangeType::CHANGED) {
+        Logger::Instance().LogMessage(MessageType::MSG_INFO, "change the file:  " + file);
+        // File already opened in the editor: didChange owns it, nothing to do.
+        // (version != -1  <=>  didOpen received and not since didDelete)
+        if (docMgr->GetDoc(file).version != -1) {
+            return;
+        }
+        // LCOV_EXCL_START
+        // Disk-side change for a file NOT open in the editor.
+        // NOTE: needReParser is necessarily false here. It is only set true by
+        // didChange, which requires a prior didOpen, which would make version
+        // != -1 and hit the early return above. So dropping the RunWithAST
+        // needReParser branch is safe for CHANGED.
+        const std::string &contents = GetFileContents(file);
+        if (contents == docMgr->GetDoc(file).contents) {
+            Logger::Instance().LogMessage(MessageType::MSG_INFO, "recieve file change, but contens are same.");
+            return;
+        }
+        auto pkgName = CompilerCangjieProject::GetInstance()->GetFullPkgName(file);
+        CompilerCangjieProject::GetInstance()->
+            UpdateFileStatusInCI(pkgName, file, CompilerInstance::SrcCodeChangeState::CHANGED);
+        int64_t version = docMgr->AddDoc(file, 0, contents);
+        AddDoc(file, contents, version, ark::NeedDiagnostics::YES, true);
+        // Diagnostics for `file` are published exactly once by the Update task
+        // scheduled above (ArkASTWorker::Update -> ReadyForDiagnostics).
+        // The previous action-tail refresh of input.onEditFile is intentionally
+        // dropped: it reused this file's version for a possibly-different file
+        // and was coverage-excluded.
+        return;
+        // LCOV_EXCL_STOP
+    }
 
     auto action = [this, file, type, docMgr](const InputsAndAST &input) {
-        if (type == FileChangeType::CHANGED) {
-            Logger::Instance().LogMessage(MessageType::MSG_INFO, "change the file:  " + file);
-            if (docMgr->GetDoc(file).version != -1) {
-                return;
-            }
-            // LCOV_EXCL_START
-            const std::string &contents = GetFileContents(file);
-            if (std::hash<std::string>{}(contents) == std::hash<std::string>{}(docMgr->GetDoc(file).contents)) {
-                Logger::Instance().LogMessage(MessageType::MSG_INFO, "recieve file change, but contens are same.");
-                return;
-            }
-            auto pkgName = CompilerCangjieProject::GetInstance()->GetFullPkgName(file);
-            int64_t version = docMgr->AddDoc(file, 0, contents);
-            AddDoc(file, contents, version, ark::NeedDiagnostics::YES, true);
-            CompilerCangjieProject::GetInstance()->
-                UpdateFileStatusInCI(pkgName, file, CompilerInstance::SrcCodeChangeState::CHANGED);
-            return;
-            // LCOV_EXCL_STOP
-        }
         // LCOV_EXCL_START
         if (type == FileChangeType::DELETED) {
             Logger::Instance().LogMessage(MessageType::MSG_INFO, "delete the file:  " + file);
