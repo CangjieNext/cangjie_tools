@@ -1038,12 +1038,8 @@ void ArkServer::FindCodeLens(const std::string &file, const Callback<ValueOrErro
 
 void ArkServer::ChangeWatchedFiles(const std::string &file, FileChangeType type, DocCache *docMgr) const
 {
-    // CREATED does not depend on the AST cache that RunWithAST would build before
-    // running the action: its action only calls AddDoc, which itself schedules a
-    // compilation via Update. Running it through RunWithAST caused a redundant
-    // pre-check compilation (IncrementOnePkgCompile, triggered because the new
-    // file has no SemaCache) that doubled the diagnostics publishing. Handle
-    // CREATED directly here to compile the file exactly once.
+    // CREATED/CHANGED bypass RunWithAST — AddDoc schedules its own compile
+    // via Update, and the pre-check IncrementOnePkgCompile is redundant here.
     if (type == FileChangeType::CREATED) {
         Logger::Instance().LogMessage(MessageType::MSG_INFO, "creat the file:  " + file);
         std::string contents = docMgr->GetDoc(file).contents;
@@ -1054,27 +1050,28 @@ void ArkServer::ChangeWatchedFiles(const std::string &file, FileChangeType type,
         AddDoc(file, contents, version, ark::NeedDiagnostics::YES, true);
         return;
     }
+    if (type == FileChangeType::CHANGED) {
+        Logger::Instance().LogMessage(MessageType::MSG_INFO, "change the file:  " + file);
+        if (docMgr->GetDoc(file).version != -1) {
+            return;
+        }
+        // LCOV_EXCL_START
+        // needReParser is false here: didChange → didOpen → version != -1.
+        const std::string &contents = GetFileContents(file);
+        if (contents == docMgr->GetDoc(file).contents) {
+            Logger::Instance().LogMessage(MessageType::MSG_INFO, "recieve file change, but contens are same.");
+            return;
+        }
+        auto pkgName = CompilerCangjieProject::GetInstance()->GetFullPkgName(file);
+        CompilerCangjieProject::GetInstance()->
+            UpdateFileStatusInCI(pkgName, file, CompilerInstance::SrcCodeChangeState::CHANGED);
+        int64_t version = docMgr->AddDoc(file, 0, contents);
+        AddDoc(file, contents, version, ark::NeedDiagnostics::YES, true);
+        return;
+        // LCOV_EXCL_STOP
+    }
 
     auto action = [this, file, type, docMgr](const InputsAndAST &input) {
-        if (type == FileChangeType::CHANGED) {
-            Logger::Instance().LogMessage(MessageType::MSG_INFO, "change the file:  " + file);
-            if (docMgr->GetDoc(file).version != -1) {
-                return;
-            }
-            // LCOV_EXCL_START
-            const std::string &contents = GetFileContents(file);
-            if (std::hash<std::string>{}(contents) == std::hash<std::string>{}(docMgr->GetDoc(file).contents)) {
-                Logger::Instance().LogMessage(MessageType::MSG_INFO, "recieve file change, but contens are same.");
-                return;
-            }
-            auto pkgName = CompilerCangjieProject::GetInstance()->GetFullPkgName(file);
-            int64_t version = docMgr->AddDoc(file, 0, contents);
-            AddDoc(file, contents, version, ark::NeedDiagnostics::YES, true);
-            CompilerCangjieProject::GetInstance()->
-                UpdateFileStatusInCI(pkgName, file, CompilerInstance::SrcCodeChangeState::CHANGED);
-            return;
-            // LCOV_EXCL_STOP
-        }
         // LCOV_EXCL_START
         if (type == FileChangeType::DELETED) {
             Logger::Instance().LogMessage(MessageType::MSG_INFO, "delete the file:  " + file);
