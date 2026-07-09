@@ -20,8 +20,8 @@
 
 namespace cjprof {
 
-// kCacheFormatVersion is 1: binary cache format version number
-static constexpr uint32_t kCacheFormatVersion = 1;
+// kCacheFormatVersion is 2: added address_range_start/end to SnapshotEntry
+static constexpr uint32_t kCacheFormatVersion = 2;
 
 #pragma pack(push, 1)
 struct BinaryHeader
@@ -61,6 +61,8 @@ struct SnapshotEntry
     uint64_t object_count;
     uint64_t gc_root_count;
     uint64_t used_size;
+    uint64_t address_range_start;
+    uint64_t address_range_end;
 };
 
 struct ClassEntry
@@ -220,7 +222,7 @@ bool DatabaseCache::save(const std::string& heapFilePath,
 
     file.write(reinterpret_cast<const char*>(&header), sizeof(header));
 
-    SnapshotEntry snap{snapshot.heap_total_size, snapshot.object_count, snapshot.gc_root_count, snapshot.used_size};
+    SnapshotEntry snap{snapshot.heap_total_size, snapshot.object_count, snapshot.gc_root_count, snapshot.used_size, snapshot.address_range_start, snapshot.address_range_end};
     file.write(reinterpret_cast<const char*>(&snap), sizeof(snap));
 
     for (const auto& cls : classes) {
@@ -319,6 +321,8 @@ bool DatabaseCache::load(const std::string& heapFilePath,
     snapshot.object_count = snap.object_count;
     snapshot.gc_root_count = snap.gc_root_count;
     snapshot.used_size = snap.used_size;
+    snapshot.address_range_start = snap.address_range_start;
+    snapshot.address_range_end = snap.address_range_end;
 
     // Read string table
     std::string stringTableData;
