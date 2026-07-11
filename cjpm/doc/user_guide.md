@@ -23,6 +23,8 @@ Available subcommands:
   run              Compile and run an executable product
   test             Unittest a local package or module
   bench            Run benchmarks in a local package or module
+  bundle           Make distributable tarball of current module
+  publish          Publish a module to central repository
   clean            Clean up the target directory
   install          Install a cangjie binary
   uninstall        Uninstall a cangjie binary
