@@ -1480,8 +1480,12 @@ std::optional<TextEdit> BuildTypeReplacementEditForLocation(const Location &loca
     if (!found && !IsLikelyTypeReferenceText(*refAst, refRange)) {
         return std::nullopt;
     }
-    if (shouldExclude) {
+    if (shouldExclude && context.implementationClassName.empty()) {
         return std::nullopt;
+    }
+
+    if (!context.implementationClassName.empty()) {
+        return TextEdit{location.range, context.implementationClassName};
     }
 
     std::string normalizedTargetPath = FileStore::NormalizePath(context.targetPath);
