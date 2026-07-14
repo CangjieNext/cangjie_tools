@@ -413,6 +413,52 @@ void MemIndex::FindImportReExportSymsOnCompletion(
     }
 }
 
+void MemIndex::FindImportReExportSymsOnQuickFix(const SymbolSearchContext &context,
+    const std::unordered_set<SymbolID> &importDeclSyms,
+    const std::string &identifier,
+    const std::function<void(const std::string &, const ReExportSymbol &)>& callback)
+{
+    const auto &curPkgName = context.curPkgName;
+    const auto &curModule = context.curModule;
+    std::unordered_set<std::string> curModuleDeps =
+        CompilerCangjieProject::GetInstance()->GetOneModuleDirectDeps(curModule, context.includeScriptRequire);
+    for (const auto &pkgReExportSymbols: pkgReExportSymsMap) {
+        if (pkgReExportSymbols.first == curPkgName ||
+            !CompilerCangjieProject::GetInstance()->IsVisibleForPackage(curPkgName, pkgReExportSymbols.first) ||
+            CompilerCangjieProject::GetInstance()->IsCombinedSym(curModule, curPkgName, pkgReExportSymbols.first)) {
+            continue;
+        }
+        // module name for dependency check
+        std::string symModule = CompilerCangjieProject::GetInstance()->GetModuleNameByFile(
+            "", pkgReExportSymbols.first);
+        auto relation = GetPackageRelation(curPkgName, pkgReExportSymbols.first);
+        for (const auto &sym: pkgReExportSymbols.second) {
+            // filter diff name - exact match
+            if (sym.name != identifier) {
+                continue;
+            }
+            // filter symbols that not dependent by curModule
+            if (!sym.isCjoSym && !curModuleDeps.count(symModule)) {
+                continue;
+            }
+            bool isAccessible =
+                sym.modifier == Modifier::PUBLIC
+                || (relation == PackageRelation::CHILD && (sym.modifier == Modifier::INTERNAL
+                                                              || sym.modifier == Modifier::PROTECTED))
+                || (relation == PackageRelation::SAME_MODULE && sym.modifier == Modifier::PROTECTED)
+                || (relation == PackageRelation::PARENT && sym.modifier == Modifier::PROTECTED);
+            if (!isAccessible || sym.id == INVALID_SYMBOL_ID) {
+                continue;
+            }
+            // filter already imported syms
+            if (importDeclSyms.count(sym.id)) {
+                continue;
+            }
+            callback(pkgReExportSymbols.first, sym);
+        }
+    }
+}
+
 void MemIndex::FindImportSymsOnQuickFix(const SymbolSearchContext &context,
     const std::unordered_set<SymbolID> &importDeclSyms,
     const std::string& identifier,
