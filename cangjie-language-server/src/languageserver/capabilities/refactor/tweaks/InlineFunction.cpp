@@ -658,29 +658,34 @@ std::string InlineFunction::TransformFunctionBody(Block* block, const std::map<s
         return "";
     }
 
+    bool isClassMember = funcDecl_->TestAnyAttr(
+        Attribute::IN_CLASSLIKE, Attribute::IN_STRUCT, Attribute::IN_ENUM);
+
     std::string scopeName = ScopeManagerApi::GetParentScopeName(funcDecl_->scopeName);
     std::map<std::string, int> replaceFucntionAndFieldMap;
 
     std::ostringstream bodyCode;
-    Walker(block, nullptr, [&scopeName, &replaceFucntionAndFieldMap, this](Ptr<Node> node) -> VisitAction {
-        if (node->astKind == ASTKind::REF_EXPR || node->astKind == ASTKind::CALL_EXPR) {
-            auto toBeCheckNode = DynamicCast<Node*>(node.get())->GetTarget();
-            std::string decScopeName;
-            if (toBeCheckNode) {
-                decScopeName = ScopeManagerApi::GetParentScopeName(toBeCheckNode->scopeName);
+    if (isClassMember) {
+        Walker(block, nullptr, [&scopeName, &replaceFucntionAndFieldMap, this](Ptr<Node> node) -> VisitAction {
+            if (node->astKind == ASTKind::REF_EXPR || node->astKind == ASTKind::CALL_EXPR) {
+                auto toBeCheckNode = DynamicCast<Node*>(node.get())->GetTarget();
+                std::string decScopeName;
+                if (toBeCheckNode) {
+                    decScopeName = ScopeManagerApi::GetParentScopeName(toBeCheckNode->scopeName);
+                }
+                if (decScopeName != scopeName) {
+                    return VisitAction::WALK_CHILDREN;
+                }
+                std::string code = GetSourceCode(node);
+                if (!replaceFucntionAndFieldMap[code]) {
+                    replaceFucntionAndFieldMap[code] = 1;
+                } else {
+                    replaceFucntionAndFieldMap[code]++;
+                }
             }
-            if (decScopeName != scopeName) {
-                return VisitAction::WALK_CHILDREN;
-            }
-            std::string code = GetSourceCode(node);
-            if (!replaceFucntionAndFieldMap[code]) {
-                replaceFucntionAndFieldMap[code] = 1;
-            } else {
-                replaceFucntionAndFieldMap[code]++;
-            }
-        }
-        return VisitAction::WALK_CHILDREN;
-    }).Walk();
+            return VisitAction::WALK_CHILDREN;
+        }).Walk();
+    }
 
     for (size_t i = 0; i < block->body.size(); ++i) {
         auto stmt = block->body[i].get();
@@ -689,9 +694,11 @@ std::string InlineFunction::TransformFunctionBody(Block* block, const std::map<s
 
     std::string result = bodyCode.str();
 
-    for (const auto &[code, times] : replaceFucntionAndFieldMap) {
-        std::regex paramRegex("\\b" + code + "\\b");
-        result = RegexReplaceN(result, paramRegex, "this." + code, times);
+    if (isClassMember) {
+        for (const auto &[code, times] : replaceFucntionAndFieldMap) {
+            std::regex paramRegex("\\b" + code + "\\b");
+            result = RegexReplaceN(result, paramRegex, "this." + code, times);
+        }
     }
 
     if (hasReturnValue_ || !resultVarName_.empty()) {
