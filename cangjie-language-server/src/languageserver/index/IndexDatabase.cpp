@@ -941,6 +941,31 @@ dberr_no IndexDatabase::GetReExportSymbolsWithCompletions(const std::string &pkg
     return true;
 }
 
+dberr_no IndexDatabase::GetReExportSymbolsByName(const std::string &name,
+    std::function<void(const std::string &, const ReExportSymbol &)> callback)
+{
+#ifndef NO_EXCEPTIONS
+    try {
+#endif
+        Use(sql::SelectReExportSymbolsByName).execute(sqldb::with(name),
+            [&](sqldb::Result Row) {
+                ReExportSymbol reExportSym;
+                std::string cjPkgName;
+                IDArray idArray;
+                Row.store(cjPkgName, idArray, reExportSym.name, reExportSym.modifier,
+                    reExportSym.kind, reExportSym.signature);
+                reExportSym.id = GetIDFromArray(idArray);
+                callback(cjPkgName, reExportSym);
+                return true;
+        });
+#ifndef NO_EXCEPTIONS
+    } catch (std::exception &ex) {
+        std::cerr << "getReExportSymbolsByName fail due to " << ex.what() << "\n";
+    }
+#endif
+    return true;
+}
+
 dberr_no IndexDatabase::DBUpdate::InsertFileWithId(int fileID, std::vector<std::string> &fileInfo)
 {
 #ifndef NO_EXCEPTIONS
