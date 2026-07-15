@@ -1,0 +1,7 @@
+{"caseFolder":"refactor"}
+{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"processId":5248,"rootPath":"d:\\Test\\refactor","rootUri":"file:///d%3A/Test/refactor","capabilities":{"workspace":{"applyEdit":true},"textDocument":{"codeAction":{}}},"initializationOptions":{"multiModuleOption":{"file:///d%3A/Test/refactor":{"name":"default","requires":{}}}}}}
+{"jsonrpc":"2.0","method":"initialized","params":{}}
+{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file:///d%3A/Test/refactor/src/IntroduceParameter/introduce_parameter_if_let.cj","languageId":"Cangjie","version":1,"text":"package demo\n\nfunc ifLetSample(option: ?Int64): Unit {\n    if (let Some(value) <- option) {\n        println(value)\n    }\n}\n"}}}
+{"jsonrpc":"2.0","id":"10","method":"textDocument/codeAction","params":{"textDocument":{"uri":"file:///d%3A/Test/refactor/src/IntroduceParameter/introduce_parameter_if_let.cj"},"range":{"start":{"line":3,"character":8},"end":{"line":3,"character":33}},"context":{"diagnostics":[]}}}
+{"jsonrpc":"2.0","id":"4","method":"shutdown","params":{}}
+{"jsonrpc":"2.0","method":"exit","params":{}}
