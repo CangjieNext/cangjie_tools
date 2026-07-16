@@ -133,12 +133,6 @@ public class Transform {
 public class TypeParameter <: Serializable<TypeParameter> {
     public var name: String = ""
 
-    public func serialize(): DataModel {
-        var dms = DataModelStruct()
-        dms = dms.add(field<String>("name", name))
-        return dms
-    }
-
     public static func deserialize(dm: DataModel): TypeParameter {
         let dms = match (dm) {
             case data: DataModelStruct => data
@@ -165,15 +159,6 @@ public class EnumType <: Serializable<EnumType> {
         this.name = _name
         this.keyValues = _keyValues
         this.comment = ""
-    }
-
-    //暂时用不着
-    public func serialize(): DataModel {
-        var dms = DataModelStruct()
-        dms = dms.add(field<String>("name", name))
-        dms = dms.add(field<ArrayList<String>>("item-value", keyValues))
-        dms = dms.add(field<String>("comment", comment))
-        return dms
     }
 
     public static func deserialize(dm: DataModel): EnumType {
@@ -244,19 +229,6 @@ public class MethodType <: Serializable<MethodType> & Equatable < MethodType > {
         modifiers.contains("static")
     }
 
-    //暂时用不着
-    public func serialize(): DataModel {
-        var dms = DataModelStruct()
-        dms = dms.add(field<String>("name", name))
-        dms = dms.add(field<ArrayList<String>>("param", params))
-        dms = dms.add(field<String>("return", returns))
-        dms = dms.add(field<ArrayList<String>>("modifier", modifiers))
-        dms = dms.add(field<String>("comment", comment))
-        dms = dms.add(field<Bool>("isConstructor", isConstructor))
-        dms = dms.add(field<ArrayList<TypeParameter>>("typeParameters", typeParameters))
-        return dms
-    }
-
     public static func deserialize(dm: DataModel): MethodType {
         let dms1 = match (dm) {
             case data: DataModelStruct => data
@@ -319,16 +291,6 @@ public class VariableType <: Serializable<VariableType> {
 
     public func signature(): String {
         "public const ${name} = ${value}"
-    }
-
-    //暂时用不着
-    public func serialize(): DataModel {
-        var dms = DataModelStruct()
-        dms = dms.add(field<String>("name", name))
-        dms = dms.add(field<String>("value", value))
-        dms = dms.add(field<String>("type", varType))
-        dms = dms.add(field<String>("comment", comment))
-        return dms
     }
 
     public static func deserialize(dm: DataModel): VariableType {
@@ -394,14 +356,6 @@ public class TypeType <: Serializable<TypeType> {
         tok.append(quote(public type $(nameToken) = ))
         tok.append(Token(TokenKind.IDENTIFIER, tsType.toCJType()) + nl)
         return tok
-    }
-
-    //暂时用不着
-    public func serialize(): DataModel {
-        var dms = DataModelStruct()
-        dms = dms.add(field<String>("name", name))
-        dms = dms.add(field<String>("comment", comment))
-        return dms
     }
 
     public static func deserialize(dm: DataModel): TypeType {
@@ -485,16 +439,6 @@ public class Property <: Serializable<Property> & Comparable<Property> {
         modifiers.contains("StaticKeyword")
     }
 
-    public func serialize(): DataModel {
-        var dms = DataModelStruct()
-        dms = dms.add(field<String>("prop_key", propKey))
-        dms = dms.add(field<String>("prop_value", propValue))
-        dms = dms.add(field<String>("prop_type", propType))
-        dms = dms.add(field<ArrayList<String>>("modifiers", modifiers))
-        dms = dms.add(field<String>("comment", comment))
-        return dms
-    }
-
     public static func deserialize(dm: DataModel): Property {
         let dms1 = match (dm) {
             case data: DataModelStruct => data
@@ -573,18 +517,6 @@ public class ObjectType <: Serializable<ObjectType> & Equatable<ObjectType> {
 
     public func isMI(): Bool {
         parents.size > 1
-    }
-
-    public func serialize(): DataModel {
-        var dms = DataModelStruct()
-        dms = dms.add(field<String>("name", name))
-        dms = dms.add(field<ArrayList<String>>("modifiers", modifiers))
-        dms = dms.add(field<ArrayList<String>>("parents", parents))
-        dms = dms.add(field<ArrayList<TypeParameter>>("typeParameters", typeParameters))
-        dms = dms.add(field<ArrayList<Property>>("properties", properties))
-        dms = dms.add(field<ArrayList<MethodType>>("methods", methods))
-        dms = dms.add(field<String>("comment", comment))
-        return dms
     }
 
     public static func deserialize(dm: DataModel): ObjectType {

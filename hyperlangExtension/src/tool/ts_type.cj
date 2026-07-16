@@ -111,10 +111,6 @@ extend TsParameter <: Serializable<TsParameter> & ToString {
         "${name}${if (this.optional) { "?" } else { "" }}: ${this.ty.toString()}"
     }
 
-    public func serialize(): DataModel {
-        throw UnsupportedException("todo")
-    }
-
     public static func deserialize(dm: DataModel): TsParameter {
         let dms1 = match (dm) {
             case data: DataModelStruct => data

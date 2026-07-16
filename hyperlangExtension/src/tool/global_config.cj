@@ -74,22 +74,6 @@ public class GlobalConfig {
         this.moduleMeta.enums.contains(input) || (this.moduleMeta.symbols.get(input)?.contains("enum") ?? false)
     }
 
-    public func getObjectCategory(input: String): String {
-        var objCategory = ""
-        if (this.moduleMeta.classes.contains(input)) {
-            objCategory = "class"
-        } else if (this.moduleMeta.interfaces.contains(input)) {
-            objCategory = "interface"
-        } else {
-            throw IllegalArgumentException("Invalid object category")
-        }
-        return objCategory
-    }
-
-    public func isBaseObject(input: String): Bool {
-        this.moduleMeta.baseClasses.contains(input) || this.moduleMeta.baseInterfaces.contains(input)
-    }
-
     // TODO: need to find parent in certain namespace and certain module,
     // since different namespace/module may have interface/classes which have same names
     private func findParent(father: String): ?ObjectType {
@@ -149,17 +133,6 @@ public class GlobalConfig {
         println("module: ${module}")
         println("output: ${outPath}")
         println("")
-    }
-
-    // eg: @ohos.ability.featureAbility.d.ts -> ohos.ability.featureAbility
-    // @hms.ai.speechRecognizer.d.ts -> ohos.ai.speechRecognizer
-    public func getCjModuleName(): Unit {
-        var moduleName = moduleFullName.replace("@", "")
-        if (moduleName.contains("hms")) {
-            moduleName = moduleName.replace("hms", "ohos")
-        }
-
-        removeTsSuffix(moduleName)
     }
 
     public func getCjModuleNameForTpc(): String {
