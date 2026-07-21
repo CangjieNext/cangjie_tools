@@ -172,6 +172,14 @@ def generate_cmake_defs(args):
             "-DCMAKE_C_FLAGS=-fprofile-arcs -ftest-coverage",
         ]
 
+    # --code-coverage implies building the gtest-based C++ API tests too
+    # (tests/ subdirectory), so they can be run during coverage collection
+    # and contribute coverage to src/Cjprof.cpp. The tests are NOT run here;
+    # run them later via ctest in the build dir.
+    test_defs = []
+    if args.code_coverage:
+        test_defs.append("-DBUILD_TESTING=ON")
+
     if args.target == "windows-x86_64":
         return [
             "-DCMAKE_BUILD_TYPE=" + build_type,
@@ -180,24 +188,24 @@ def generate_cmake_defs(args):
             "-DCMAKE_CXX_COMPILER=" + "x86_64-w64-mingw32-g++",
             "-DSTRIP_LIB_PREFIX=" + "ON",
             "-DUSE_CXX17_FEATURES=" + "ON",
-        ] + coverage_defs + [arg for arg in args.cmake_args if arg != "--"]
+        ] + coverage_defs + test_defs + [arg for arg in args.cmake_args if arg != "--"]
 
     if IS_MAC:
         return [
             "-DCMAKE_BUILD_TYPE=" + build_type,
             "-DUSE_CXX17_FEATURES=" + "ON",
-        ] + coverage_defs + [arg for arg in args.cmake_args if arg != "--"]
+        ] + coverage_defs + test_defs + [arg for arg in args.cmake_args if arg != "--"]
 
     if IS_WINDOWS:
         return [
             "-DCMAKE_BUILD_TYPE=" + build_type,
             "-DSTRIP_LIB_PREFIX=" + "ON",
             "-DUSE_CXX17_FEATURES=" + "ON",
-        ] + coverage_defs + [arg for arg in args.cmake_args if arg != "--"]
+        ] + coverage_defs + test_defs + [arg for arg in args.cmake_args if arg != "--"]
 
     return [
         "-DCMAKE_BUILD_TYPE=" + build_type,
-    ] + coverage_defs + [arg for arg in args.cmake_args if arg != "--"]
+    ] + coverage_defs + test_defs + [arg for arg in args.cmake_args if arg != "--"]
 
 
 def build(args):
@@ -265,6 +273,19 @@ def build(args):
         else:
             output = subprocess.Popen(["ninja", "-j" + str(args.jobs)], cwd=CMAKE_BUILD_DIR, stdout=PIPE)
         log_output(output)
+    if args.code_coverage:
+        LOG.info("building gtest target cjprof_gtest (part of --code-coverage)\n")
+        make_tool = "mingw32-make" if IS_WINDOWS else "ninja"
+        output = subprocess.Popen(
+            [make_tool, "-j" + str(args.jobs), "cjprof_gtest"],
+            cwd=CMAKE_BUILD_DIR,
+            stdout=PIPE,
+        )
+        log_output(output)
+        if output.returncode != 0:
+            LOG.fatal("build cjprof_gtest failed")
+        else:
+            LOG.info("cjprof_gtest built — run via: ctest --test-dir %s\n" % CMAKE_BUILD_DIR)
     if not args.skip_jni:
         run_jni_script(["build", "-t", str(args.build_type)])
     else:
