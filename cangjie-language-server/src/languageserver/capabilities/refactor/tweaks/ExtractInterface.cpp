@@ -74,6 +74,7 @@ struct SelectedEditsRequest {
     const std::unordered_set<std::string> &chosen;
     std::vector<TextEdit> &edits;
     bool addOverride = false;
+    bool removeSelectedMembers = false;
 };
 
 struct TypeReplacementContext {
@@ -1274,6 +1275,18 @@ bool IsExtendTargetTypeReferenceRange(const ExtendDecl &decl, const Range &refer
     return typeRange.has_value() && typeRange->start == referenceRange.start && typeRange->end == referenceRange.end;
 }
 
+bool IsInheritedTypeReferenceRange(const InheritableDecl &decl, const Range &referenceRange)
+{
+    return std::any_of(decl.inheritedTypes.begin(), decl.inheritedTypes.end(), [&referenceRange](const auto &type) {
+        if (!type) {
+            return false;
+        }
+        auto typeRange = GetTypeReferenceRange(*type);
+        return typeRange.has_value() && typeRange->start == referenceRange.start &&
+               typeRange->end == referenceRange.end;
+    });
+}
+
 bool UsesDisallowedMembers(const Decl &decl, const std::unordered_set<std::string> &allowedMemberNames)
 {
     bool disallowed = false;
@@ -1333,6 +1346,11 @@ bool ShouldExcludeTypeReferenceReplacement(const Node &node, const Range &refere
         }
         auto extendDecl = DynamicCast<const ExtendDecl*>(child.get());
         if (extendDecl && IsExtendTargetTypeReferenceRange(*extendDecl, referenceRange)) {
+            shouldExclude = true;
+            return VisitAction::STOP_NOW;
+        }
+        auto inheritableDecl = DynamicCast<const InheritableDecl*>(child.get());
+        if (inheritableDecl && IsInheritedTypeReferenceRange(*inheritableDecl, referenceRange)) {
             shouldExclude = true;
             return VisitAction::STOP_NOW;
         }
@@ -2000,15 +2018,9 @@ bool AddInterfaceMemberEdits(const FuncDecl &func,
         return true;
     }
 
-    if (!visibilityEdit.has_value()) {
-        auto overrideEdit = BuildOverrideBeforeFuncEdit(func, sm);
-        if (overrideEdit.has_value()) {
-            request.edits.push_back(std::move(*overrideEdit));
-        }
-        return true;
+    if (visibilityEdit.has_value()) {
+        request.edits.push_back(std::move(*visibilityEdit));
     }
-    visibilityEdit->newText = func.TestAttr(Attribute::OVERRIDE) ? "" : "override ";
-    request.edits.push_back(std::move(*visibilityEdit));
     return true;
 }
 
@@ -2150,6 +2162,10 @@ void CollectSelectedEditsFromType(TypeDecl &decl,
         }
         std::string signature = ResolveFuncSignature(*func, sm);
         if (!request.chosen.count(signature) && !request.chosen.count(TweakUtils::NormalizeSignature(signature))) {
+            continue;
+        }
+        if (request.removeSelectedMembers && ExtractFuncBodyText(*func, sm).empty()) {
+            AddPrivateMemberRemovalEdit(*func, sm, request.edits);
             continue;
         }
         CollectSelectedMemberEdits(*func, sm, request, fromInterface, allowRedef);
@@ -2297,9 +2313,6 @@ std::string BuildInterfaceHeaderText(const InterfaceInfo &info, const std::strin
 std::string BuildInterfaceMemberHeader(const std::string &member, const InterfaceInfo::MemberMeta *meta)
 {
     std::string header = INTERFACE_MEMBER_INDENT;
-    if (meta && meta->isOverride) {
-        header += "override ";
-    }
     if (meta && meta->isStatic) {
         header += "static ";
     }
@@ -2846,7 +2859,8 @@ void AddSelectedMemberEdits(ApplyContext &context)
         context.sel,
         context.chosen,
         context.effect.applyEdits[context.sourceUri],
-        context.target.kind != TargetKind::EXTEND || context.renameOriginalClass
+        context.target.kind != TargetKind::EXTEND || context.renameOriginalClass,
+        context.target.kind == TargetKind::INTERFACE
     };
     CollectSelectedEditsFromTarget(context.target, request);
 }
@@ -2861,6 +2875,7 @@ void AddInterfaceImplementorMemberEdits(ApplyContext &context)
         context.sel,
         context.chosen,
         context.effect.applyEdits[context.sourceUri],
+        false,
         false
     };
     const Decl *targetDecl = nullptr;
