@@ -12,10 +12,11 @@ import std.collection.*
 import std.regex.*
 
 public func addComment(msg: String, reason!: ?String = None): Tokens {
+    let safeMsg = msg.replace("*/", "*\\/")
     if (let Some(r) <- reason) {
-        Tokens([Token(TokenKind.COMMENT, "// ${r}"), nl, Token(TokenKind.COMMENT, "/*${msg}*/"), nl])
+        Tokens([Token(TokenKind.COMMENT, "// ${r}"), nl, Token(TokenKind.COMMENT, "/*${safeMsg}*/"), nl])
     } else {
-        Tokens([Token(TokenKind.COMMENT, "/*${msg}*/"), nl])
+        Tokens([Token(TokenKind.COMMENT, "/*${safeMsg}*/"), nl])
     }
 }
 
