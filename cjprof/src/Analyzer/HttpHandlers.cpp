@@ -9,6 +9,8 @@
 #include "Analyzer/Logger.h"
 #include <nlohmann/json.hpp>
 #include <algorithm>
+#include <sstream>
+#include <iomanip>
 #include <unordered_set>
 
 using json = nlohmann::json;
@@ -28,6 +30,261 @@ static constexpr uint64_t kDefaultHeapLimitBytes = 512ULL * 1024 * 1024;
 static constexpr uint32_t kCutoffNodeDepth = 0;
 // kMinHeapSize is 1: minimum heap size to avoid division by zero
 static constexpr uint64_t kMinHeapSize = 1;
+// kBucketSize is 65536 (64KB): address bucket width for the heap card grid
+static constexpr uint64_t kBucketSize = 64 * 1024;
+// kRowSize is 67108864 (64MB): address width of one distribution row
+static constexpr uint64_t kRowSize = 64ULL * 1024 * 1024;
+
+// categoryToString: convert ObjectCategory enum to string for JSON output
+static std::string categoryToString(ObjectCategory cat) {
+    switch (cat) {
+        case ObjectCategory::INSTANCE_OBJECT:  return "INSTANCE_OBJECT";
+        case ObjectCategory::OBJECT_ARRAY:     return "OBJECT_ARRAY";
+        case ObjectCategory::STRUCT_ARRAY:     return "STRUCT_ARRAY";
+        case ObjectCategory::PRIMITIVE_ARRAY:  return "PRIMITIVE_ARRAY";
+        case ObjectCategory::PINNED_OBJECT:    return "PINNED_OBJECT";
+        case ObjectCategory::LARGE_OBJECT:     return "LARGE_OBJECT";
+        case ObjectCategory::UNMOVABLE_OBJECT: return "UNMOVABLE_OBJECT";
+        default:                               return "UNKNOWN";
+    }
+}
+
+// hexStr: format uint64_t as hex string "0x..."
+static std::string hexStr(uint64_t val) {
+    std::ostringstream oss;
+    oss << "0x" << std::hex << val;
+    return oss.str();
+}
+
+// BucketInfo: dominant ObjectCategory of one 64KB bucket plus the cumulative
+// size of all objects that fell into it. totalObjSize==0 marks an empty bucket,
+// which mergeSegments renders as FREE_SPACE.
+struct BucketInfo {
+    ObjectCategory category;
+    uint64_t totalObjSize;
+};
+
+// Segment: a contiguous address run of a single type, produced by merging
+// adjacent same-category buckets. typeName is the category name string
+// ("INSTANCE_OBJECT", ... , or "FREE_SPACE").
+struct Segment {
+    std::string typeName;
+    uint64_t startAddr;
+    uint64_t endAddr;
+};
+
+// buildBuckets: divide [rangeStart, rangeEnd] into 64KB buckets and accumulate
+// per-category sizes from the address-sorted objects (UNMOVABLE_OBJECT is
+// merged into PINNED_OBJECT, matching the card grid). Then pick the dominant
+// category per bucket — the largest cumulative size wins, strict > so a tie
+// goes to the lower enum value (e.g. PINNED beats LARGE when equal). Empty
+// buckets keep INSTANCE_OBJECT as a placeholder category; the caller relies
+// on totalObjSize==0 (not category) to treat them as free.
+static std::vector<BucketInfo> buildBuckets(const std::vector<const HeapObject*>& sorted,
+                                            uint64_t rangeStart, uint64_t rangeEnd,
+                                            uint64_t totalRange)
+{
+    size_t bucketCount = std::max<size_t>(1, static_cast<size_t>((totalRange + kBucketSize - 1) / kBucketSize));
+
+    // Per-category totals per bucket: flat array [bucket * kObjectCategoryCount + catIdx]
+    std::vector<uint64_t> bucketTotals(bucketCount * kObjectCategoryCount, 0);
+
+    for (const auto* obj : sorted) {
+        uint64_t addr = obj->object_id;
+        size_t bIdx = static_cast<size_t>((addr - rangeStart) / kBucketSize);
+        if (bIdx >= bucketCount) bIdx = bucketCount - 1;
+        // Merge UNMOVABLE_OBJECT into PINNED_OBJECT (same as card grid)
+        ObjectCategory cat = obj->category;
+        if (cat == ObjectCategory::UNMOVABLE_OBJECT) {
+            cat = ObjectCategory::PINNED_OBJECT;
+        }
+        uint8_t catIdx = static_cast<uint8_t>(cat);
+        if (catIdx < kObjectCategoryCount) {
+            bucketTotals[bIdx * kObjectCategoryCount + catIdx] += obj->size;
+        }
+    }
+
+    // Determine dominant category per bucket (largest cumulative size wins)
+    std::vector<BucketInfo> buckets(bucketCount);
+    for (size_t i = 0; i < bucketCount; ++i) {
+        uint64_t dominantCatSize = 0;
+        uint8_t dominantCatIdx = 0;
+        uint64_t totalSize = 0;
+        for (uint8_t catIdx = 0; catIdx < kObjectCategoryCount; ++catIdx) {
+            uint64_t catSize = bucketTotals[i * kObjectCategoryCount + catIdx];
+            totalSize += catSize;
+            if (catSize > dominantCatSize) {
+                dominantCatSize = catSize;
+                dominantCatIdx = catIdx;
+            }
+        }
+        buckets[i].totalObjSize = totalSize;
+        buckets[i].category = (totalSize > 0) ? static_cast<ObjectCategory>(dominantCatIdx)
+                                               : ObjectCategory::INSTANCE_OBJECT;
+    }
+    return buckets;
+}
+
+// mergeSegments: walk adjacent buckets and emit a Segment whenever the
+// (free?, category) pair changes, so a run of identical buckets collapses into
+// one Segment. Close the final segment at rangeEnd, and append a trailing
+// FREE_SPACE segment if the last segment ends before rangeEnd (this trailing
+// branch is currently unreachable because bucketCount uses ceiling division,
+// but is kept for correctness/robustness).
+static std::vector<Segment> mergeSegments(const std::vector<BucketInfo>& buckets,
+                                          uint64_t rangeStart, uint64_t rangeEnd,
+                                          uint64_t totalRange)
+{
+    size_t bucketCount = buckets.size();
+
+    std::vector<Segment> segments;
+
+    bool curIsFree = (buckets[0].totalObjSize == 0);
+    ObjectCategory curCat = curIsFree ? ObjectCategory::INSTANCE_OBJECT : buckets[0].category;
+    uint64_t curStart = rangeStart;
+
+    for (size_t i = 1; i < bucketCount; ++i) {
+        bool isFree = (buckets[i].totalObjSize == 0);
+        ObjectCategory cat = isFree ? ObjectCategory::INSTANCE_OBJECT : buckets[i].category;
+
+        if (isFree == curIsFree && cat == curCat) {
+            continue;  // same type, keep merging
+        }
+
+        uint64_t curEnd = rangeStart + i * kBucketSize;
+        segments.push_back({
+            curIsFree ? "FREE_SPACE" : categoryToString(curCat),
+            curStart, curEnd
+        });
+        curStart = curEnd;
+        curCat = cat;
+        curIsFree = isFree;
+    }
+
+    // Close last segment
+    uint64_t lastEnd = rangeStart + bucketCount * kBucketSize;
+    if (lastEnd > rangeEnd) lastEnd = rangeEnd;
+    segments.push_back({
+        curIsFree ? "FREE_SPACE" : categoryToString(curCat),
+        curStart, lastEnd
+    });
+
+    // Trailing free space
+    if (segments.back().endAddr < rangeEnd) {
+        segments.push_back({"FREE_SPACE", segments.back().endAddr, rangeEnd});
+    }
+
+    return segments;
+}
+
+// groupIntoRows: bin segments into 64MB rows. A segment that straddles a row
+// boundary is split at each boundary it spans, so every returned row owns only
+// segments fully inside its [rowStart, rowEnd] range.
+static std::vector<std::vector<Segment>> groupIntoRows(const std::vector<Segment>& segments,
+                                                       uint64_t rangeStart, uint64_t rangeEnd,
+                                                       uint64_t totalRange)
+{
+    size_t rowCount = static_cast<size_t>((totalRange + kRowSize - 1) / kRowSize);
+    if (rowCount == 0) rowCount = 1;
+    std::vector<std::vector<Segment>> rows(rowCount);
+
+    for (const auto& seg : segments) {
+        size_t startRow = static_cast<size_t>((seg.startAddr - rangeStart) / kRowSize);
+        size_t endRow = static_cast<size_t>((seg.endAddr - 1 - rangeStart) / kRowSize);
+        if (endRow >= rowCount) endRow = rowCount - 1;
+
+        if (startRow == endRow) {
+            rows[startRow].push_back(seg);
+        } else {
+            // Segment crosses row boundary — split it
+            for (size_t r = startRow; r <= endRow; ++r) {
+                uint64_t rowStartAddr = rangeStart + r * kRowSize;
+                uint64_t rowEndAddr = std::min(rangeStart + (r + 1) * kRowSize, rangeEnd);
+                uint64_t segStartInRow = std::max(seg.startAddr, rowStartAddr);
+                uint64_t segEndInRow = std::min(seg.endAddr, rowEndAddr);
+                rows[r].push_back({seg.typeName, segStartInRow, segEndInRow});
+            }
+        }
+    }
+    return rows;
+}
+
+// buildDistributionJson: assemble the /api/fragment/distribution response —
+// top-level address_range_* (hex) + total_address_range, then rows[], each
+// row with its segments carrying type/start_address/end_address/size/percentage
+// (percentage is the segment's share of its row's size, rounded to 2 dp).
+static json buildDistributionJson(uint64_t rangeStart, uint64_t rangeEnd,
+                                  uint64_t totalRange,
+                                  const std::vector<std::vector<Segment>>& rows)
+{
+    size_t rowCount = rows.size();
+
+    json result;
+    result["address_range_start"] = hexStr(rangeStart);
+    result["address_range_end"] = hexStr(rangeEnd);
+    result["total_address_range"] = totalRange;
+
+    result["rows"] = json::array();
+    for (size_t r = 0; r < rowCount; ++r) {
+        uint64_t rowStartAddr = rangeStart + r * kRowSize;
+        uint64_t rowEndAddr = std::min(rangeStart + (r + 1) * kRowSize, rangeEnd);
+        uint64_t rowTotalSize = rowEndAddr - rowStartAddr;
+
+        json rowJson;
+        rowJson["row_index"] = r;
+        rowJson["start_address"] = hexStr(rowStartAddr);
+        rowJson["end_address"] = hexStr(rowEndAddr);
+        rowJson["size"] = rowTotalSize;
+        rowJson["segments"] = json::array();
+
+        for (const auto& seg : rows[r]) {
+            uint64_t segSize = seg.endAddr - seg.startAddr;
+            double pct = (rowTotalSize > 0) ? ((double)segSize * 100.0 / (double)rowTotalSize) : 0.0;
+            pct = std::round(pct * 100.0) / 100.0;
+
+            rowJson["segments"].push_back({
+                {"type", seg.typeName},
+                {"start_address", hexStr(seg.startAddr)},
+                {"end_address", hexStr(seg.endAddr)},
+                {"size", segSize},
+                {"percentage", pct}
+            });
+        }
+        result["rows"].push_back(rowJson);
+    }
+
+    return result;
+}
+
+// buildEmptyFallback: distribution response when every object was filtered out
+// (sorted.empty()) — a single FREE_SPACE segment spanning the whole address
+// range. Segments must be objects ({"type":...}) matching the main path and
+// what the frontend chart reads (seg.type / seg.start_address / seg.size /
+// seg.percentage). json::array({{pair},{pair}}) would wrongly emit
+// arrays-of-arrays, so build the object first then wrap: json::array({seg}).
+static json buildEmptyFallback(uint64_t rangeStart, uint64_t rangeEnd, uint64_t totalRange)
+{
+    json j;
+    j["address_range_start"] = hexStr(rangeStart);
+    j["address_range_end"] = hexStr(rangeEnd);
+    j["total_address_range"] = totalRange;
+    json seg = {
+        {"type", "FREE_SPACE"},
+        {"start_address", hexStr(rangeStart)},
+        {"end_address", hexStr(rangeEnd)},
+        {"size", totalRange},
+        {"percentage", 100.0}
+    };
+    j["rows"] = json::array();
+    j["rows"].push_back({
+        {"row_index", 0},
+        {"start_address", hexStr(rangeStart)},
+        {"end_address", hexStr(rangeEnd)},
+        {"size", totalRange},
+        {"segments", json::array({seg})}
+    });
+    return j;
+}
 
 
 static std::string getClassName(const HttpContext& ctx, uint64_t objectId)
@@ -756,8 +1013,10 @@ std::string HttpHandlers::handleFragmentOverview(const HttpContext& ctx)
             util = (double)ctx.snapshotInfo->used_size * 100.0 / (double)ctx.snapshotInfo->heap_total_size;
         }
         j["utilization"] = std::round(util * 100.0) / 100.0;
+        j["address_range_start"] = ctx.snapshotInfo->address_range_start;
+        j["address_range_end"] = ctx.snapshotInfo->address_range_end;
     } else {
-        j = {{"heap_limit", 0}, {"used_size", 0}, {"utilization", 0.0}};
+        j = {{"heap_limit", 0}, {"used_size", 0}, {"utilization", 0.0}, {"address_range_start", 0}, {"address_range_end", 0}};
     }
     return j.dump();
 }
@@ -792,11 +1051,9 @@ std::string HttpHandlers::handleFragmentLayout(const HttpContext& ctx)
     result["regions"] = json::array();  // Add regions for frontend compatibility
 
     auto addCategory = [&](const char* type, uint64_t size) {
-        if (size > 0) {
-            result["categories"].push_back({{"type", type}, {"size", size}});
-            result["fragments"].push_back({{"size", size}, {"type", type}});
-            result["regions"].push_back({{"type", type}, {"size", size}});
-        }
+        result["categories"].push_back({{"type", type}, {"size", size}});
+        result["fragments"].push_back({{"size", size}, {"type", type}});
+        result["regions"].push_back({{"type", type}, {"size", size}});
     };
 
     addCategory("INSTANCE_OBJECT", categoryTotals[0]);
@@ -855,6 +1112,46 @@ std::string HttpHandlers::handleFragmentSummary(const HttpContext& ctx)
     j["large_object_total"] = largeTotal;
     j["top10"] = json::array();
     return j.dump();
+}
+
+std::string HttpHandlers::handleFragmentDistribution(const HttpContext& ctx)
+{
+    LOG_DEBUG("Handling /api/fragment/distribution");
+
+    if (!ctx.objects || ctx.objects->empty() || !ctx.snapshotInfo) {
+        json j;
+        j["address_range_start"] = "0x0";
+        j["address_range_end"] = "0x0";
+        j["total_address_range"] = 0;
+        j["rows"] = json::array();
+        return j.dump();
+    }
+
+    uint64_t rangeStart = ctx.snapshotInfo->address_range_start;
+    uint64_t rangeEnd = ctx.snapshotInfo->address_range_end;
+    uint64_t totalRange = (rangeEnd > rangeStart) ? (rangeEnd - rangeStart) : kMinHeapSize;
+
+    // Use object_id as address (HPROF object IDs are heap addresses).
+    // Filter out objects with object_id=0 (invalid) and size=0,
+    // then sort by object_id (address).
+    std::vector<const HeapObject*> sorted;
+    sorted.reserve(ctx.objects->size());
+    for (const auto& obj : *ctx.objects) {
+        if (obj.object_id > 0 && obj.size > 0) {
+            sorted.push_back(&obj);
+        }
+    }
+    if (sorted.empty()) {
+        return buildEmptyFallback(rangeStart, rangeEnd, totalRange).dump();
+    }
+    std::sort(sorted.begin(), sorted.end(),
+        [](const HeapObject* a, const HeapObject* b) { return a->object_id < b->object_id; });
+
+    // Main path: bucket -> merge into segments -> group into rows -> JSON.
+    auto buckets = buildBuckets(sorted, rangeStart, rangeEnd, totalRange);
+    auto segments = mergeSegments(buckets, rangeStart, rangeEnd, totalRange);
+    auto rows = groupIntoRows(segments, rangeStart, rangeEnd, totalRange);
+    return buildDistributionJson(rangeStart, rangeEnd, totalRange, rows).dump();
 }
 
 } // namespace cjprof
