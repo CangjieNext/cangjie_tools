@@ -36,12 +36,13 @@ public func makeTargetDylibName(fileName: String, target: String): String {
 }
 
 public func makeTargetExeName(exeName: String, target: String): String {
+    let processedExeName = swapOrgName(exeName)
     if (target.contains("mingw32") || target.contains("windows-gnu")) {
-        if (!exeName.endsWith(".exe")) {
-            return "${exeName}.exe"
+        if (!processedExeName.endsWith(".exe")) {
+            return "${processedExeName}.exe"
         }
     }
-    return exeName
+    return processedExeName
 }
 
 public func makeTargetObjName(objName: String, target: String): String {
