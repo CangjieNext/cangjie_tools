@@ -10,7 +10,7 @@
 #include "Reporter/FlameGraph.h"
 #include "Reporter/FlatReporter.h"
 #include "Commands/Report.h"
-
+ 
 int Report::Execute(int argc, char **argv)
 {
     Reporter::Cfg cfg;
