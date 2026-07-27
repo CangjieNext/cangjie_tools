@@ -15,9 +15,6 @@
 #include "IntroduceField.h"
 
 namespace ark {
-const std::unordered_set<Cangjie::AST::ASTKind> CANNOT_INTRODUCE_FIELD_EXPR = {
-    ASTKind::BLOCK, ASTKind::STR_INTERPOLATION_EXPR, ASTKind::INTERPOLATION_EXPR
-};
 constexpr int BLANK_LINE_NEWLINE_COUNT = 2;
 struct LocalVarTarget {
     Ptr<Cangjie::AST::VarDecl> decl = nullptr;
@@ -46,11 +43,51 @@ static std::optional<MemberInitializerTarget> GetMemberInitializerTarget(const T
 static std::optional<Tweak::Effect> BuildMemberInitializerEffect(const Tweak::Selection &sel, Range &range,
     const std::string &fieldName, const std::string &typeName, const MemberInitializerTarget &target);
 
-static bool CanUseAsFieldInitializer(const Tweak::Selection &sel, const Range &range, Cangjie::AST::FuncDecl &funcDecl)
+static bool CanUseAsFieldInitializer(const Tweak::Selection &sel, const Range &range)
 {
-    (void)funcDecl;
     auto expr = GetIntroduceFieldExpr(sel.selectionTree, range);
     return expr && expr->astKind == ASTKind::LIT_CONST_EXPR && !IntroduceField::IsStringInterpolationLiteral(expr);
+}
+
+static bool CanEvaluateAtFieldInitializer(
+    const Tweak::Selection &sel, const Range &range, Cangjie::AST::FuncDecl &funcDecl)
+{
+    auto expr = GetIntroduceFieldExpr(sel.selectionTree, range);
+    if (!expr || !funcDecl.funcBody) {
+        return false;
+    }
+    bool isMemberField = IntroduceField::IsMemberFieldTarget(funcDecl);
+    bool isAvailable = true;
+    Walker(expr.get(), [&funcDecl, &isAvailable, isMemberField](auto node) {
+        if (!node || !isAvailable) {
+            return VisitAction::STOP_NOW;
+        }
+        auto refExpr = DynamicCast<Cangjie::AST::RefExpr *>(node.get());
+        if (!refExpr) {
+            return VisitAction::WALK_CHILDREN;
+        }
+        if (refExpr->isThis) {
+            isAvailable = isMemberField;
+            return isAvailable ? VisitAction::WALK_CHILDREN : VisitAction::STOP_NOW;
+        }
+        auto target = refExpr->GetTarget();
+        if (!target) {
+            return VisitAction::WALK_CHILDREN;
+        }
+        if (target->astKind == ASTKind::FUNC_PARAM) {
+            isAvailable = false;
+            return VisitAction::STOP_NOW;
+        }
+        bool isLocalVariable = target->astKind == ASTKind::VAR_DECL &&
+            !target->TestAnyAttr(Attribute::GLOBAL, Attribute::IN_CLASSLIKE, Attribute::IN_STRUCT, Attribute::IN_ENUM);
+        bool isNestedDeclaration = target->IsDecl() && funcDecl.begin <= target->begin && target->end <= funcDecl.end;
+        if (isLocalVariable || isNestedDeclaration) {
+            isAvailable = false;
+            return VisitAction::STOP_NOW;
+        }
+        return VisitAction::WALK_CHILDREN;
+    }).Walk();
+    return isAvailable;
 }
 
 static std::string GetDefaultInitializer(const std::string &typeName)
@@ -407,6 +444,12 @@ class IntroduceFieldRule : public TweakRule {
                 std::to_string(static_cast<int>(IntroduceField::IntroduceFieldError::FAIL_GET_ROOT_EXPR))));
             return false;
         }
+        if (TweakUtils::IsTupleElementIndexSelection(sel.arkAst, sel.selectionTree, sel.range) ||
+            TweakUtils::IsReferenceTransferSelection(sel.selectionTree, range)) {
+            extraOptions.insert(std::make_pair(
+                "ErrorCode", std::to_string(static_cast<int>(TweakRule::TweakError::TWEAK_FAIL))));
+            return false;
+        }
         auto memberInitializerTarget = GetMemberInitializerTarget(sel, range);
         if (((sel.selectionTree.SelectedScope() & SelectionTree::Scope::GLOBAL_VAR) != SelectionTree::Scope::UNKNOWN &&
             !memberInitializerTarget) ||
@@ -416,9 +459,9 @@ class IntroduceFieldRule : public TweakRule {
                 std::to_string(static_cast<int>(IntroduceField::IntroduceFieldError::INVALID_SCOPE))));
             return false;
         }
-        if (CANNOT_INTRODUCE_FIELD_EXPR.count(selectedExpr->astKind)) {
+        if (!TweakUtils::IsSupportedIntroduceExpression(*selectedExpr, TweakUtils::IntroduceTarget::FIELD)) {
             extraOptions.insert(std::make_pair("ErrorCode",
-                std::to_string(static_cast<int>(IntroduceField::IntroduceFieldError::INVALID_CODE_SEGMENT))));
+                std::to_string(static_cast<int>(TweakRule::TweakError::TWEAK_FAIL))));
             return false;
         }
         if (TweakUtils::IsSupportedCompoundAssignExpr(*selectedExpr)) {
@@ -455,6 +498,12 @@ class IntroduceFieldRule : public TweakRule {
         if (typeName.empty()) {
             extraOptions.insert(std::make_pair("ErrorCode",
                 std::to_string(static_cast<int>(IntroduceField::IntroduceFieldError::INVALID_TYPE))));
+            return false;
+        }
+        if (!memberInitializerTarget && !CanEvaluateAtFieldInitializer(sel, range, *funcDecl) &&
+            GetDefaultInitializer(sel, range, typeName).empty()) {
+            extraOptions.insert(std::make_pair(
+                "ErrorCode", std::to_string(static_cast<int>(TweakRule::TweakError::TWEAK_FAIL))));
             return false;
         }
         if (!memberInitializerTarget &&
@@ -507,8 +556,9 @@ std::optional<Tweak::Effect> IntroduceField::Apply(const Selection &sel)
     if (!funcDecl || !IsSupportedTargetFunc(*funcDecl)) {
         return std::nullopt;
     }
-    bool useSelectedExprAsInitializer = CanUseAsFieldInitializer(sel, range, *funcDecl) ||
-        GetDefaultInitializer(sel, range, typeName).empty();
+    bool useSelectedExprAsInitializer = CanUseAsFieldInitializer(sel, range) ||
+        (GetDefaultInitializer(sel, range, typeName).empty() &&
+            CanEvaluateAtFieldInitializer(sel, range, *funcDecl));
 
     std::vector<TextEdit> textEdits;
     auto localVarTarget = GetLocalVarTarget(sel.selectionTree, range, *funcDecl);
@@ -593,7 +643,7 @@ bool IntroduceField::IsImmutableStructMemberFieldAssignment(
         funcDecl.TestAttr(Attribute::MUT) || IsStaticFieldTarget(funcDecl)) {
         return false;
     }
-    return !CanUseAsFieldInitializer(sel, range, funcDecl) && !GetDefaultInitializer(sel, range, typeName).empty();
+    return !CanUseAsFieldInitializer(sel, range) && !GetDefaultInitializer(sel, range, typeName).empty();
 }
 
 static Position GetDeclarationInsertStart(const Cangjie::AST::Decl &decl)
@@ -1084,7 +1134,7 @@ TextEdit IntroduceField::InsertFieldDeclaration(const Selection &sel, Range &ran
     }
 
     textEdit.range = TransformFromChar2IDE(*insertRange);
-    std::string initializer = CanUseAsFieldInitializer(sel, range, funcDecl) ?
+    std::string initializer = CanUseAsFieldInitializer(sel, range) ?
         sel.arkAst->sourceManager->GetContentBetween(range.start, range.end) :
         GetDefaultInitializer(sel, range, typeName);
     if (initializer.empty()) {
