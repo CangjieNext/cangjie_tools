@@ -1,0 +1,751 @@
+From 8a548a7d76917d588c91d45111c4eb7507828767 Mon Sep 17 00:00:00 2001
+From: savage <wangjunwei26@huawei.com>
+Date: Mon, 27 Jul 2026 17:13:34 +0800
+Subject: [PATCH] fix: fix the issue where array index expressions could not be
+ extracted
+
+Signed-off-by: savage <wangjunwei26@huawei.com>
+---
+ .../capabilities/refactor/TweakUtils.h        |  12 +
+ .../refactor/tweaks/IntroduceField.cpp        |  72 +++++-
+ .../refactor/tweaks/IntroduceParameter.cpp    | 169 ++++++++------
+ .../refactor/IntroduceFieldTest.cpp           | 216 ++++++++++++++++++
+ 4 files changed, 389 insertions(+), 80 deletions(-)
+
+diff --git a/cangjie-language-server/src/languageserver/capabilities/refactor/TweakUtils.h b/cangjie-language-server/src/languageserver/capabilities/refactor/TweakUtils.h
+index 24c84b70..6491c397 100644
+--- a/cangjie-language-server/src/languageserver/capabilities/refactor/TweakUtils.h
++++ b/cangjie-language-server/src/languageserver/capabilities/refactor/TweakUtils.h
+@@ -19,6 +19,11 @@ using namespace AST;
+ 
+ class TweakUtils {
+ public:
++    enum class IntroduceTarget {
++        FIELD,
++        PARAMETER
++    };
++
+     static Ptr<Block> FindOuterScopeNode(const ASTContext& ctx, const Expr& expr, bool &isGlobal, Range &range);
+ 
+     static bool Contain(Cangjie::AST::Node &node, const Range &range);
+@@ -44,6 +49,13 @@ public:
+ 
+     static bool IsIfLetSelection(const SelectionTree &selectionTree, const Range &range);
+ 
++    static bool IsTupleElementIndexSelection(
++        const ArkAST *arkAst, const SelectionTree &selectionTree, const Range &range);
++
++    static bool IsReferenceTransferSelection(const SelectionTree &selectionTree, const Range &range);
++
++    static bool IsSupportedIntroduceExpression(const Cangjie::AST::Expr &expr, IntroduceTarget target);
++
+     static std::string GetTypeName(const Ty &ty);
+ 
+     static std::string GetCompoundAssignOperatorText(Cangjie::TokenKind tokenKind);
+diff --git a/cangjie-language-server/src/languageserver/capabilities/refactor/tweaks/IntroduceField.cpp b/cangjie-language-server/src/languageserver/capabilities/refactor/tweaks/IntroduceField.cpp
+index d9589f61..4308fff4 100644
+--- a/cangjie-language-server/src/languageserver/capabilities/refactor/tweaks/IntroduceField.cpp
++++ b/cangjie-language-server/src/languageserver/capabilities/refactor/tweaks/IntroduceField.cpp
+@@ -15,9 +15,6 @@
+ #include "IntroduceField.h"
+ 
+ namespace ark {
+-const std::unordered_set<Cangjie::AST::ASTKind> CANNOT_INTRODUCE_FIELD_EXPR = {
+-    ASTKind::BLOCK, ASTKind::STR_INTERPOLATION_EXPR, ASTKind::INTERPOLATION_EXPR
+-};
+ constexpr int BLANK_LINE_NEWLINE_COUNT = 2;
+ struct LocalVarTarget {
+     Ptr<Cangjie::AST::VarDecl> decl = nullptr;
+@@ -46,13 +43,53 @@ static std::optional<MemberInitializerTarget> GetMemberInitializerTarget(const T
+ static std::optional<Tweak::Effect> BuildMemberInitializerEffect(const Tweak::Selection &sel, Range &range,
+     const std::string &fieldName, const std::string &typeName, const MemberInitializerTarget &target);
+ 
+-static bool CanUseAsFieldInitializer(const Tweak::Selection &sel, const Range &range, Cangjie::AST::FuncDecl &funcDecl)
++static bool CanUseAsFieldInitializer(const Tweak::Selection &sel, const Range &range)
+ {
+-    (void)funcDecl;
+     auto expr = GetIntroduceFieldExpr(sel.selectionTree, range);
+     return expr && expr->astKind == ASTKind::LIT_CONST_EXPR && !IntroduceField::IsStringInterpolationLiteral(expr);
+ }
+ 
++static bool CanEvaluateAtFieldInitializer(
++    const Tweak::Selection &sel, const Range &range, Cangjie::AST::FuncDecl &funcDecl)
++{
++    auto expr = GetIntroduceFieldExpr(sel.selectionTree, range);
++    if (!expr || !funcDecl.funcBody) {
++        return false;
++    }
++    bool isMemberField = IntroduceField::IsMemberFieldTarget(funcDecl);
++    bool isAvailable = true;
++    Walker(expr.get(), [&funcDecl, &isAvailable, isMemberField](auto node) {
++        if (!node || !isAvailable) {
++            return VisitAction::STOP_NOW;
++        }
++        auto refExpr = DynamicCast<Cangjie::AST::RefExpr *>(node.get());
++        if (!refExpr) {
++            return VisitAction::WALK_CHILDREN;
++        }
++        if (refExpr->isThis) {
++            isAvailable = isMemberField;
++            return isAvailable ? VisitAction::WALK_CHILDREN : VisitAction::STOP_NOW;
++        }
++        auto target = refExpr->GetTarget();
++        if (!target) {
++            return VisitAction::WALK_CHILDREN;
++        }
++        if (target->astKind == ASTKind::FUNC_PARAM) {
++            isAvailable = false;
++            return VisitAction::STOP_NOW;
++        }
++        bool isLocalVariable = target->astKind == ASTKind::VAR_DECL &&
++            !target->TestAnyAttr(Attribute::GLOBAL, Attribute::IN_CLASSLIKE, Attribute::IN_STRUCT, Attribute::IN_ENUM);
++        bool isNestedDeclaration = target->IsDecl() && funcDecl.begin <= target->begin && target->end <= funcDecl.end;
++        if (isLocalVariable || isNestedDeclaration) {
++            isAvailable = false;
++            return VisitAction::STOP_NOW;
++        }
++        return VisitAction::WALK_CHILDREN;
++    }).Walk();
++    return isAvailable;
++}
++
+ static std::string GetDefaultInitializer(const std::string &typeName)
+ {
+     static const std::unordered_map<std::string, std::string> DEFAULT_INITIALIZERS = {
+@@ -407,6 +444,12 @@ class IntroduceFieldRule : public TweakRule {
+                 std::to_string(static_cast<int>(IntroduceField::IntroduceFieldError::FAIL_GET_ROOT_EXPR))));
+             return false;
+         }
++        if (TweakUtils::IsTupleElementIndexSelection(sel.arkAst, sel.selectionTree, sel.range) ||
++            TweakUtils::IsReferenceTransferSelection(sel.selectionTree, range)) {
++            extraOptions.insert(std::make_pair(
++                "ErrorCode", std::to_string(static_cast<int>(TweakRule::TweakError::TWEAK_FAIL))));
++            return false;
++        }
+         auto memberInitializerTarget = GetMemberInitializerTarget(sel, range);
+         if (((sel.selectionTree.SelectedScope() & SelectionTree::Scope::GLOBAL_VAR) != SelectionTree::Scope::UNKNOWN &&
+             !memberInitializerTarget) ||
+@@ -416,9 +459,9 @@ class IntroduceFieldRule : public TweakRule {
+                 std::to_string(static_cast<int>(IntroduceField::IntroduceFieldError::INVALID_SCOPE))));
+             return false;
+         }
+-        if (CANNOT_INTRODUCE_FIELD_EXPR.count(selectedExpr->astKind)) {
++        if (!TweakUtils::IsSupportedIntroduceExpression(*selectedExpr, TweakUtils::IntroduceTarget::FIELD)) {
+             extraOptions.insert(std::make_pair("ErrorCode",
+-                std::to_string(static_cast<int>(IntroduceField::IntroduceFieldError::INVALID_CODE_SEGMENT))));
++                std::to_string(static_cast<int>(TweakRule::TweakError::TWEAK_FAIL))));
+             return false;
+         }
+         if (TweakUtils::IsSupportedCompoundAssignExpr(*selectedExpr)) {
+@@ -457,6 +500,12 @@ class IntroduceFieldRule : public TweakRule {
+                 std::to_string(static_cast<int>(IntroduceField::IntroduceFieldError::INVALID_TYPE))));
+             return false;
+         }
++        if (!memberInitializerTarget && !CanEvaluateAtFieldInitializer(sel, range, *funcDecl) &&
++            GetDefaultInitializer(sel, range, typeName).empty()) {
++            extraOptions.insert(std::make_pair(
++                "ErrorCode", std::to_string(static_cast<int>(TweakRule::TweakError::TWEAK_FAIL))));
++            return false;
++        }
+         if (!memberInitializerTarget &&
+             IntroduceField::IsImmutableStructMemberFieldAssignment(sel, range, typeName, *funcDecl)) {
+             extraOptions.insert(std::make_pair("ErrorCode", std::to_string(static_cast<int>(
+@@ -507,8 +556,9 @@ std::optional<Tweak::Effect> IntroduceField::Apply(const Selection &sel)
+     if (!funcDecl || !IsSupportedTargetFunc(*funcDecl)) {
+         return std::nullopt;
+     }
+-    bool useSelectedExprAsInitializer = CanUseAsFieldInitializer(sel, range, *funcDecl) ||
+-        GetDefaultInitializer(sel, range, typeName).empty();
++    bool useSelectedExprAsInitializer = CanUseAsFieldInitializer(sel, range) ||
++        (GetDefaultInitializer(sel, range, typeName).empty() &&
++            CanEvaluateAtFieldInitializer(sel, range, *funcDecl));
+ 
+     std::vector<TextEdit> textEdits;
+     auto localVarTarget = GetLocalVarTarget(sel.selectionTree, range, *funcDecl);
+@@ -593,7 +643,7 @@ bool IntroduceField::IsImmutableStructMemberFieldAssignment(
+         funcDecl.TestAttr(Attribute::MUT) || IsStaticFieldTarget(funcDecl)) {
+         return false;
+     }
+-    return !CanUseAsFieldInitializer(sel, range, funcDecl) && !GetDefaultInitializer(sel, range, typeName).empty();
++    return !CanUseAsFieldInitializer(sel, range) && !GetDefaultInitializer(sel, range, typeName).empty();
+ }
+ 
+ static Position GetDeclarationInsertStart(const Cangjie::AST::Decl &decl)
+@@ -1084,7 +1134,7 @@ TextEdit IntroduceField::InsertFieldDeclaration(const Selection &sel, Range &ran
+     }
+ 
+     textEdit.range = TransformFromChar2IDE(*insertRange);
+-    std::string initializer = CanUseAsFieldInitializer(sel, range, funcDecl) ?
++    std::string initializer = CanUseAsFieldInitializer(sel, range) ?
+         sel.arkAst->sourceManager->GetContentBetween(range.start, range.end) :
+         GetDefaultInitializer(sel, range, typeName);
+     if (initializer.empty()) {
+diff --git a/cangjie-language-server/src/languageserver/capabilities/refactor/tweaks/IntroduceParameter.cpp b/cangjie-language-server/src/languageserver/capabilities/refactor/tweaks/IntroduceParameter.cpp
+index 7f325b33..1c5a1db3 100644
+--- a/cangjie-language-server/src/languageserver/capabilities/refactor/tweaks/IntroduceParameter.cpp
++++ b/cangjie-language-server/src/languageserver/capabilities/refactor/tweaks/IntroduceParameter.cpp
+@@ -21,10 +21,6 @@
+ #include "IntroduceParameter.h"
+ 
+ namespace ark {
+-const std::unordered_set<Cangjie::AST::ASTKind> CANNOT_INTRODUCE_PARAMETER_EXPR = {
+-    ASTKind::BLOCK, ASTKind::STR_INTERPOLATION_EXPR, ASTKind::INTERPOLATION_EXPR
+-};
+-
+ struct ParamRemovalContext {
+     const Tweak::Selection &sel;
+     Cangjie::AST::FuncDecl &funcDecl;
+@@ -86,7 +82,7 @@ static bool CanBuildArgumentAtCallSites(const Tweak::Selection &sel, Cangjie::AS
+         if (!node || !isValid) {
+             return VisitAction::STOP_NOW;
+         }
+-        if (node->begin < range.start || node->end > range.end) {
++        if (node->end < range.start || node->begin > range.end) {
+             return VisitAction::SKIP_CHILDREN;
+         }
+         if (node->astKind != ASTKind::REF_EXPR) {
+@@ -119,7 +115,7 @@ static bool HasTargetFunctionLocalVariableReference(const Tweak::Selection &sel,
+         if (!node || hasLocalRef) {
+             return VisitAction::STOP_NOW;
+         }
+-        if (node->begin < range.start || node->end > range.end) {
++        if (node->end < range.start || node->begin > range.end) {
+             return VisitAction::SKIP_CHILDREN;
+         }
+         if (node->astKind != ASTKind::REF_EXPR) {
+@@ -321,10 +317,16 @@ class IntroduceParameterRule : public TweakRule {
+                 std::to_string(static_cast<int>(IntroduceParameter::IntroduceParameterError::FAIL_GET_ROOT_EXPR))));
+             return false;
+         }
+-        if (CANNOT_INTRODUCE_PARAMETER_EXPR.count(selectedExpr->astKind)) {
++        if (TweakUtils::IsTupleElementIndexSelection(sel.arkAst, sel.selectionTree, sel.range) ||
++            TweakUtils::IsReferenceTransferSelection(sel.selectionTree, range)) {
++            extraOptions.insert(std::make_pair(
++                "ErrorCode", std::to_string(static_cast<int>(TweakRule::TweakError::TWEAK_FAIL))));
++            return false;
++        }
++        if (!TweakUtils::IsSupportedIntroduceExpression(
++            *selectedExpr, TweakUtils::IntroduceTarget::PARAMETER)) {
+             extraOptions.insert(std::make_pair("ErrorCode",
+-                std::to_string(
+-                    static_cast<int>(IntroduceParameter::IntroduceParameterError::INVALID_CODE_SEGMENT))));
++                std::to_string(static_cast<int>(TweakRule::TweakError::TWEAK_FAIL))));
+             return false;
+         }
+         if (TweakUtils::IsSelectionInConstInitializer(sel.arkAst, range)) {
+@@ -343,6 +345,12 @@ class IntroduceParameterRule : public TweakRule {
+                 std::to_string(static_cast<int>(IntroduceParameter::IntroduceParameterError::INVALID_SCOPE))));
+             return false;
+         }
++        if (HasTargetFunctionLocalVariableReference(sel, *funcDecl) ||
++            !CanBuildArgumentAtCallSites(sel, *funcDecl)) {
++            extraOptions.insert(std::make_pair(
++                "ErrorCode", std::to_string(static_cast<int>(TweakRule::TweakError::TWEAK_FAIL))));
++            return false;
++        }
+         if (TweakUtils::IsMemberAssignInInit(funcDecl, selectedExpr)) {
+             extraOptions.insert(std::make_pair("ErrorCode",
+                 std::to_string(
+@@ -418,10 +426,8 @@ std::optional<Tweak::Effect> IntroduceParameter::Apply(const Selection &sel)
+     effect.applyEdits.emplace(uri, std::move(textEdits));
+     UpdateInheritedFunctionSignatures(sel, *funcDecl, paramName, typeName, removedParamIndices, effect.applyEdits);
+     std::string argumentText = sel.arkAst->sourceManager->GetContentBetween(range.start, range.end);
+-    if (!HasTargetFunctionLocalVariableReference(sel, *funcDecl) && CanBuildArgumentAtCallSites(sel, *funcDecl)) {
+-        UpdateRelatedFunctionCallSites(
+-            sel, *funcDecl, range, argumentText, paramName, removedParamIndices, effect.applyEdits);
+-    }
++    UpdateRelatedFunctionCallSites(
++        sel, *funcDecl, range, argumentText, paramName, removedParamIndices, effect.applyEdits);
+     return std::move(effect);
+ }
+ 
+@@ -802,32 +808,62 @@ static void UpdateCallSites(const CallSiteContext &context, std::map<std::string
+         return;
+     }
+ 
+-    for (auto &file : context.sel.arkAst->file->curPackage->files) {
+-        if (!file) {
+-            continue;
++    std::unordered_set<const Cangjie::AST::File *> visitedFiles;
++    auto updatePackage = [&context, &applyEdits, &visitedFiles](Ptr<const Cangjie::AST::Package> package) {
++        if (!package) {
++            return;
+         }
+-        std::vector<TextEdit> callSiteEdits;
+-        Walker(file.get(), [&context, &callSiteEdits](auto node) {
+-            if (!node || node->astKind != ASTKind::CALL_EXPR) {
+-                return VisitAction::WALK_CHILDREN;
++        for (auto &file : package->files) {
++            if (!file || !visitedFiles.insert(file.get()).second) {
++                continue;
+             }
+-            auto callExpr = DynamicCast<Cangjie::AST::CallExpr *>(node.get());
+-            if (!callExpr || callExpr->resolvedFunction.get() != &context.funcDecl) {
++            std::vector<TextEdit> callSiteEdits;
++            Walker(file.get(), [&context, &callSiteEdits](auto node) {
++                if (!node || node->astKind != ASTKind::CALL_EXPR) {
++                    return VisitAction::WALK_CHILDREN;
++                }
++                auto callExpr = DynamicCast<Cangjie::AST::CallExpr *>(node.get());
++                auto resolvedFunction = callExpr ? callExpr->resolvedFunction.get() : nullptr;
++                if (!resolvedFunction || (resolvedFunction != &context.funcDecl &&
++                    !CheckDeclEqual(context.funcDecl, *resolvedFunction))) {
++                    return VisitAction::WALK_CHILDREN;
++                }
++                auto textEdit = InsertArgumentAtCallSite(context, *callExpr);
++                if (textEdit) {
++                    callSiteEdits.push_back(*textEdit);
++                }
+                 return VisitAction::WALK_CHILDREN;
++            }).Walk();
++
++            if (callSiteEdits.empty()) {
++                continue;
+             }
+-            auto textEdit = InsertArgumentAtCallSite(context, *callExpr);
+-            if (textEdit) {
+-                callSiteEdits.push_back(*textEdit);
+-            }
+-            return VisitAction::WALK_CHILDREN;
+-        }).Walk();
++            std::string uri = URI::URIFromAbsolutePath(file->filePath).ToString();
++            auto &edits = applyEdits[uri];
++            edits.insert(edits.end(), callSiteEdits.begin(), callSiteEdits.end());
++        }
++    };
+ 
+-        if (callSiteEdits.empty()) {
+-            continue;
++    updatePackage(context.sel.arkAst->file->curPackage);
++
++    auto project = CompilerCangjieProject::GetInstance();
++    if (!project || context.funcDecl.fullPackageName.empty()) {
++        return;
++    }
++    auto dependentPackages = project->GetDependencyGraph()->FindAllDependents(context.funcDecl.fullPackageName);
++    // Loading an uncached package may evict another package from the small semantic-AST LRU.
++    std::vector<std::string> uncachedPackages;
++    for (const auto &packageName : dependentPackages) {
++        if (project->PkgHasSemaCache(packageName)) {
++            updatePackage(project->GetSourcePackagesByPkg(packageName));
++        } else {
++            uncachedPackages.push_back(packageName);
+         }
+-        std::string uri = URI::URIFromAbsolutePath(file->filePath).ToString();
+-        auto &edits = applyEdits[uri];
+-        edits.insert(edits.end(), callSiteEdits.begin(), callSiteEdits.end());
++    }
++    for (const auto &packageName : uncachedPackages) {
++        project->SetHead(context.funcDecl.fullPackageName);
++        project->IncrementTempPkgCompile(packageName);
++        updatePackage(project->GetSourcePackagesByPkg(packageName));
+     }
+ }
+ 
+@@ -878,6 +914,13 @@ static ArkAST *GetCallSiteAst(const CallSiteContext &context, Cangjie::AST::Call
+     return CompilerCangjieProject::GetInstance()->GetArkAST(callExpr.curFile->filePath);
+ }
+ 
++static Cangjie::SourceManager *GetCallSiteSourceManager(
++    const CallSiteContext &context, Cangjie::AST::CallExpr &callExpr)
++{
++    auto ast = GetCallSiteAst(context, callExpr);
++    return ast ? ast->sourceManager : nullptr;
++}
++
+ static Range TransformCallSiteRangeToIDE(
+     const CallSiteContext &context, Cangjie::AST::CallExpr &callExpr, Range range)
+ {
+@@ -894,12 +937,14 @@ static bool IsRemovedCallArg(Ptr<Cangjie::AST::FuncArg> arg, const std::vector<P
+     return std::find(removedArgs.begin(), removedArgs.end(), arg) != removedArgs.end();
+ }
+ // LCOV_EXCL_START
+-static std::string GetCallArgText(const CallSiteContext &context, Cangjie::AST::FuncArg &arg)
++static std::string GetCallArgText(
++    const CallSiteContext &context, Cangjie::AST::CallExpr &callExpr, Cangjie::AST::FuncArg &arg)
+ {
+-    if (!context.sel.arkAst || !context.sel.arkAst->sourceManager) {
++    auto sourceManager = GetCallSiteSourceManager(context, callExpr);
++    if (!sourceManager) {
+         return "";
+     }
+-    return context.sel.arkAst->sourceManager->GetContentBetween(arg.begin, arg.end);
++    return sourceManager->GetContentBetween(arg.begin, arg.end);
+ }
+ // LCOV_EXCL_STOP
+ static std::optional<TextEdit> ReplaceRemovedCallArguments(
+@@ -952,7 +997,7 @@ static std::optional<TextEdit> ReplaceRemovedCallArguments(
+         if (needSeparator) {
+             replacement << ", ";
+         }
+-        replacement << GetCallArgText(context, *arg);
++        replacement << GetCallArgText(context, callExpr, *arg);
+         needSeparator = true;
+     }
+     textEdit.newText = replacement.str();
+@@ -960,14 +1005,14 @@ static std::optional<TextEdit> ReplaceRemovedCallArguments(
+ }
+ 
+ static std::optional<Position> FindMatchingRightParenFrom(
+-    const Tweak::Selection &sel, const Position &leftParenPos, const Position &searchEnd)
++    Cangjie::SourceManager *sourceManager, const Position &leftParenPos, const Position &searchEnd)
+ {
+-    if (!sel.arkAst || !sel.arkAst->sourceManager || leftParenPos.IsZero() || searchEnd.IsZero() ||
++    if (!sourceManager || leftParenPos.IsZero() || searchEnd.IsZero() ||
+         searchEnd <= leftParenPos) {
+         return std::nullopt;
+     }
+ // LCOV_EXCL_BR_STOP
+-    std::string suffix = sel.arkAst->sourceManager->GetContentBetween(leftParenPos, searchEnd);
++    std::string suffix = sourceManager->GetContentBetween(leftParenPos, searchEnd);
+     int depth = 0;
+     for (size_t offset = 0; offset < suffix.size(); ++offset) {
+         if (suffix[offset] == '(') {
+@@ -1000,9 +1045,10 @@ static std::string GetCallName(Cangjie::AST::CallExpr &callExpr)
+ }
+ 
+ static std::optional<Position> FindCallRightParenByName(
+-    const Tweak::Selection &sel, Cangjie::AST::CallExpr &callExpr)
++    const CallSiteContext &context, Cangjie::AST::CallExpr &callExpr)
+ {
+-    if (!sel.arkAst || !sel.arkAst->sourceManager || !callExpr.baseFunc || callExpr.baseFunc->end.IsZero()) {
++    auto sourceManager = GetCallSiteSourceManager(context, callExpr);
++    if (!sourceManager || !callExpr.baseFunc || callExpr.baseFunc->end.IsZero()) {
+         return std::nullopt;
+     }
+     std::string callName = GetCallName(callExpr);
+@@ -1011,7 +1057,7 @@ static std::optional<Position> FindCallRightParenByName(
+     }
+     Position lineStart{callExpr.baseFunc->end.fileID, callExpr.baseFunc->end.line, 1};
+     Position lineEnd{callExpr.baseFunc->end.fileID, callExpr.baseFunc->end.line + 1, 1};
+-    std::string lineText = sel.arkAst->sourceManager->GetContentBetween(lineStart, lineEnd);
++    std::string lineText = sourceManager->GetContentBetween(lineStart, lineEnd);
+     std::string needle = callName + "(";
+ 
+     std::optional<Position> result;
+@@ -1027,7 +1073,7 @@ static std::optional<Position> FindCallRightParenByName(
+             continue;
+         }
+         Position leftParenPos = TweakUtils::PositionAtOffset(lineStart, lineText, pos + callName.size());
+-        if (auto rightParen = FindMatchingRightParenFrom(sel, leftParenPos, lineEnd)) {
++        if (auto rightParen = FindMatchingRightParenFrom(sourceManager, leftParenPos, lineEnd)) {
+             result = rightParen;
+         }
+         cursor = pos + needle.size();
+@@ -1040,11 +1086,12 @@ static std::optional<Position> ResolveCallArgumentInsertPosition(
+ {
+     if (!callExpr.leftParenPos.IsZero()) {
+         Position searchEnd = callExpr.end.IsZero() ? callExpr.rightParenPos : callExpr.end;
+-        if (auto rightParen = FindMatchingRightParenFrom(context.sel, callExpr.leftParenPos, searchEnd)) {
++        if (auto rightParen = FindMatchingRightParenFrom(
++            GetCallSiteSourceManager(context, callExpr), callExpr.leftParenPos, searchEnd)) {
+             return rightParen;
+         }
+     }
+-    if (auto rightParen = FindCallRightParenByName(context.sel, callExpr)) {
++    if (auto rightParen = FindCallRightParenByName(context, callExpr)) {
+         return rightParen;
+     }
+     return std::nullopt;
+@@ -1159,7 +1206,7 @@ static std::vector<ArgumentReplacement> CollectCallSiteArgumentReplacements(
+         }
+         if (auto replacement = TryGetMemberAccessReplacement(context, node)) {
+             replacements.push_back(*replacement);
+-            return VisitAction::WALK_CHILDREN;
++            return VisitAction::SKIP_CHILDREN;
+         }
+         if (node->astKind != ASTKind::REF_EXPR) {
+             return VisitAction::WALK_CHILDREN;
+@@ -1270,7 +1317,8 @@ static std::string GetArgumentTextForParam(
+     }
+     auto arg = FindCallSiteArgByParam(callExpr, param, paramIndex);
+     if (arg && arg->expr) {
+-        return context.sel.arkAst->sourceManager->GetContentBetween(arg->expr->begin, arg->expr->end);
++        auto sourceManager = GetCallSiteSourceManager(context, callExpr);
++        return sourceManager ? sourceManager->GetContentBetween(arg->expr->begin, arg->expr->end) : "";
+     }
+     if (param.assignment) {
+         return context.sel.arkAst->sourceManager->GetContentBetween(param.assignment->begin, param.assignment->end);
+@@ -1387,7 +1435,8 @@ static std::optional<std::string> GetMemberVariableInitializer(
+ static std::string ReplaceThisReceiverAtCallSite(
+     const CallSiteContext &context, Cangjie::AST::CallExpr &callExpr, const std::string &argumentText)
+ {
+-    if (!context.sel.arkAst || !context.sel.arkAst->sourceManager) {
++    auto sourceManager = GetCallSiteSourceManager(context, callExpr);
++    if (!sourceManager) {
+         return argumentText;
+     }
+ 
+@@ -1396,7 +1445,7 @@ static std::string ReplaceThisReceiverAtCallSite(
+     if (callExpr.baseFunc && callExpr.baseFunc->astKind == ASTKind::MEMBER_ACCESS) {
+         auto memberAccess = DynamicCast<Cangjie::AST::MemberAccess *>(callExpr.baseFunc.get());
+         if (memberAccess && memberAccess->baseExpr) {
+-            receiverText = context.sel.arkAst->sourceManager->GetContentBetween(
++            receiverText = sourceManager->GetContentBetween(
+                 memberAccess->baseExpr->begin, memberAccess->baseExpr->end);
+         }
+     }
+@@ -1405,25 +1454,7 @@ static std::string ReplaceThisReceiverAtCallSite(
+         return argumentText;
+     }
+ 
+-    std::string result;
+-    std::size_t cursor = 0;
+-    const std::string thisPrefix = "this.";
+-    while (cursor < argumentText.size()) {
+-        auto pos = argumentText.find(thisPrefix, cursor);
+-        if (pos == std::string::npos) {
+-            result.append(argumentText.substr(cursor));
+-            break;
+-        }
+-        bool leftBoundary = pos == 0 || !IsIdentifierChar(argumentText[pos - 1]);
+-        result.append(argumentText.substr(cursor, pos - cursor));
+-        if (leftBoundary) {
+-            result.append(receiverText).append(".");
+-        } else {
+-            result.append(thisPrefix);
+-        }
+-        cursor = pos + thisPrefix.size();
+-    }
+-    return result;
++    return ReplaceIdentifierToken(argumentText, "this", receiverText);
+ }
+ // LCOV_EXCL_BR_STOP
+ } // namespace ark
+diff --git a/cangjie-language-server/test/unitTests/languageserver/capabilities/refactor/IntroduceFieldTest.cpp b/cangjie-language-server/test/unitTests/languageserver/capabilities/refactor/IntroduceFieldTest.cpp
+index 03007943..510be778 100644
+--- a/cangjie-language-server/test/unitTests/languageserver/capabilities/refactor/IntroduceFieldTest.cpp
++++ b/cangjie-language-server/test/unitTests/languageserver/capabilities/refactor/IntroduceFieldTest.cpp
+@@ -5,6 +5,8 @@
+ // See https://cangjie-lang.cn/pages/LICENSE for license information.
+ 
+ #include "capabilities/refactor/tweaks/IntroduceField.h"
++#include "capabilities/refactor/tweaks/IntroduceParameter.h"
++#include "capabilities/refactor/TweakUtils.h"
+ #include "ArkAST.h"
+ #include "gtest/gtest.h"
+ #include <memory>
+@@ -157,6 +159,220 @@ TEST(IntroduceFieldTest, ExtraOptionsReturnStoredOptions)
+     EXPECT_EQ(introduceField.ExtraOptions().at("ErrorCode"), "4");
+ }
+ 
++TEST(IntroduceFieldTest, DetectsOnlyTupleElementIndexSelection)
++{
++    auto checkSelection = [](bool isTupleAccess, ark::Range selectedRange) {
++        auto file = MakeOwner<File>();
++        auto funcDecl = MakeFuncDecl(2);
++        auto subscriptExpr = MakeOwner<SubscriptExpr>();
++        subscriptExpr->begin = {1, 3, 9};
++        subscriptExpr->end = {1, 3, 14};
++        subscriptExpr->isTupleAccess = isTupleAccess;
++
++        auto baseExpr = MakeOwner<RefExpr>();
++        baseExpr->begin = {1, 3, 9};
++        baseExpr->end = {1, 3, 11};
++        subscriptExpr->baseExpr = std::move(baseExpr);
++
++        auto indexExpr = MakeOwner<LitConstExpr>();
++        indexExpr->begin = {1, 3, 12};
++        indexExpr->end = {1, 3, 13};
++        subscriptExpr->indexExprs.emplace_back(std::move(indexExpr));
++        funcDecl->funcBody->body->body.emplace_back(std::move(subscriptExpr));
++        file->decls.emplace_back(std::move(funcDecl));
++
++        bool result = false;
++        RunWithSelection(std::move(file), selectedRange, [&](const Tweak::Selection &sel) {
++            result = TweakUtils::IsTupleElementIndexSelection(sel.arkAst, sel.selectionTree, selectedRange);
++        });
++        return result;
++    };
++
++    EXPECT_TRUE(checkSelection(true, {{1, 3, 12}, {1, 3, 13}}));
++    EXPECT_FALSE(checkSelection(false, {{1, 3, 12}, {1, 3, 13}}));
++    EXPECT_FALSE(checkSelection(true, {{1, 3, 9}, {1, 3, 14}}));
++}
++
++TEST(IntroduceFieldTest, TupleIndexCheckUsesOriginalSelectionBeforeExpressionExpansion)
++{
++    auto file = MakeOwner<File>();
++    auto funcDecl = MakeFuncDecl(2);
++    auto subscriptExpr = MakeOwner<SubscriptExpr>();
++    subscriptExpr->begin = {1, 3, 9};
++    subscriptExpr->end = {1, 3, 14};
++    subscriptExpr->isTupleAccess = true;
++
++    auto baseExpr = MakeOwner<RefExpr>();
++    baseExpr->begin = {1, 3, 9};
++    baseExpr->end = {1, 3, 11};
++    subscriptExpr->baseExpr = std::move(baseExpr);
++
++    auto indexExpr = MakeOwner<LitConstExpr>();
++    indexExpr->begin = {1, 3, 12};
++    indexExpr->end = {1, 3, 13};
++    subscriptExpr->indexExprs.emplace_back(std::move(indexExpr));
++    funcDecl->funcBody->body->body.emplace_back(std::move(subscriptExpr));
++    file->decls.emplace_back(std::move(funcDecl));
++
++    ark::Range originalSelection{{1, 3, 12}, {1, 3, 13}};
++    ark::Range expandedRange{{1, 3, 9}, {1, 3, 14}};
++    RunWithSelection(std::move(file), originalSelection, [&](const Tweak::Selection &sel) {
++        EXPECT_TRUE(TweakUtils::IsTupleElementIndexSelection(sel.arkAst, sel.selectionTree, sel.range));
++        EXPECT_FALSE(TweakUtils::IsTupleElementIndexSelection(sel.arkAst, sel.selectionTree, expandedRange));
++    });
++}
++
++TEST(IntroduceFieldTest, TupleIndexSelectionReturnsCommonErrorForFieldAndParameter)
++{
++    PrimitiveTy intType(TypeKind::TYPE_INT64);
++    TupleTy tupleType({&intType});
++    auto file = MakeOwner<File>();
++    auto funcDecl = MakeFuncDecl(2);
++    auto subscriptExpr = MakeOwner<SubscriptExpr>();
++    subscriptExpr->begin = {1, 3, 12};
++    subscriptExpr->end = {1, 3, 17};
++    subscriptExpr->SetTy(&intType);
++
++    auto baseExpr = MakeOwner<RefExpr>();
++    baseExpr->begin = {1, 3, 12};
++    baseExpr->end = {1, 3, 14};
++    baseExpr->SetTy(&tupleType);
++    subscriptExpr->baseExpr = std::move(baseExpr);
++
++    auto indexExpr = MakeOwner<LitConstExpr>();
++    indexExpr->begin = {1, 3, 15};
++    indexExpr->end = {1, 3, 16};
++    indexExpr->SetTy(&intType);
++    subscriptExpr->indexExprs.emplace_back(std::move(indexExpr));
++    funcDecl->funcBody->body->body.emplace_back(std::move(subscriptExpr));
++    file->decls.emplace_back(std::move(funcDecl));
++
++    ark::Range selectedIndex{{1, 3, 15}, {1, 3, 16}};
++    RunWithSelection(std::move(file), selectedIndex, [&](const Tweak::Selection &sel) {
++        ASSERT_NE(sel.selectionTree.root(), nullptr);
++        ASSERT_NE(sel.selectionTree.root()->node, nullptr);
++        EXPECT_EQ(sel.selectionTree.root()->node->astKind, ASTKind::LIT_CONST_EXPR);
++
++        IntroduceField introduceField;
++        EXPECT_TRUE(introduceField.Prepare(sel));
++        EXPECT_EQ(introduceField.ExtraOptions().at("ErrorCode"), "0");
++
++        IntroduceParameter introduceParameter;
++        EXPECT_TRUE(introduceParameter.Prepare(sel));
++        EXPECT_EQ(introduceParameter.ExtraOptions().at("ErrorCode"), "0");
++    }, "func f() { t1[0] }\n");
++}
++
++TEST(IntroduceFieldTest, IntroduceExpressionSupportMatrix)
++{
++    auto expectBothSupported = [](Expr &expr) {
++        EXPECT_TRUE(TweakUtils::IsSupportedIntroduceExpression(expr, TweakUtils::IntroduceTarget::FIELD));
++        EXPECT_TRUE(TweakUtils::IsSupportedIntroduceExpression(expr, TweakUtils::IntroduceTarget::PARAMETER));
++    };
++
++    LitConstExpr literal;
++    RefExpr reference;
++    CallExpr call;
++    ParenExpr paren;
++    MemberAccess member;
++    OptionalExpr optional;
++    OptionalChainExpr optionalChain;
++    UnaryExpr unary;
++    BinaryExpr binary;
++    SubscriptExpr subscript;
++    IsExpr isExpr;
++    AsExpr asExpr;
++    RangeExpr range;
++    ArrayLit arrayLiteral;
++    ArrayExpr array;
++    PointerExpr pointer;
++    TupleLit tuple;
++    MatchExpr match;
++    IfExpr conditional;
++    TypeConvExpr conversion;
++
++    expectBothSupported(literal);
++    expectBothSupported(reference);
++    expectBothSupported(call);
++    expectBothSupported(paren);
++    expectBothSupported(member);
++    expectBothSupported(optional);
++    expectBothSupported(optionalChain);
++    expectBothSupported(unary);
++    expectBothSupported(binary);
++    expectBothSupported(subscript);
++    expectBothSupported(isExpr);
++    expectBothSupported(asExpr);
++    expectBothSupported(range);
++    expectBothSupported(arrayLiteral);
++    expectBothSupported(array);
++    expectBothSupported(pointer);
++    expectBothSupported(tuple);
++    expectBothSupported(match);
++    expectBothSupported(conditional);
++    expectBothSupported(conversion);
++
++    RefExpr superExpr;
++    superExpr.isSuper = true;
++    EXPECT_FALSE(TweakUtils::IsSupportedIntroduceExpression(superExpr, TweakUtils::IntroduceTarget::FIELD));
++    EXPECT_FALSE(TweakUtils::IsSupportedIntroduceExpression(superExpr, TweakUtils::IntroduceTarget::PARAMETER));
++
++    MemberAccess superMember;
++    auto superBase = MakeOwner<RefExpr>();
++    superBase->isSuper = true;
++    superMember.baseExpr = std::move(superBase);
++    EXPECT_FALSE(TweakUtils::IsSupportedIntroduceExpression(superMember, TweakUtils::IntroduceTarget::FIELD));
++    EXPECT_FALSE(TweakUtils::IsSupportedIntroduceExpression(superMember, TweakUtils::IntroduceTarget::PARAMETER));
++
++    ReturnExpr returnExpr;
++    EXPECT_FALSE(TweakUtils::IsSupportedIntroduceExpression(returnExpr, TweakUtils::IntroduceTarget::FIELD));
++    EXPECT_FALSE(TweakUtils::IsSupportedIntroduceExpression(returnExpr, TweakUtils::IntroduceTarget::PARAMETER));
++
++    IfExpr conditionalWithReturn;
++    conditionalWithReturn.thenBody = MakeOwner<Block>();
++    conditionalWithReturn.thenBody->body.emplace_back(MakeOwner<ReturnExpr>());
++    EXPECT_FALSE(TweakUtils::IsSupportedIntroduceExpression(
++        conditionalWithReturn, TweakUtils::IntroduceTarget::FIELD));
++    EXPECT_FALSE(TweakUtils::IsSupportedIntroduceExpression(
++        conditionalWithReturn, TweakUtils::IntroduceTarget::PARAMETER));
++
++    AssignExpr assignExpr;
++    assignExpr.isCompound = false;
++    EXPECT_FALSE(TweakUtils::IsSupportedIntroduceExpression(assignExpr, TweakUtils::IntroduceTarget::FIELD));
++    EXPECT_FALSE(TweakUtils::IsSupportedIntroduceExpression(assignExpr, TweakUtils::IntroduceTarget::PARAMETER));
++    assignExpr.isCompound = true;
++    assignExpr.op = TokenKind::ADD_ASSIGN;
++    EXPECT_FALSE(TweakUtils::IsSupportedIntroduceExpression(assignExpr, TweakUtils::IntroduceTarget::FIELD));
++    EXPECT_TRUE(TweakUtils::IsSupportedIntroduceExpression(assignExpr, TweakUtils::IntroduceTarget::PARAMETER));
++}
++
++TEST(IntroduceFieldTest, DetectsReferenceTransferSelection)
++{
++    ark::Range selectedRange{{1, 3, 17}, {1, 3, 18}};
++    auto file = MakeOwner<File>();
++    auto funcDecl = MakeFuncDecl(2);
++    auto callExpr = MakeOwner<CallExpr>();
++    callExpr->begin = {1, 3, 9};
++    callExpr->end = {1, 3, 19};
++    auto arg = MakeOwner<FuncArg>();
++    arg->begin = {1, 3, 11};
++    arg->end = {1, 3, 18};
++    arg->withInout = true;
++    auto expr = MakeOwner<RefExpr>();
++    expr->begin = selectedRange.start;
++    expr->end = selectedRange.end;
++    arg->expr = std::move(expr);
++    callExpr->args.emplace_back(std::move(arg));
++    funcDecl->funcBody->body->body.emplace_back(std::move(callExpr));
++    file->decls.emplace_back(std::move(funcDecl));
++
++    bool result = false;
++    RunWithSelection(std::move(file), selectedRange, [&](const Tweak::Selection &sel) {
++        result = TweakUtils::IsReferenceTransferSelection(sel.selectionTree, selectedRange);
++    });
++    EXPECT_TRUE(result);
++}
++
+ TEST(IntroduceFieldTest, FieldInsertRangeUsesLastPriorClassField)
+ {
+     ark::Range selectedRange{{1, 10, 16}, {1, 10, 21}};
+-- 
+2.50.1.windows.1
+
