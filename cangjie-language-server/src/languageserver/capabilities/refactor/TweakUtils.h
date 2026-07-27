@@ -19,6 +19,11 @@ using namespace AST;
 
 class TweakUtils {
 public:
+    enum class IntroduceTarget {
+        FIELD,
+        PARAMETER
+    };
+
     static Ptr<Block> FindOuterScopeNode(const ASTContext& ctx, const Expr& expr, bool &isGlobal, Range &range);
 
     static bool Contain(Cangjie::AST::Node &node, const Range &range);
@@ -43,6 +48,13 @@ public:
     static bool IsSelectionInConstInitializer(const ArkAST *arkAst, const Range &range);
 
     static bool IsIfLetSelection(const SelectionTree &selectionTree, const Range &range);
+
+    static bool IsTupleElementIndexSelection(
+        const ArkAST *arkAst, const SelectionTree &selectionTree, const Range &range);
+
+    static bool IsReferenceTransferSelection(const SelectionTree &selectionTree, const Range &range);
+
+    static bool IsSupportedIntroduceExpression(const Cangjie::AST::Expr &expr, IntroduceTarget target);
 
     static std::string GetTypeName(const Ty &ty);
 

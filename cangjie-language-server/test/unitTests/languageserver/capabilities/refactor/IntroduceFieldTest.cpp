@@ -5,6 +5,8 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 #include "capabilities/refactor/tweaks/IntroduceField.h"
+#include "capabilities/refactor/tweaks/IntroduceParameter.h"
+#include "capabilities/refactor/TweakUtils.h"
 #include "ArkAST.h"
 #include "gtest/gtest.h"
 #include <memory>
@@ -155,6 +157,220 @@ TEST(IntroduceFieldTest, ExtraOptionsReturnStoredOptions)
 
     options["ErrorCode"] = "changed";
     EXPECT_EQ(introduceField.ExtraOptions().at("ErrorCode"), "4");
+}
+
+TEST(IntroduceFieldTest, DetectsOnlyTupleElementIndexSelection)
+{
+    auto checkSelection = [](bool isTupleAccess, ark::Range selectedRange) {
+        auto file = MakeOwner<File>();
+        auto funcDecl = MakeFuncDecl(2);
+        auto subscriptExpr = MakeOwner<SubscriptExpr>();
+        subscriptExpr->begin = {1, 3, 9};
+        subscriptExpr->end = {1, 3, 14};
+        subscriptExpr->isTupleAccess = isTupleAccess;
+
+        auto baseExpr = MakeOwner<RefExpr>();
+        baseExpr->begin = {1, 3, 9};
+        baseExpr->end = {1, 3, 11};
+        subscriptExpr->baseExpr = std::move(baseExpr);
+
+        auto indexExpr = MakeOwner<LitConstExpr>();
+        indexExpr->begin = {1, 3, 12};
+        indexExpr->end = {1, 3, 13};
+        subscriptExpr->indexExprs.emplace_back(std::move(indexExpr));
+        funcDecl->funcBody->body->body.emplace_back(std::move(subscriptExpr));
+        file->decls.emplace_back(std::move(funcDecl));
+
+        bool result = false;
+        RunWithSelection(std::move(file), selectedRange, [&](const Tweak::Selection &sel) {
+            result = TweakUtils::IsTupleElementIndexSelection(sel.arkAst, sel.selectionTree, selectedRange);
+        });
+        return result;
+    };
+
+    EXPECT_TRUE(checkSelection(true, {{1, 3, 12}, {1, 3, 13}}));
+    EXPECT_FALSE(checkSelection(false, {{1, 3, 12}, {1, 3, 13}}));
+    EXPECT_FALSE(checkSelection(true, {{1, 3, 9}, {1, 3, 14}}));
+}
+
+TEST(IntroduceFieldTest, TupleIndexCheckUsesOriginalSelectionBeforeExpressionExpansion)
+{
+    auto file = MakeOwner<File>();
+    auto funcDecl = MakeFuncDecl(2);
+    auto subscriptExpr = MakeOwner<SubscriptExpr>();
+    subscriptExpr->begin = {1, 3, 9};
+    subscriptExpr->end = {1, 3, 14};
+    subscriptExpr->isTupleAccess = true;
+
+    auto baseExpr = MakeOwner<RefExpr>();
+    baseExpr->begin = {1, 3, 9};
+    baseExpr->end = {1, 3, 11};
+    subscriptExpr->baseExpr = std::move(baseExpr);
+
+    auto indexExpr = MakeOwner<LitConstExpr>();
+    indexExpr->begin = {1, 3, 12};
+    indexExpr->end = {1, 3, 13};
+    subscriptExpr->indexExprs.emplace_back(std::move(indexExpr));
+    funcDecl->funcBody->body->body.emplace_back(std::move(subscriptExpr));
+    file->decls.emplace_back(std::move(funcDecl));
+
+    ark::Range originalSelection{{1, 3, 12}, {1, 3, 13}};
+    ark::Range expandedRange{{1, 3, 9}, {1, 3, 14}};
+    RunWithSelection(std::move(file), originalSelection, [&](const Tweak::Selection &sel) {
+        EXPECT_TRUE(TweakUtils::IsTupleElementIndexSelection(sel.arkAst, sel.selectionTree, sel.range));
+        EXPECT_FALSE(TweakUtils::IsTupleElementIndexSelection(sel.arkAst, sel.selectionTree, expandedRange));
+    });
+}
+
+TEST(IntroduceFieldTest, TupleIndexSelectionReturnsCommonErrorForFieldAndParameter)
+{
+    PrimitiveTy intType(TypeKind::TYPE_INT64);
+    TupleTy tupleType({&intType});
+    auto file = MakeOwner<File>();
+    auto funcDecl = MakeFuncDecl(2);
+    auto subscriptExpr = MakeOwner<SubscriptExpr>();
+    subscriptExpr->begin = {1, 3, 12};
+    subscriptExpr->end = {1, 3, 17};
+    subscriptExpr->SetTy(&intType);
+
+    auto baseExpr = MakeOwner<RefExpr>();
+    baseExpr->begin = {1, 3, 12};
+    baseExpr->end = {1, 3, 14};
+    baseExpr->SetTy(&tupleType);
+    subscriptExpr->baseExpr = std::move(baseExpr);
+
+    auto indexExpr = MakeOwner<LitConstExpr>();
+    indexExpr->begin = {1, 3, 15};
+    indexExpr->end = {1, 3, 16};
+    indexExpr->SetTy(&intType);
+    subscriptExpr->indexExprs.emplace_back(std::move(indexExpr));
+    funcDecl->funcBody->body->body.emplace_back(std::move(subscriptExpr));
+    file->decls.emplace_back(std::move(funcDecl));
+
+    ark::Range selectedIndex{{1, 3, 15}, {1, 3, 16}};
+    RunWithSelection(std::move(file), selectedIndex, [&](const Tweak::Selection &sel) {
+        ASSERT_NE(sel.selectionTree.root(), nullptr);
+        ASSERT_NE(sel.selectionTree.root()->node, nullptr);
+        EXPECT_EQ(sel.selectionTree.root()->node->astKind, ASTKind::LIT_CONST_EXPR);
+
+        IntroduceField introduceField;
+        EXPECT_TRUE(introduceField.Prepare(sel));
+        EXPECT_EQ(introduceField.ExtraOptions().at("ErrorCode"), "0");
+
+        IntroduceParameter introduceParameter;
+        EXPECT_TRUE(introduceParameter.Prepare(sel));
+        EXPECT_EQ(introduceParameter.ExtraOptions().at("ErrorCode"), "0");
+    }, "func f() { t1[0] }\n");
+}
+
+TEST(IntroduceFieldTest, IntroduceExpressionSupportMatrix)
+{
+    auto expectBothSupported = [](Expr &expr) {
+        EXPECT_TRUE(TweakUtils::IsSupportedIntroduceExpression(expr, TweakUtils::IntroduceTarget::FIELD));
+        EXPECT_TRUE(TweakUtils::IsSupportedIntroduceExpression(expr, TweakUtils::IntroduceTarget::PARAMETER));
+    };
+
+    LitConstExpr literal;
+    RefExpr reference;
+    CallExpr call;
+    ParenExpr paren;
+    MemberAccess member;
+    OptionalExpr optional;
+    OptionalChainExpr optionalChain;
+    UnaryExpr unary;
+    BinaryExpr binary;
+    SubscriptExpr subscript;
+    IsExpr isExpr;
+    AsExpr asExpr;
+    RangeExpr range;
+    ArrayLit arrayLiteral;
+    ArrayExpr array;
+    PointerExpr pointer;
+    TupleLit tuple;
+    MatchExpr match;
+    IfExpr conditional;
+    TypeConvExpr conversion;
+
+    expectBothSupported(literal);
+    expectBothSupported(reference);
+    expectBothSupported(call);
+    expectBothSupported(paren);
+    expectBothSupported(member);
+    expectBothSupported(optional);
+    expectBothSupported(optionalChain);
+    expectBothSupported(unary);
+    expectBothSupported(binary);
+    expectBothSupported(subscript);
+    expectBothSupported(isExpr);
+    expectBothSupported(asExpr);
+    expectBothSupported(range);
+    expectBothSupported(arrayLiteral);
+    expectBothSupported(array);
+    expectBothSupported(pointer);
+    expectBothSupported(tuple);
+    expectBothSupported(match);
+    expectBothSupported(conditional);
+    expectBothSupported(conversion);
+
+    RefExpr superExpr;
+    superExpr.isSuper = true;
+    EXPECT_FALSE(TweakUtils::IsSupportedIntroduceExpression(superExpr, TweakUtils::IntroduceTarget::FIELD));
+    EXPECT_FALSE(TweakUtils::IsSupportedIntroduceExpression(superExpr, TweakUtils::IntroduceTarget::PARAMETER));
+
+    MemberAccess superMember;
+    auto superBase = MakeOwner<RefExpr>();
+    superBase->isSuper = true;
+    superMember.baseExpr = std::move(superBase);
+    EXPECT_FALSE(TweakUtils::IsSupportedIntroduceExpression(superMember, TweakUtils::IntroduceTarget::FIELD));
+    EXPECT_FALSE(TweakUtils::IsSupportedIntroduceExpression(superMember, TweakUtils::IntroduceTarget::PARAMETER));
+
+    ReturnExpr returnExpr;
+    EXPECT_FALSE(TweakUtils::IsSupportedIntroduceExpression(returnExpr, TweakUtils::IntroduceTarget::FIELD));
+    EXPECT_FALSE(TweakUtils::IsSupportedIntroduceExpression(returnExpr, TweakUtils::IntroduceTarget::PARAMETER));
+
+    IfExpr conditionalWithReturn;
+    conditionalWithReturn.thenBody = MakeOwner<Block>();
+    conditionalWithReturn.thenBody->body.emplace_back(MakeOwner<ReturnExpr>());
+    EXPECT_FALSE(TweakUtils::IsSupportedIntroduceExpression(
+        conditionalWithReturn, TweakUtils::IntroduceTarget::FIELD));
+    EXPECT_FALSE(TweakUtils::IsSupportedIntroduceExpression(
+        conditionalWithReturn, TweakUtils::IntroduceTarget::PARAMETER));
+
+    AssignExpr assignExpr;
+    assignExpr.isCompound = false;
+    EXPECT_FALSE(TweakUtils::IsSupportedIntroduceExpression(assignExpr, TweakUtils::IntroduceTarget::FIELD));
+    EXPECT_FALSE(TweakUtils::IsSupportedIntroduceExpression(assignExpr, TweakUtils::IntroduceTarget::PARAMETER));
+    assignExpr.isCompound = true;
+    assignExpr.op = TokenKind::ADD_ASSIGN;
+    EXPECT_FALSE(TweakUtils::IsSupportedIntroduceExpression(assignExpr, TweakUtils::IntroduceTarget::FIELD));
+    EXPECT_TRUE(TweakUtils::IsSupportedIntroduceExpression(assignExpr, TweakUtils::IntroduceTarget::PARAMETER));
+}
+
+TEST(IntroduceFieldTest, DetectsReferenceTransferSelection)
+{
+    ark::Range selectedRange{{1, 3, 17}, {1, 3, 18}};
+    auto file = MakeOwner<File>();
+    auto funcDecl = MakeFuncDecl(2);
+    auto callExpr = MakeOwner<CallExpr>();
+    callExpr->begin = {1, 3, 9};
+    callExpr->end = {1, 3, 19};
+    auto arg = MakeOwner<FuncArg>();
+    arg->begin = {1, 3, 11};
+    arg->end = {1, 3, 18};
+    arg->withInout = true;
+    auto expr = MakeOwner<RefExpr>();
+    expr->begin = selectedRange.start;
+    expr->end = selectedRange.end;
+    arg->expr = std::move(expr);
+    callExpr->args.emplace_back(std::move(arg));
+    funcDecl->funcBody->body->body.emplace_back(std::move(callExpr));
+    file->decls.emplace_back(std::move(funcDecl));
+
+    bool result = false;
+    RunWithSelection(std::move(file), selectedRange, [&](const Tweak::Selection &sel) {
+        result = TweakUtils::IsReferenceTransferSelection(sel.selectionTree, selectedRange);
+    });
+    EXPECT_TRUE(result);
 }
 
 TEST(IntroduceFieldTest, FieldInsertRangeUsesLastPriorClassField)
