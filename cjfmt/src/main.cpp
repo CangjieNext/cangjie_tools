@@ -522,7 +522,8 @@ std::string CheckAndSetCangjieHome(const char** envp)
         return "";
     }
     std::string configuredHome = environmentVars.at(CANGJIE_HOME);
-    while (configuredHome.back() == DELIMITER[0]) {
+    const char pathDelimiter = DELIMITER[0];
+    while (configuredHome.back() == pathDelimiter) {
         configuredHome.pop_back();
     }
     auto cangjieHome = FileUtil::GetAbsPath(configuredHome);
