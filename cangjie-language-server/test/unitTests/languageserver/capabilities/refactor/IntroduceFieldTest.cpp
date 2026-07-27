@@ -5,6 +5,8 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 #include "capabilities/refactor/tweaks/IntroduceField.h"
+#include "capabilities/refactor/tweaks/IntroduceParameter.h"
+#include "capabilities/refactor/TweakUtils.h"
 #include "ArkAST.h"
 #include "gtest/gtest.h"
 #include <memory>
@@ -155,6 +157,110 @@ TEST(IntroduceFieldTest, ExtraOptionsReturnStoredOptions)
 
     options["ErrorCode"] = "changed";
     EXPECT_EQ(introduceField.ExtraOptions().at("ErrorCode"), "4");
+}
+
+TEST(IntroduceFieldTest, DetectsOnlyTupleElementIndexSelection)
+{
+    auto checkSelection = [](bool isTupleAccess, ark::Range selectedRange) {
+        auto file = MakeOwner<File>();
+        auto funcDecl = MakeFuncDecl(2);
+        auto subscriptExpr = MakeOwner<SubscriptExpr>();
+        subscriptExpr->begin = {1, 3, 9};
+        subscriptExpr->end = {1, 3, 14};
+        subscriptExpr->isTupleAccess = isTupleAccess;
+
+        auto baseExpr = MakeOwner<RefExpr>();
+        baseExpr->begin = {1, 3, 9};
+        baseExpr->end = {1, 3, 11};
+        subscriptExpr->baseExpr = std::move(baseExpr);
+
+        auto indexExpr = MakeOwner<LitConstExpr>();
+        indexExpr->begin = {1, 3, 12};
+        indexExpr->end = {1, 3, 13};
+        subscriptExpr->indexExprs.emplace_back(std::move(indexExpr));
+        funcDecl->funcBody->body->body.emplace_back(std::move(subscriptExpr));
+        file->decls.emplace_back(std::move(funcDecl));
+
+        bool result = false;
+        RunWithSelection(std::move(file), selectedRange, [&](const Tweak::Selection &sel) {
+            result = TweakUtils::IsTupleElementIndexSelection(sel.arkAst, sel.selectionTree, selectedRange);
+        });
+        return result;
+    };
+
+    EXPECT_TRUE(checkSelection(true, {{1, 3, 12}, {1, 3, 13}}));
+    EXPECT_FALSE(checkSelection(false, {{1, 3, 12}, {1, 3, 13}}));
+    EXPECT_FALSE(checkSelection(true, {{1, 3, 9}, {1, 3, 14}}));
+}
+
+TEST(IntroduceFieldTest, TupleIndexCheckUsesOriginalSelectionBeforeExpressionExpansion)
+{
+    auto file = MakeOwner<File>();
+    auto funcDecl = MakeFuncDecl(2);
+    auto subscriptExpr = MakeOwner<SubscriptExpr>();
+    subscriptExpr->begin = {1, 3, 9};
+    subscriptExpr->end = {1, 3, 14};
+    subscriptExpr->isTupleAccess = true;
+
+    auto baseExpr = MakeOwner<RefExpr>();
+    baseExpr->begin = {1, 3, 9};
+    baseExpr->end = {1, 3, 11};
+    subscriptExpr->baseExpr = std::move(baseExpr);
+
+    auto indexExpr = MakeOwner<LitConstExpr>();
+    indexExpr->begin = {1, 3, 12};
+    indexExpr->end = {1, 3, 13};
+    subscriptExpr->indexExprs.emplace_back(std::move(indexExpr));
+    funcDecl->funcBody->body->body.emplace_back(std::move(subscriptExpr));
+    file->decls.emplace_back(std::move(funcDecl));
+
+    ark::Range originalSelection{{1, 3, 12}, {1, 3, 13}};
+    ark::Range expandedRange{{1, 3, 9}, {1, 3, 14}};
+    RunWithSelection(std::move(file), originalSelection, [&](const Tweak::Selection &sel) {
+        EXPECT_TRUE(TweakUtils::IsTupleElementIndexSelection(sel.arkAst, sel.selectionTree, sel.range));
+        EXPECT_FALSE(TweakUtils::IsTupleElementIndexSelection(sel.arkAst, sel.selectionTree, expandedRange));
+    });
+}
+
+TEST(IntroduceFieldTest, TupleIndexSelectionReturnsCommonErrorForFieldAndParameter)
+{
+    PrimitiveTy intType(TypeKind::TYPE_INT64);
+    TupleTy tupleType({&intType});
+    auto file = MakeOwner<File>();
+    auto funcDecl = MakeFuncDecl(2);
+    auto subscriptExpr = MakeOwner<SubscriptExpr>();
+    subscriptExpr->begin = {1, 3, 12};
+    subscriptExpr->end = {1, 3, 17};
+    subscriptExpr->SetTy(&intType);
+
+    auto baseExpr = MakeOwner<RefExpr>();
+    baseExpr->begin = {1, 3, 12};
+    baseExpr->end = {1, 3, 14};
+    baseExpr->SetTy(&tupleType);
+    subscriptExpr->baseExpr = std::move(baseExpr);
+
+    auto indexExpr = MakeOwner<LitConstExpr>();
+    indexExpr->begin = {1, 3, 15};
+    indexExpr->end = {1, 3, 16};
+    indexExpr->SetTy(&intType);
+    subscriptExpr->indexExprs.emplace_back(std::move(indexExpr));
+    funcDecl->funcBody->body->body.emplace_back(std::move(subscriptExpr));
+    file->decls.emplace_back(std::move(funcDecl));
+
+    ark::Range selectedIndex{{1, 3, 15}, {1, 3, 16}};
+    RunWithSelection(std::move(file), selectedIndex, [&](const Tweak::Selection &sel) {
+        ASSERT_NE(sel.selectionTree.root(), nullptr);
+        ASSERT_NE(sel.selectionTree.root()->node, nullptr);
+        EXPECT_EQ(sel.selectionTree.root()->node->astKind, ASTKind::LIT_CONST_EXPR);
+
+        IntroduceField introduceField;
+        EXPECT_TRUE(introduceField.Prepare(sel));
+        EXPECT_EQ(introduceField.ExtraOptions().at("ErrorCode"), "0");
+
+        IntroduceParameter introduceParameter;
+        EXPECT_TRUE(introduceParameter.Prepare(sel));
+        EXPECT_EQ(introduceParameter.ExtraOptions().at("ErrorCode"), "0");
+    }, "func f() { t1[0] }\n");
 }
 
 TEST(IntroduceFieldTest, FieldInsertRangeUsesLastPriorClassField)
