@@ -525,7 +525,11 @@ std::string CheckAndSetCangjieHome(const char** envp)
     if (!cangjieHome.has_value()) {
         return "";
     }
-    return cangjieHome.value();
+    std::string normalizedHome = cangjieHome.value();
+    while (normalizedHome.back() == DELIMITER[0]) {
+        normalizedHome.pop_back();
+    }
+    return normalizedHome;
 }
 } // namespace
 
