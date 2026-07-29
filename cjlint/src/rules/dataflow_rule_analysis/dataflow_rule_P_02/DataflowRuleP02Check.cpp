@@ -381,8 +381,7 @@ void DataflowRuleP02Check::CheckSpawnClosure(const CHIR::Lambda *spawnClosure)
                 if (!expr->IsTerminator()) {
                     CheckNonTerminal(expr, isLock);
                 } else {
-                    auto term = StaticCast<CHIR::Terminator *>(expr);
-                    for (auto block : term->GetSuccessors()) {
+                    for (auto block : expr->GetSuccessors()) {
                         visitBlock(block, isLock, visited);
                     }
                 }
