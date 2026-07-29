@@ -811,14 +811,25 @@ void ArkLanguageServer::OnDocumentLink(const DocumentLinkParams &params, nlohman
 }
 // LCOV_EXCL_START
 void ArkLanguageServer::WrapClientWatchedFiles(std::vector<FileWatchedEvent> &changes,
-                                               const DidChangeWatchedFilesParam &params) const
+                                               const DidChangeWatchedFilesParam &params)
 {
     for (auto &event : params.changes) {
         std::set<std::string> fileNameSet;
         std::string file = FileStore::NormalizePath(URI::Resolve(event.textDocument.uri.file));
-        // 3 indicate ".cj" string length
-        if (file.rfind(".cj") == file.size() - 3 &&
-        fileNameSet.find(event.textDocument.uri.file) == fileNameSet.end()) {
+        bool isCangjieFile = false;
+        if (FileUtil::HasExtension(file, CANGJIE_FILE_EXTENSION())) {
+            if (event.type == FileChangeType::DELETED) {
+                // The path no longer exists, so use the state recorded before deletion.
+                isCangjieFile = DocMgr.ContainsFile(file);
+            } else {
+                isCangjieFile = FileUtil::FileExist(file) && !CheckIsDirectory(file);
+            }
+        }
+        if (isCangjieFile && fileNameSet.find(event.textDocument.uri.file) == fileNameSet.end()) {
+            if (event.type != FileChangeType::DELETED) {
+                // Record the path before the asynchronous compilation task is scheduled.
+                DocMgr.TrackFile(file);
+            }
             (void)fileNameSet.insert(event.textDocument.uri.file);
             changes.push_back({event.textDocument, event.type}); // if this is a cj file
             continue;
@@ -826,14 +837,17 @@ void ArkLanguageServer::WrapClientWatchedFiles(std::vector<FileWatchedEvent> &ch
         std::string filePath = file + "/dump.file";
 
         std::vector<std::string> fileVec;
-        if (event.type == FileChangeType::DELETED && CheckIsDirectory(file, true) &&
-            CheckFileInCangjieProject(filePath)) {
+        if (event.type == FileChangeType::DELETED && CheckFileInCangjieProject(filePath)) {
             auto res =
                 CompilerCangjieProject::GetInstance()->GetAllFilesUnderPathRecursive(file, true); // multi folder
             std::for_each(res.begin(), res.end(), [&file, &fileVec] (auto& fp) {
-                if (fp.rfind(file, 0) == 0) {
+                if (IsUnderPath(file, fp)) {
                     fileVec.push_back(fp.substr(file.length() + 1));
                 }
+            });
+            auto trackedFiles = DocMgr.GetFilesUnderPath(file);
+            std::for_each(trackedFiles.begin(), trackedFiles.end(), [&file, &fileVec] (const auto& fp) {
+                fileVec.push_back(fp.substr(file.length() + 1));
             });
         } else if (event.type == FileChangeType::CREATED && CheckIsDirectory(file) &&
                 CheckFileInCangjieProject(filePath)) {
@@ -843,6 +857,9 @@ void ArkLanguageServer::WrapClientWatchedFiles(std::vector<FileWatchedEvent> &ch
             TextDocumentIdentifier textDocument;
             textDocument.uri.file = event.textDocument.uri.file + "/" + item; // format: file:///d%3A/Code/LSP
             if (fileNameSet.find(textDocument.uri.file) == fileNameSet.end()) {
+                if (event.type != FileChangeType::DELETED) {
+                    DocMgr.TrackFile(FileStore::NormalizePath(URI::Resolve(textDocument.uri.file)));
+                }
                 (void)fileNameSet.insert(textDocument.uri.file);
                 changes.push_back({textDocument, event.type});
             }

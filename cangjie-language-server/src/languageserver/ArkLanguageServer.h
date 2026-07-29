@@ -60,7 +60,7 @@ public:
 
     bool WhetherSupportVersionInDiag() const;
 
-    void WrapClientWatchedFiles(std::vector<FileWatchedEvent> &changes, const DidChangeWatchedFilesParam &params) const;
+    void WrapClientWatchedFiles(std::vector<FileWatchedEvent> &changes, const DidChangeWatchedFilesParam &params);
 
     void ReadyForDiagnostics(std::string, std::int64_t, std::vector<DiagnosticToken>) override;
 
