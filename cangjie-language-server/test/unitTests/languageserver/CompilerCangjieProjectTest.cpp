@@ -13,6 +13,8 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <fstream>
+#include <cstdio>
 
 using namespace ark;
 
@@ -147,7 +149,7 @@ TEST_F(CompilerCangjieProjectTest, GetDependencyGraphTest) {
 
 TEST_F(CompilerCangjieProjectTest, CheckNeedCompilerTest) {
     std::string fileName = "test_file.cj";
-    bool needCompile = CompilerCangjieProject::GetInstance()->CheckNeedCompiler(fileName);
+    EXPECT_FALSE(CompilerCangjieProject::GetInstance()->CheckNeedCompiler(fileName));
 }
 
 TEST_F(CompilerCangjieProjectTest, IncrementOnePkgCompileTest) {
@@ -411,4 +413,35 @@ TEST(DocCacheTest, TrackedFilesUnderPathNormalizesWindowsSeparators)
 
     ASSERT_EQ(files.size(), 1u);
     EXPECT_EQ(files[0], R"(C:\workspace\src\example.cj\child.cj)");
+}
+
+TEST_F(CompilerCangjieProjectTest, UsrCjoBytesSharedByPath)
+{
+    using Cangjie::LSPCompilerInstance;
+    LSPCompilerInstance::usrCjoFileCacheMap.clear();
+    LSPCompilerInstance::cjoBytesByPath.clear();
+    LSPCompilerInstance::cjoPathSet.clear();
+    LSPCompilerInstance::cjoLibraryMap.clear();
+
+    std::string tmp = "/tmp/ut_cjo_shared.cjo";
+    { std::ofstream f(tmp, std::ios::binary); f << std::string("dummy-cjo-bytes"); }
+    std::string modA = "modA";
+    std::string modB = "modB";
+    std::unordered_map<std::string, std::string> req = {{"pkgX", tmp}};
+    LSPCompilerInstance::UpdateUsrCjoFileCacheMap(modA, req);
+    LSPCompilerInstance::UpdateUsrCjoFileCacheMap(modB, req);
+
+    ASSERT_TRUE(LSPCompilerInstance::usrCjoFileCacheMap.count("modA") > 0);
+    ASSERT_TRUE(LSPCompilerInstance::usrCjoFileCacheMap.count("modB") > 0);
+    ASSERT_TRUE(LSPCompilerInstance::usrCjoFileCacheMap["modA"].count("pkgX") > 0);
+    ASSERT_TRUE(LSPCompilerInstance::usrCjoFileCacheMap["modB"].count("pkgX") > 0);
+    EXPECT_EQ(LSPCompilerInstance::usrCjoFileCacheMap["modA"]["pkgX"].get(),
+              LSPCompilerInstance::usrCjoFileCacheMap["modB"]["pkgX"].get());
+    EXPECT_EQ(LSPCompilerInstance::cjoBytesByPath.size(), 1u);
+
+    std::remove(tmp.c_str());
+    LSPCompilerInstance::usrCjoFileCacheMap.clear();
+    LSPCompilerInstance::cjoBytesByPath.clear();
+    LSPCompilerInstance::cjoPathSet.clear();
+    LSPCompilerInstance::cjoLibraryMap.clear();
 }

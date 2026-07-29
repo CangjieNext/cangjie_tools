@@ -9,7 +9,7 @@ cmake_minimum_required(VERSION 3.10)
 project("cjprof")
 
 set(CMAKE_CXX_STANDARD 17)
-set(CJPROF_VERSION_STR "1.2.0-beta.03")
+set(CJPROF_VERSION_STR "1.2.0-beta.rc2")
 set(CMAKE_CXX_FLAGS_RELEASE "-D_FORTIFY_SOURCE=2 -O2")
 set(STRIP_FLAG "-s")
 
@@ -73,3 +73,9 @@ endif()
 
 include_directories(include)
 add_subdirectory(src)
+
+option(BUILD_TESTING "Build the gtest-based C++ API tests" OFF)
+if(BUILD_TESTING)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
