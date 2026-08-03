@@ -194,12 +194,13 @@ func startTest(testConfig: TestConfig, scriptConfig: ScriptConfig): Bool {
 
     (testConfig.globalConfig.targetDir, testConfig.globalConfig.nativeDir) = setFinalTargetDirectory(
         testConfig.globalConfig, testConfig.isCrossCompile, testConfig.isDebug, testConfig.mock == MockSupport.On)
-    let (ldPath, cLibLinkMap, crossCLibLinkMap, cjPathList) = configureModuleResolveData(
+    let (ldPath, cLibLinkMap, crossCLibLinkMap, cjPathList, crossCjPathList) = configureModuleResolveData(
         testConfig.globalConfig.targetDir, testConfig.globalConfig.nativeDir, resolve)
     testConfig.globalConfig.cLibLinkMap = cLibLinkMap.clone()
     testConfig.globalConfig.crossCLibLinkMap = crossCLibLinkMap.clone()
     testConfig.globalConfig.ldPath.add(all: ldPath)
     testConfig.globalConfig.cjPathList.add(all: cjPathList)
+    testConfig.globalConfig.crossCjPathList.add(all: crossCjPathList)
 
     let (testPkgsMap, linkMap) = prepareTest(resolve, testConfig)
 
@@ -650,7 +651,13 @@ func addOptionsForSeparateCompilation(pkgInfo: PkgTestInfo, testConfig: TestConf
 func packageTest(pkgInfo: PkgTestInfo, testConfig: TestConfig, hasProdFiles: Bool): Bool {
     let cmdList = ArrayList<String>()
     cmdList.add(all: [])
-    for (p in testConfig.globalConfig.cjPathList where directoryExists(p)) {
+    // Select correct cjPathList based on cross-compile flag
+    let effectiveCjPathList = if (testConfig.isCrossCompile) {
+        testConfig.globalConfig.crossCjPathList
+    } else {
+        testConfig.globalConfig.cjPathList
+    }
+    for (p in effectiveCjPathList where directoryExists(p)) {
         cmdList.add(all: ["--import-path", p])
     }
 
@@ -1100,7 +1107,13 @@ class DummyTestFile {
             cmdList.add(all: ["--import-path", testConfig.globalConfig.targetDir])
         }
 
-        for (p in testConfig.globalConfig.cjPathList where directoryExists(p)) {
+        // Select correct cjPathList based on cross-compile flag
+        let effectiveCjPathList = if (testConfig.isCrossCompile) {
+            testConfig.globalConfig.crossCjPathList
+        } else {
+            testConfig.globalConfig.cjPathList
+        }
+        for (p in effectiveCjPathList where directoryExists(p)) {
             cmdList.add(all: ["--import-path", p])
         }
 
