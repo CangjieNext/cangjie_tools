@@ -232,13 +232,12 @@ public func loadHistoryFile(filePath: String): Option<ModuleResolve> {
 
 public func configureModuleResolveData(targetDir: String, nativeDir: String, resolve: ModuleResolve,
     macroDep!: HashSet<String> = HashSet<String>()):
-        (HashSet<String>, HashMap<String, ArrayList<String>>, HashMap<String, ArrayList<String>>, ArrayList<String>) {
+        (HashSet<String>, HashMap<String, ArrayList<String>>, HashMap<String, ArrayList<String>>, ArrayList<String>, ArrayList<String>) {
     let ldPath: HashSet<String> = getLdPathConfig(targetDir, nativeDir, resolve, macroDep: macroDep)
     let (cLibLinkMap, crossCLibLinkMap) = getClibLink(resolve.resolves)
-    let cjPathList = ArrayList<String>()
-    cjPathList.add(all: getPackageRequires(resolve.binDeps))
-    cjPathList.add(all: getPackageRequires(resolve.crossBinDeps))
-    return (ldPath, cLibLinkMap, crossCLibLinkMap, cjPathList)
+    let cjPathList = getPackageRequires(resolve.binDeps)
+    let crossCjPathList = getPackageRequires(resolve.crossBinDeps)
+    return (ldPath, cLibLinkMap, crossCLibLinkMap, cjPathList, crossCjPathList)
 }
 
 @When[os == "macOS" && arch == "aarch64"]

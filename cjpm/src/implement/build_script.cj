@@ -340,7 +340,13 @@ func getEnvBuilder(ldPath: HashSet<String>): EnvironmentBuilder {
 
 func getCompileArgs(scriptConfig: ScriptConfig, buildConfig: BuildConfig): Option<(HashMap<String, String>, ArrayList<String>)> {
     var cmd: String = "\"${scriptConfig.scriptPath}\""
-    for (p in buildConfig.globalConfig.cjPathList) {
+    // Select correct cjPathList based on cross-compile flag
+    let effectiveCjPathList = if (scriptConfig.isCrossCompile) {
+        buildConfig.globalConfig.crossCjPathList
+    } else {
+        buildConfig.globalConfig.cjPathList
+    }
+    for (p in effectiveCjPathList) {
         if (directoryExists(p)) {
             cmd += " --import-path=${p}"
         }
