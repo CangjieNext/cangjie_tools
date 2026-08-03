@@ -51,13 +51,14 @@ public func doBuild(tomlInfo: TomlInfo, buildConfig: BuildConfig, isScriptDep!: 
         }
     }
 
-    let (ldPath, cLibLinkMap, crossCLibLinkMap, cjPathList) = configureModuleResolveData(
+    let (ldPath, cLibLinkMap, crossCLibLinkMap, cjPathList, crossCjPathList) = configureModuleResolveData(
         buildConfig.globalConfig.targetDir, buildConfig.globalConfig.nativeDir, curResolveData,
         macroDep: buildConfig.pkgRequireByMacro)
     buildConfig.globalConfig.cLibLinkMap = cLibLinkMap.clone()
     buildConfig.globalConfig.crossCLibLinkMap = crossCLibLinkMap.clone()
     buildConfig.globalConfig.ldPath.add(all: ldPath)
     buildConfig.globalConfig.cjPathList.add(all: cjPathList)
+    buildConfig.globalConfig.crossCjPathList.add(all: crossCjPathList)
 
     // Create the bin directory.
     let binDirectory = Path(buildConfig.globalConfig.targetDir).join(BIN).toString()
@@ -554,9 +555,21 @@ func appendImportPaths(compileTask: CompileTask, buildConfig: BuildConfig): Arra
         compileTask.featureMapping.addFeature(compileTask.sourceSetFeatures).collect()
     } else { compileTask.allEnabledFeatures }
 
+    // cjPathList contains the host/target build output directories (added by
+    // setFinalTargetDirectory) as well as the host-platform bin-dependencies.
+    // It must always be passed so packages can locate .cjo artifacts and macro
+    // packages. For cross-compiled (target) packages, additionally append the
+    // cross-platform bin-dependencies so their import paths are visible too.
     for (p in buildConfig.globalConfig.cjPathList) {
         if (directoryExists(p)) {
             res.add("--import-path=${p}")
+        }
+    }
+    if (compileTask.isCrossCompile) {
+        for (p in buildConfig.globalConfig.crossCjPathList) {
+            if (directoryExists(p)) {
+                res.add("--import-path=${p}")
+            }
         }
     }
 
@@ -824,9 +837,15 @@ func getLtoCombineBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig):
     res.add(all: allOptions)
 
     // link all binary dependecies depended by root package
+    // Select the correct binDepMap based on compile target: macro packages (host)
+    // should only use host-platform dependencies.
+    let binDepMap = if (compileTask.isCrossCompile) {
+        buildConfig.crossBinDepMap
+    } else {
+        buildConfig.binDepMap
+    }
     let binOptions = ArrayList<String>()
-    binOptions.add(all: appendOptionForBindep(buildConfig.binDepMap, linkSort, compileTask.isLto), at: 0)
-    binOptions.add(all: appendOptionForBindep(buildConfig.crossBinDepMap, linkSort, compileTask.isLto), at: 0)
+    binOptions.add(all: appendOptionForBindep(binDepMap, linkSort, compileTask.isLto), at: 0)
     res.add(all: binOptions)
 
     // link all binary dependencies depended by other packages which are not depended by root package
@@ -909,17 +928,19 @@ func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList
     }
 
     res.add(all: allOptions)
-    let (libPathOptions, binStdDeps) = getLinkOptionForBindep(buildConfig.binDepMap, linkSort, compileTask.isLto)
- 	let (crosslibPathOptions, crossbinStdDeps) = getLinkOptionForBindep(buildConfig.crossBinDepMap, linkSort, compileTask.isLto)
+    let binDepMap = if (compileTask.isCrossCompile) {
+        buildConfig.crossBinDepMap
+    } else {
+        buildConfig.binDepMap
+    }
+    let (libPathOptions, binStdDeps) = getLinkOptionForBindep(binDepMap, linkSort, compileTask.isLto)
     let binOptions = ArrayList<String>()
     binOptions.add(all: libPathOptions, at: 0)
-    binOptions.add(all: crosslibPathOptions, at: 0)
     res.add(all: binOptions)
     res.add(all: getMinimizedCLibLinkStr(cLibLinkMap, cLibNameList))
 
     if (isLinkTask) {
         stdDeps.add(all: binStdDeps)
-        stdDeps.add(all: crossbinStdDeps)
         res.add(all: topoSort(stdDeps).iterator().map { std: String => "-lcangjie-std-${std.removePrefix("std.")}" } |> collectArray)
     }
 
@@ -997,8 +1018,12 @@ func getForcedBinDep(compileTask: CompileTask, buildConfig: BuildConfig, binDepS
 func getForcedBinDepForLinuxOrWin(compileTask: CompileTask, buildConfig: BuildConfig, binDepSet: HashSet<String>,
     cLibNameList: ArrayList<String>): ArrayList<String> {
     var binOptions = ArrayList<String>()
-    binOptions.add(all: appendOptionForBindep(buildConfig.binDepMap, binDepSet, compileTask.isLto), at: 0)
-    binOptions.add(all: appendOptionForBindep(buildConfig.crossBinDepMap, binDepSet, compileTask.isLto), at: 0)
+    let binDepMap = if (compileTask.isCrossCompile) {
+        buildConfig.crossBinDepMap
+    } else {
+        buildConfig.binDepMap
+    }
+    binOptions.add(all: appendOptionForBindep(binDepMap, binDepSet, compileTask.isLto), at: 0)
     let cLibLinkMap = if (compileTask.isCrossCompile) {
         buildConfig.globalConfig.crossCLibLinkMap
     } else { buildConfig.globalConfig.cLibLinkMap }
@@ -1014,13 +1039,19 @@ func getForcedBinDepForMac(compileTask: CompileTask, buildConfig: BuildConfig, b
         buildConfig.globalConfig.crossCLibLinkMap
     } else { buildConfig.globalConfig.cLibLinkMap }
 
+    // Select the correct binDepMap based on compile target: macro packages (host)
+    // should only use host-platform dependencies.
+    let binDepMap = if (compileTask.isCrossCompile) {
+        buildConfig.crossBinDepMap
+    } else {
+        buildConfig.binDepMap
+    }
+
     if (crossCompileTarget.contains("linux") && !crossCompileTarget.contains("android")) {
-        binOptions.add(all: appendOptionForBindep(buildConfig.binDepMap, binDepSet, compileTask.isLto), at: 0)
-        binOptions.add(all: appendOptionForBindep(buildConfig.crossBinDepMap, binDepSet, compileTask.isLto), at: 0)
+        binOptions.add(all: appendOptionForBindep(binDepMap, binDepSet, compileTask.isLto), at: 0)
         binOptions.add(all: getMinimizedCLibLinkStr(cLibLinkMap, cLibNameList))
     } else {
-        binOptions.add(all: getForcedBinDepPath(buildConfig.binDepMap, binDepSet, compileTask.isLto), at: 0)
-        binOptions.add(all: getForcedBinDepPath(buildConfig.crossBinDepMap, binDepSet, compileTask.isLto), at: 0)
+        binOptions.add(all: getForcedBinDepPath(binDepMap, binDepSet, compileTask.isLto), at: 0)
         let cLibLinkStr = getCLibLinkStr(cLibLinkMap, cLibNameList)
 
         var libName = ""

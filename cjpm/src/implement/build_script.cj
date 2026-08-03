@@ -340,9 +340,19 @@ func getEnvBuilder(ldPath: HashSet<String>): EnvironmentBuilder {
 
 func getCompileArgs(scriptConfig: ScriptConfig, buildConfig: BuildConfig): Option<(HashMap<String, String>, ArrayList<String>)> {
     var cmd: String = "\"${scriptConfig.scriptPath}\""
+    // cjPathList contains the host/target build output directories as well as
+    // the host-platform bin-dependencies; always pass it. For target build
+    // scripts, also append the cross-platform bin-dependencies.
     for (p in buildConfig.globalConfig.cjPathList) {
         if (directoryExists(p)) {
             cmd += " --import-path=${p}"
+        }
+    }
+    if (scriptConfig.isCrossCompile) {
+        for (p in buildConfig.globalConfig.crossCjPathList) {
+            if (directoryExists(p)) {
+                cmd += " --import-path=${p}"
+            }
         }
     }
     cmd += " -o ${scriptConfig.scriptExe}"
