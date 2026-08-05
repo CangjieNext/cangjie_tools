@@ -886,10 +886,11 @@ CompilerCangjieProject::NewPackageInfo CompilerCangjieProject::DeterminePkgNameA
 
     PkgType pkgType = PkgType::NORMAL;
     if (moduleInfo.isCommonSpecificModule) {
-        std::string sourceSetName = GetSourceSetNameByPath(absName);
+        std::string normalizedAbsName = FileStore::NormalizePath(absName);
+        std::string sourceSetName = GetSourceSetNameByPath(normalizedAbsName);
         if (!sourceSetName.empty()) {
             fullPkgName = sourceSetName + "-" + fullPkgName;
-            pkgType = GetPkgType(moduleInfo.modulePath, absName);
+            pkgType = GetPkgType(moduleInfo.modulePath, normalizedAbsName);
         }
     }
     return {fullPkgName, pkgType, pkgName == DEFAULT_PACKAGE_NAME};
@@ -1465,8 +1466,12 @@ void CompilerCangjieProject::InitOneModule(const ModuleInfo &moduleInfo)
             continue;
         }
         // init specific root path package
-        const auto &specificRootPath = Normalize(path);
+        const auto &specificRootPath = FileStore::NormalizePath(path);
         const auto &sourceSetName = GetSourceSetNameByPath(specificRootPath);
+        if (sourceSetName.empty()) {
+            Trace::Elog("can not find source-set name for path " + specificRootPath);
+            continue;
+        }
         std::string rootSpecificPkgName = sourceSetName + "-" + moduleInfo.moduleName;
         (void)InitPackage(specificRootPath, rootSpecificPkgName, moduleInfo, PkgType::SPECIFIC);
 
@@ -3038,19 +3043,24 @@ PkgType CompilerCangjieProject::GetPkgType(const std::string &modulePath, const 
 
 std::string CompilerCangjieProject::GetSourceSetNameByPath(const std::string &path)
 {
-    std::string realPath = Normalize(path);
+    std::string realPath = FileStore::NormalizePath(path);
     ModuleInfo moduleInfo;
     bool findModule = false;
     if (!moduleManager) {
         return "";
     }
     for (const auto &item : moduleManager->moduleInfoMap) {
+        if (!item.second.isCommonSpecificModule) {
+            continue;
+        }
         std::vector<std::string> paths;
-        paths.emplace_back(item.second.commonSpecificPaths.first);
+        if (!item.second.commonSpecificPaths.first.empty()) {
+            paths.emplace_back(item.second.commonSpecificPaths.first);
+        }
         paths.insert(paths.end(),
             item.second.commonSpecificPaths.second.begin(), item.second.commonSpecificPaths.second.end());
-        for (const auto &modulePath : paths) {
-            if (IsUnderPath(modulePath, realPath, true)) {
+        for (const auto &sourceSetPath : paths) {
+            if (!sourceSetPath.empty() && IsUnderPath(sourceSetPath, realPath, true)) {
                 moduleInfo = item.second;
                 findModule = true;
                 break;
@@ -3060,26 +3070,21 @@ std::string CompilerCangjieProject::GetSourceSetNameByPath(const std::string &pa
             break;
         }
     }
-    if (!moduleInfo.isCommonSpecificModule || moduleInfo.sourceSetNames.empty()) {
+    if (!findModule || moduleInfo.sourceSetNames.empty()) {
         return "";
     }
     std::vector<std::string> commonSpecificPaths;
-    // common package path is first
-    commonSpecificPaths.push_back(moduleInfo.commonSpecificPaths.first);
-    // specific package path
+    if (!moduleInfo.commonSpecificPaths.first.empty()) {
+        commonSpecificPaths.push_back(moduleInfo.commonSpecificPaths.first);
+    }
     commonSpecificPaths.insert(commonSpecificPaths.end(),
         moduleInfo.commonSpecificPaths.second.begin(), moduleInfo.commonSpecificPaths.second.end());
-    if (commonSpecificPaths.empty()) {
-        return "";
-    }
-    size_t index = 0;
-    for(const auto &commonSpecificPath : commonSpecificPaths) {
-        if (IsUnderPath(commonSpecificPath, realPath, true)) {
-            break;
+    for (size_t i = 0; i < commonSpecificPaths.size() && i < moduleInfo.sourceSetNames.size(); ++i) {
+        if (!commonSpecificPaths[i].empty() && IsUnderPath(commonSpecificPaths[i], realPath, true)) {
+            return moduleInfo.sourceSetNames[i];
         }
-        index++;
     }
-    return index < moduleInfo.sourceSetNames.size() ? moduleInfo.sourceSetNames[index] : "";
+    return "";
 }
 
 std::string CompilerCangjieProject::GetUpStreamSourceSetName(const std::string &fullPackageName)

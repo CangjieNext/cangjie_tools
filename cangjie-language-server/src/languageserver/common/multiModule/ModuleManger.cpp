@@ -104,7 +104,8 @@ void ModuleManager::SetCommonSpecificPath(const nlohmann::json &jsonData, const 
             continue;
         }
         if (type == SPECIFIC()) {
-            moduleInfoMap[modulePath].commonSpecificPaths.second.push_back(FileStore::NormalizePath(URI::Resolve(path)));
+            moduleInfoMap[modulePath].commonSpecificPaths.second.push_back(
+                FileStore::NormalizePath(URI::Resolve(path)));
             moduleInfoMap[modulePath].sourceSetNames.push_back(member.value(SOURCE_SET_NAME(), ""));
             continue;
         }
