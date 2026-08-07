@@ -119,14 +119,17 @@ func lackPackageCheck(topoData: DepModel) {
         sort(lackPackage, by: cmpStr, stable: true)
         eprintln("Error: can not find the following dependencies")
         for (packageName in lackPackage) {
-            let importers = topoData.edges[packageName]
-            sort(importers, by: cmpStr, stable: true)
-            let importedBy = String.join(importers.toArray(), delimiter: ", ")
-            eprintln("    ${packageName} (imported by: ${importedBy})")
+            eprintln("    ${formatMissingPackageDiagnostic(packageName, topoData.edges[packageName])}")
         }
         return false
     }
     return true
+}
+
+func formatMissingPackageDiagnostic(packageName: String, importers: ArrayList<String>): String {
+    sort(importers, by: cmpStr, stable: true)
+    let importedBy = String.join(importers.toArray(), delimiter: ", ")
+    return "${packageName} (imported by: ${importedBy})"
 }
 
 func dependencyAnalysis(topoData: DepModel): Unit {
