@@ -190,16 +190,16 @@ class ListItem {
 【正例】
 
 ```cangjie
-enum TimeUnit { // 符合：跟随声明放行末，前置 1 空格
+enum TimeUnit { // 符合：跟随声明行末，前置 1 空格
     Year | Month | Day | Hour
 } // 符合：右大括号独占一行
 
-class A { // 符合：跟随声明放行末，前置 1 空格
+class A { // 符合：跟随声明行末，前置 1 空格
     var count = 1
 }
 
-func fn(a: Int64): Unit { // 符合：跟随声明放行末，前置 1 空格
-    if (a > 0) { // 符合：跟随声明放行末，前置 1 空格
+func fn(a: Int64): Unit { // 符合：跟随声明行末，前置 1 空格
+    if (a > 0) { // 符合：跟随声明行末，前置 1 空格
     // CODE
     } else { // 符合：右大括号和 else 在同一行
         // CODE
