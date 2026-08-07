@@ -8,8 +8,20 @@
 #include "Format/ASTToFormatSource.h"
 #include "cangjie/AST/Node.h"
 
+#include <utility>
+
 namespace Cangjie::Format {
 using namespace Cangjie::AST;
+
+namespace {
+bool HasTrailingSemicolon(const Doc& doc)
+{
+    if (!doc.members.empty()) {
+        return HasTrailingSemicolon(doc.members.back());
+    }
+    return doc.type == DocType::STRING && doc.value == ";";
+}
+} // namespace
 
 void BinaryExprFormatter::ASTToDoc(Doc& doc, Ptr<Cangjie::AST::Node> node, int level, FuncOptions&)
 {
@@ -30,8 +42,10 @@ void BinaryExprFormatter::AddBinaryExpr(Doc& doc, const Cangjie::AST::BinaryExpr
     group.members.emplace_back(DocType::STRING, level, TOKENS[static_cast<int>(binaryExpr.op)]);
     group.members.emplace_back(DocType::SOFTLINE_WITH_SPACE, level + 1, "");
     doc.members.emplace_back(group);
-    doc.members.emplace_back(astToFormatSource.ASTToDoc(binaryExpr.rightExpr.get(), level));
-    if (binaryExpr.hasSemi) {
+    auto rightDoc = astToFormatSource.ASTToDoc(binaryExpr.rightExpr.get(), level);
+    const bool rightHasSemi = HasTrailingSemicolon(rightDoc);
+    doc.members.emplace_back(std::move(rightDoc));
+    if (binaryExpr.hasSemi && !rightHasSemi) {
         doc.members.emplace_back(DocType::STRING, level, ";");
     }
 }
