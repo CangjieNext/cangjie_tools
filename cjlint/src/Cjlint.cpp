@@ -122,7 +122,9 @@ static void GetCJFilePath(const std::string& path, std::vector<std::string>& cjP
 static void SplitLine(const std::string& comment, const std::string& path, int linePos)
 {
     auto lineSplit = Utils::SplitLines(comment);
-    for (auto& line : lineSplit) {
+    for (size_t index = 0; index < lineSplit.size(); ++index) {
+        auto& line = lineSplit[index];
+        const auto currentLinePos = linePos + static_cast<int>(index);
         std::smatch sm;
         std::regex cjlintIgnoreRegex("cjlint-ignore(\\s+-start|\\s+-end)?(\\s+(!([^\\s(*/)])*))*|"
                                      "cjlint-ignore\\s+(-start|-end)");
@@ -132,15 +134,15 @@ static void SplitLine(const std::string& comment, const std::string& path, int l
         }
         CjlintIgnoreInfo cjlintIgnoreInfo;
         cjlintIgnoreInfo.path = path;
-        cjlintIgnoreInfo.pos = linePos;
+        cjlintIgnoreInfo.pos = currentLinePos;
         auto stringSplit = Utils::SplitString(sm.str(), " ");
         bool multiPosSetFlag = true;
         for (auto& str : stringSplit) {
             if (str == "-start" && multiPosSetFlag) {
-                cjlintIgnoreInfo.start = linePos;
+                cjlintIgnoreInfo.start = currentLinePos;
                 multiPosSetFlag = false;
             } else if (str == "-end" && multiPosSetFlag) {
-                cjlintIgnoreInfo.end = linePos;
+                cjlintIgnoreInfo.end = currentLinePos;
                 multiPosSetFlag = false;
             } else if (std::regex_match(str, cjlintRules)) {
                 cjlintIgnoreInfo.rules.emplace_back(str.substr(1));
