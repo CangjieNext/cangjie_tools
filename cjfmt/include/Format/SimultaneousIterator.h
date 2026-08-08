@@ -16,8 +16,8 @@
 
 namespace Cangjie::Format {
 
-// iterates over two tokenstreams simulteneously
-// originalTokens correspond to text before formatting
+// iterates over two tokenstreams simultaneously
+// originalTokens correspond to text before formatting 
 // outputTokens correspond to text after formatting
 // both token streams should correspond to the same 'fragment' of text
 // ignores new line tokens
