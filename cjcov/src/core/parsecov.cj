@@ -348,7 +348,7 @@ func processGcovBody(lines: Array<String>): (Bool, GcovData) {
         } else if (first[0] >= UInt8(UInt32(r'0')) && first[0] <= UInt8(UInt32(r'9'))) {
             var num = Int64.tryParse(first) ?? -1
             if (num == -1) {
-                eprintln("cat not get hit times, line: ${line}, first segment: ${first}")
+                eprintln("can not get hit times, line: ${line}, first segment: ${first}")
                 return (false, gcovData)
             }
             gcovData.covered.add(lineno)
