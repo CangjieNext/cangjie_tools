@@ -114,7 +114,7 @@ void PrintHelp()
     Println("   -l <region>   Only format lines in the specified region for the provided file. Only valid if a single "
             "file was specified.");
     Println("                 Region has a format of [start:end] where 'start' and 'end' are integer numbers "
-            "representing first and last lines to be formated in the specified file.");
+            "representing first and last lines to be formatted in the specified file.");
     Println("                 Line count starts with 1.");
     Println("                     eg: cjfmt -f a.cj -o ./fmta.cj -l 1:25");
 }
@@ -383,7 +383,7 @@ int DoFormat(const Region& region)
         return result;
     } else {
         if (fmtFilePath.size() < MINIMUM_CJ_FILE_NAME || !HasEnding(fmtFilePath, ".cj")) {
-            Errorln("CangjieFormat only support Cangjie source code file!");
+            Errorln("CangjieFormat only supports Cangjie source code files!");
             PrintHelp();
             return ERR;
         }
@@ -424,7 +424,7 @@ int GetRegionFromArgs(Region& region, std::string optarg)
 #endif
 
     if (region.startLine > region.endLine) {
-        Errorln("Invalid region format, start line number should be less than or equal end line number.");
+        Errorln("Invalid region format, start line number should be less than or equal to the end line number.");
         return ERR;
     }
     return OK;
