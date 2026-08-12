@@ -114,7 +114,7 @@ void PrintHelp()
     Println("   -l <region>   Only format lines in the specified region for the provided file. Only valid if a single "
             "file was specified.");
     Println("                 Region has a format of [start:end] where 'start' and 'end' are integer numbers "
-            "representing first and last lines to be formated in the specified file.");
+            "representing first and last lines to be formatted in the specified file.");
     Println("                 Line count starts with 1.");
     Println("                     eg: cjfmt -f a.cj -o ./fmta.cj -l 1:25");
 }
@@ -215,7 +215,7 @@ void SetOptionLineBreakType(TomlParser& parser, FormattingOptions& options)
         return;
     }
     if (*lineBreakType != "CRLF" && *lineBreakType != "LF") {
-        Warningln("\"Configuration options: neither CRLF nor LF, "
+        Warningln("\"Configuration options: lineBreakType is neither CRLF nor LF, "
                   "Built-in options will be used: lineBreakType = \"LF\"");
         return;
     }
@@ -383,7 +383,7 @@ int DoFormat(const Region& region)
         return result;
     } else {
         if (fmtFilePath.size() < MINIMUM_CJ_FILE_NAME || !HasEnding(fmtFilePath, ".cj")) {
-            Errorln("CangjieFormat only support Cangjie source code file!");
+            Errorln("cjfmt only support Cangjie source code file!");
             PrintHelp();
             return ERR;
         }
