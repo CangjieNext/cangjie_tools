@@ -137,7 +137,7 @@ cjcov/target/release/bin
 
 目前源码仓中的 `cjpm.toml` 支持编译如下平台的 `cjcov`：
 
-- `Linux/macOS` 的 `x86/arm` 框架；
+- `Linux/macOS` 的 `x86/arm` 架构；
 - `Windows x86`。
 
 此外，若开发者想在 `Linux` 系统中交叉编译 `Windows` 平台产物，可以使用如下命令：
