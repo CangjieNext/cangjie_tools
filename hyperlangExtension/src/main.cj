@@ -38,17 +38,17 @@ let HELP_INFO = """
 Usage: main [options]
 
 Description:
-    This tool is designed to generate cangjie bindings for .d.ts or .d.ets files.
+    This tool is designed to generate Cangjie bindings for .d.ts or .d.ets files.
 
 Options:
   -i <file>             The absolute path of the input d.ts or d.ets file (required if -d is not used)
   -r <file>             The absolute path of the typescript compiler source code
   -d <directory>        The absolute path of the directory containing d.ts or d.ets file (required if -i is not used)
-  -o <directory>        The directory to save the binding code (optional, defaults to the current directory)
+  -o <directory>        The directory to save the binding code (optional, defaults to the user's home directory)
   -c                    Generate C to Cangjie bindings
   --clang-args          The parameters that will be directly passed to clang
   --no-detect-include-path  Disable automatic include path detection
-  -b <file>             The absolute path of the binding file
+  -b <file>             The absolute path of the cjbind executable
   -j <file>             The absolute path of the d.ts or d.ets file analyzer (optional)
   --module-name <name>  Customize the generated Cangjie package name (optional)
   --lib                 Generate bindings for third-party library (optional)
@@ -103,7 +103,7 @@ main(args: Array<String>) {
 
         // check whether cjbind exists
         if (!(exists(cla.bindingsPath) && FileInfo(cla.bindingsPath).isRegular())) {
-            println("Error: generation failed! cjbind file ${cla.bindingsPath} not exists, please download cjbind or build it first!")
+            println("Error: generation failed! cjbind file ${cla.bindingsPath} does not exist, please download cjbind or build it first!")
             return 1
         }
 
@@ -302,7 +302,7 @@ func parseFilesSpawn(f: FileInfo, dir: Path, name: String, gconfigList: Concurre
     let basePath = dir.toString().replace("\\", "/")
     let moduleName = f.path.toString().replace("\\", "/")
 
-    // Get each file's relative path to input direcotry
+    // Get each file's relative path to input directory
     var relativeFilePath = ""
     let splitResult = moduleName.split(basePath)
     if (splitResult.size > 1) {
@@ -411,7 +411,7 @@ func parseFile(arkpath: String, outDir: String, jsASTPath: String, gconfig: Glob
     }
 
     //扫描整个ark json文件，将内容保存在全局变量gconfig里,gconfig的声明在globalConfig.cj
-    //如若需要指定cj json，可以考虑扩容Global
+    //如若需要指定cj json，可以考虑扩容GlobalConfig
     let fileContent = String.fromUtf8(File.readFrom(arkJson))
     let transform = Transform(fileContent)
     let jsonContent = JsonValue.fromStr(fileContent)
