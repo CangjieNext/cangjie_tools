@@ -56,7 +56,7 @@ int EditFileNameAndPath(std::string& fmtFilePath, std::string& fileOutputPath)
 {
     std::string currentPath = FileUtil::GetAbsPath(".") | FileUtil::IdenticalFunc;
     if (!FileUtil::FileExist(fmtFilePath)) {
-        Errorln("Source file not exist!");
+        Errorln("Source file does not exist!");
         return ERR;
     }
     fmtFilePath = FileUtil::GetAbsPath(fmtFilePath) | FileUtil::IdenticalFunc;
@@ -114,7 +114,7 @@ void PrintHelp()
     Println("   -l <region>   Only format lines in the specified region for the provided file. Only valid if a single "
             "file was specified.");
     Println("                 Region has a format of [start:end] where 'start' and 'end' are integer numbers "
-            "representing first and last lines to be formated in the specified file.");
+            "representing first and last lines to be formatted in the specified file.");
     Println("                 Line count starts with 1.");
     Println("                     eg: cjfmt -f a.cj -o ./fmta.cj -l 1:25");
 }
@@ -124,7 +124,7 @@ void PrintVersion()
 #ifdef CJFMT_VERSION
     Println(std::string("cjfmt Version: ") + std::string(CJFMT_VERSION));
 #else
-    Errorln("Can not obtain cjfmt version");
+    Errorln("Cannot obtain cjfmt version");
 #endif
 }
 
@@ -330,7 +330,7 @@ std::optional<FormattingOptions> ReadConfigHelper(
             return std::nullopt;
         }
     }
-    Warningln(configType + " format configuration files not Exist");
+    Warningln(configType + " format configuration files do not exist");
     return std::nullopt;
 }
 
@@ -383,7 +383,7 @@ int DoFormat(const Region& region)
         return result;
     } else {
         if (fmtFilePath.size() < MINIMUM_CJ_FILE_NAME || !HasEnding(fmtFilePath, ".cj")) {
-            Errorln("CangjieFormat only support Cangjie source code file!");
+            Errorln("cjfmt only supports Cangjie source code files!");
             PrintHelp();
             return ERR;
         }
