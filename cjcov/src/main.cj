@@ -108,7 +108,7 @@ func checkOutputOption(options: Command, curPath: String): Bool {
         options.output = curPath
     } else {
         if (!directoryExists(optionOutput)) {
-            // If user specify the output path, but the parent path does not exist, return an error, otherwise create the specified output path
+            // If user specifies the output path, but the parent path does not exist, return an error, otherwise create the specified output path
             var optionOutputPath: Path = if (Path(optionOutput).isRelative()) {
                 Path(curPath).join(optionOutput)
             } else {
@@ -260,13 +260,13 @@ main(): Int64 {
     let sysArgs = Process.current.arguments
     var argMap: HashMap<String, String> = HashMap<String, String>()
 
-    // If only one system parameter gived, return a default Command class.
+    // If only one system parameter given, return a default Command class.
     // Cjlint(G.CHK.01) can not check cross-function, so put the size check of 'sysArgs' here.
     if (sysArgs.size > 0) {
         argMap = getParseOption(sysArgs)
 
-        // If get a input like this: "cjcov abcxxxse", then print the simple usage.
-        // If just get a input line this: "cjcov", the program should keep running.
+        // If get an input like this: "cjcov abcxxxse", then print the simple usage.
+        // If just get an input line this: "cjcov", the program should keep running.
         if (argMap.size == 0) {
             print(getSimpleUsage())
             return 1
@@ -275,7 +275,7 @@ main(): Int64 {
 
     var optionsOrigin = Command(argMap)
 
-    // Refer to the linux grep command display format, -v|--version has the highest priority, -h|--help has the next highest priority.
+    // Refer to the Linux grep command display format, -v|--version has the highest priority, -h|--help has the next highest priority.
     if (optionsOrigin.version) {
         println(getCjVersion())
         return 0
