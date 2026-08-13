@@ -508,7 +508,7 @@ public func generateGcovFiles(options: Command): Bool {
     }
 
     let fs = File(options.output + CJCOV_MAIN_LOG, OpenMode.Append);
-    let logger: SimpleLogger = SimpleLogger(fs)
+    let logger: SimpleLogger = SimpleLogger(fs) 
     logger.level = LogLevel.ALL
 
     for (gcnoFile in gcnoFiles) {
