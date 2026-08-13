@@ -12,7 +12,7 @@
 
 - 配置管理：用户可通过配置文件 `cangjie-format.toml` 进行格式化风格配置，包括缩进宽度、行宽限制、换行风格等；
 
-- 输入模块：处理代格式化源码的输入，可接收源码目录、源码文件、源码片段输入，并将输入转发给格式化模块进行处理；
+- 输入模块：处理待格式化源码的输入，可接收源码目录、源码文件、源码片段输入，并将输入转发给格式化模块进行处理；
 
 - 源码编译：调用仓颉编译器的前端能力完成待格式化源码的词法分析与语法分析，并完成AST（对应的抽象语法树）的构建;
 
@@ -127,7 +127,7 @@ python3 build.py build -t release --target windows-x86_64
 python3 build.py install
 ```
 
-执行该命令后，构建产物默认位于 `cjfmt/dist` 目录下。请注意从 `Linux` 平台交叉编译获取 `Windows` 平台的产物，则需要的 `SDK` 为 `Windows` 版本。
+执行该命令后，构建产物默认位于 `cjfmt/dist` 目录下。请注意：从 `Linux` 平台交叉编译获取 `Windows` 平台产物时，需要 `Windows` 版本的 `SDK`。
 
 ### 更多构建选项
 
@@ -170,7 +170,7 @@ Options:
                      eg: cjfmt -f a.cj -c ./config/cangjie-format.toml
                      eg: cjfmt -d ~/testsrc -c ~/home/project/config/cangjie-format.toml
    -l <region>   Only format lines in the specified region for the provided file. Only valid if a single file was specified.
-                 Region has a format of [start:end] where 'start' and 'end' are integer numbers representing first and last lines to be formated in the specified file.
+                 Region has a format of [start:end] where 'start' and 'end' are integer numbers representing first and last lines to be formatted in the specified file.
                  Line count starts with 1.
                      eg: cjfmt -f a.cj -o ./fmta.cj -l 1:25
 ```
@@ -203,7 +203,7 @@ cjfmt -d test/              // 源文件目录为相对目录
 cjfmt -d /home/xxx/test     // 源文件目录为绝对目录
 ```
 
-- 选项 `-o` 为输出目录，可以是已存在的路径，若不存在则会创建相关的目录结构，支持相对路径和绝对路径；目录的最大长度 MAX_PATH 不同的系统之间存在差异，如 Windows 上这个值一般不能超过 260；在 Linux 上这个值一般建议不能超过 4096。
+- 选项 `-o` 为输出目录，可以是已存在的路径，若不存在则会创建相关的目录结构，支持相对路径和绝对路径；目录路径的最大长度（MAX_PATH）在不同系统之间存在差异，如 Windows 上这个值一般不能超过 260；在 Linux 上这个值一般建议不能超过 4096。
 
 ```shell
 cjfmt -d test/ -o /home/xxx/testout
