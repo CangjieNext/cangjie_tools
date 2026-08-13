@@ -12,7 +12,7 @@ import std.collection.*
 struct Position <: ToString {
     public var line: Int64 = 0 // Line number, starting at 1.
     public var start: Int64 = 0 // Start of error, as byte offset starting at 0.
-    public var len: Int64 = 0 // Lenght in bytes.
+    public var len: Int64 = 0 // Length in bytes.
 
     public init(line: Int64, start: Int64, len: Int64) {
         this.line = line
