@@ -27,7 +27,7 @@ Cangjie Language CLI Toolchain currently supports the following platforms: Windo
 
 ```
 .
-├── cangjie-language-server
+├── cangjie-languager-server
 │   ├── build                 # build script
 │   ├── doc                   # construction and usage guidelines
 │   └── src                   # source code
