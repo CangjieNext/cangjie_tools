@@ -823,7 +823,7 @@ func getLtoCombineBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig):
     }
     res.add(all: allOptions)
 
-    // link all binary dependecies depended by root package
+    // link all binary dependencies depended by root package
     let binOptions = ArrayList<String>()
     binOptions.add(all: appendOptionForBindep(buildConfig.binDepMap, linkSort, compileTask.isLto), at: 0)
     binOptions.add(all: appendOptionForBindep(buildConfig.crossBinDepMap, linkSort, compileTask.isLto), at: 0)
