@@ -50,7 +50,7 @@ cjfmt -f ../../../test/uilang/Thread.cj
 - Option `-o` creates a new `.cj` file with formatted output (supports relative/absolute paths):
 
 ```shell
-cjfmt -f ../../../test/uilang/Thread.cj -o ../../../test/formated/Thread.cj
+cjfmt -f ../../../test/uilang/Thread.cj -o ../../../test/formatted/Thread.cj
 ```
 
 ### Directory Formatting
