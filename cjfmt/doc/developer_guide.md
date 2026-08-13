@@ -170,7 +170,7 @@ Options:
                      eg: cjfmt -f a.cj -c ./config/cangjie-format.toml
                      eg: cjfmt -d ~/testsrc -c ~/home/project/config/cangjie-format.toml
    -l <region>   Only format lines in the specified region for the provided file. Only valid if a single file was specified.
-                 Region has a format of [start:end] where 'start' and 'end' are integer numbers representing first and last lines to be formated in the specified file.
+                 Region has a format of [start:end] where 'start' and 'end' are integer numbers representing first and last lines to be formatted in the specified file.
                  Line count starts with 1.
                      eg: cjfmt -f a.cj -o ./fmta.cj -l 1:25
 ```
