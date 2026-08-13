@@ -1040,7 +1040,7 @@ void ArkServer::ChangeWatchedFiles(const std::string &file, FileChangeType type,
             // LCOV_EXCL_START
             const std::string &contents = GetFileContents(file);
             if (std::hash<std::string>{}(contents) == std::hash<std::string>{}(docMgr->GetDoc(file).contents)) {
-                Logger::Instance().LogMessage(MessageType::MSG_INFO, "recieve file change, but contens are same.");
+                Logger::Instance().LogMessage(MessageType::MSG_INFO, "receive file change, but contents are same.");
                 return;
             }
             auto pkgName = CompilerCangjieProject::GetInstance()->GetFullPkgName(file);
