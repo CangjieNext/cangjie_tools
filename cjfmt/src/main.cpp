@@ -114,7 +114,7 @@ void PrintHelp()
     Println("   -l <region>   Only format lines in the specified region for the provided file. Only valid if a single "
             "file was specified.");
     Println("                 Region has a format of [start:end] where 'start' and 'end' are integer numbers "
-            "representing first and last lines to be formated in the specified file.");
+            "representing first and last lines to be formatted in the specified file.");
     Println("                 Line count starts with 1.");
     Println("                     eg: cjfmt -f a.cj -o ./fmta.cj -l 1:25");
 }
