@@ -188,7 +188,7 @@ cjfmt -f ../../../test/uilang/Thread.cj
 - Use `-o` to output formatted code to new file:
 
 ```shell
-cjfmt -f ../../../test/uilang/Thread.cj -o ../../../test/formated/Thread.cj
+cjfmt -f ../../../test/uilang/Thread.cj -o ../../../test/formatted/Thread.cj
 ```
 
 ### Directory Formatting
