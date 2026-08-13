@@ -16,7 +16,7 @@ Options:
                        eg: ./cjlint -v
    -f <value>      Detected file directory, it can be absolute path or relative path
                        eg: ./cjlint -f fileDir -c . -m .
-   -e <v1:v2:...>  Excluded files, directories or configurations, splitted by ':'. Regular expressions are supported
+   -e <v1:v2:...>  Excluded files, directories or configurations, separated by ':'. Regular expressions are supported
                        eg: ./cjlint -f fileDir -e fileDir/a/:fileDir/b/*.cj
    -o <value>      Output file path, it can be absolute path or relative path, if it is directory, default file name is cjReport
                        eg: ./cjlint -f fileDir -o ./out
@@ -268,7 +268,7 @@ func foo(a: Int64, b: Int64, c: Int64, d: Int64) {
 - G.EXP.07 比较两个表达式时，左侧倾向于变化，右侧倾向于不变。
 - G.ERR.01 恰当地使用异常或错误处理机制。
 - G.ERR.02 防止通过异常抛出的内容泄露敏感信息。
-- G.ERR.03 避免对 Option 类型使用 getorthrow 函数。
+- G.ERR.03 避免对 Option 类型使用 getOrThrow 函数。
 - G.ERR.04 不要使用 return、break、continue 或抛出异常使 finally 块非正常结束。
 - G.PKG.01 避免在 import 声明中使用通配符*。
 - G.CON.01 禁止将系统内部使用的锁对象暴露给不可信代码。
@@ -289,7 +289,7 @@ func foo(a: Int64, b: Int64, c: Int64, d: Int64) {
 - G.OTH.01 禁止在日志中保存口令、密钥和其他敏感数据。
 - G.OTH.02 禁止将敏感信息硬编码在程序中。
 - G.OTH.03 禁止代码中包含公网地址。
-- G.OTH.04 不要使用 String 存储敏感数据，敏感数据使用结束后应立即清 0。
+- G.OTH.04 不要使用 String 存储敏感数据，敏感数据使用结束后应立即清零。
 - FFI.C.7 强制进行指针类型转换时避免出现截断错误。
 
 `cjlint` 能够检测，但默认不启用的规范列表（开发者可通过将规范添加至 `cjlint_rule_list.json` 以启用这类规则）：
@@ -340,7 +340,7 @@ func foo(a: Int64, b: Int64, c: Int64, d: Int64) {
    | 模式匹配     | Match           | 函数式编程范式，开发者不易掌握                   |
    | 捕获异常     | TryCatch        | 避免自行处理异常，易导致错误被忽略               |
    | 高阶函数     | HigherOrderFunc | 函数类型的参数或返回值, 避免复杂代码             |
-   | 其他基础类型 | PrimitiveType   | 不应使用 Int64、float64、bool 之外的其他基础类型 |
+   | 其他基础类型 | PrimitiveType   | 不应使用 Int64、Float64、Bool 之外的其他基础类型 |
    | 其他容器类型 | ContainerType   | 应使用 List，Map，Set                            |
 
 3. 通过将上述表格中的关键字添加到 `structural_rule_G_SYN_01.json` 中启用对应语法的禁用检查。举例：禁用导入包
