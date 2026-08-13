@@ -202,7 +202,7 @@ func processGcovBranch(lineno: Int64, line: String, branches: HashMap<Int64, Has
         branchSubMap = branches[lineno].clone()
     }
 
-    // "branch  xxx never executed", if gcov showed like this, the branch count show be assigned as 0.
+    // "branch  xxx never executed", if gcov showed like this, the branch count should be assigned as 0.
     branchSubMap[branchField] = Int64.tryParse(fields[3]) ?? 0
     branches[lineno] = branchSubMap
     return true
