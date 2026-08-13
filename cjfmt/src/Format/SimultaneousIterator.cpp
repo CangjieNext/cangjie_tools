@@ -127,7 +127,7 @@ std::optional<std::pair<std::vector<Token>, std::vector<Token>>> ExtractTokensBe
     auto simIter = SimultaneousIterator(originalTokens, formattedTokens);
     std::vector<Token>::const_iterator originalTokensSubsetFirst;
     std::vector<Token>::const_iterator outputTokensSubsetFirst;
-    (void)simIter.IterateAndCollectComments(); // skip comments at the begining of original text
+    (void)simIter.IterateAndCollectComments(); // skip comments at the beginning of original text
     while (true) {
         if (simIter.originalIterator == simIter.originalTokens.end() ||
             simIter.outputIterator == simIter.outputTokens.end() || simIter.originalIterator->Begin() > startPosition) {
