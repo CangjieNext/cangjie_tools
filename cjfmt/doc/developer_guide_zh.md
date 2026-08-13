@@ -188,7 +188,7 @@ cjfmt -f ../../../test/uilang/Thread.cj
 - 选项`-o` 新建一个`.cj`文件导出格式化后的代码，源文件和输出文件支持相对路径和绝对路径。
 
 ```shell
-cjfmt -f ../../../test/uilang/Thread.cj -o ../../../test/formated/Thread.cj
+cjfmt -f ../../../test/uilang/Thread.cj -o ../../../test/formatted/Thread.cj
 ```
 
 ### 目录格式化
