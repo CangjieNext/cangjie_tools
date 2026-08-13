@@ -84,14 +84,14 @@ func handleError(ctx: JSContext, err: JSValue): BusinessException {
         let msg = if (errObj["message"].isString()) {
             String.fromJSValue(ctx, errObj["message"])
         } else {
-            "unknown exception occured"
+            "unknown exception occurred"
         }
         BusinessException(code, msg)
     } else if (err.isNumber()) {
         let code = Int32.fromJSValue(ctx, err)
-        BusinessException(code, "unknown exception occured")
+        BusinessException(code, "unknown exception occurred")
     } else {
-        BusinessException(JS_INTERNAL_ERROR, "unknown exception occured")
+        BusinessException(JS_INTERNAL_ERROR, "unknown exception occurred")
     }
 }
 
