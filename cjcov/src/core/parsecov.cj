@@ -470,7 +470,7 @@ func mergeGcovData(datas: ArrayList<GcovData>): GcovData {
     var newUncovered = allUncovered.clone()
     var newNonCode = allNonCode.clone()
 
-    // If it is the same line number, the priority is covered, noncoverd, noncode.
+    // If it is the same line number, the priority is covered, uncovered, noncode.
     for (noncode in allNonCode) {
         if (allCovered.contains(noncode) || allUncovered.contains(noncode)) {
             newNonCode.remove(noncode)
