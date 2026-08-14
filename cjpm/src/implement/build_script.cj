@@ -345,6 +345,13 @@ func getCompileArgs(scriptConfig: ScriptConfig, buildConfig: BuildConfig): Optio
             cmd += " --import-path=${p}"
         }
     }
+    if (scriptConfig.isCrossCompile) {
+        for (p in buildConfig.globalConfig.crossCjPathList) {
+            if (directoryExists(p)) {
+                cmd += " --import-path=${p}"
+            }
+        }
+    }
     cmd += " -o ${scriptConfig.scriptExe}"
     if (scriptConfig.isCrossCompile) {
         cmd += " --cfg=\"target=${crossCompileTarget}\""

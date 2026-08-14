@@ -194,12 +194,13 @@ func startTest(testConfig: TestConfig, scriptConfig: ScriptConfig): Bool {
 
     (testConfig.globalConfig.targetDir, testConfig.globalConfig.nativeDir) = setFinalTargetDirectory(
         testConfig.globalConfig, testConfig.isCrossCompile, testConfig.isDebug, testConfig.mock == MockSupport.On)
-    let (ldPath, cLibLinkMap, crossCLibLinkMap, cjPathList) = configureModuleResolveData(
+    let (ldPath, cLibLinkMap, crossCLibLinkMap, cjPathList, crossCjPathList) = configureModuleResolveData(
         testConfig.globalConfig.targetDir, testConfig.globalConfig.nativeDir, resolve)
     testConfig.globalConfig.cLibLinkMap = cLibLinkMap.clone()
     testConfig.globalConfig.crossCLibLinkMap = crossCLibLinkMap.clone()
     testConfig.globalConfig.ldPath.add(all: ldPath)
     testConfig.globalConfig.cjPathList.add(all: cjPathList)
+    testConfig.globalConfig.crossCjPathList.add(all: crossCjPathList)
 
     let (testPkgsMap, linkMap) = prepareTest(resolve, testConfig)
 
@@ -674,8 +675,18 @@ func addOptionsForSeparateCompilation(pkgInfo: PkgTestInfo, testConfig: TestConf
 func packageTest(pkgInfo: PkgTestInfo, testConfig: TestConfig, hasProdFiles: Bool): Bool {
     let cmdList = ArrayList<String>()
     cmdList.add(all: [])
+    // cjPathList contains the host/target build output directories (added by
+    // setFinalTargetDirectory) as well as the host-platform bin-dependencies.
+    // It must always be passed so packages can locate .cjo artifacts. For
+    // cross-compiled (target) packages, additionally append the cross-platform
+    // bin-dependencies.
     for (p in testConfig.globalConfig.cjPathList where directoryExists(p)) {
         cmdList.add(all: ["--import-path", p])
+    }
+    if (testConfig.isCrossCompile) {
+        for (p in testConfig.globalConfig.crossCjPathList where directoryExists(p)) {
+            cmdList.add(all: ["--import-path", p])
+        }
     }
 
     if (pkgInfo.packagePath.isMultiplatform) {
@@ -1127,8 +1138,10 @@ class DummyTestFile {
         for (p in testConfig.globalConfig.cjPathList where directoryExists(p)) {
             cmdList.add(all: ["--import-path", p])
         }
-
         if (testConfig.isCrossCompile) {
+            for (p in testConfig.globalConfig.crossCjPathList where directoryExists(p)) {
+                cmdList.add(all: ["--import-path", p])
+            }
             cmdList.add("--target=${crossCompileTarget}")
         }
 

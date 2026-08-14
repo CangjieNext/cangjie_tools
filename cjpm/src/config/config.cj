@@ -1149,6 +1149,7 @@ public class GlobalConfig {
     public var scriptDir: String = DIR_CURRENT
     public var scriptList: ArrayList<ScriptConfig> = ArrayList<ScriptConfig>()
     public var cjPathList: ArrayList<String> = ArrayList<String>()
+    public var crossCjPathList: ArrayList<String> = ArrayList<String>()
     public var cLibLinkMap: HashMap<String, ArrayList<String>> = HashMap<String, ArrayList<String>>()
     public var crossCLibLinkMap: HashMap<String, ArrayList<String>> = HashMap<String, ArrayList<String>>()
     public var ldPath: HashSet<String> = HashSet<String>()
@@ -1184,6 +1185,7 @@ public class GlobalConfig {
         this.lockFile = globalConfig.lockFile
         this.scriptDir = globalConfig.scriptDir
         this.cjPathList.add(all: globalConfig.cjPathList)
+        this.crossCjPathList.add(all: globalConfig.crossCjPathList)
         this.ldPath.add(all: globalConfig.ldPath)
         this.cLibLinkMap = globalConfig.cLibLinkMap.clone()
         for (scriptConfig in globalConfig.scriptList) {
