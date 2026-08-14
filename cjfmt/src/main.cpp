@@ -43,7 +43,7 @@ int FmtFile(const std::string& fmtFilePath, const std::string& fileOutputPath, c
 
     std::ofstream outStream(fileOutputPath, std::ios::out | std::ios::binary);
     if (!outStream.is_open()) {
-        Errorln("Create target file error!");
+        Errorln("Failed to create target file!");
         return ERR;
     }
     auto length = source.size();
@@ -56,7 +56,7 @@ int EditFileNameAndPath(std::string& fmtFilePath, std::string& fileOutputPath)
 {
     std::string currentPath = FileUtil::GetAbsPath(".") | FileUtil::IdenticalFunc;
     if (!FileUtil::FileExist(fmtFilePath)) {
-        Errorln("Source file not exist!");
+        Errorln("Source file does not exist!");
         return ERR;
     }
     fmtFilePath = FileUtil::GetAbsPath(fmtFilePath) | FileUtil::IdenticalFunc;
@@ -330,7 +330,7 @@ std::optional<FormattingOptions> ReadConfigHelper(
             return std::nullopt;
         }
     }
-    Warningln(configType + " format configuration files not Exist");
+    Warningln(configType + " format configuration files do not Exist");
     return std::nullopt;
 }
 
@@ -383,7 +383,7 @@ int DoFormat(const Region& region)
         return result;
     } else {
         if (fmtFilePath.size() < MINIMUM_CJ_FILE_NAME || !HasEnding(fmtFilePath, ".cj")) {
-            Errorln("CangjieFormat only support Cangjie source code file!");
+            Errorln("CangjieFormat only supports Cangjie source code files!");
             PrintHelp();
             return ERR;
         }
@@ -424,7 +424,7 @@ int GetRegionFromArgs(Region& region, std::string optarg)
 #endif
 
     if (region.startLine > region.endLine) {
-        Errorln("Invalid region format, start line number should be less than or equal end line number.");
+        Errorln("Invalid region format, start line number should be less than or equal to end line number.");
         return ERR;
     }
     return OK;
