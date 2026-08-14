@@ -10,18 +10,18 @@ The overall architecture diagram of the Cangjie toolchain is as follows:
 
 ![The overall architecture diagram of the Cangjie toolchain](./figures/tools-architecture.jpg)
 
-As shown in the diagram, this warehouse provides the following cangjie tools:
+As shown in the diagram, this warehouse provides the following Cangjie tools:
 
 - Cangjie Project Manager （Abbreviated as `cjpm`）：used for managing the module system of Cangjie project, covering module initialization, dependency checking and updating operations, providing a unified compilation entry point, supporting incremental compilation, parallel compilation, etc.
 - Cangjie Formatter （Abbreviated as `cjfmt`）: a code automatic formatting tool developed based on the Cangjie programming specification.
-- Cangjie HyperLang Extension （Abbreviated as `hle`）: cangjie calls the template auto generation tool for ArkTS interoperability code.
-- Cangjie Languager Server （Abbreviated as `lsp`）: the server backend that provides Cangjie language services on the DevEco Studio needs to be used in conjunction with the DevEco Studio client.
+- Cangjie HyperLang Extension （Abbreviated as `hle`）: Cangjie calls the template auto generation tool for ArkTS interoperability code.
+- Cangjie Language Server （Abbreviated as `lsp`）: the server backend that provides Cangjie language services on the DevEco Studio needs to be used in conjunction with the DevEco Studio client.
 - Cangjie Lint Tool (abbreviated as `cjlint`): A static analysis tool developed based on the Cangjie language coding standards. It helps developers identify issues that violate coding conventions, detect vulnerabilities in code, and write compliant Cangjie code.
 - Cangjie Coverage Tool (abbreviated as `cjcov`): A code coverage tool developed based on the Cangjie language programming standards.
 - Cangjie Profile Tool (`Cangjie Profile`, abbreviated as `cjprof`): Performs CPU hot function sampling on Cangjie programs and generates statistical reports or flame graphs, and also supports dumping and analyzing heap memory to help developers analyze performance and memory issues.
 - Cangjie Exception Stack Trace Recovery Tool (referred to as `cjtrace-recover`): Assists developers in restoring obfuscated exception stack trace information, enabling better issue localization and root cause analysis.
 
-Cangjie Language CLI Toolchain currently supports the following platforms: Windows x86-64, Linux x86-64/AArch64, Mac x86/arm64. OpenHarmony platform is under development.
+Cangjie Language CLI Toolchain currently supports the following platforms: Windows x86-64, Linux x86-64/AArch64, macOS x86-64/arm64. OpenHarmony platform is under development.
 
 ## Directory Structure
 
@@ -89,7 +89,7 @@ Please refer to the following software architecture diagrams for the command-lin
 
 ## Construction Dependencies
 
-The construction of tools relies on Cangjie `SDK`. Please refer to [Openharmony SDK Integration Construction Guide](https://gitcode.com/Cangjie/cangjie_build/blob/dev/README.md)
+The construction of tools relies on Cangjie `SDK`. Please refer to [OpenHarmony SDK Integration Construction Guide](https://gitcode.com/Cangjie/cangjie_build/blob/dev/README.md)
 
 ## Related Repositories
 
@@ -111,7 +111,7 @@ This project is licensed under [Apache-2.0 with Runtime Library Exception](./LIC
 | JSON for Modern C++  | MIT License         | Cangjie Language Server for message parsing and encapsulation.  | LSPServer, cjlint      | Integrated into the Cangjie binary release |
 | SQLite               | Public Domain       | Cangjie Language Server uses the database to store index data.  | LSPServer      | Integrated into the Cangjie binary release |
 
-For build methods, refer to the [Openharmony SDK Integration Build Guide](). For additional software dependencies, see [Environment Preparation](). For details on third-party dependencies, see the [Third-Party Open Source Software Documentation](./third_party/README.md)
+For build methods, refer to the [OpenHarmony SDK Integration Build Guide](). For additional software dependencies, see [Environment Preparation](). For details on third-party dependencies, see the [Third-Party Open Source Software Documentation](./third_party/README.md)
 
 ## Contribution
 
