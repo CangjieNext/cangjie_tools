@@ -260,7 +260,7 @@ main(): Int64 {
     let sysArgs = Process.current.arguments
     var argMap: HashMap<String, String> = HashMap<String, String>()
 
-    // If only one system parameter gived, return a default Command class.
+    // If only one system parameter given, return a default Command class.
     // Cjlint(G.CHK.01) can not check cross-function, so put the size check of 'sysArgs' here.
     if (sysArgs.size > 0) {
         argMap = getParseOption(sysArgs)
