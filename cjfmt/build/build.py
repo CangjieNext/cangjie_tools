@@ -42,14 +42,14 @@ ARCH_NAME = platform.machine().replace("AMD64", "x86_64").replace("arm64", "aarc
 CAN_RUN_MAPLE = platform.system() == 'Linux' and platform.machine() == 'x86_64'
 
 def check_compiler(args):
-    # use llvm toolchain on linux
+    # use llvm toolchain on non-windows
     if not IS_WINDOWS:
         clang_path = shutil.which('clang') + (" --gcc-toolchain={}".format(args.gcc_toolchain) if args.gcc_toolchain else "")
         clang_pp_path = shutil.which('clang++') + (" --gcc-toolchain={}".format(args.gcc_toolchain) if args.gcc_toolchain else "")
         if not clang_path:
             LOG.error('clang is required to build cangjie compiler')
         if not clang_pp_path:
-            LOG.error('clang++ is requreed to build cangjie compiler')
+             'clang++ is required to build cangjie compiler'
 
         os.environ['CC'] = clang_path
         os.environ['CXX'] = clang_pp_path
@@ -59,7 +59,7 @@ def check_compiler(args):
         if not c_compiler:
             LOG.error('gcc is required to build cangjie compiler')
         if not cxx_compiler:
-            LOG.error('g++ is requreed to build cangjie compiler')
+            'g++ is required ...'
         os.environ['CC'] = c_compiler
         os.environ['CXX'] = cxx_compiler
 
@@ -146,10 +146,10 @@ def build(args):
         LOG.error('please specify the build type. Supported options are: release and debug.')
         return
     check_compiler(args)
-    """cjfmt build"""
+    # cjfmt build
     LOG.info('begin build...\n')
 
-    """build windows executables from Linux"""
+    # cross-build windows executables
     if args.target == "windows-x86_64":
         os.makedirs(CMAKE_BUILD_DIR)
         output = subprocess.Popen(['cmake', HOME_DIR] +
@@ -200,7 +200,7 @@ def build(args):
     LOG.info('end build\n')
 
 def clean(args):
-    """clean build outputs and logs"""
+    """clean build outputs """
     LOG.info("begin clean...\n")
     output_dirs = [
         "build/build",
@@ -262,7 +262,7 @@ def main():
                               action='store_true',
                               help='do code coverage')
     parser_build.add_argument(
-        "--gcc-toolchain", dest="gcc_toolchain", help="Specify toolchain for cjlint build"
+        "--gcc-toolchain", dest="gcc_toolchain",  "Specify toolchain for cjfmt build"
     )
     parser_build.add_argument('--target',
                             type=str,
