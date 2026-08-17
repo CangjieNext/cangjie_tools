@@ -1,0 +1,7 @@
+{"caseFolder":"normalTest/UnicodeInterpolatedString", "id":"9"}
+{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"processId":null,"rootPath":"d:\\cangjiePro\\UnicodeInterpolatedString","rootUri":"file:///d%3A/cangjiePro/UnicodeInterpolatedString","capabilities":{"textDocument":{"rename":{"prepareSupport":true}}}}}
+{"jsonrpc":"2.0","method":"initialized","params":{}}
+{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file:///d%3A/cangjiePro/UnicodeInterpolatedString/src/main.cj","languageId":"Cangjie","version":1,"text":"main(): Int64 {\n    var 扒拉咕嘎 = \"11111\"\n    println(\"${扒拉咕嘎}\")\n    println(\"prefix${扒拉咕嘎}suffix\")\n    println(\"中文${扒拉咕嘎}尾\")\n    println(\"😀${扒拉咕嘎}\")\n    println(\"${扒拉咕嘎}-${扒拉咕嘎}\")\n    println(\"${扒拉咕嘎 + 扒拉咕嘎}\")\n    return 0\n}\n"}}}
+{"jsonrpc":"2.0","id":9,"method":"textDocument/rename","params":{"textDocument":{"uri":"file:///d%3A/cangjiePro/UnicodeInterpolatedString/src/main.cj"},"position":{"line":1,"character":10},"newName":"扒拉咕嘎嘎嘎"}}
+{"jsonrpc":"2.0","id":4,"method":"shutdown","params":{}}
+{"jsonrpc":"2.0","method":"exit","params":{}}
