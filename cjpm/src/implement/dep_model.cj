@@ -102,7 +102,8 @@ class DepModel {
         return
     }
 
-    public func resolve(path: String, locked: HashMap<String, DepInfo>, isScriptDep: Bool): BuildCheckResult {
+    public func resolve(path: String, locked: HashMap<String, DepInfo>, isScriptDep: Bool,
+        rootTomlInfo!: ?TomlInfo = None): BuildCheckResult {
         // initialize dep-analysis engine
         this.depAnalysisEngine.isTest = this.globalConfig.isTest
         this.depAnalysisEngine.isDebug = this.globalConfig.isDebug
@@ -117,7 +118,7 @@ class DepModel {
         if (!COMMON_INFO.inWorkspace) {
             this.globalConfig.modulePath = this.globalConfig.rootPath
             this.lockedMap = locked
-            if (this.depCheck(path, "", "", None) == FAILED_BUILD_CHECK_RESULT) {
+            if (this.depCheck(path, "", "", None, rootTomlInfo: rootTomlInfo) == FAILED_BUILD_CHECK_RESULT) {
                 return FAILED_BUILD_CHECK_RESULT
             }
         } else {
@@ -269,14 +270,16 @@ class DepModel {
         return true
     }
 
-    func depCheck(path: String, preName: String, prePath: String, requires: ?DepInfo): BuildCheckResult {
+    func depCheck(path: String, preName: String, prePath: String, requires: ?DepInfo,
+        rootTomlInfo!: ?TomlInfo = None): BuildCheckResult {
         // Check the path exists.
         if (!directoryExists(path)) {
             eprintln("Error: the path '${path}' does not exist")
             return FAILED_BUILD_CHECK_RESULT
         }
 
-        let (tomlInfo, curModulePath) = this.getTomlAndPath(path, preName, requires) ??
+        let (tomlInfo, curModulePath) = this.getTomlAndPath(path, preName, requires,
+            rootTomlInfo: rootTomlInfo) ??
             return FAILED_BUILD_CHECK_RESULT
         if (!tomlInfo.pkg.organization.isEmpty()) {
             tomlInfo.pkg.name = tomlInfo.pkg.organization + "::" + tomlInfo.pkg.name
@@ -398,8 +401,19 @@ class DepModel {
         return true
     }
 
-    func getTomlAndPath(path: String, preName: String, requires: ?DepInfo): Option<(TomlInfo, String)> {
-        var tomlInfo = loadModuleFile(path) ?? return Option.None
+    func getTomlAndPath(path: String, preName: String, requires: ?DepInfo,
+        rootTomlInfo!: ?TomlInfo = None): Option<(TomlInfo, String)> {
+        var tomlInfo: TomlInfo
+        match (rootTomlInfo) {
+            case Some(info) =>
+                // Reuse only the top-level non-dependency config; workspace members and dependencies load their own files.
+                if (requires.isNone() && getCanonicalPath(path) == getCanonicalPath(this.globalConfig.rootPath)) {
+                    tomlInfo = info
+                } else {
+                    tomlInfo = loadModuleFile(path) ?? return Option.None
+                }
+            case None => tomlInfo = loadModuleFile(path) ?? return Option.None
+        }
         var curModulePath: String = path
 
         if (let Some(depInfo) <- requires) {
