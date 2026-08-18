@@ -14,6 +14,15 @@ import cjpm.toml.Decoder as DecoderToml
 import cjpm.toml.Encoder as EncoderToml
 
 let MODULE_LOCK_VERSION: UInt64 = 0
+// Bound input before allocating or retaining structures proportional to the lock file.
+const MAX_LOCK_FILE_SIZE: Int64 = 64 * 1024 * 1024
+const MAX_LOCK_ENTRY_COUNT: Int64 = 100000
+// Non-canonical TOML is supported only for small legacy or hand-written files.
+const GENERIC_LOCK_FALLBACK_SIZE: Int64 = 1024 * 1024
+// Canonical lock entries are single-line inline tables.
+const MAX_LOCK_LINE_SIZE: Int64 = 1024 * 1024
+// Keep temporary read buffers small while filling the exact-size destination array.
+const LOCK_READ_BUFFER_SIZE: Int64 = 8 * 1024
 
 // lock file model
 public class ModuleLock <: Serializable<ModuleLock> {
@@ -70,6 +79,159 @@ public class ModuleLock <: Serializable<ModuleLock> {
     }
 }
 
+// Reads one physical line without retaining the complete lock file as strings.
+class LockLineReader {
+    let data: Array<Byte>
+    var pos: Int64 = 0
+
+    init(data: Array<Byte>) {
+        this.data = data
+        if (data.size >= 3 && data[0] == 0xEF && data[1] == 0xBB && data[2] == 0xBF) {
+            this.pos = 3
+        }
+    }
+
+    func nextLine(): Option<String> {
+        if (pos >= data.size) {
+            return Option.None
+        }
+        let start = pos
+        while (pos < data.size && data[pos] != b'\n') {
+            pos++
+        }
+        var end = pos
+        if (end > start && data[end - 1] == b'\r') {
+            end--
+        }
+        // A canonical dependency occupies one line; cap its temporary String and parser allocations.
+        if (end - start > MAX_LOCK_LINE_SIZE) {
+            throw Exception("a line in '${LOCK_FILE_NAME}' exceeds ${MAX_LOCK_LINE_SIZE} bytes")
+        }
+        if (pos < data.size) {
+            pos++
+        }
+        return String.fromUtf8(data[start..end])
+    }
+}
+
+// Decodes the canonical format emitted by Encoder without building a TOML AST for the whole file.
+// Each dependency line uses the normal TOML parser, then its temporary model is discarded.
+func decodeCanonicalLock(data: Array<Byte>): ModuleLock {
+    let reader = LockLineReader(data)
+    let requires = HashMap<String, DepInfo>()
+    let scripts = HashMap<String, DepInfo>()
+    var section = ""
+    var hasVersion = false
+    var hasRequires = false
+    var hasScripts = false
+    var entryCount: Int64 = 0
+
+    while (let Some(line) <- reader.nextLine()) {
+        var trimmed = line.trimAscii()
+        if (trimmed.isEmpty() || trimmed.startsWith("#")) {
+            continue
+        }
+        if (trimmed == "[requires]" || trimmed == "[scripts]") {
+            if (!hasVersion) {
+                throw Exception("missing 'version = 0' before '${trimmed}' in ${LOCK_FILE_NAME}")
+            }
+            if (trimmed == "[requires]") {
+                if (hasRequires) {
+                    throw Exception("duplicate '[requires]' table in ${LOCK_FILE_NAME}")
+                }
+                hasRequires = true
+            } else {
+                if (hasScripts) {
+                    throw Exception("duplicate '[scripts]' table in ${LOCK_FILE_NAME}")
+                }
+                hasScripts = true
+            }
+            section = trimmed
+            continue
+        }
+
+        if (trimmed.startsWith("[[")) {
+            throw Exception("unsupported array table in ${LOCK_FILE_NAME}; expected [requires] or [scripts]")
+        }
+        if (trimmed.startsWith("[")) {
+            throw Exception("unsupported table '${trimmed}' in ${LOCK_FILE_NAME}")
+        }
+
+        if (section.isEmpty()) {
+            let parts = trimmed.split("=")
+            if (parts.size != 2 || parts[0].trimAscii() != "version" || parts[1].trimAscii() != "0") {
+                throw Exception("invalid top-level field in ${LOCK_FILE_NAME}; expected 'version = 0'")
+            }
+            if (hasVersion) {
+                throw Exception("duplicate 'version' field in ${LOCK_FILE_NAME}")
+            }
+            hasVersion = true
+            continue
+        }
+
+        if (entryCount >= MAX_LOCK_ENTRY_COUNT) {
+            throw Exception("${LOCK_FILE_NAME} contains too many dependency entries")
+        }
+        let entry = DecoderToml(line.toArray()).decode()
+        var found = false
+        for ((name, value) in entry.value) {
+            if (found) {
+                throw Exception("a lock entry must contain exactly one dependency")
+            }
+            let depInfo = DepInfo.deserialize(DataModel.fromToml(value))
+            if (section == "[requires]") {
+                if (requires.contains(name)) {
+                    throw Exception("duplicate dependency '${name}' in '[requires]'")
+                }
+                requires.add(name, depInfo)
+            } else {
+                if (scripts.contains(name)) {
+                    throw Exception("duplicate dependency '${name}' in '[scripts]'")
+                }
+                scripts.add(name, depInfo)
+            }
+            found = true
+        }
+        if (!found) {
+            throw Exception("empty dependency entry in ${LOCK_FILE_NAME}")
+        }
+        entryCount++
+    }
+
+    if (!hasVersion) {
+        throw Exception("missing 'version = 0' in ${LOCK_FILE_NAME}")
+    }
+    if (!hasRequires) {
+        throw Exception("missing '[requires]' table in ${LOCK_FILE_NAME}")
+    }
+    let result = ModuleLock()
+    result.requires = requires
+    result.scripts = scripts
+    return result
+}
+
+// The file size is checked before allocation; bounded chunks also handle streams that return short reads.
+func readLockFile(file: File, fileSize: Int64): Array<Byte> {
+    let data = Array<Byte>(fileSize, repeat: 0)
+    let buffer = Array<Byte>(LOCK_READ_BUFFER_SIZE, repeat: 0)
+    var offset: Int64 = 0
+    while (offset < fileSize) {
+        let readSize = file.read(buffer)
+        if (readSize <= 0) {
+            throw Exception("unexpected end of '${LOCK_FILE_NAME}'")
+        }
+        let remaining = fileSize - offset
+        if (readSize > remaining) {
+            throw Exception("'${LOCK_FILE_NAME}' changed while being read")
+        }
+        for (i in 0..readSize) {
+            data[offset + i] = buffer[i]
+        }
+        offset += readSize
+    }
+    return data
+}
+
 public func loadLockFile(rootPath: String): (Bool, ModuleLock) {
     var res = ModuleLock()
     var lockFile: String = Path(rootPath).join(LOCK_FILE_NAME).toString()
@@ -79,11 +241,32 @@ public func loadLockFile(rootPath: String): (Bool, ModuleLock) {
         return (true, res)
     }
 
+    var data = Array<Byte>()
+    try (file = File(lockFile, Read)) {
+        let fileSize: Int64 = file.info.size
+        if (fileSize > MAX_LOCK_FILE_SIZE) {
+            throw Exception("'${LOCK_FILE_NAME}' exceeds the maximum supported size of ${MAX_LOCK_FILE_SIZE} bytes")
+        }
+        data = readLockFile(file, fileSize)
+    } catch (e: Exception) {
+        eprintln("Error: ${e.message}")
+        eprintln("Error: parse the '${LOCK_FILE_NAME}' file failed")
+        return (false, res)
+    }
+
     try {
-        let de = DecoderToml(File.readFrom(lockFile))
-        let to = de.decode()
-        res = ModuleLock.deserialize(DataModel.fromToml(to))
-    } catch (_: Exception) {
+        res = decodeCanonicalLock(data)
+    } catch (e: Exception) {
+        // Keep compatibility with small hand-written lock files that use equivalent TOML nesting.
+        if (data.size <= GENERIC_LOCK_FALLBACK_SIZE) {
+            try {
+                res = ModuleLock.deserialize(DataModel.fromToml(DecoderToml(data).decode()))
+                return (true, res)
+            } catch (_) {
+                ()
+            }
+        }
+        eprintln("Error: ${e.message}")
         eprintln("Error: parse the '${LOCK_FILE_NAME}' file failed")
         return (false, res)
     }
