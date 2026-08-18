@@ -9,15 +9,21 @@ package cjpm.toml
 import std.io.*
 
 public class Decoder {
-    let r: InputStream
+    let data: Array<Byte>
 
     public init(r: InputStream) {
-        this.r = r
+        // Preserve the stream-based API while keeping the parser's input representation as bytes.
+        let buffer = ByteBuffer()
+        copy(r, to: buffer)
+        this.data = buffer.bytes()
+    }
+
+    public init(data: Array<Byte>) {
+        // Callers that already have bytes can avoid StringReader and String.toArray conversions.
+        this.data = data
     }
 
     public func decode(): TomlObject {
-        let sr = StringReader(r)
-        let data = sr.readToEnd()
         let p = parse(data)
         return p.mapping
     }

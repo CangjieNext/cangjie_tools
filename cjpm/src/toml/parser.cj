@@ -56,18 +56,24 @@ public struct KeyInfo {
 }
 
 public func parse(data: String): Parser {
-    var buf = data.toArray()
+    // Keep the public String entry point for existing callers.
+    return parse(data.toArray())
+}
 
-    // exclude utf-8 bom
-    if (buf[0..3] == [0xEF, 0xBB, 0xBF]) {
-        buf = buf[3..]
+public func parse(data: Array<Byte>): Parser {
+    // Parse the original byte array in place so large inputs are not duplicated as Strings.
+    var contentOffset: Int64 = 0
+
+    // Keep the BOM in the backing array and skip it through the lexer offset.
+    if (data.size >= 3 && data[0] == 0xEF && data[1] == 0xBB && data[2] == 0xBF) {
+        contentOffset = 3
     }
-    match (buf.indexOf(0)) {
-        case None => ()
-        case Some(idx) => throw Exception(
-            "files cannot contain NULL bytes; probably using UTF-16; TOML files must be UTF-8")
+    for (i in contentOffset..data.size) {
+        if (data[i] == 0) {
+            throw Exception("files cannot contain NULL bytes; probably using UTF-16; TOML files must be UTF-8")
+        }
     }
-    let lex = Lexer(buf)
+    let lex = Lexer(data, contentOffset)
     let p = Parser(lex)
     while (true) {
         let item = p.next()
