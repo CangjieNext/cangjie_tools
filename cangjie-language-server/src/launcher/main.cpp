@@ -70,7 +70,7 @@ ark::Environment StringifyEnvironmentPointer(const char *envp[])
 void WriteVersionInfo(const std::string &validFile)
 {
     std::ofstream versionInfo;
-    versionInfo.open(validFile);
+    versionInfo.open(ark::FileStore::NormalizePath(validFile));
     if (!versionInfo.is_open()) {
         Trace::Log("Create index version file failed");
     }
@@ -103,6 +103,7 @@ void ConfigByOptions(ark::Options &opts, std::string& cachePath) {
 
 int main(int argc, const char *argv[], const char *envp[])
 {
+    sleep(20);
     ark::Environment environment = StringifyEnvironmentPointer(envp);
     ark::Options &opts = ark::Options::GetInstance();
     opts.Parse(argc, argv);

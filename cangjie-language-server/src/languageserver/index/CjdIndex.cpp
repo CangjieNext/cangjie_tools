@@ -6,6 +6,7 @@
 
 #include <fstream>
 #include "CjdIndex.h"
+#include "../common/FileStore.h"
 
 namespace Cangjie {
 // LCOV_EXCL_START
@@ -176,6 +177,19 @@ CommentGroups CjdIndexer::GetSymbolComments(SymbolID id, const std::string& full
     }
     return comments;
 }
+
+std::string CjdIndexer::GetSymbolSignature(SymbolID id, const std::string& fullPkgName)
+{
+    std::lock_guard<std::mutex> lock(mtx);
+    if (auto found = pkgSymsMap.find(fullPkgName); found != pkgSymsMap.end()) {
+        for (const auto &sym : found->second) {
+            if (sym.id == id) {
+                return sym.signature;
+            }
+        }
+    }
+    return "";
+}
 // LCOV_EXCL_START
 void CjdIndexer::ReadCJDSource(const std::string &rootPath, const std::string &modulePath,
                                std::map<int, std::vector<std::string>> &fileMap, const std::string &parentPkg)
@@ -330,7 +344,7 @@ void CjdIndexer::GenerateValidFile()
 {
     Trace::Log("Generate Cjd Index Valid Files Start");
     std::ofstream validFile;
-    validFile.open(Normalize(JoinPath(cjdCachePath, "valid.txt")));
+    validFile.open(FileStore::NormalizePath(JoinPath(cjdCachePath, "valid.txt")));
     if (!validFile.is_open()) {
         Trace::Log("Create cjd index files valid file failed");
     }
