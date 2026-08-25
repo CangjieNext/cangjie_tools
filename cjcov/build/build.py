@@ -62,6 +62,15 @@ def build(build_type, target, rpath=None):
             RPATH_SET_OPTION = f"--link-options=\"-rpath {rpath}\""
         elif IS_LINUX:
             RPATH_SET_OPTION = f"--link-options=\"--disable-new-dtags -rpath={rpath}\""
+    elif IS_MACOS:
+        # Fix #662: macOS 下默认把仓颉运行时动态库目录写入 rpath，避免必须配置 DYLD_LIBRARY_PATH 才能运行
+        _arch = platform.machine().lower()
+        if _arch == "arm64":
+            _arch = "aarch64"
+        _default_rpath = os.path.join(os.environ["CANGJIE_HOME"], "runtime", "lib", f"darwin_{_arch}_cjnative")
+        if not os.path.isdir(_default_rpath):
+            _default_rpath = os.path.join(os.environ["CANGJIE_HOME"], "runtime", "lib")
+        RPATH_SET_OPTION = f"--link-options=\"-rpath {_default_rpath}\""
 
     # Set common compile option
     DEBUG_MODE = ""
