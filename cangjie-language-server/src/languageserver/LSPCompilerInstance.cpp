@@ -405,6 +405,11 @@ bool LSPCompilerInstance::CompileAfterParse(
     if (!ark::CompilerCangjieProject::GetInstance()->isIdentical) {
         return false;
     }
+    const std::string moduleName = GetCurrentModuleName();
+    if (moduleManger && moduleManger->HasModuleNameConflict(moduleName)) {
+        Trace::Log("Skip semantic compilation for module with name conflict: ", moduleName);
+        return false;
+    }
     macroExpandSuccess = MacroExpand();
     (void)Sema();
     (void)ExecuteCompilerApi("DeleteASTLoaders", &ImportManager::DeleteASTLoaders, *this->importManager);
