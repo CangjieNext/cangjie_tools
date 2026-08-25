@@ -1186,15 +1186,16 @@ src
 `-- demo
 ```
 
-`combine-all-deps = true` 配置后，可以开启工程级别的编译产物合并。该配置仅在以下条件下生效：
+`combine-all-deps = true` 配置后，可以开启工程级别的编译产物合并。该配置是工程级 `lto-combine` 的开关，相关概念和配置组合请参考 [编译优化与编译产物合一](#编译优化与编译产物合一)。该配置仅在以下条件下生效：
 
-- 开启模块级动态库合并 `profile.build.combined` 和 `LTO` 编译优化 `profile.build.lto` （参考 [`profile.build` 字段](#profilebuild)）；
+- 开启模块级产物合并 `profile.build.combined` 和 `LTO` 编译优化 `profile.build.lto` （参考 [`profile.build` 字段](#profilebuild)）；
 - 配置的模块为当前执行的 `cjpm build` 命令对应的模块，并且配置的包为该模块的 `root` 包。配置在当前模块的非 `root` 包中，或配置在被依赖的模块中的该字段将被忽略。
 
 在满足上述配置条件后，该模块会按照如下方式编译：
 
-- 除该模块 `root` 包以外的所有包（该模块下的所有子包，以及该模块直接、间接依赖的其他模块的包含 `root` 包的所有包），会以 `LTO` 优化编译模式编译成 `.bc` 文件；
-- 该模块的 `root` 包会被编译成动态库，并且链入上述所有 `.bc` 文件，无论对应的包是否被该 `root` 包导入。
+- 除当前构建模块的 `root` 包以外，参与本次构建的所有源码包都会以 `LTO` 优化编译模式生成对应的 `.bc` 文件。这些源码包包括当前模块的所有子包，以及当前模块直接、间接依赖的源码模块的 `root` 包和子包；宏包、测试包和仅提供二进制产物的依赖不会生成此类 `.bc` 文件；
+- 非 iOS 平台，该模块的 `root` 包会将这些源码包生成的 `.bc` 文件全部作为链接输入，并输出动态库，即使这些包未被该 `root` 包显式导入；
+- iOS 平台，该模块的 `root` 包会将这些源码包生成的 `.bc` 文件全部作为链接输入，并输出静态库（`.a`）。
 
 ### "include", "exclude"
 
@@ -1560,22 +1561,24 @@ hello = { path = "./src/" }
 
 ```text
 [profile.build]
-lto = "full"  # 是否开启 `LTO` （Link Time Optimization 链接时优化）优化编译模式，该功能仅支持目标平台为 `Linux/OpenHarmony/Android/iOS` 平台, 效果同 `[profile.build.lto]` 的 `level` 配置项。后续该字符串类型配置项将被废除，请使用配置项 `[profile.build.lto]` 的 `level` 配置项开启LTO功能
+lto = "full"  # 是否开启 `LTO` （Link Time Optimization 链接时优化）优化编译模式，效果同 `[profile.build.lto]` 的 `level` 配置项。后续该字符串类型配置项将被废除，请使用配置项 `[profile.build.lto]` 的 `level` 配置项开启LTO功能
 performance_analysis = true # 开启编译性能分析功能
 incremental = true # 是否默认开启增量编译
 compile-pipeline-parallel = true # 是否开启流水并行编译优化
 
 [profile.build.lto]
-level = "full" # 是否开启 `LTO` （Link Time Optimization 链接时优化）优化编译模式，该功能仅支持目标平台为 `Linux/OpenHarmony/Android/iOS` 平台
+level = "full" # 是否开启 `LTO` （Link Time Optimization 链接时优化）优化编译模式。
 keep-pkg-visibility = ["pkgA", "pkgB", ...] # 用于在LTO场景控制包中的符号可见性是否隐藏
 
 [profile.build.combined]
-demo = "dynamic" # 将模块整体编译成一个动态库文件，key 值为模块名
+demo = "dynamic" # 非 iOS 平台将模块整体编译成动态库；iOS 平台需配置为 "static"
 ```
 
 编译流程的控制项，所有字段均可缺省，不配置时不生效，顶层模块设置的 `profile.build` 项才会生效。
 
 `lto` / `level` 配置项的取值为 `full` 或 `thin`，对应 `LTO` 优化支持的两种编译模式：`full LTO` 将所有编译模块合并到一起，在全局上进行优化，这种方式可以获得最大的优化潜力，同时也需要更长的编译时间；`thin LTO` 在多模块上使用并行优化，同时默认支持链接时增量编译，编译时间比 `full LTO` 短，但是因为失去了更多的全局信息，所以优化效果不如 `full LTO`。
+
+`lto` 的配置组合请参考 [编译优化与编译产物合一](#编译优化与编译产物合一)。
 
 `keep-pkg-visibility` 配置项为字符串数组结构，仅在 `LTO` 开启后合法，否则会发出报错。`LTO` 开启后，`keep-pkg-visibility` 有三种配置情况：
 
@@ -1610,10 +1613,11 @@ demo
 >     - 开启 `LTO` 优化编译模式后， `compile-pipeline-parallel` 选项不会生效；
 >     - `compile-pipeline-parallel` 选项仅支持 `Linux/macOS/Windows` 平台。
 
-`combined` 配置项是一个键值对，其中键为模块名，即 `package.name`，值为 `dynamic`。配置该配置项之前，该模块会根据 `package.output-type` 配置将各个包编译成独立的动态库或静态库文件；配置后，该模块的编译方式改为：
+`combined` 配置项是一个键值对，其中键为模块名，即 `package.name`。非 iOS 平台的值为 `dynamic`；iOS 平台使用 `lto-combine` 时值必须为 `static`。配置该配置项之前，该模块会根据 `package.output-type` 配置将各个包编译成独立的动态库或静态库文件；配置后，该模块的编译方式改为：
 
-- 模块内除 `root` 包以外的子包以静态库形式编译；
-- `root` 包以动态库形式编译，并且链接所有子包的静态库，无论子包是否被 `root` 包依赖。其他模块以二进制依赖形式依赖该动态库时，可以使用所有子包内的符号。
+- 非 iOS 平台，模块内除 `root` 包以外的子包以静态库形式编译；
+- 非 iOS 平台的 `root` 包以动态库形式编译，并且链接所有子包的静态库，无论子包是否被 `root` 包依赖。其他模块以二进制依赖形式依赖该动态库时，可以使用所有子包内的符号；
+- iOS 平台的 `root` 包以静态库（`.a`）形式编译，并且通过 LTO 合并所有子包的中间产物。
 
 例如，假设模块 `demo` 的结构如下：
 
@@ -1653,17 +1657,41 @@ demo = "dynamic"
 
 > **注意：**
 >
-> - 在应用此配置时，编译 `root` 包动态库需要使用其所有子包的静态库，因此需要保证 `root` 包不被其子包直接或间接导入。
+> - 在应用此配置时，编译 `root` 包需要使用其所有子包，因此需要保证 `root` 包不被其子包直接或间接导入。
 > - 目前 `profile.build.combined` 配置项为实验特性，暂不稳定，开发者若想启用该配置，需要注意如下限制：
 >     - 非工作空间场景下，模块配置了该字段后，其所有直接和间接依赖的源码模块会自动被视为也配置了该字段，无需手动逐个配置；若模块未配置该字段，则 `combined` 整体不生效，某个依赖模块配置了该字段也不会生效；
 >     - 工作空间场景下，当前实际参与编译的所有工作空间成员都配置了该字段后，这些成员所有直接和间接依赖的源码模块才会自动被视为也配置了该字段；若有成员未配置，则 `combined` 整体不生效；
 >     - 构建脚本依赖的源码模块中，若配置了 `profile.build.combined`，不会生效；
->     - `profile.build.combined` 选项仅支持 `Linux/OpenHarmonyOS/Windows` 平台。
 
 若启用了 `combined` 配置，可能会出现无法通过导入关系识别的循环依赖，导致出现 `cyclic dependency` 循环依赖报错，解决方式如下：
 
 - 若报错信息中包含形如 `because of combined module 'demo'` 的报错，说明模块 `demo` 被配置成了 `combined` 模块，并且存在 `demo` 的子包直接或间接依赖 `demo` 包的情况，开发者可以查找并删去该模块子包中存在的对 `root` 包的导入，或者直接去除 `combined` 配置，从而解决此类循环依赖；
 - 若报错信息中包含形如 `between combined modules` 的报错，说明该条目中两个 `root` 包对应模块都被配置成了 `combined` 模块，且存在模块间（包括子包之间）的相互依赖，开发者可以查找并删去其中一个 `combined` 模块对另一个 `combined` 模块的包导入，或者直接去除两个模块的 `combined` 配置，从而解决此类循环依赖。
+
+##### 编译优化与编译产物合一
+
+这三个概念分别表示优化方式、模块产物合并配置和由两者组合形成的构建模式：
+
+- `LTO`：链接时优化。开启后，`cjpm` 会使用 `full` 或 `thin` 模式进行跨模块优化，但不会因此自动将整个工程输出为一个库。
+- `combine`：由 `[profile.build.combined]` 开启的模块级产物合并。在支持单独使用 `combine` 的非 iOS 平台，子包先生成静态库，再由 `root` 包链接这些子包；在 iOS平台下，`combine` 必须与 LTO 组合使用。
+- `lto-combine`：`LTO` 与 `combine` 同时开启后的构建模式，不是单独的配置项。
+  - 模块级 `lto-combine`：由 `[profile.build.lto]` 和 `[profile.build.combined]` 共同开启。
+  - 工程级 `lto-combine`：在模块级 `lto-combine` 的基础上，为当前模块的 `root` 包配置 `combine-all-deps = true`，将当前工程及其直接、间接源码依赖一起合并。
+
+不同平台下各配置组合的构建结果如下：
+
+| 平台 | 配置组合 | 构建模式 | `root` 包产物 | 其他包或依赖产物 |
+| :-- | :-- | :-- | :-- | :-- |
+| `Linux/OpenHarmony/Android/iOS` | 仅配置 `profile.build.lto` | LTO | 按 `package.output-type` 生成 | 各包分别编译，并使用 LTO 优化 |
+| `Linux/OpenHarmony/Android/Windows` | 仅配置 `profile.build.combined` | 模块级 `combine` | 动态库 | 子包编译为静态库并链接进 `root` 包 |
+| `Linux/OpenHarmony/Android` | 同时配置 `profile.build.lto` 和 `profile.build.combined` | 模块级 `lto-combine` | 动态库 | 所有子包先生成 LTO 中间产物，再由 `root` 包合并 |
+| `iOS` | 同时配置 `profile.build.lto` 和 `profile.build.combined` | 模块级 `lto-combine` | 静态库 | 所有子包先生成 LTO 中间产物，再由 `root` 包合并 |
+| `Linux/OpenHarmony/Android` | 追加 `combine-all-deps = true` | 工程级 `lto-combine` | 动态库 | 将当前构建图中除当前模块 `root` 包外的源码包生成的 `.bc` 文件全部合并 |
+| `iOS` | 追加 `combine-all-deps = true` | 工程级 `lto-combine` | 静态库 | 将当前构建图中除当前模块 `root` 包外的源码包生成的 `.bc` 文件全部合并 |
+
+> **注意：**
+>
+> iOS 平台不支持单独使用 `Combine`。在 iOS 平台使用模块级或工程级 `LTO-Combine` 时，`profile.build.combined` 中入口模块的值必须配置为 `static`。
 
 #### "profile.test"
 
