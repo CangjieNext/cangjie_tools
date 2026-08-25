@@ -6,6 +6,7 @@
 
 #include "HoverImpl.h"
 #include "../definition/LocateDefinition4Import.h"
+#include "../../index/CjdIndex.h"
 #include "cangjie/Lex/Token.h"
 
 namespace {
@@ -472,6 +473,18 @@ std::string HoverImpl::GetDeclApiKey(const Ptr<Decl> &decl)
         }
         if (!decl->outerDecl->identifier.Val().empty()) {
             apiKey += ".";
+        }
+    }
+    if (auto cjdIndexer = lsp::CjdIndexer::GetInstance()) {
+        auto cjdSignature = cjdIndexer->GetSymbolSignature(GetDeclSymbolID(*decl), decl->fullPackageName);
+        if (!cjdSignature.empty()) {
+            if (decl->outerDecl && !apiKey.empty() && apiKey.back() == '.') {
+                apiKey.back() = '/';
+            }
+            if (DynamicCast<FuncDecl>(decl)) {
+                cjdSignature = "func " + cjdSignature;
+            }
+            return apiKey + cjdSignature + "\r\n";
         }
     }
     std::string signature;

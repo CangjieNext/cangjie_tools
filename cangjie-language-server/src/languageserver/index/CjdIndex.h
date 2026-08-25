@@ -91,6 +91,8 @@ public:
 
     CommentGroups GetSymbolComments(SymbolID id, const std::string& fullPkgName);
 
+    std::string GetSymbolSignature(SymbolID id, const std::string& fullPkgName);
+
     std::unordered_map<std::string, std::unique_ptr<DPkgInfo>> &GetPkgMap()
     {
         return pkgMap;
