@@ -7,9 +7,12 @@
 #include "UnusedSymbolDiag.h"
 #include "../../common/FindDeclUsage.h"
 #include "../../common/Utils.h"
+#include "cangjie/AST/AttributePack.h"
 #include "cangjie/AST/Node.h"
 #include "cangjie/AST/Walker.h"
 #include <chrono>
+
+#include "cangjie/AST/PrintNode.h"
 
 namespace ark {
 using namespace Cangjie;
@@ -589,7 +592,7 @@ static VisitAction CollectUnusedLocalDiags(
     const UsageSets& usage)
 {
     auto decl = DynamicCast<Decl*>(node);
-    if (!decl) {
+    if (!decl || decl->TestAttr(Attribute::IMPLICIT_ADD)) {
         return VisitAction::WALK_CHILDREN;
     }
 
@@ -723,6 +726,8 @@ std::vector<DiagnosticToken> UnusedSymbolDiag::AnalyzeLocalSymbols(
     if (!file.curPackage) {
         return diagnostics;
     }
+
+    PrintNode(&file, 4, "############", Logger::Instance().outToFile);
 
     // Phase 1: single package-wide walk to build usage sets.
     // Replaces O(D) nested FindDeclUsage walks (each scanning the whole
