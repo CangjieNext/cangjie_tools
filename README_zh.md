@@ -80,7 +80,7 @@
     └── src              # 源码
 ```
 
-工具使用说明统一由 `cangjie_docs` 仓维护，请参阅：
+若想获取工具的详细信息，请参阅以下用户指南：
 
 - [`cjpm` 用户手册](https://gitcode.com/Cangjie/cangjie_docs/blob/main/docs/tools/source_zh_cn/cmd-tools/cjpm_manual.md)
 - [`cjprof` 用户手册](https://gitcode.com/Cangjie/cangjie_docs/blob/main/docs/tools/source_zh_cn/cmd-tools/cjprof_manual.md)

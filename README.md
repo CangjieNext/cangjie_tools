@@ -80,7 +80,7 @@ Cangjie Language CLI Toolchain currently supports the following platforms: Windo
     └── src              # source code
 ```
 
-For usage details, refer to the user manuals maintained in the `cangjie_docs` repository:
+For detailed information about the tools, refer to the following user guides:
 
 - [`cjpm` User Manual](https://gitcode.com/Cangjie/cangjie_docs/blob/main/docs/tools/source_en/cmd-tools/cjpm_manual.md)
 - [`cjprof` User Manual](https://gitcode.com/Cangjie/cangjie_docs/blob/main/docs/tools/source_en/cmd-tools/cjprof_manual.md)
