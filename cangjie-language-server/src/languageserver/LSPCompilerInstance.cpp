@@ -502,6 +502,7 @@ void LSPCompilerInstance::ReadCjoFileOneModule(const std::string &modulePath)
         }
         std::vector<uint8_t> tmpAST;
         std::string failedReason;
+        Trace::Log("read cjo:", cjoPath);
         if (ReadBinaryFileToBuffer(cjoPath, tmpAST, failedReason)) {
             packageName = GetFileNameWithoutExtension(file);
             (void)cjoFileCacheMap.emplace(packageName, tmpAST);
@@ -523,6 +524,7 @@ void LSPCompilerInstance::ReadCjoFileOneModuleExternal(const std::string &module
         }
         std::vector<uint8_t> tmpAST;
         std::string failedReason;
+        Trace::Log("read cjo:", cjoPath);
         if (ReadBinaryFileToBuffer(cjoPath, tmpAST, failedReason)) {
             packageName = GetFileNameWithoutExtension(file);
             (void)cjoFileCacheMap.emplace(packageName, tmpAST);
@@ -569,6 +571,7 @@ void LSPCompilerInstance::UpdateUsrCjoFileCacheMap(
         } else {
             std::vector<uint8_t> tmpAST;
             std::string failedReason;
+            Trace::Log("read cjo require:", requireCjoPath);
             if (ReadBinaryFileToBuffer(requireCjoPath, tmpAST, failedReason)) {
                 bytesRef = std::make_shared<const std::vector<uint8_t>>(std::move(tmpAST));
                 cjoBytesByPath.emplace(requireCjoPath, bytesRef);
