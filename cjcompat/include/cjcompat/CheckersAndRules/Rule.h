@@ -9,9 +9,6 @@
 
 #include <string>
 
-#include "cjcompat/Diff/Diff.h"
-#include "cjcompat/Dsl/Dsl.h"
-
 enum class RuleKind : size_t {
 #define RULEKIND(ID, IS_API, IS_ABI, DESCRIPTION) ID,
 #include "cjcompat/CheckersAndRules/RulesList.inc"
