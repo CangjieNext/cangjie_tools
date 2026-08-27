@@ -8,6 +8,7 @@
 #include "ItemResolverUtil.h"
 #include "cangjie/Basic/Version.h"
 #include "cangjie/Basic/StringConvertor.h"
+#include "cangjie/Utils/Unicode.h"
 #include "Inherit/InheritDeclUtil.h"
 #include "../CompilerCangjieProject.h"
 
@@ -452,18 +453,48 @@ void SetRangForInterpolatedStrInRename(const Cangjie::Token &curToken, Ptr<const
     if (index == -1) {
         return;
     }
-    int start = index;
-    int end = index;
-    while (start > 0 && (std::iswalnum(nodeStr[start - 1]) || nodeStr[start - 1] == L'_')) {
-        start--;
+
+    struct CodePointRange {
+        int start;
+        int end;
+        Cangjie::Unicode::UTF32 codePoint;
+    };
+    std::vector<CodePointRange> codePoints;
+    int byteOffset = 0;
+    for (const auto codePoint : UTF8ToChar32(nodeStr)) {
+        int byteLength = static_cast<int>(Char32ToUTF8(std::u32string{codePoint}).size());
+        codePoints.push_back({byteOffset, byteOffset + byteLength, codePoint});
+        byteOffset += byteLength;
     }
-    while (end < static_cast<int>(nodeStr.length()) && (std::iswalnum(nodeStr[end]) || nodeStr[end] == L'_')) {
-        end++;
+    auto current = codePoints.end();
+    for (auto it = codePoints.begin(); it != codePoints.end(); ++it) {
+        if (it->start <= index && index < it->end) {
+            current = it;
+            break;
+        }
     }
-    std::string identifier = nodeStr.substr(start, end - start);
-    if (IsValidIdentifier(identifier) && (pos.column - (index - start) > 0)) {
-        range.start = {pos.fileID, pos.line, pos.column - (index - start)};
-        range.end = {pos.fileID, pos.line, pos.column + (end - index)};
+    if (current == codePoints.end() || !Cangjie::Unicode::IsXIDContinue(current->codePoint)) {
+        return;
+    }
+
+    auto start = current;
+    while (start != codePoints.begin() && Cangjie::Unicode::IsXIDContinue((start - 1)->codePoint)) {
+        --start;
+    }
+    auto end = current + 1;
+    while (end != codePoints.end() && Cangjie::Unicode::IsXIDContinue(end->codePoint)) {
+        ++end;
+    }
+    int identifierStart = start->start;
+    int identifierEnd = (end - 1)->end;
+    std::string identifier = nodeStr.substr(
+        static_cast<size_t>(identifierStart), static_cast<size_t>(identifierEnd - identifierStart));
+    int startColumn = pos.column - (index - identifierStart);
+    if (IsValidIdentifier(identifier) && startColumn > 0) {
+        range.start = {pos.fileID, pos.line, startColumn};
+        // UpdateRange converts range.start from the AST's UTF-8 byte column to an LSP UTF-16 column and keeps
+        // range.end - range.start as the selection length, so the length stored here must already use UTF-16 units.
+        range.end = {pos.fileID, pos.line, startColumn + CountUnicodeCharacters(identifier)};
     }
 }
 
@@ -1401,18 +1432,12 @@ ark::lsp::SymbolID GetDeclSymbolID(const Decl& decl)
 
 bool IsValidIdentifier(const std::string& identifier)
 {
-    if (identifier.empty()) {
+    auto codePoints = UTF8ToChar32(identifier);
+    if (codePoints.empty() || !Cangjie::Unicode::IsCJXIDStart(codePoints.front())) {
         return false;
     }
-
-    wchar_t firstChar = identifier[0];
-    if (!(std::iswalpha(firstChar) || firstChar == L'_')) {
-        return false;
-    }
-
-    for (size_t i = 1; i < identifier.length(); ++i) {
-        wchar_t ch = identifier[i];
-        if (!(std::iswalnum(ch) || ch == L'_')) {
+    for (auto it = codePoints.begin() + 1; it != codePoints.end(); ++it) {
+        if (!Cangjie::Unicode::IsXIDContinue(*it)) {
             return false;
         }
     }
