@@ -115,6 +115,39 @@ bool TweakUtils::IsSupportedCompoundAssignExpr(const Cangjie::AST::Node &node)
     return assignExpr && assignExpr->isCompound && COMPOUND_ASSIGN_OPERATORS.count(assignExpr->op) > 0;
 }
 
+bool TweakUtils::IsSupportedIntroduceExpr(const Cangjie::AST::Node &node, bool allowCompoundAssignment)
+{
+    if (allowCompoundAssignment && IsSupportedCompoundAssignExpr(node)) {
+        return true;
+    }
+
+    switch (node.astKind) {
+        case ASTKind::LIT_CONST_EXPR:
+        case ASTKind::REF_EXPR:
+        case ASTKind::IF_EXPR:
+        case ASTKind::MATCH_EXPR:
+        case ASTKind::TYPE_CONV_EXPR:
+        case ASTKind::PAREN_EXPR:
+        case ASTKind::MEMBER_ACCESS:
+        case ASTKind::CALL_EXPR:
+        case ASTKind::SUBSCRIPT_EXPR:
+        case ASTKind::OPTIONAL_EXPR:
+        case ASTKind::OPTIONAL_CHAIN_EXPR:
+        case ASTKind::UNARY_EXPR:
+        case ASTKind::BINARY_EXPR:
+        case ASTKind::IS_EXPR:
+        case ASTKind::AS_EXPR:
+        case ASTKind::RANGE_EXPR:
+        case ASTKind::POINTER_EXPR:
+        case ASTKind::ARRAY_LIT:
+        case ASTKind::ARRAY_EXPR:
+        case ASTKind::TUPLE_LIT:
+            return true;
+        default:
+            return false;
+    }
+}
+
 bool TweakUtils::IsMemberAssignInInit(Ptr<FuncDecl> func, Ptr<Node> expr)
 {
     if (!expr || !func || !func->TestAttr(Attribute::CONSTRUCTOR)) {
