@@ -270,7 +270,7 @@ bool CheckerImpl::EnumInstMemberVarModified(
         for (; v1 != e1Constructors.end() && v2 != e2Constructors.end(); ++v1, ++v2) {
             LETIF(v1Corsp, dsl.Corresponding(*v1, diff.GetPotentiallyMemberModified(e1)), v1Corsp != nullptr)
             CHECK(RuleKind::ENUM_MEMBER_VAR_ORDER_MODIFIED,
-                ((*v1)->mangledName == (*v2)->mangledName) || !dsl.SameType((*v1)->GetTy(), v1Corsp->GetTy()), *v1, *v2);
+                ((*v1)->mangledName == (*v2)->mangledName) || !dsl.SameType((*v1)->GetTy().get(), v1Corsp->GetTy().get()), *v1, *v2);
         }
     END_FORALL()
     return checkerResult;
