@@ -128,10 +128,12 @@ Note: In the output above, b.B represents a subpackage named b.B within the modu
 Input: cjpm check
 Output:
 Error: can not find the following dependencies
-    pro1.xoo
-    pro1.yoo
-    pro2.zoo
+    pro1.xoo (imported by: package_a)
+    pro1.yoo (imported by: package_a, package_b)
+    pro2.zoo (imported by: package_c)
 ```
+
+Missing dependencies and their importing packages are printed in lexicographical order. The importer list identifies the source packages that directly import the missing package.
 
 ### update
 

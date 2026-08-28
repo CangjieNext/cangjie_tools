@@ -141,10 +141,12 @@ d.D -> b.B
 输入: cjpm check
 输出:
 Error: can not find the following dependencies
-    pro1.xoo
-    pro1.yoo
-    pro2.zoo
+    pro1.xoo (imported by: package_a)
+    pro1.yoo (imported by: package_a, package_b)
+    pro2.zoo (imported by: package_c)
 ```
+
+缺失依赖包名及其导入方包名均按字典序输出。导入方列表表示直接导入该缺失包的源码包。
 
 ### update
 
