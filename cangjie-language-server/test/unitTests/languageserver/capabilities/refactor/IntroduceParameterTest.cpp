@@ -39,6 +39,23 @@ TEST(IntroduceParameterTest, BuildsTupleTypeName)
     EXPECT_EQ(static_cast<int>(IntroduceParameter::IntroduceParameterError::INVALID_IF_LET_EXPRESSION), 10);
 }
 
+TEST(IntroduceParameterTest, ValidatesDocumentedIntroduceExpressionKinds)
+{
+    LitConstExpr literal;
+    EXPECT_TRUE(TweakUtils::IsSupportedIntroduceExpr(literal, false));
+    EXPECT_TRUE(TweakUtils::IsSupportedIntroduceExpr(literal, true));
+
+    Block block;
+    EXPECT_FALSE(TweakUtils::IsSupportedIntroduceExpr(block, false));
+    EXPECT_FALSE(TweakUtils::IsSupportedIntroduceExpr(block, true));
+
+    AssignExpr compoundAssign;
+    compoundAssign.isCompound = true;
+    compoundAssign.op = TokenKind::ADD_ASSIGN;
+    EXPECT_FALSE(TweakUtils::IsSupportedIntroduceExpr(compoundAssign, false));
+    EXPECT_TRUE(TweakUtils::IsSupportedIntroduceExpr(compoundAssign, true));
+}
+
 TEST(IntroduceParameterTest, InsertParameter)
 {
     auto emptyParamList = MakeParamList({1, 10, 18});

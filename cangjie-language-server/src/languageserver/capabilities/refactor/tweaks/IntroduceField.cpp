@@ -421,7 +421,8 @@ class IntroduceFieldRule : public TweakRule {
                 std::to_string(static_cast<int>(IntroduceField::IntroduceFieldError::INVALID_SCOPE))));
             return false;
         }
-        if (CANNOT_INTRODUCE_FIELD_EXPR.count(selectedExpr->astKind)) {
+        if (CANNOT_INTRODUCE_FIELD_EXPR.count(selectedExpr->astKind) ||
+            !TweakUtils::IsSupportedIntroduceExpr(*selectedExpr, false)) {
             extraOptions.insert(std::make_pair("ErrorCode",
                 std::to_string(static_cast<int>(IntroduceField::IntroduceFieldError::INVALID_CODE_SEGMENT))));
             return false;
