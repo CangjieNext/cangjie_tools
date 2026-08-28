@@ -326,7 +326,8 @@ class IntroduceParameterRule : public TweakRule {
                 "ErrorCode", std::to_string(static_cast<int>(TweakRule::TweakError::TWEAK_FAIL))));
             return false;
         }
-        if (CANNOT_INTRODUCE_PARAMETER_EXPR.count(selectedExpr->astKind)) {
+        if (CANNOT_INTRODUCE_PARAMETER_EXPR.count(selectedExpr->astKind) ||
+            !TweakUtils::IsSupportedIntroduceExpr(*selectedExpr, true)) {
             extraOptions.insert(std::make_pair("ErrorCode",
                 std::to_string(
                     static_cast<int>(IntroduceParameter::IntroduceParameterError::INVALID_CODE_SEGMENT))));
@@ -1276,8 +1277,13 @@ static std::string BuildCompoundAssignArgumentText(const CallSiteContext &contex
     }
 
     auto paramList = context.sourceFuncDecl.funcBody->paramLists.front().get();
-    auto replacements = CollectCallSiteArgumentReplacements(context, callExpr, *paramList);
-    std::string leftText = ApplyCallSiteArgumentReplacements(context, std::move(replacements));
+    Range leftRange = {assignExpr->leftValue->begin, assignExpr->leftValue->end};
+    std::string leftArgumentText = context.sel.arkAst->sourceManager->GetContentBetween(
+        leftRange.start, leftRange.end);
+    CallSiteContext leftContext{context.sel, context.funcDecl, context.sourceFuncDecl, leftRange,
+        leftArgumentText, context.paramName, context.removedParamIndices};
+    auto replacements = CollectCallSiteArgumentReplacements(leftContext, callExpr, *paramList);
+    std::string leftText = ApplyCallSiteArgumentReplacements(leftContext, std::move(replacements));
     std::string rightText = context.sel.arkAst->sourceManager->GetContentBetween(
         assignExpr->rightExpr->begin, assignExpr->rightExpr->end);
     auto opText = TweakUtils::GetCompoundAssignOperatorText(assignExpr->op);
