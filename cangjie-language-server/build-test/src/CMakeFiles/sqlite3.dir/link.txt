@@ -1,0 +1,2 @@
+C:\Software\llvm-mingw-20220906-msvcrt-x86_64\llvm-mingw-20220906-msvcrt-x86_64\bin\llvm-ar.exe qc D:\CppProjects\main\cangjie_tools\cangjie-language-server\output\lib\libsqlite3.a CMakeFiles/sqlite3.dir/__/third_party/sqlite3/amalgamation/shell.c.obj CMakeFiles/sqlite3.dir/__/third_party/sqlite3/amalgamation/sqlite3.c.obj
+C:\Software\llvm-mingw-20220906-msvcrt-x86_64\llvm-mingw-20220906-msvcrt-x86_64\bin\llvm-ranlib.exe D:\CppProjects\main\cangjie_tools\cangjie-language-server\output\lib\libsqlite3.a

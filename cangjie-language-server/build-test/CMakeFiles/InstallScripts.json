@@ -1,0 +1,35 @@
+{
+	"InstallScripts" : 
+	[
+		"D:/CppProjects/main/cangjie_tools/cangjie-language-server/build-test/cmake_install.cmake",
+		"D:/CppProjects/main/cangjie_tools/cangjie-language-server/build-test/src/cmake_install.cmake",
+		"D:/CppProjects/main/cangjie_tools/cangjie-language-server/build-test/src/languageserver/cmake_install.cmake",
+		"D:/CppProjects/main/cangjie_tools/cangjie-language-server/build-test/src/json-rpc/cmake_install.cmake",
+		"D:/CppProjects/main/cangjie_tools/cangjie-language-server/build-test/test/cmake_install.cmake",
+		"D:/CppProjects/main/cangjie_tools/cangjie-language-server/build-test/test/common/cmake_install.cmake",
+		"D:/CppProjects/main/cangjie_tools/cangjie-language-server/build-test/test/apiTest/cmake_install.cmake",
+		"D:/CppProjects/main/cangjie_tools/cangjie-language-server/build-test/test/featureTest/completion/cmake_install.cmake",
+		"D:/CppProjects/main/cangjie_tools/cangjie-language-server/build-test/test/featureTest/documentHighlight/cmake_install.cmake",
+		"D:/CppProjects/main/cangjie_tools/cangjie-language-server/build-test/test/featureTest/goToDefinition/cmake_install.cmake",
+		"D:/CppProjects/main/cangjie_tools/cangjie-language-server/build-test/test/featureTest/references/cmake_install.cmake",
+		"D:/CppProjects/main/cangjie_tools/cangjie-language-server/build-test/test/featureTest/semanticHighlight/cmake_install.cmake",
+		"D:/CppProjects/main/cangjie_tools/cangjie-language-server/build-test/test/featureTest/hover/cmake_install.cmake",
+		"D:/CppProjects/main/cangjie_tools/cangjie-language-server/build-test/test/featureTest/diagnostic/cmake_install.cmake",
+		"D:/CppProjects/main/cangjie_tools/cangjie-language-server/build-test/test/featureTest/codeCov/cmake_install.cmake",
+		"D:/CppProjects/main/cangjie_tools/cangjie-language-server/build-test/test/featureTest/workSpaceSymbol/cmake_install.cmake",
+		"D:/CppProjects/main/cangjie_tools/cangjie-language-server/build-test/test/featureTest/documentSymbol/cmake_install.cmake",
+		"D:/CppProjects/main/cangjie_tools/cangjie-language-server/build-test/test/featureTest/signatureHelp/cmake_install.cmake",
+		"D:/CppProjects/main/cangjie_tools/cangjie-language-server/build-test/test/featureTest/rename/cmake_install.cmake",
+		"D:/CppProjects/main/cangjie_tools/cangjie-language-server/build-test/test/featureTest/typeHierarchy/cmake_install.cmake",
+		"D:/CppProjects/main/cangjie_tools/cangjie-language-server/build-test/test/featureTest/breakpoints/cmake_install.cmake",
+		"D:/CppProjects/main/cangjie_tools/cangjie-language-server/build-test/test/featureTest/callHierarchy/cmake_install.cmake",
+		"D:/CppProjects/main/cangjie_tools/cangjie-language-server/build-test/test/featureTest/codeLens/cmake_install.cmake",
+		"D:/CppProjects/main/cangjie_tools/cangjie-language-server/build-test/test/featureTest/overrideMethods/cmake_install.cmake",
+		"D:/CppProjects/main/cangjie_tools/cangjie-language-server/build-test/test/featureTest/findFileReference/cmake_install.cmake",
+		"D:/CppProjects/main/cangjie_tools/cangjie-language-server/build-test/test/featureTest/applyEdit/cmake_install.cmake",
+		"D:/CppProjects/main/cangjie_tools/cangjie-language-server/build-test/test/featureTest/codeAction/cmake_install.cmake",
+		"D:/CppProjects/main/cangjie_tools/cangjie-language-server/build-test/test/featureTest/crossLanguageDefinition/cmake_install.cmake",
+		"D:/CppProjects/main/cangjie_tools/cangjie-language-server/build-test/test/unitTests/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
