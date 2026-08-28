@@ -38,6 +38,10 @@ public:
 
     static bool IsSupportedCompoundAssignExpr(const Cangjie::AST::Node &node);
 
+    // Keep introduce-field and introduce-parameter aligned with the documented
+    // expression support matrix. Compound assignments are parameter-only.
+    static bool IsSupportedIntroduceExpr(const Cangjie::AST::Node &node, bool allowCompoundAssignment);
+
     static bool IsMemberAssignInInit(Ptr<FuncDecl> func, Ptr<Node> expr);
 
     static bool IsSelectionInConstInitializer(const ArkAST *arkAst, const Range &range);
