@@ -35,7 +35,7 @@ public:
 
 #define CHECK(rule, expr, symbols...)                                                                                  \
     do {                                                                                                               \
-        assert(checker.Checks(rule) && "Rule does not belong to checker!");                                            \
+        (void)checker;assert(checker.Checks(rule) && "Rule does not belong to checker!");                              \
         if ((Rules::GetRule(rule).IsAPI() && dsl.checkAPI) || (Rules::GetRule(rule).IsABI() && dsl.checkABI)) {        \
             auto result = expr;                                                                                        \
             checkerResult = checkerResult && result;                                                                   \
@@ -266,16 +266,17 @@ public:
     /** @brief Returns `map[node]` if it exists, nullptr otherwise. */
     static Node* Corresponding(Node* node, const std::map<Node*, Node*>& map);
 
+private:
+    TypeManager& typeMan1;
+    TypeManager& typeMan2;
+
+public:
     /***** Options *****/
 
     /** @brief Check for API rules. */
     const bool checkAPI;
     /** @brief Check for ABI rules. */
     const bool checkABI;
-
-private:
-    TypeManager& typeMan1;
-    TypeManager& typeMan2;
 }; // class Dsl
 
 #endif // DSL_DSL_H

@@ -13,7 +13,6 @@
 #include "cjcompat/Diff/Diff.h"
 #include "cjcompat/Dsl/Dsl.h"
 #include "cjcompat/Logger/Logger.h"
-#include "cjcompat/CheckersAndRules/CheckersList.inc"
 
 class Checker {
 public:
@@ -36,15 +35,15 @@ public:
     }
 
 private:
+    std::function<bool(Dsl&, const Diff&, Logger&, const Checker&)> function;
     std::set<RuleKind> checkedRules;
     size_t precedence;
-    std::function<bool(Dsl&, const Diff&, Logger&, const Checker&)> function;
 };
 
 struct NodeInfo {
     Node* n1;
     Node* n2;
-    const Diff* diff;
+    const Diff* diff = nullptr;
 };
 
 namespace CheckerImpl {

@@ -346,6 +346,7 @@
 {"diagnostic":{"testFile":"LSP_Diagnostic_OverrideImplement_Enum_WithMembers.test"}}
 {"diagnostic":{"testFile":"LSP_Diagnostic_OverrideImplement_Enum_NoMembers.test"}}
 {"diagnostic":{"testFile":"LSP_Diagnostic_OverrideImplement_OnlyClass_001.test"}}
+{"diagnostic":{"testFile":"LSP_Diagnostic_MacroNoDiagnostic.test"}}
 
 {"documentHighlight":{"testFile":"LSP_DocumentHighlight_String_001.test","id":"7"}}
 {"documentHighlight":{"testFile":"LSP_DocumentHighlight_Interface_001.test","id":"9"}}
@@ -455,6 +456,7 @@
 {"documentHighlight":{"testFile":"LSP_DocumentHighlight_Func_Overload_001.test","id":"7"}}
 {"documentHighlight":{"testFile":"LSP_DocumentHighlight_Func_Overload_002.test","id":"7"}}
 {"documentHighlight":{"testFile":"LSP_DocumentHighlight_ExtendDocHighLight_001.test","id":"7"}}
+{"documentHighlight":{"testFile":"LSP_DocumentHighlight_NamedParameter_002.test","id":"5"}}
 
 {"goToDefinition":{"testFile":"LSP_GoToDefinition_String_001.test","id":"7"}}
 {"goToDefinition":{"testFile":"LSP_GoToDefinition_Interface_001.test","id":"110"}}
@@ -880,7 +882,7 @@
 {"rename":{"testFile":"LSP_Rename_InterplationString_001.test","id":"9"}}
 {"rename":{"testFile":"LSP_Rename_InterplationString_002.test","id":"9"}}
 {"rename":{"testFile":"LSP_Rename_Common_Specific.test","id":"9"}}
-{"rename":{"testFile":"LSP_Rename_UnicodeInterpolatedString.test","id":"9"}}
+{"rename":{"testFile":"LSP_Rename_UnicodeInterpolatedString.test","preId":"5","id":"9"}}
 
 {"semanticHighlight":{"testFile":"LSP_SemanticHighlight_String_001.test","id":"7"}}
 {"semanticHighlight":{"testFile":"LSP_SemanticHighlight_Interface_001.test","id":"110"}}
@@ -1268,7 +1270,6 @@
 {"applyEdit":{"testFile":"IntroduceField_Apply_012.test","method":"workspace/applyEdit"}}
 {"applyEdit":{"testFile":"IntroduceField_Apply_013.test","method":"workspace/applyEdit"}}
 {"applyEdit":{"testFile":"IntroduceField_Apply_014.test","method":"workspace/applyEdit"}}
-{"applyEdit":{"testFile":"IntroduceField_Apply_015.test","method":"workspace/applyEdit"}}
 {"applyEdit":{"testFile":"IntroduceField_Apply_016.test","method":"workspace/applyEdit"}}
 {"applyEdit":{"testFile":"IntroduceField_Apply_017.test","method":"workspace/applyEdit"}}
 {"applyEdit":{"testFile":"IntroduceParameter_Apply_001.test","method":"workspace/applyEdit"}}
