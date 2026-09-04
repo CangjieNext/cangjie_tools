@@ -5,3 +5,4 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 public import std.{}
+internal import std.{}
