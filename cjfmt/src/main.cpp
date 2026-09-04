@@ -114,7 +114,7 @@ void PrintHelp()
     Println("   -l <region>   Only format lines in the specified region for the provided file. Only valid if a single "
             "file was specified.");
     Println("                 Region has a format of [start:end] where 'start' and 'end' are integer numbers "
-            "representing first and last lines to be formated in the specified file.");
+            "representing first and last lines to be formatted in the specified file.");
     Println("                 Line count starts with 1.");
     Println("                     eg: cjfmt -f a.cj -o ./fmta.cj -l 1:25");
 }
@@ -222,9 +222,9 @@ void SetOptionLineBreakType(TomlParser& parser, FormattingOptions& options)
     options.newLine = *lineBreakType == "CRLF" ? "\r\n" : "\n";
 }
 
-void SetOptionMethodChainning(TomlParser& parser, FormattingOptions& options)
+void SetOptionMethodChaining(TomlParser& parser, FormattingOptions& options)
 {
-    auto methodChainningOptional = parser.GetValue("allowMultiLineMethodChain");
+    auto methodChainingOptional = parser.GetValue("allowMultiLineMethodChain");
     if (!methodChainningOptional.has_value()) {
         Warningln("Can't find configuration option: allowMultiLineMethodChain, "
                   "built-in options will be used: allowMultiLineMethodChain = false");
@@ -241,7 +241,7 @@ void SetOptionMethodChainning(TomlParser& parser, FormattingOptions& options)
                           "Built-in options will be used: allowMultiLineMethodChain = false");
             }
         },
-        methodChainningOptional.value());
+        methodChainingOptional.value());
     if (!allowMultiLineMethodChain.has_value()) {
         return;
     }
@@ -250,7 +250,7 @@ void SetOptionMethodChainning(TomlParser& parser, FormattingOptions& options)
 
 void SetOptionMethodChainLevel(TomlParser& parser, FormattingOptions& options)
 {
-    auto methodChainningOptional = parser.GetValue("multipleLineMethodChainLevel");
+    auto methodChainingOptional = parser.GetValue("multipleLineMethodChainLevel");
     if (!methodChainningOptional.has_value()) {
         Warningln("Can't find configuration option: multipleLineMethodChainLevel, "
                   "built-in options will be used: multipleLineMethodChainLevel = 5");
@@ -267,7 +267,7 @@ void SetOptionMethodChainLevel(TomlParser& parser, FormattingOptions& options)
                           "Built-in options will be used: multipleLineMethodChainLevel = 5");
             }
         },
-        methodChainningOptional.value());
+        methodChainingOptional.value());
     if (!multipleLineMethodChainLevel.has_value()) {
         return;
     }
@@ -282,7 +282,7 @@ void SetOptionMethodChainLevel(TomlParser& parser, FormattingOptions& options)
 
 void SetOptionMultipleLineMethodChainOverLineLength(TomlParser& parser, FormattingOptions& options)
 {
-    auto methodChainningOptional = parser.GetValue("multipleLineMethodChainOverLineLength");
+    auto methodChainingOptional = parser.GetValue("multipleLineMethodChainOverLineLength");
     if (!methodChainningOptional.has_value()) {
         Warningln("Can't find configuration option: multipleLineMethodChainOverLineLength, "
                   "built-in options will be used: multipleLineMethodChainOverLineLength = true");
@@ -299,7 +299,7 @@ void SetOptionMultipleLineMethodChainOverLineLength(TomlParser& parser, Formatti
                           "Built-in options will be used: multipleLineMethodChainOverLineLength = true");
             }
         },
-        methodChainningOptional.value());
+        methodChainingOptional.value());
     if (!multipleLineMethodChainOverLineLength.has_value()) {
         return;
     }
@@ -430,7 +430,7 @@ int GetRegionFromArgs(Region& region, std::string optarg)
     return OK;
 }
 
-int VerifydirOutputPath(const std::string& dirOutputPath)
+int VerifyDirOutputPath(const std::string& dirOutputPath)
 {
     std::regex reg = std::regex("[^*?\"<>|]*");
     if (!std::regex_match(dirOutputPath, reg)) {
@@ -462,7 +462,7 @@ int HandleOption(char ch, const char* optarg, bool& isFile, Region& region, Opti
             return OK;
         case 'd':
             if (!FileUtil::FileExist(optarg)) {
-                Errorln("Source file path not exist!");
+                Errorln("Source directory path not exist!");
                 return ERR;
             }
             optionContext.SetFmtDirPath(optarg);
