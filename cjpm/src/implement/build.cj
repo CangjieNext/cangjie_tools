@@ -650,7 +650,7 @@ func getBuildArgs(compileTask: CompileTask, buildConfig: BuildConfig): ArrayList
     let cLibNameList = ArrayList<String>([compileTask.rootPkgName])
 
     // Record dependent package names
-    let linkSort: HashSet<String> = getDepSet(compileTask, buildConfig)
+    let linkSort: HashSet<String> = getLinkDepSet(compileTask, buildConfig)
 
     let allOptions = ArrayList<String>()
     let libPathSet = HashSet<String>()
@@ -868,6 +868,69 @@ public func getDepSet(compileTask: CompileTask, buildConfig: BuildConfig): HashS
         if (compileTask.combineFlags.isCombined) { buildConfig.superPkgMap } else { None }
     getDepSet(compileTask.fullName, buildConfig.requiresMap, buildConfig.superPkgSubMap,
         isForMacroRequire: buildConfig.packageList.isMacro(compileTask.fullName), superPkgMap: superPkgMap)
+}
+
+func getLinkDepSet(compileTask: CompileTask, buildConfig: BuildConfig): HashSet<String> {
+    if (compileTask.outputType == Static) {
+        if (isIosLtoCombineLinkTask(compileTask)) {
+            return getDepSet(compileTask, buildConfig)
+        }
+        return HashSet<String>()
+    }
+
+    let linkPkgs = HashSet<String>()
+    let queue = ArrayList<String>([compileTask.fullName])
+    let currentRoot = compileTask.fullName.split(".")[0]
+    while (!queue.isEmpty()) {
+        let cur = queue[0]
+        queue.remove(at: 0)
+        if (!buildConfig.requiresMap.contains(cur)) {
+            continue
+        }
+        for (dep in buildConfig.requiresMap[cur]) {
+            var finalPkg = dep
+            if (!buildConfig.packageList.isMacro(compileTask.fullName) && buildConfig.superPkgSubMap.contains(dep)) {
+                printSuperPkgWarn(dep)
+                finalPkg = buildConfig.superPkgSubMap[dep]
+            }
+
+            let finalRoot = dep.split(".")[0]
+            if (compileTask.combineFlags.isCombined && buildConfig.superPkgMap.contains(finalRoot) &&
+                finalRoot != currentRoot) {
+                linkPkgs.add(finalRoot)
+                continue
+            }
+
+            if (!linkPkgs.add(finalPkg)) {
+                continue
+            }
+            // Dynamic libraries carry their own links; static libraries defer unresolved links to their consumers.
+            if (!isDynamicLinkDependency(finalPkg, compileTask, buildConfig)) {
+                queue.add(finalPkg)
+            }
+        }
+    }
+    return linkPkgs
+}
+
+func isDynamicLinkDependency(pkgName: String, compileTask: CompileTask, buildConfig: BuildConfig): Bool {
+    if (let Some(resolveItem) <- buildConfig.resolveItemMap.get(pkgName)) {
+        return resolveItem.outputType == Dynamic
+    }
+
+    if (compileTask.isCrossCompile) {
+        for ((_, deps) in buildConfig.crossBinDepMap) {
+            if (let Some(info) <- deps.packageRequires.get(pkgName)) {
+                return info.isDyLib
+            }
+        }
+    }
+    for ((_, deps) in buildConfig.binDepMap) {
+        if (let Some(info) <- deps.packageRequires.get(pkgName)) {
+            return info.isDyLib
+        }
+    }
+    return false
 }
 
 // find dependet package names of a package when we don't need to know if it's combined
