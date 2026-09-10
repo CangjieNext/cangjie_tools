@@ -118,7 +118,22 @@ func lackPackageCheck(topoData: DepModel) {
     if (lackPackage.size != 0) {
         eprintln("Error: can not find the following dependencies")
         for (packageName in lackPackage) {
-            eprintln("    ${packageName}")
+            // edges[dep] stores packages that require dep — surface importers for easier debug
+            let requiredBy = topoData.edges.get(packageName) ?? ArrayList<String>()
+            if (requiredBy.isEmpty()) {
+                eprintln("    ${packageName}")
+            } else {
+                var importers = ""
+                var first = true
+                for (pkg in requiredBy) {
+                    if (!first) {
+                        importers += ", "
+                    }
+                    importers += pkg
+                    first = false
+                }
+                eprintln("    ${packageName} (required by: ${importers})")
+            }
         }
         return false
     }
