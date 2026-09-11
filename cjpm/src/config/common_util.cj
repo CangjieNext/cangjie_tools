@@ -16,6 +16,145 @@ import std.env.*
 
 foreign func system(command: CString): Int32
 
+// Windows ACP (e.g. GBK/CP936) → UTF-16 → UTF-8 for piped child output.
+// x64 Windows uses a single ABI (no separate stdcall); omit @CallingConv.
+@When[os == "Windows"]
+foreign {
+    func MultiByteToWideChar(
+        codePage: UInt32,
+        dwFlags: UInt32,
+        lpMultiByteStr: CPointer<UInt8>,
+        cbMultiByte: Int32,
+        lpWideCharStr: CPointer<UInt16>,
+        cchWideChar: Int32
+    ): Int32
+    func WideCharToMultiByte(
+        codePage: UInt32,
+        dwFlags: UInt32,
+        lpWideCharStr: CPointer<UInt16>,
+        cchWideChar: Int32,
+        lpMultiByteStr: CPointer<UInt8>,
+        cbMultiByte: Int32,
+        lpDefaultChar: CPointer<UInt8>,
+        lpUsedDefaultChar: CPointer<Int32>
+    ): Int32
+}
+
+@When[os == "Windows"]
+const CP_ACP: UInt32 = 0
+@When[os == "Windows"]
+const CP_UTF8: UInt32 = 65001
+
+// Drain an InputStream into a byte array (pipes are not Seekable).
+func readInputStreamToBytes(inputStream: InputStream): Array<Byte> {
+    let tempSize: Int64 = 4096
+    var buffer = ByteBuffer(tempSize)
+    let tempArr = Array<UInt8>(tempSize, repeat: 0)
+    while (true) {
+        let readLen = inputStream.read(tempArr)
+        if (readLen <= 0) {
+            break
+        } else if (readLen == tempSize) {
+            buffer.write(tempArr)
+        } else {
+            buffer.write(tempArr.slice(0, readLen))
+        }
+    }
+    return buffer.bytes()
+}
+
+@When[os == "Windows"]
+const MB_ERR_INVALID_CHARS: UInt32 = 0x8
+
+// Decode bytes as the Windows ANSI code page (ACP, e.g. GBK) into a String.
+@When[os == "Windows"]
+func decodeWindowsAcp(data: Array<Byte>): String {
+    if (data.size == 0) {
+        return ""
+    }
+    if (data.size > Int64(Int32.Max)) {
+        throw IllegalArgumentException("Invalid unicode scalar value.")
+    }
+    let cb = Int32(data.size)
+    unsafe {
+        let src = LibC.malloc<UInt8>(count: data.size)
+        if (src.isNull()) {
+            throw IllegalMemoryException("Malloc failed in decodeWindowsAcp.")
+        }
+        for (i in 0..data.size) {
+            src.write(i, data[i])
+        }
+        let nullWide = CPointer<UInt16>()
+        // Reject bytes that are not valid in the system ACP (e.g. GBK on Chinese Windows).
+        let wlen = MultiByteToWideChar(CP_ACP, MB_ERR_INVALID_CHARS, src, cb, nullWide, 0)
+        if (wlen <= 0) {
+            LibC.free(src)
+            throw IllegalArgumentException("Invalid unicode scalar value.")
+        }
+        let wide = LibC.malloc<UInt16>(count: Int64(wlen))
+        if (wide.isNull()) {
+            LibC.free(src)
+            throw IllegalMemoryException("Malloc failed in decodeWindowsAcp.")
+        }
+        if (MultiByteToWideChar(CP_ACP, MB_ERR_INVALID_CHARS, src, cb, wide, wlen) <= 0) {
+            LibC.free(wide)
+            LibC.free(src)
+            throw IllegalArgumentException("Invalid unicode scalar value.")
+        }
+        LibC.free(src)
+
+        let nullBytes = CPointer<UInt8>()
+        let nullUsed = CPointer<Int32>()
+        let ulen = WideCharToMultiByte(CP_UTF8, 0, wide, wlen, nullBytes, 0, nullBytes, nullUsed)
+        if (ulen <= 0) {
+            LibC.free(wide)
+            throw IllegalArgumentException("Invalid unicode scalar value.")
+        }
+        let utf8 = LibC.malloc<UInt8>(count: Int64(ulen))
+        if (utf8.isNull()) {
+            LibC.free(wide)
+            throw IllegalMemoryException("Malloc failed in decodeWindowsAcp.")
+        }
+        if (WideCharToMultiByte(CP_UTF8, 0, wide, wlen, utf8, ulen, nullBytes, nullUsed) <= 0) {
+            LibC.free(utf8)
+            LibC.free(wide)
+            throw IllegalArgumentException("Invalid unicode scalar value.")
+        }
+        LibC.free(wide)
+
+        var bytes = Array<UInt8>(Int64(ulen), repeat: 0)
+        for (i in 0..Int64(ulen)) {
+            bytes[i] = utf8.read(i)
+        }
+        LibC.free(utf8)
+        // WideCharToMultiByte(CP_UTF8) produced these bytes; no need to re-validate.
+        return String.fromUtf8Unchecked(bytes)
+    }
+}
+
+// Decode child stdout/stderr: UTF-8 first; on Windows fall back to ACP/GBK. Otherwise throw.
+@When[os == "Windows"]
+func decodeProcessOutput(data: Array<Byte>): String {
+    if (data.size == 0) {
+        return ""
+    }
+    if (String.checkUtf8Encoding(data)) {
+        return String.fromUtf8(data)
+    }
+    return decodeWindowsAcp(data)
+}
+
+@When[os != "Windows"]
+func decodeProcessOutput(data: Array<Byte>): String {
+    if (data.size == 0) {
+        return ""
+    }
+    if (String.checkUtf8Encoding(data)) {
+        return String.fromUtf8(data)
+    }
+    throw IllegalArgumentException("Invalid unicode scalar value.")
+}
+
 // Simply execute the command.
 // For expand command and without env config
 public func execAndToTerminal(exeTool: String, arguments: Array<String>, timeout!: Option<Duration> = None,
@@ -57,13 +196,13 @@ public func execWithOutput(exeTool: String, arguments: ArrayList<String>,
         }
 
         if (spawnForScript) {
-            let outInfoFuture = spawn {StringReader(subProcess.stdOutPipe).readToEnd()}
-            let errInfoFuture = spawn {StringReader(subProcess.stdErrPipe).readToEnd()}
-            outInfo = outInfoFuture.get()
-            errInfo = errInfoFuture.get()
+            let outBytesFuture = spawn { readInputStreamToBytes(subProcess.stdOutPipe) }
+            let errBytesFuture = spawn { readInputStreamToBytes(subProcess.stdErrPipe) }
+            outInfo = decodeProcessOutput(outBytesFuture.get())
+            errInfo = decodeProcessOutput(errBytesFuture.get())
         } else {
-            outInfo = StringReader(subProcess.stdOutPipe).readToEnd()
-            errInfo = StringReader(subProcess.stdErrPipe).readToEnd()
+            outInfo = decodeProcessOutput(readInputStreamToBytes(subProcess.stdOutPipe))
+            errInfo = decodeProcessOutput(readInputStreamToBytes(subProcess.stdErrPipe))
         }
         returnCode = subProcess.wait(timeout: timeout)
         return (returnCode == 0, outInfo, errInfo)
