@@ -1037,10 +1037,6 @@ public func verifyMultiplatformPost(modulePath: String, name: String, resolveMap
         }
 }
 
-private func verifyAlwaysEnabledFeaturesPost(aef: Array<Node<Feature>>, resolveMap: ResolveMap): Result<Array<Feature>, Array<CJMPError>> {
-    verifyFeatureArrayPost(aef, resolveMap)
-} 
-
 private func verifyFeatureDeclsPost(featureDecls: Array<Node<FeatureDecl>>, resolveMap: ResolveMap): Result<FeatureMapping, Array<CJMPError>> {
     let checkFeatureDecl: (FeatureDecl) -> Result<(Feature, Array<Feature>), Array<CJMPError>> = { it =>
         let name = it.name
@@ -1152,47 +1148,13 @@ private func constructSourceLocations(sourceSets: Array<Node<SourceSetTuple>>, d
     }
 
     let sourceSetsMap = HashMap<String, Node<SourceSetTuple>>()
-
-    let graph = HashMap<String, HashSet<String>>()
-    let indegree = HashMap<String, Int64>()
-    let outdegree = HashMap<String, Int64>()
-
     for (sourceSet in canonicalSets) {
-        let srcDir = sourceSet.value[1].toString()
-        sourceSetsMap[srcDir] = sourceSet
-        graph[srcDir] = HashSet()
-        indegree[srcDir] = 0
-        outdegree[srcDir] = 0
+        sourceSetsMap[sourceSet.value[1].toString()] = sourceSet
     }
+    let (graph, indegree, outdegree) = buildSpecificityGraph(sourceSetsMap)
+    reduceSpecificityGraph(graph, indegree)
 
-    for (from in sourceSetsMap.keys()) {
-        for (to in sourceSetsMap.keys() where from != to) {
-            let fromFeatures = sourceSetsMap[from].value[2]
-            let toFeatures = sourceSetsMap[to].value[2]
-            // from less specific to more specific
-            if (toFeatures.contains(all: fromFeatures)) {
-                graph[from].add(to)
-                indegree[to] = indegree[to] + 1
-                outdegree[from] = outdegree[from] + 1
-            }
-        }
-    }
-
-    // Transitive reduction
-    for (i in graph.keys()) {
-        for (j in graph.keys()) {
-            if (graph[i].contains(j)) {
-                for (k in graph.keys() where k != i && k != j) {
-                    if (graph[i].contains(k) && graph[k].contains(j)) {
-                        indegree[j]--
-                        graph[i].remove(j)
-                    }
-                }
-            }
-        }
-    }
-
-    let starts = indegree.iterator().filterMap { it => 
+    let starts = indegree.iterator().filterMap { it =>
         if (it[1] == 0) {         
             let node = sourceSetsMap[it[0]]
             let name = node.value[0] ?? node.value[1].toString()
@@ -1237,6 +1199,49 @@ private func constructSourceLocations(sourceSets: Array<Node<SourceSetTuple>>, d
     } |> collectArray
 
     return Ok(SourceLocations(graph, entries, sourceSetEntries))
+}
+
+private func buildSpecificityGraph(sourceSetsMap: HashMap<String, Node<SourceSetTuple>>): (HashMap<String, HashSet<String>>, HashMap<String, Int64>, HashMap<String, Int64>) {
+    let graph = HashMap<String, HashSet<String>>()
+    let indegree = HashMap<String, Int64>()
+    let outdegree = HashMap<String, Int64>()
+
+    for (srcDir in sourceSetsMap.keys()) {
+        graph[srcDir] = HashSet()
+        indegree[srcDir] = 0
+        outdegree[srcDir] = 0
+    }
+
+    for (from in sourceSetsMap.keys()) {
+        for (to in sourceSetsMap.keys() where from != to) {
+            let fromFeatures = sourceSetsMap[from].value[2]
+            let toFeatures = sourceSetsMap[to].value[2]
+            // from less specific to more specific
+            if (toFeatures.contains(all: fromFeatures)) {
+                graph[from].add(to)
+                indegree[to] = indegree[to] + 1
+                outdegree[from] = outdegree[from] + 1
+            }
+        }
+    }
+
+    (graph, indegree, outdegree)
+}
+
+private func reduceSpecificityGraph(graph: HashMap<String, HashSet<String>>, indegree: HashMap<String, Int64>): Unit {
+    // Transitive reduction
+    for (i in graph.keys()) {
+        for (j in graph.keys()) {
+            if (graph[i].contains(j)) {
+                for (k in graph.keys() where k != i && k != j) {
+                    if (graph[i].contains(k) && graph[k].contains(j)) {
+                        indegree[j]--
+                        graph[i].remove(j)
+                    }
+                }
+            }
+        }
+    }
 }
 
 // Verifying command-line passed options
