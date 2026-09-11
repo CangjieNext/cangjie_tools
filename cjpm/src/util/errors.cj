@@ -7,6 +7,8 @@
 package cjpm.util
 
 import std.collection.*
+
+@When[debug]
 import std.env.exit
 
 public class CliFailError <: Exception {
