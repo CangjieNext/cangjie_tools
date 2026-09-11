@@ -210,6 +210,12 @@ public struct FeatureDeducer <: Serializable<FeatureDeducer> {
         _mapping.findDependantFeatures(_features)
     }
 
+    public func canonicalize(features: Iterable<Feature>): HashSet<Feature> {
+        _mapping.findDependantFeatures(
+            this._features.concat(features |> collectArray)
+        )
+    }
+
 
     public func serialize(): DataModel {
         DataModelStruct()
@@ -1015,14 +1021,20 @@ public struct SourceSetEntry {
     ) { }
 }
 
-public func verifyMultiplatformPost(modulePath: String, name: String, resolveMap: ResolveMap): Result<VerifiedModuleInfo, Array<CJMPError>> { 
+public func verifyMultiplatformPost(modulePath: String, name: String, resolveMap: ResolveMap): Result<VerifiedModuleInfo, Array<CJMPError>> {
     let moduleConf = resolveMap[name]
-    let aef = verifyAlwaysEnabledFeaturesPost(moduleConf.alwaysEnabledFeatures, resolveMap)
-    let mappings = verifyFeatureDeclsPost(moduleConf.featureDecls, resolveMap)
+    let aef = verifyFeatureArrayPost(moduleConf.alwaysEnabledFeatures, resolveMap)
+    let mapping = verifyFeatureDeclsPost(moduleConf.featureDecls, resolveMap)
     let sourceSets = verifySourceSetsPost(modulePath, moduleConf.sourceSetDecls, resolveMap)
 
-    [aef.unit(), mappings.unit(), sourceSets.unit()].join()
-        .map { _: Array<Unit> => VerifiedModuleInfo(aef.getOrThrow(), mappings.getOrThrow(), sourceSets.getOrThrow()) }
+    [aef.unit(), mapping.unit(), sourceSets.unit()].join()
+        .flatMap { _: Array<Unit> =>
+            let mapping = mapping.getOrThrow()
+            let deducer = FeatureDeducer(enabled: false).addFeature(aef.getOrThrow()).setFeatureMapping(mapping)
+            let canonicalAef = deducer.collect().toArray()
+            constructSourceLocations(sourceSets.getOrThrow(), deducer)
+                .map { it => VerifiedModuleInfo(canonicalAef, mapping, it) }
+        }
 }
 
 private func verifyAlwaysEnabledFeaturesPost(aef: Array<Node<Feature>>, resolveMap: ResolveMap): Result<Array<Feature>, Array<CJMPError>> {
@@ -1045,9 +1057,9 @@ private func verifyFeatureDeclsPost(featureDecls: Array<Node<FeatureDecl>>, reso
 }
 
 private type SourceSetTuple = (?String, Path, HashSet<Feature>, ?Bool)
-private func verifySourceSetsPost(modulePath: String, sourceSetDecls: Array<Node<SourceSetDecl>>, resolveMap: ResolveMap): Result<SourceLocations, Array<CJMPError>> {
+private func verifySourceSetsPost(modulePath: String, sourceSetDecls: Array<Node<SourceSetDecl>>, resolveMap: ResolveMap): Result<Array<Node<SourceSetTuple>>, Array<CJMPError>> {
     let resolvedPaths = HashMap<String, Location>()
-    let checkIndividualSourceSet: (Node<SourceSetDecl>) -> Result<Node<SourceSetTuple>, Array<CJMPError>> = { it => 
+    let checkIndividualSourceSet: (Node<SourceSetDecl>) -> Result<Node<SourceSetTuple>, Array<CJMPError>> = { it =>
             let location = it.loc; it.apply { it: SourceSetDecl =>
             let features = verifyFeatureArrayPost(it.features, resolveMap).map { it => it |> collectHashSet }
             let envreplaced = replaceEnvVars(it.srcDir.toString())
@@ -1072,7 +1084,6 @@ private func verifySourceSetsPost(modulePath: String, sourceSetDecls: Array<Node
     
     sourceSetDecls.allResult(checkIndividualSourceSet)
         .flatMap { it => checkNoOverlappingSourceSets(resolvedPaths, it) }
-        .flatMap(constructSourceLocations)
 }
 
 private func verifyFeatureArrayPost(array: Array<Node<Feature>>, resolveMap: ResolveMap): Result<Array<Feature>, Array<CJMPError>> {
@@ -1111,14 +1122,42 @@ private func checkNoOverlappingSourceSets(paths: HashMap<String, Location>, decl
     } else { return Ok((decls)) }
 }
 
-private func constructSourceLocations(sourceSets: Array<Node<SourceSetTuple>>): Result<SourceLocations, Array<CJMPError>> { 
+private func checkExpandedFeaturesUnique(canonicalSets: Array<Node<SourceSetTuple>>): Result<Unit, Array<CJMPError>> {
+    let seenExpanded = HashMap<Hash, (Location, String, HashSet<Feature>)>()
+    for (node in canonicalSets) {
+        let (name, srcDir, features, _) = node.value
+        let displayName = name.map { it: String => "`${it}`" } ?? srcDir.toString()
+        let hash = unorderedHash(features)
+        if (let Some((origLoc, origName, origFeatures)) <- seenExpanded.get(hash)) {
+            if (origFeatures == features) {
+                let featuresStr = features.iterator() |> collectString(delimiter: ", ")
+                return Err([SourceSetFeaturesCollapse(node.loc, displayName, origLoc, origName, featuresStr)])
+            }
+        } else {
+            seenExpanded.add(hash, (node.loc, displayName, features))
+        }
+    }
+    return Ok(())
+}
+
+private func constructSourceLocations(sourceSets: Array<Node<SourceSetTuple>>, deducer: FeatureDeducer): Result<SourceLocations, Array<CJMPError>> {
+    let canonicalSets = sourceSets.map { node => node.map { it: SourceSetTuple =>
+        let (name, srcDir, features, product) = it
+        (name, srcDir, deducer.canonicalize(features), product)
+    }}
+
+    match (checkExpandedFeaturesUnique(canonicalSets)) {
+        case Err(errs) => return Err(errs)
+        case Ok(_) => ()
+    }
+
     let sourceSetsMap = HashMap<String, Node<SourceSetTuple>>()
 
     let graph = HashMap<String, HashSet<String>>()
     let indegree = HashMap<String, Int64>()
     let outdegree = HashMap<String, Int64>()
 
-    for (sourceSet in sourceSets) {
+    for (sourceSet in canonicalSets) {
         let srcDir = sourceSet.value[1].toString()
         sourceSetsMap[srcDir] = sourceSet
         graph[srcDir] = HashSet()
@@ -1182,7 +1221,7 @@ private func constructSourceLocations(sourceSets: Array<Node<SourceSetTuple>>): 
 
     assertion { toposort.size == graph.size } // No cyclic source set should occur
 
-    let mapping = HashMap<String, SourceSetEntry>()
+    let entries = HashMap<String, SourceSetEntry>()
     let sourceSetEntries = toposort.iterator().map { it => 
         let (name, srcDir, features, product) = sourceSetsMap[it].value
         let ssname = name ?? srcDir.toString()
@@ -1193,11 +1232,11 @@ private func constructSourceLocations(sourceSets: Array<Node<SourceSetTuple>>): 
             true
         } else { product ?? false }
         let result = SourceSetEntry(ssname, srcDir, features, isProduct)
-        mapping[it] = result
+        entries[it] = result
         result
     } |> collectArray
 
-    return Ok(SourceLocations(graph, mapping, sourceSetEntries))
+    return Ok(SourceLocations(graph, entries, sourceSetEntries))
 }
 
 // Verifying command-line passed options
@@ -1229,6 +1268,7 @@ public enum CJMPError <: ToString {
     | SourceSetDeclNameDuplicate(Location, String, Location)
     | SourceSetSrcDirDuplicate(Location, ?String, String, Location)
     | SourceSetFeaturesDuplicate(Location, String, Location)
+    | SourceSetFeaturesCollapse(Location, String, Location, String, String)
     | FeatureIsNotDeclared(?Location, Feature, String)
     | MultipleEntrySourceSets(Array<(Location, String)>)
     | FeatureParseError(?Location, QName)
@@ -1263,6 +1303,9 @@ public enum CJMPError <: ToString {
                 PrettyPrinter.printInternal(loc, "source set${name} with the same src-dir `${path}` is declared at `${origLoc}`")
             case SourceSetFeaturesDuplicate(loc, name, origLoc) =>
                 PrettyPrinter.printInternal(loc, "source set ${name} with the same features is declared at `${origLoc}`")
+            case SourceSetFeaturesCollapse(loc, name, origLoc, origName, features) =>
+                PrettyPrinter.printInternal(loc,
+                    "source sets ${name} and ${origName} at `${origLoc}` collapse to the same features after mapping expansion: [${features}]")
             case FeatureIsNotDeclared(loc, feature, depName) => PrettyPrinter.printInternal(loc, "feature `${feature}` is not declared by dependency `${depName}`")
             case MultipleEntrySourceSets(locations) => 
                 let sb = StringBuilder()
