@@ -794,7 +794,7 @@ class DepModel {
         return p
     }
 
-    func scanPkgInfo(pkgSource: CJMPSource, timeStamp: Int64, isTest!: Bool = false, compileOptions!: String = "", deducer!: FeatureDeducer = FeatureDeducer.empty): Result<RequiresPackages, Array<ScanDependencyError>> {
+    func scanPkgInfo(pkgSource: CJMPSource, timeStamp: Int64, isTest!: Bool = false, compileOptions!: String = "", deducer!: FeatureDeducer): Result<RequiresPackages, Array<ScanDependencyError>> {
         if (pkgSource.allPaths.size > 1) {
             let paths = pkgSource.allPaths
             return paths.iterator().allResult { it =>
@@ -812,28 +812,11 @@ class DepModel {
                 }
 
                 for ((i, source) in pkgSource._sources.iterator().enumerate()) {
-                    let expectedFeatures = source.features
-                    let expectedProduct = source.configuredProduct
-                    let specifiedProduct = scans[i].product
-                    let specifiedFeatures = deducer.canonicalize(scans[i].features)
-                    if (!(expectedFeatures.contains(all: specifiedFeatures)) ||
-                        !(specifiedFeatures.contains(all: expectedFeatures))) {
-                            let stringify = { it: Iterable<Feature> =>
-                                if (let str <- (it |> collectString(delimiter: ", ")) && !str.isEmpty()) {
-                                    str
-                                } else { "<none>" }
-                            }
-                            errors.add(
-                                "Feature header `${stringify(scans[i].features)}` of package `${name}` is different from expected `${stringify(expectedFeatures)}`"
-                            )
+                    if (let Some(msg) <- checkFeatureHeader(source, scans[i], name, deducer)) {
+                        errors.add(msg)
                     }
-                    if (expectedProduct != specifiedProduct) {
-                        let errormesg = if (!expectedProduct) {
-                            "Feature header of package `${name}` is missing `@NonProduct` annotation"
-                        } else {
-                            "Package `${name}` should be compiled as product, but feature header annotation `@NonProduct` is present in source code"
-                        }
-                        errors.add(errormesg)
+                    if (let Some(msg) <- checkProductHeader(source, scans[i], name)) {
+                        errors.add(msg)
                     }
                 }
 
@@ -1282,7 +1265,7 @@ class DepModel {
         return true
     }
 
-    func getPackageInfo(pkgSource: CJMPSource, cmdOption: String, customizedMap: HashMap<String, String>, timeStamp: Int64, deducer!: FeatureDeducer = FeatureDeducer.empty): ?RequiresPackages {
+    func getPackageInfo(pkgSource: CJMPSource, cmdOption: String, customizedMap: HashMap<String, String>, timeStamp: Int64, deducer!: FeatureDeducer): ?RequiresPackages {
         let errors = ArrayList<String>()
         for (path in pkgSource.allPaths) {
             if (!sourcePathCheck(path)) {
@@ -1459,6 +1442,31 @@ func getActualName(pkgPath: String, rootPkgName: String): String {
     }
 
     return actualName
+}
+
+private func stringifyFeatures(features: Iterable<Feature>): String {
+    if (let str <- (features |> collectString(delimiter: ", ")) && !str.isEmpty()) {
+        str
+    } else { "<none>" }
+}
+
+private func checkFeatureHeader(source: CJMPPackageInfo, scan: RequiresPackages, name: String, deducer: FeatureDeducer): ?String {
+    let expectedFeatures = source.features
+    let specifiedFeatures = deducer.canonicalize(scan.features)
+    if (!(expectedFeatures.contains(all: specifiedFeatures)) ||
+        !(specifiedFeatures.contains(all: expectedFeatures))) {
+        Some("Feature header `${stringifyFeatures(scan.features)}` of package `${name}` is different from expected `${stringifyFeatures(expectedFeatures)}`")
+    } else { None }
+}
+
+private func checkProductHeader(source: CJMPPackageInfo, scan: RequiresPackages, name: String): ?String {
+    if (source.configuredProduct != scan.product) {
+        if (!source.configuredProduct) {
+            Some("Feature header of package `${name}` is missing `@NonProduct` annotation")
+        } else {
+            Some("Package `${name}` should be compiled as product, but feature header annotation `@NonProduct` is present in source code")
+        }
+    } else { None }
 }
 
 func constructSource(modulePath: String, srcDir: String, sourceSets: SourceLocations, deducer: FeatureDeducer, enabledFeatures: Array<Feature>, _globalFeatures: HashSet<Feature>): Result<(CJMPSource, HashSet<Feature>), String> {
