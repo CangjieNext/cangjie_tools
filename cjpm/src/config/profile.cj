@@ -9,8 +9,6 @@ package cjpm.config
 import std.collection.*
 import std.convert.*
 import std.fs.*
-@When[os == "Linux" || os == "macOS"]
-import std.io.*
 import std.time.*
 import std.deriving.Derive
 import stdx.serialization.serialization.*

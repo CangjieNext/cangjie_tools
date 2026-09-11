@@ -7,7 +7,6 @@
 package cjpm.util
 
 import std.collection.*
-import std.deriving.*
 
 import stdx.serialization.serialization.*
 
