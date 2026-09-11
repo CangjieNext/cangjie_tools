@@ -527,10 +527,19 @@ void SymbolCollector::CreateBaseSymbol(const Decl &decl, const std::string &file
     SymbolLocation zeroLoc = {.begin = {0, 0}, .end = {0, 0}, .fileUri = ""};
     SymbolLocation declaration = {.begin = {0, 0}, .end = {0, 0}, .fileUri = ""};
     CommentGroups comments = GetDeclComments(decl);
+    std::string cjdSignature;
 
     if (NeedToObtainCjdDeclPos(isCjoPkg)) {
-        declaration = CjdIndexer::GetInstance()->GetSymbolDeclaration(GetDeclSymbolID(decl), decl.fullPackageName);
-        comments = CjdIndexer::GetInstance()->GetSymbolComments(GetDeclSymbolID(decl), decl.fullPackageName);
+        auto declId = GetDeclSymbolID(decl);
+        declaration = CjdIndexer::GetInstance()->GetSymbolDeclaration(declId, decl.fullPackageName);
+        comments = CjdIndexer::GetInstance()->GetSymbolComments(declId, decl.fullPackageName);
+        // Read the signature precomputed while indexing CJD (available on both fresh and cache paths).
+        cjdSignature = CjdIndexer::GetInstance()->GetSymbolSignature(declId, decl.fullPackageName);
+    } else if (ark::MessageHeaderEndOfLine::GetIsDeveco() && ark::lsp::CjdIndexer::GetInstance() != nullptr &&
+           !isCjoPkg && ark::lsp::CjdIndexer::GetInstance()->GetRunningState()) {
+        // Read the signature precomputed while indexing CJD (available on both fresh and cache paths).
+        cjdSignature = CjdIndexer::GetInstance()->ExtractSignatureFromSource(
+            decl.identifier.Val(), decl.begin, decl.end, decl.fullPackageName);
     }
     Symbol declSym;
     declSym.id = GetDeclSymbolID(decl);
@@ -541,6 +550,7 @@ void SymbolCollector::CreateBaseSymbol(const Decl &decl, const std::string &file
     declSym.canonicalDeclaration = zeroLoc;
     declSym.kind = decl.astKind;
     declSym.signature = ItemResolverUtil::ResolveSignatureByNode(decl);
+    declSym.cjdSignature = std::move(cjdSignature);
     declSym.returnType = GetTypeString(decl);
     declSym.idArray = GetArrayFromID(declSym.id);
     // config local lambda variables kind for callHierarchy
