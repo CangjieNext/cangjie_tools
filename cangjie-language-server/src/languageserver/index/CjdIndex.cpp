@@ -5,6 +5,7 @@
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 #include <fstream>
+#include <sstream>
 #include "CjdIndex.h"
 #include "../common/FileStore.h"
 
@@ -176,6 +177,54 @@ CommentGroups CjdIndexer::GetSymbolComments(SymbolID id, const std::string& full
         }
     }
     return comments;
+}
+
+std::string CjdIndexer::ExtractSignatureFromSource(const std::string& identifier, const Position& begin,
+                                                   const Position& end, const std::string& fullPkgName)
+{
+    auto pkg = pkgMap.find(fullPkgName);
+    // Cangjie Position: line and column start at 1, column is a byte offset within the line.
+    if (pkg == pkgMap.end() || begin.line <= 0 || end.line < begin.line) { return {}; }
+    auto byteOffset = [](const std::string &line, int column) -> size_t {
+        return column <= 1 ? 0 : std::min(static_cast<size_t>(column - 1), line.size());
+    };
+    auto sliceFrom = [&](const std::string &content) -> std::string {
+        std::vector<std::string> lines;
+        std::stringstream stream(content);
+        for (std::string line; std::getline(stream, line);) { lines.emplace_back(std::move(line)); }
+        if (static_cast<size_t>(end.line) > lines.size()) { return {}; }
+        std::string signature;
+        for (int lineNo = begin.line; lineNo <= end.line; ++lineNo) {
+            const auto &line = lines[static_cast<size_t>(lineNo - 1)];
+            const auto first = lineNo == begin.line ? byteOffset(line, begin.column) : 0;
+            const auto last = lineNo == end.line ? byteOffset(line, end.column) : line.size();
+            if (first > last) { return {}; }
+            signature += line.substr(first, last - first);
+            if (lineNo != end.line) { signature += ' '; }
+        }
+        return signature;
+    };
+    // A package may span several .d files; positions are per-file, so pick the file whose
+    // sliced text actually contains the identifier.
+    for (const auto &cached : pkg->second->bufferCache) {
+        auto signature = sliceFrom(cached.second);
+        if (!signature.empty() && signature.find(identifier) != std::string::npos) {
+            return signature;
+        }
+    }
+    return {};
+}
+
+std::string CjdIndexer::GetSymbolSignature(SymbolID id, const std::string& fullPkgName)
+{
+    if (auto found = pkgSymsMap.find(fullPkgName); found != pkgSymsMap.end()) {
+        for (const auto &sym : found->second) {
+            if (sym.id == id) {
+                return sym.cjdSignature;
+            }
+        }
+    }
+    return {};
 }
 // LCOV_EXCL_START
 void CjdIndexer::ReadCJDSource(const std::string &rootPath, const std::string &modulePath,

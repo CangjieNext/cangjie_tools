@@ -91,6 +91,15 @@ public:
 
     CommentGroups GetSymbolComments(SymbolID id, const std::string& fullPkgName);
 
+    // Extracts the declaration signature text from the cached CJD source.
+    // Used while indexing the CJD packages themselves, where pkgMap is populated.
+    std::string ExtractSignatureFromSource(const std::string& identifier, const Position& begin,
+                                           const Position& end, const std::string& fullPkgName);
+
+    // Returns the CJD signature previously computed during indexing and stored on the symbol.
+    // Works on both the fresh-build and cache-restore paths, since it reads pkgSymsMap.
+    std::string GetSymbolSignature(SymbolID id, const std::string& fullPkgName);
+
     std::unordered_map<std::string, std::unique_ptr<DPkgInfo>> &GetPkgMap()
     {
         return pkgMap;
