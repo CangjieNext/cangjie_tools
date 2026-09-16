@@ -50,7 +50,7 @@ public enum AutoGenType1IntypeNodes < U > where U <: JSInteropType<U> {
     }
 }
 
-
+/*  */
 /*interface AutoGenType2IntypeNodes {
     x: number;
     y: U;
@@ -82,7 +82,7 @@ public open class AutoGenType2IntypeNodes<U> where U <: JSInteropType<U> {
     }
 }
 
-
+/*  */
 /*interface AutoGenType3IntypeNodes {
     }*/
 
@@ -104,7 +104,7 @@ public open class AutoGenType3IntypeNodes {
     }
 }
 
-
+/*  */
 /*interface AutoGenType4IntypeNodes {
     }*/
 
@@ -126,7 +126,7 @@ public open class AutoGenType4IntypeNodes {
     }
 }
 
-
+/*  */
 /*interface AutoGenType5IntypeNodes {
     x: { value: number; unit: string } | number;
     y: { value: number; unit: string } | number;
@@ -158,7 +158,7 @@ public open class AutoGenType5IntypeNodes {
     }
 }
 
-
+/*  */
 /*interface AutoGenType6IntypeNodes {
     }*/
 
@@ -180,7 +180,7 @@ public open class AutoGenType6IntypeNodes {
     }
 }
 
-
+/*  */
 /*interface AutoGenType7IntypeNodes {
     }*/
 
@@ -202,7 +202,7 @@ public open class AutoGenType7IntypeNodes {
     }
 }
 
-
+/*  */
 /*interface AutoGenType8IntypeNodes {
     }*/
 
@@ -225,7 +225,7 @@ public open class AutoGenType8IntypeNodes {
 }
 
 /***********OBJECT***********/
-
+/*  */
 /*interface ArrayTypesI {
     arr10: Array<Error>;
     arr20: number[];
@@ -273,8 +273,8 @@ public open class ArrayTypesI {
     }
 }
 
-// These interfaces are used for testing type syntax of the typescript compiler.
-// Properties are named after the syntax kinds as in tsc.
+/* // These interfaces are used for testing type syntax of the typescript compiler.
+// Properties are named after the syntax kinds as in tsc. */
 /*interface BasicTypes {
     numberKeyword: number;
     stringKeyword: String;
@@ -360,7 +360,7 @@ public open class BasicTypes {
     }
 }
 
-
+/*  */
 /*interface ComplexTypes {
     typeReference10: U;
     typeReference20: ComplexTypes<T, U>;
@@ -512,7 +512,7 @@ public open class ComplexTypes<T, U> where T <: JSInteropType<T>, U <: JSInterop
     }
 }
 
-
+/*  */
 /*interface FunctionTypes {
     functionType1: () => void;
     functionType10: (arg: V) => void;
@@ -625,7 +625,7 @@ public open class FunctionTypes<V, W> where V <: JSInteropType<V>, W <: JSIntero
     }
 }
 
-
+/*  */
 /*interface InferredTypes {
     inferred1: number & String;
     inferred10: ReturnType<typeof setTimeout>;
@@ -657,7 +657,7 @@ public open class InferredTypes {
     }
 }
 
-
+/*  */
 /*interface NestedTypes {
     nested10: {
 		x: { value: number; unit: String; } | number;
@@ -685,7 +685,7 @@ public open class NestedTypes<T> where T <: JSInteropType<T> {
     }
 }
 
-
+/*  */
 /*interface Optionals {
     optionalParam10: (a: number, b?: String) => void;
     optionalField1?: number;
@@ -738,7 +738,7 @@ public open class Optionals {
     }
 }
 
-
+/*  */
 /*interface UnsupportedTypes {
     unsupported10: { [123]: String; };
     unsupported20: { ['234']: number; };
@@ -776,7 +776,7 @@ public open class UnsupportedTypes {
     }
 }
 
-
+/*  */
 /*class DeclareKeyword ArrayTypesC {
     arr10: Array<Error>;
     arr20: number[];
@@ -788,9 +788,9 @@ public class ArrayTypesC {
     protected ArrayTypesC(var arkts_object: JSObject) { }
     
     
-    public mut prop arr10: Array<JSValue/* FIXME: `Error` */> {
+    public mut prop arr10: Array<JSValue/\* FIXME: `Error` *\/> {
         get() {
-            checkThreadAndCall < Array<JSValue/* FIXME: `Error` */> >(getMainContext()) {
+            checkThreadAndCall < Array<JSValue/\* FIXME: `Error` *\/> >(getMainContext()) {
                 ctx: JSContext => fromJSArray < JSValue/* FIXME: `Error` */ >(ctx, arkts_object["arr10"], { ctx: JSContext, val: JSValue => val })
             }
         }
@@ -816,9 +816,9 @@ public class ArrayTypesC {
         
     }
     
-    public mut prop arr11: ?Array<JSValue/* FIXME: `Error` */> {
+    public mut prop arr11: ?Array<JSValue/\* FIXME: `Error` *\/> {
         get() {
-            checkThreadAndCall < ?Array<JSValue/* FIXME: `Error` */> >(getMainContext()) {
+            checkThreadAndCall < ?Array<JSValue/\* FIXME: `Error` *\/> >(getMainContext()) {
                 ctx: JSContext => fromJSArrayOption < JSValue/* FIXME: `Error` */ >(ctx, arkts_object["arr11"], { ctx: JSContext, val: JSValue => val })
             }
         }

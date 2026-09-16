@@ -10,13 +10,13 @@ import ohos.ark_interop.*
 import ohos.ark_interop_helper.*
 import ohos.base.*
 
-
+/*  */
 public const MY_VALUE = 123
-
+/*  */
 public const EXPORTED_VALUE = "abc"
 
 /***********ENUM***********/
-
+/*  */
 /* enum MyStringEnum {
 	 A = aaa
 	}*/
@@ -59,7 +59,7 @@ public enum MyStringEnum <: ToString & Equatable < MyStringEnum > {
     }
 }
 
-
+/*  */
 /* enum MyNumericEnum {
 	 A = 111
 	}*/
@@ -106,7 +106,7 @@ public enum MyNumericEnum <: ToString & Equatable < MyNumericEnum > {
 
 
 /***********OBJECT***********/
-
+/*  */
 /*interface ExportedInterface {
     }*/
 
@@ -128,7 +128,7 @@ public open class ExportedInterface {
     }
 }
 
-
+/*  */
 /*interface ExportKeyword I3 {
     }*/
 
@@ -150,7 +150,7 @@ public open class I3 {
     }
 }
 
-
+/*  */
 /*interface MyInterface {
     }*/
 
@@ -172,7 +172,7 @@ public open class MyInterface {
     }
 }
 
-
+/*  */
 /*class ExportedClass {
     }*/
 
@@ -189,7 +189,7 @@ public class ExportedClass {
         ExportedClass(input.asObject())
     }
 }
-
+/*  */
 /*class MyClass {
     }*/
 

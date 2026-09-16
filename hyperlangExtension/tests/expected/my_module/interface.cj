@@ -11,7 +11,7 @@ import ohos.ark_interop_helper.*
 import ohos.base.*
 import std.collection.{ HashMap }
 
-
+/*  */
 /*interface AutoGenType0Ininterface {
     city: string;
     zipCode: string;
@@ -44,7 +44,7 @@ public open class AutoGenType0Ininterface {
 }
 
 /***********OBJECT***********/
-
+/*  */
 /*interface ExportKeyword AA {
     a: number;
     foo(): void
@@ -83,7 +83,7 @@ public open class AA {
         AA(input.asObject())
     }
 }
-// 函数重载
+/* // 函数重载 */
 /*interface Calculator {
     add(x: number, y: number): number
     add(x: string, y: string): String
@@ -114,7 +114,7 @@ public open class Calculator {
         Calculator(input.asObject())
     }
 }
-// 函数类型
+/* // 函数类型 */
 /*interface Callback1 {
     (data: string): void
     }*/
@@ -132,7 +132,7 @@ public open class Callback1 {
         Callback1(input.asObject())
     }
 }
-
+/*  */
 /*interface ClockConstructor {
     }*/
 
@@ -154,7 +154,7 @@ public open class ClockConstructor {
     }
 }
 
-// 动态属性
+/* // 动态属性 */
 /*interface Config {
     (key: string): string | number
     }*/
@@ -172,7 +172,7 @@ public open class Config {
         Config(input.asObject())
     }
 }
-// 索引签名
+/* // 索引签名 */
 /*interface Dictionary {
     (key: string): string
     }*/
@@ -190,7 +190,7 @@ public open class Dictionary {
         Dictionary(input.asObject())
     }
 }
-
+/*  */
 /*interface ExportKeyword IWBAPI {
     }*/
 
@@ -212,8 +212,8 @@ public open class IWBAPI {
     }
 }
 
-// 数组类型
-// list.d.ts
+/* // 数组类型
+// list.d.ts */
 /*interface List {
     items: String[];
     }*/
@@ -238,7 +238,7 @@ public open class List {
     }
 }
 
-
+/*  */
 /*interface ExportKeyword LoggerAdapter {
     setColorLevel(level: LogLevel): void
     printDiagnoseLog(level: LogLevel, tag: string, msg: string, e: Error | null): void
@@ -286,8 +286,8 @@ public open class LoggerAdapter {
         LoggerAdapter(input.asObject())
     }
 }
-// 成员函数
-// person.d.ts
+/* // 成员函数
+// person.d.ts */
 /*interface Person {
     name: String;
     greet(): String
@@ -326,7 +326,7 @@ public open class Person {
         Person(input.asObject())
     }
 }
-
+/*  */
 /*interface ExportKeyword PluginContainer {
     registryPlugin(plugin: BasePlugin, cfg: UMConfig): BasePlugin
     getPluginById(pluginId: string): BasePlugin | undefined
@@ -362,7 +362,7 @@ public open class PluginContainer {
         PluginContainer(input.asObject())
     }
 }
-//只读属性
+/* //只读属性 */
 /*interface Point {
     ReadonlyKeywordx: number;
     ReadonlyKeywordy: number;
@@ -394,7 +394,7 @@ public open class Point {
     }
 }
 
-// 可选属性
+/* // 可选属性 */
 /*interface Product {
     price?: number;
     }*/
@@ -426,7 +426,7 @@ public open class Product {
     }
 }
 
-
+/*  */
 /*interface UnionInterface {
     foo(a: string|null): null | String
     goo(b: undefined | string): String | undefined
@@ -473,7 +473,7 @@ public open class UnionInterface {
         UnionInterface(input.asObject())
     }
 }
-// 嵌套对象
+/* // 嵌套对象 */
 /*interface UserProfile {
     id: number;
     name: String;
@@ -514,7 +514,7 @@ public open class UserProfile {
     }
 }
 
-
+/*  */
 /*class ExportKeyword DeclareKeyword FirstContextualKeyword BasePlugin {
     pluginVersion: String;
     pluginId: Biz_Type;
@@ -558,9 +558,9 @@ public open class BasePlugin {
         
     }
     
-    public mut prop pluginId: JSValue/* FIXME: `Biz_Type` */ {
+    public mut prop pluginId: JSValue/\* FIXME: `Biz_Type` *\/ {
         get() {
-            checkThreadAndCall < JSValue/* FIXME: `Biz_Type` */ >(getMainContext()) {
+            checkThreadAndCall < JSValue/\* FIXME: `Biz_Type` *\/ >(getMainContext()) {
                 ctx: JSContext => arkts_object["pluginId"]
             }
         }
@@ -676,7 +676,7 @@ public open class BasePlugin {
         BasePlugin(input.asObject())
     }
 }
-
+/*  */
 /*class ExportKeyword DeclareKeyword DefaultPluginContainer {
     ReadonlyKeyword_pluginMap: BasePlugin[];
     constructor(): void
@@ -725,7 +725,7 @@ public class DefaultPluginContainer <: PluginContainer {
         DefaultPluginContainer(input.asObject())
     }
 }
-
+/*  */
 /*class ExportKeyword DeclareKeyword UMConfig {
     appKey?: String;
     channel?: String;

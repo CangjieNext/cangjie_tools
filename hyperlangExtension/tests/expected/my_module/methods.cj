@@ -35,7 +35,7 @@ public enum AutoGenType0Inmethods {
 }
 
 /***********ENUM***********/
-
+/*  */
 /* enum EMNum {
 	 E1 = 111,
 	 E2 = 222,
@@ -92,7 +92,7 @@ public enum EMNum <: ToString & Equatable < EMNum > {
     }
 }
 
-
+/*  */
 /* enum EMStr {
 	 EA = aaa,
 	 EB = bbb,
@@ -147,7 +147,7 @@ public enum EMStr <: ToString & Equatable < EMStr > {
 
 
 /***********OBJECT***********/
-// 类实现接口
+/* // 类实现接口 */
 /*interface Drivable {
     start(): void
     stop(): void
@@ -178,7 +178,7 @@ public open class Drivable {
         Drivable(input.asObject())
     }
 }
-
+/*  */
 /*interface IM {
     f1(): void
     f2(s: string): number
@@ -271,7 +271,7 @@ public open class IM {
         IM(input.asObject())
     }
 }
-// 继承类
+/* // 继承类 */
 /*class DeclareKeyword Animal {
     name: String;
     constructor(name: string): void
@@ -320,7 +320,7 @@ public open class Animal {
         Animal(input.asObject())
     }
 }
-
+/*  */
 /*class DeclareKeyword AnimalProtect {
     ProtectedKeywordname: String;
     makeSound(): void
@@ -360,7 +360,7 @@ public class AnimalProtect {
         AnimalProtect(input.asObject())
     }
 }
-// 泛型成员
+/* // 泛型成员 */
 /*class DeclareKeyword Box {
     value: T;
     getValue(): T
@@ -400,7 +400,7 @@ public class Box<T> where T <: JSInteropType<T> {
         Box(input.asObject())
     }
 }
-
+/*  */
 /*class DeclareKeyword CM {
     StaticKeywordsa: String;
     ma: String;
@@ -611,7 +611,7 @@ public class CM {
         CM(input.asObject())
     }
 }
-// 重载方法
+/* // 重载方法 */
 /*class DeclareKeyword Calculator {
     add(x: number, y: number): number
     add(x: string, y: string): String
@@ -651,7 +651,7 @@ public class Calculator {
         Calculator(input.asObject())
     }
 }
-
+/*  */
 /*class DeclareKeyword Car {
     ReadonlyKeywordbrand: String;
     name: String;
@@ -692,7 +692,7 @@ public class Car {
         Car(input.asObject())
     }
 }
-
+/*  */
 /*class DeclareKeyword Car1 {
     start(): void
     stop(): void
@@ -711,7 +711,7 @@ public class Car1 <: Drivable {
         Car1(input.asObject())
     }
 }
-// Dog.d.ts
+/* // Dog.d.ts */
 /*class DeclareKeyword Dog {
     bark(): void
     }*/
@@ -735,7 +735,7 @@ public class Dog <: Animal {
         Dog(input.asObject())
     }
 }
-// 构造函数
+/* // 构造函数 */
 /*class DeclareKeyword Greeter {
     constructor(greeting: string): void
     }*/
@@ -762,7 +762,7 @@ public class Greeter {
         Greeter(input.asObject())
     }
 }
-
+/*  */
 /*class Decorator DeclareKeyword MyClass {
     name: String;
     constructor(name: string): void
@@ -804,7 +804,7 @@ public class MyClass {
         MyClass(input.asObject())
     }
 }
-
+/*  */
 /*class DeclareKeyword Person {
     }*/
 
@@ -821,7 +821,7 @@ public class Person {
         Person(input.asObject())
     }
 }
-
+/*  */
 /*class ExportKeyword DeclareKeyword RecordTest {
     recordTest: Record<String, String>;
     recordTest1: Record<String, String | number>;
@@ -910,7 +910,7 @@ public class RecordTest {
         RecordTest(input.asObject())
     }
 }
-// 抽象类
+/* // 抽象类 */
 /*class DeclareKeyword FirstContextualKeyword Shape {
     getArea(): number
     }*/
@@ -935,7 +935,7 @@ public open class Shape {
         Shape(input.asObject())
     }
 }
-
+/*  */
 /*class DeclareKeyword TE {
     constructor(callback:AsyncCallback<string>, param1?:Array<UInt8>, param2?:Array<string>): void
     f1(): void

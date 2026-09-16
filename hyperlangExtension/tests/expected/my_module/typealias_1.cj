@@ -10,13 +10,13 @@ import ohos.ark_interop.*
 import ohos.ark_interop_helper.*
 import ohos.base.*
 
-
+/*  */
 public type TB230< V, W > = (V) -> W/* FIXME: `<V, W extends "abc" | "def">(arg: V) => W` */
 
-
+/*  */
 public type TB300 = JSValue/* FIXME: `Promise<number>` */
 
-
+/*  */
 public type TB310 = Array<JSValue/* FIXME: `Promise<boolean>` */>
 
 

@@ -11,7 +11,7 @@ import ohos.ark_interop_helper.*
 import ohos.base.*
 
 /***********OBJECT***********/
-
+/*  */
 /*interface ExportKeyword p29 {
     debug(arg: string): void
     info(arg: string): void

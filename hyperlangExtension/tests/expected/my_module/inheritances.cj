@@ -14,7 +14,7 @@ import ohos.base.*
 /*import {p29} from "./superInterface"*/
 
 
-
+/*  */
 /*interface AutoGenType0Ininheritances {
     }*/
 
@@ -36,7 +36,7 @@ public open class AutoGenType0Ininheritances {
     }
 }
 
-
+/*  */
 /*interface AutoGenType1Ininheritances {
     }*/
 
@@ -58,7 +58,7 @@ public open class AutoGenType1Ininheritances {
     }
 }
 
-
+/*  */
 /*interface AutoGenType2Ininheritances {
     }*/
 
@@ -81,7 +81,7 @@ public open class AutoGenType2Ininheritances {
 }
 
 /***********OBJECT***********/
-
+/*  */
 /*interface A {
     p: number;
     }*/
@@ -106,7 +106,7 @@ public open class A {
     }
 }
 
-
+/*  */
 /*interface B {
     p1: number;
     }*/
@@ -135,7 +135,7 @@ public open class B <: A {
     }
 }
 
-
+/*  */
 /*interface ExportKeyword BuglyLogAdapter {
     }*/
 
@@ -152,7 +152,7 @@ public open class BuglyLogAdapter <: p29 {
         BuglyLogAdapter(input.asObject())
     }
 }
-
+/*  */
 /*interface C {
     f(): void
     }*/
@@ -176,7 +176,7 @@ public open class C {
         C(input.asObject())
     }
 }
-
+/*  */
 /*interface D {
     }*/
 
@@ -193,7 +193,7 @@ public open class D <: C {
         D(input.asObject())
     }
 }
-
+/*  */
 /*interface E {
     }*/
 
@@ -216,7 +216,7 @@ public open class E <: A {
     }
 }
 
-
+/*  */
 /*interface F {
     g(): void
     }*/
@@ -240,7 +240,7 @@ public open class F <: C {
         F(input.asObject())
     }
 }
-
+/*  */
 /*interface ExportKeyword INamespace {
     options?: { [k: String]: any };
     nested?: { [k: String]: AnyNestedObject };
@@ -286,7 +286,7 @@ public open class INamespace {
     }
 }
 
-
+/*  */
 /*interface ExportKeyword IService {
     methods: { [k: String]: IMethod };
     }*/
@@ -332,7 +332,7 @@ public open class IService <: INamespace {
     }
 }
 
-
+/*  */
 /*interface ExportKeyword DeclareKeyword SuperInterface {
     p: number;
     }*/
@@ -357,7 +357,7 @@ public open class SuperInterface {
     }
 }
 
-
+/*  */
 /*class ExportKeyword DeclareKeyword SubClass {
     p: number;
     }*/
@@ -375,7 +375,7 @@ public class SubClass <: SuperClass {
         SubClass(input.asObject())
     }
 }
-
+/*  */
 /*class ExportKeyword DeclareKeyword SubClass1 {
     p: number;
     }*/
@@ -393,7 +393,7 @@ public class SubClass1 <: SuperClass1 {
         SubClass1(input.asObject())
     }
 }
-
+/*  */
 /*class ExportKeyword DeclareKeyword SubInterface {
     p: number;
     p1: number;
@@ -428,7 +428,7 @@ public class SubInterface <: SuperInterface {
         SubInterface(input.asObject())
     }
 }
-
+/*  */
 /*class ExportKeyword DeclareKeyword FirstContextualKeyword SuperClass {
     p: number;
     }*/
@@ -460,7 +460,7 @@ public open class SuperClass {
         SuperClass(input.asObject())
     }
 }
-
+/*  */
 /*class ExportKeyword DeclareKeyword SuperClass1 {
     p: number;
     }*/

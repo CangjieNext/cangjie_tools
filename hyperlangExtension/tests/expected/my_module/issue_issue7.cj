@@ -42,7 +42,7 @@ public enum AutoGenType0Inissue_issue7 {
     }
 }
 
-
+/*  */
 /*class ExportKeyword DeclareKeyword AppSettings {
     getInstance(): AppSettings
     getSetting(key: string): String | number | boolean | undefined

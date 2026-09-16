@@ -14,15 +14,15 @@ import ohos.base.*
 
 public const aesEncText = 0/* FIXME: Initialization is required */
 */
-
+/*  */
 public const c1 = 1.2
-
+/*  */
 public const c2 = 1
-
+/*  */
 public const c3 = 0x2
-
+/*  */
 public const c4 = "str"
-
+/*  */
 public const c5 = "123"
 /*
 
@@ -32,20 +32,20 @@ public const c6 = 0/* FIXME: Initialization is required */
 
 public const c7 = 0/* FIXME: Initialization is required */
 */
-
+/*  */
 public const c8 = "1"
-
+/*  */
 public const c9 = c1
-
+/*  */
 public const j = "0.3.6"
-
+/*  */
 public const m = "release"
-
+/*  */
 public const DEBUG = false
-
+/*  */
 public const o = "default"
 
-
+/*  */
 /*class ExportKeyword DefaultKeyword BuildProfile {
     StaticKeywordReadonlyKeywordj: string = "0.3.6";
     StaticKeywordReadonlyKeywordm: string = "release";

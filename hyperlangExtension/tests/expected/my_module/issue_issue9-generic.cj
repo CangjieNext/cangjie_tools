@@ -93,7 +93,7 @@ public enum AutoGenType3Inissue_issue9_generic < T, M > where T <: JSInteropType
 }
 
 /***********OBJECT***********/
-
+/*  */
 /*interface DeclareKeyword B {
     f1(t:T): T | W | String
     f2(t:T): T | M | String
@@ -124,7 +124,7 @@ public open class B<W, M> where W <: JSInteropType<W>, M <: JSInteropType<M> {
         B(input.asObject())
     }
 }
-
+/*  */
 /*class DeclareKeyword A {
     f1(t:T): T | String
     f2(t:T): T | U | String

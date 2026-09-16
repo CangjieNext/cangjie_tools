@@ -32,7 +32,7 @@ public enum AutoGenType0Inissue_issue3 {
     }
 }
 
-
+/*  */
 public enum MyUnion8 {
     | AUTOGENTYPE0INISSUE_ISSUE3__(Array<AutoGenType0Inissue_issue3>)
     | LITERAL__KEY_STRING_(JSValue/* FIXME: `{ key: string }` */)

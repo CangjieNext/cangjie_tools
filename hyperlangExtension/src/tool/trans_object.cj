@@ -449,7 +449,7 @@ public class TransObject {
             this.cjModifiers.add("open")
         }
 
-        let headToken = Tokens(Token(TokenKind.COMMENT, arkComment), nl)
+        let headToken = Tokens(Token(TokenKind.COMMENT, escapeRawComment(arkComment)), nl)
         tokens.append(headToken)
         tokens.append(addComment(arkCategory + signature))
 

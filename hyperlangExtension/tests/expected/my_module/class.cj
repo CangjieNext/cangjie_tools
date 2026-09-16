@@ -14,7 +14,7 @@ import ohos.base.*
 /*import { LoggerAdapter } from './interface'*/
 
 
-
+/*  */
 /*class ExportKeyword DeclareKeyword TDDiagBuilder {
     StaticKeywordReadonlyKeywordPLATFORM_OA: number = 0;
     StaticKeywordReadonlyKeywordPLATFORM_PRO: number = 3;
@@ -174,9 +174,9 @@ public class TDDiagBuilder {
         
     }
     
-    public mut prop crashListener: Option<JSValue/* FIXME: `ICrashListener` */> {
+    public mut prop crashListener: Option<JSValue/\* FIXME: `ICrashListener` *\/> {
         get() {
-            checkThreadAndCall < Option<JSValue/* FIXME: `ICrashListener` */> >(getMainContext()) {
+            checkThreadAndCall < Option<JSValue/\* FIXME: `ICrashListener` *\/> >(getMainContext()) {
                 ctx: JSContext => arkts_object["crashListener"]
             }
         }
@@ -191,9 +191,9 @@ public class TDDiagBuilder {
         
     }
     
-    public mut prop logUploadListener: ?JSValue/* FIXME: `LogUploadListener` */ {
+    public mut prop logUploadListener: ?JSValue/\* FIXME: `LogUploadListener` *\/ {
         get() {
-            checkThreadAndCall < ?JSValue/* FIXME: `LogUploadListener` */ >(getMainContext()) {
+            checkThreadAndCall < ?JSValue/\* FIXME: `LogUploadListener` *\/ >(getMainContext()) {
                 ctx: JSContext => arkts_object["logUploadListener"]
             }
         }
@@ -231,7 +231,7 @@ public class TDDiagBuilder {
         TDDiagBuilder(input.asObject())
     }
 }
-
+/*  */
 /*class ExportKeyword DeclareKeyword d10 {
     getInstance(): d10
     putSync(key: string, value: number | string | boolean | Array<number> | Array<string> | Array<boolean>): d10

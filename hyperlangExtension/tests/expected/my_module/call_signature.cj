@@ -16,7 +16,7 @@ public const when = 0/* FIXME: Initialization is required */
 */
 
 /***********OBJECT***********/
-
+/*  */
 /*interface ExportKeyword VerificationMode {
     times(count: Number): void
     never(): void
@@ -68,7 +68,7 @@ public open class VerificationMode {
         VerificationMode(input.asObject())
     }
 }
-
+/*  */
 /*interface DeclareKeyword when {
     afterReturn(value: any): any
     afterReturnNothing(): undefined
@@ -114,7 +114,7 @@ public open class when {
         when(input.asObject())
     }
 }
-
+/*  */
 /*class ExportKeyword ArgumentMatchers {
     StaticKeywordany: unsupported FirstToken;
     StaticKeywordanyString: unsupported FirstToken;
@@ -129,9 +129,9 @@ public class ArgumentMatchers {
     protected ArgumentMatchers(var arkts_object: JSObject) { }
     
     
-    public static mut prop any: JSValue/* FIXME: `UnsupportedType[FirstToken]` */ {
+    public static mut prop any: JSValue/\* FIXME: `UnsupportedType[FirstToken]` *\/ {
         get() {
-            checkThreadAndCall < JSValue/* FIXME: `UnsupportedType[FirstToken]` */ >(getMainContext()) {
+            checkThreadAndCall < JSValue/\* FIXME: `UnsupportedType[FirstToken]` *\/ >(getMainContext()) {
                 ctx: JSContext => getClassConstructorObj("my_module_callSignature", "ArgumentMatchers")["any"]
             }
         }
@@ -143,9 +143,9 @@ public class ArgumentMatchers {
         
     }
     
-    public static mut prop anyString: JSValue/* FIXME: `UnsupportedType[FirstToken]` */ {
+    public static mut prop anyString: JSValue/\* FIXME: `UnsupportedType[FirstToken]` *\/ {
         get() {
-            checkThreadAndCall < JSValue/* FIXME: `UnsupportedType[FirstToken]` */ >(getMainContext()) {
+            checkThreadAndCall < JSValue/\* FIXME: `UnsupportedType[FirstToken]` *\/ >(getMainContext()) {
                 ctx: JSContext => getClassConstructorObj("my_module_callSignature", "ArgumentMatchers")["anyString"]
             }
         }
@@ -157,9 +157,9 @@ public class ArgumentMatchers {
         
     }
     
-    public static mut prop anyBoolean: JSValue/* FIXME: `UnsupportedType[FirstToken]` */ {
+    public static mut prop anyBoolean: JSValue/\* FIXME: `UnsupportedType[FirstToken]` *\/ {
         get() {
-            checkThreadAndCall < JSValue/* FIXME: `UnsupportedType[FirstToken]` */ >(getMainContext()) {
+            checkThreadAndCall < JSValue/\* FIXME: `UnsupportedType[FirstToken]` *\/ >(getMainContext()) {
                 ctx: JSContext => getClassConstructorObj("my_module_callSignature", "ArgumentMatchers")["anyBoolean"]
             }
         }
@@ -171,9 +171,9 @@ public class ArgumentMatchers {
         
     }
     
-    public static mut prop anyNumber: JSValue/* FIXME: `UnsupportedType[FirstToken]` */ {
+    public static mut prop anyNumber: JSValue/\* FIXME: `UnsupportedType[FirstToken]` *\/ {
         get() {
-            checkThreadAndCall < JSValue/* FIXME: `UnsupportedType[FirstToken]` */ >(getMainContext()) {
+            checkThreadAndCall < JSValue/\* FIXME: `UnsupportedType[FirstToken]` *\/ >(getMainContext()) {
                 ctx: JSContext => getClassConstructorObj("my_module_callSignature", "ArgumentMatchers")["anyNumber"]
             }
         }
@@ -185,9 +185,9 @@ public class ArgumentMatchers {
         
     }
     
-    public static mut prop anyObj: JSValue/* FIXME: `UnsupportedType[FirstToken]` */ {
+    public static mut prop anyObj: JSValue/\* FIXME: `UnsupportedType[FirstToken]` *\/ {
         get() {
-            checkThreadAndCall < JSValue/* FIXME: `UnsupportedType[FirstToken]` */ >(getMainContext()) {
+            checkThreadAndCall < JSValue/\* FIXME: `UnsupportedType[FirstToken]` *\/ >(getMainContext()) {
                 ctx: JSContext => getClassConstructorObj("my_module_callSignature", "ArgumentMatchers")["anyObj"]
             }
         }
@@ -199,9 +199,9 @@ public class ArgumentMatchers {
         
     }
     
-    public static mut prop anyFunction: JSValue/* FIXME: `UnsupportedType[FirstToken]` */ {
+    public static mut prop anyFunction: JSValue/\* FIXME: `UnsupportedType[FirstToken]` *\/ {
         get() {
-            checkThreadAndCall < JSValue/* FIXME: `UnsupportedType[FirstToken]` */ >(getMainContext()) {
+            checkThreadAndCall < JSValue/\* FIXME: `UnsupportedType[FirstToken]` *\/ >(getMainContext()) {
                 ctx: JSContext => getClassConstructorObj("my_module_callSignature", "ArgumentMatchers")["anyFunction"]
             }
         }
@@ -228,7 +228,7 @@ public class ArgumentMatchers {
         ArgumentMatchers(input.asObject())
     }
 }
-
+/*  */
 /*class ExportKeyword MockKit {
     constructor(): void
     mockFunc(obj: Object, func: Function): Function

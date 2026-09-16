@@ -11,7 +11,7 @@ import ohos.ark_interop_helper.*
 import ohos.base.*
 
 /***********OBJECT***********/
-
+/*  */
 /*interface i {
     }*/
 
@@ -33,7 +33,7 @@ public open class i {
     }
 }
 
-
+/*  */
 /*class ExportKeyword c {
     }*/
 

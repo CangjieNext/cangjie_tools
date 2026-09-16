@@ -11,7 +11,7 @@ import ohos.ark_interop_helper.*
 import ohos.base.*
 
 /***********OBJECT***********/
-
+/*  */
 /*interface Item {
     id: number;
     name: String;
@@ -49,7 +49,7 @@ public open class Item<T> where T <: JSInteropType<T> {
     }
 }
 
-
+/*  */
 /*interface Item1 {
     id: number;
     name: U;

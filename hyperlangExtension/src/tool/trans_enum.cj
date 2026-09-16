@@ -79,7 +79,7 @@ public class TransEnum {
     }
 
     public func generate(): Tokens {
-        token.append(Tokens([Token(TokenKind.COMMENT, comment), nl]))
+        token.append(Tokens([Token(TokenKind.COMMENT, escapeRawComment(comment)), nl]))
 
         token.append(addComment(signature))
         let nameToken = Token(TokenKind.IDENTIFIER, name)

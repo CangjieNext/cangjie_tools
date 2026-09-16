@@ -92,7 +92,7 @@ public enum AutoGenType3InunionTypes2 {
     }
 }
 
-
+/*  */
 /*interface AutoGenType4InunionTypes2 {
     city: string;
     zipCode: string;
@@ -125,7 +125,7 @@ public open class AutoGenType4InunionTypes2 {
 }
 
 /***********OBJECT***********/
-
+/*  */
 /*interface UserProfile {
     array: (number | String)[];
     test: (num: number | String) => String;

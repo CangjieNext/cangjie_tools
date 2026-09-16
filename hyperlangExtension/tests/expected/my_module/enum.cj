@@ -11,7 +11,7 @@ import ohos.ark_interop_helper.*
 import ohos.base.*
 
 /***********ENUM***********/
-// 字符串枚举
+/* // 字符串枚举 */
 /* enum Colors {
 	 Red = RED,
 	 Green = GREEN,
@@ -69,7 +69,7 @@ public enum Colors <: ToString & Equatable < Colors > {
     }
 }
 
-// 数字枚举
+/* // 数字枚举 */
 /* enum Status {
 	 Pending,
 	 Approved,
@@ -126,8 +126,8 @@ public enum Status <: ToString & Equatable < Status > {
     }
 }
 
-// 常量枚举
-// constants.d.ts
+/* // 常量枚举
+// constants.d.ts */
 /* enum Status1 {
 	 Pending = 3,
 	 Approved = 4,
@@ -184,8 +184,8 @@ public enum Status1 <: ToString & Equatable < Status1 > {
     }
 }
 
-// 异构枚举
-// response.d.ts
+/* // 异构枚举
+// response.d.ts */
 /* enum Response1 {
 	 No = 0,
 	 Yes = YES
@@ -234,7 +234,7 @@ public enum Response1 <: ToString & Equatable < Response1 > {
 }
 
 // this is systemapi
-/*// @systemapi
+/*/\* // @systemapi *\/
 /\* enum SystemErrorCode {
 	 success = 0,
 	 invalidInput = 1,
@@ -299,7 +299,7 @@ public enum SystemErrorCode <: ToString & Equatable < SystemErrorCode > {
 */
 
 // this api is deprecated
-/*// @deprecated
+/*/\* // @deprecated *\/
 /\* enum LegacyStatus {
 	 active = 0,
 	 inactive = 1,

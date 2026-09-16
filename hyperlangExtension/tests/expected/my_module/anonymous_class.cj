@@ -26,7 +26,7 @@ public enum AutoGenType5InanonymousClass {
     }
 }
 
-
+/*  */
 /*interface AutoGenType0InanonymousClass {
     n: number;
     }*/
@@ -51,7 +51,7 @@ public open class AutoGenType0InanonymousClass {
     }
 }
 
-
+/*  */
 /*interface AutoGenType1InanonymousClass {
     n: number;
     }*/
@@ -76,7 +76,7 @@ public open class AutoGenType1InanonymousClass {
     }
 }
 
-
+/*  */
 /*interface AutoGenType2InanonymousClass {
     msg: string;
     }*/
@@ -101,7 +101,7 @@ public open class AutoGenType2InanonymousClass {
     }
 }
 
-
+/*  */
 /*interface AutoGenType3InanonymousClass {
     code: number;
     msg: string;
@@ -141,7 +141,7 @@ public open class AutoGenType3InanonymousClass {
     }
 }
 
-
+/*  */
 /*interface AutoGenType4InanonymousClass {
     msg: string;
     data: string;
@@ -181,7 +181,7 @@ public open class AutoGenType4InanonymousClass {
     }
 }
 
-
+/*  */
 /*class ExportKeyword DeclareKeyword AnonymousClass {
     f1(p: {n: number}): {n: number}
     f2(n: number): Promise<String>

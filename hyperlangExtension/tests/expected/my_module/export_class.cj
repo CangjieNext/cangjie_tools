@@ -10,7 +10,7 @@ import ohos.ark_interop.*
 import ohos.ark_interop_helper.*
 import ohos.base.*
 
-
+/*  */
 /*interface AutoGenType0Inexport_class {
     }*/
 
@@ -32,7 +32,7 @@ public open class AutoGenType0Inexport_class {
     }
 }
 
-
+/*  */
 /*class ExportKeyword DeclareKeyword UserInfoManager {
     userPreferences?: { [key: String]: String | number | boolean };
     }*/

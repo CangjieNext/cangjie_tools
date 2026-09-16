@@ -17,7 +17,7 @@ import std.collection.{ HashMap }
 
 
 /***********OBJECT***********/
-
+/*  */
 /*interface I1 {
     a: number;
     c: Uint8Array;
@@ -107,7 +107,7 @@ public open class I1 {
     }
 }
 
-
+/*  */
 /*class C1 {
     StaticKeywordsa: number = 123;
     StaticKeywordsb: String;

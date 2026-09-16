@@ -32,31 +32,31 @@ public enum AutoGenType0Intypealias_4 {
     }
 }
 
-//简单元组类型
+/* //简单元组类型 */
 public type BasicTuple = (Float64, String, Bool)
 
-//元组类型的可选类型
+/* //元组类型的可选类型 */
 public type OptionalElementTuple = (Float64, Option<String>, Option<Bool>)
 
-//异构元组类型
+/* //异构元组类型 */
 public type HeterogeneousTuple = (String, Float64, Bool, JSValue/* FIXME: `Date` */)
 
-//元组的剩余元素
+/* //元组的剩余元素 */
 public type RestTuple = (String, JSValue/* FIXME: `UnsupportedType[RestType]` */)
 
-//包含固定长度的元组
+/* //包含固定长度的元组 */
 public type FixedLengthTuple = (Float64, String, Bool)
 
-//元组与数组的结合
+/* //元组与数组的结合 */
 public type TupleArray = Array<(Float64, String)>
 
-//多维元组
+/* //多维元组 */
 public type TwoDimensionalTuple = ((Float64, String), (Bool, JSValue/* FIXME: `Date` */))
 
-//元组与联合类型结合
+/* //元组与联合类型结合 */
 public type UnionTuple = (AutoGenType0Intypealias_4, Bool, JSValue/* FIXME: `Date` */)
 
-//包含中文字符串的union类型
+/* //包含中文字符串的union类型 */
 public enum another {
     | A
     | 中文
@@ -73,7 +73,7 @@ public enum another {
     }
 }
 
-//包含中文字符和非法标识符串的union类型
+/* //包含中文字符和非法标识符串的union类型 */
 public enum another2 {
     | A
     | 中文_
@@ -90,7 +90,7 @@ public enum another2 {
     }
 }
 
-//包含非法标识符字符串的union类型
+/* //包含非法标识符字符串的union类型 */
 public enum another3 {
     | DO
     | WHILE
@@ -107,7 +107,7 @@ public enum another3 {
     }
 }
 
-//包含非法标识符字符串的union类型
+/* //包含非法标识符字符串的union类型 */
 public enum NetworkType {
     | WIFI
     | LITERAL_2G

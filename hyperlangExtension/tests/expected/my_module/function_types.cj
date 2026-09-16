@@ -11,12 +11,12 @@ import ohos.ark_interop_helper.*
 import ohos.base.*
 import std.collection.{ HashMap }
 
-
+/*  */
 public type ErrorCode = Float64
 
 
 /***********ENUM***********/
-
+/*  */
 /* enum EventType {
 	 DefaultEvent
 	}*/
@@ -61,7 +61,7 @@ public enum EventType <: ToString & Equatable < EventType > {
     }
 }
 
-
+/*  */
 /* enum ListenerStatusNumeric {
 	 on,
 	 off
@@ -112,7 +112,7 @@ public enum ListenerStatusNumeric <: ToString & Equatable < ListenerStatusNumeri
     }
 }
 
-
+/*  */
 /* enum ListenerStatusString {
 	 on = ON,
 	 off = OFF
@@ -162,7 +162,7 @@ public enum ListenerStatusString <: ToString & Equatable < ListenerStatusString 
 
 
 /***********OBJECT***********/
-
+/*  */
 /*interface MyListener {
     on(key: string, cb: (r: Record<string, string>) => void): void
     off(key: string, cb: (r: Record<string, string>, t:number) => void): void
@@ -212,7 +212,7 @@ public open class MyListener {
         MyListener(input.asObject())
     }
 }
-
+/*  */
 /*interface MyListener2 {
     on(key: string, cb: (r: ListenerStatusNumeric) => void): void
     }*/
@@ -250,7 +250,7 @@ public open class MyListener2 {
         MyListener2(input.asObject())
     }
 }
-
+/*  */
 /*interface MyListener3 {
     on(key: string, cb: (r: ListenerStatusString) => void): void
     }*/
@@ -288,7 +288,7 @@ public open class MyListener3 {
         MyListener3(input.asObject())
     }
 }
-
+/*  */
 /*interface MyListener5 {
     on(key: string, cb: Callback<number>): void
     }*/
@@ -326,7 +326,7 @@ public open class MyListener5 {
         MyListener5(input.asObject())
     }
 }
-
+/*  */
 /*interface TestListener {
     onStart?: () => void;
     onDestroy?: () => void;
@@ -447,7 +447,7 @@ public open class TestListener {
     }
 }
 
-
+/*  */
 /*class MyListener4 {
     on(key: string, cb: (r: ListenerStatusString) => void): void
     }*/

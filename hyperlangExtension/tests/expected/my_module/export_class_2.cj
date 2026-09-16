@@ -42,7 +42,7 @@ public enum AutoGenType0Inexport_class_2 {
     }
 }
 
-
+/*  */
 /*class ExportKeyword DeclareKeyword AppSettings {
     getInstance(): AppSettings
     getSetting(key: string): String | number | boolean | undefined

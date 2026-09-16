@@ -32,7 +32,7 @@ public enum AutoGenType0Inissue_issue8_generic {
     }
 }
 
-
+/*  */
 /*class ExportKeyword DeclareKeyword C {
     f(p:T): number | String
     }*/

@@ -54,7 +54,7 @@ public enum AutoGenType1InunionTypes1 {
     }
 }
 
-// type alias
+/* // type alias */
 public enum a1 {
     | STRING(String)
     | NUMBER(Float64)
@@ -78,7 +78,7 @@ public enum a1 {
 }
 
 
-
+/*  */
 /*class ExportKeyword A {
     a: a1;
     b: boolean | String;

@@ -15,7 +15,7 @@ import std.collection.{ HashMap }
 /*import { Callback } from '@ohos.base';*/
 
 
-
+/*  */
 /*class ExportKeyword DeclareKeyword MessagePackage {
     StaticKeywordidt: idt_struct;
     }*/
@@ -24,9 +24,9 @@ public class MessagePackage {
     protected MessagePackage(var arkts_object: JSObject) { }
     
     
-    public static mut prop idt: JSValue/* FIXME: `idt_struct` */ {
+    public static mut prop idt: JSValue/\* FIXME: `idt_struct` *\/ {
         get() {
-            checkThreadAndCall < JSValue/* FIXME: `idt_struct` */ >(getMainContext()) {
+            checkThreadAndCall < JSValue/\* FIXME: `idt_struct` *\/ >(getMainContext()) {
                 ctx: JSContext => getClassConstructorObj("my_module_test", "MessagePackage")["idt"]
             }
         }
@@ -47,7 +47,7 @@ public class MessagePackage {
         MessagePackage(input.asObject())
     }
 }
-
+/*  */
 /*class ExportKeyword DeclareKeyword PushReporter {
     getTags(t12: Callback<Record<string, any>>): void
     }*/

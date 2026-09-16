@@ -33,7 +33,7 @@ public enum AutoGenType0Intypealias_2 {
     }
 }
 
-
+/*  */
 public type TB700 = Option<HashMap<String, AutoGenType0Intypealias_2>>
 
 

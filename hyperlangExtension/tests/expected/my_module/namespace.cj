@@ -11,7 +11,7 @@ import ohos.ark_interop_helper.*
 import ohos.base.*
 
 /***********OBJECT***********/
-
+/*  */
 /*interface B {
     }*/
 
@@ -35,7 +35,7 @@ public open class B {
 
 
 /***********OBJECT***********/
-
+/*  */
 /*interface E {
     }*/
 
@@ -59,7 +59,7 @@ public open class E {
 
 
 /***********OBJECT***********/
-
+/*  */
 /*interface H {
     }*/
 

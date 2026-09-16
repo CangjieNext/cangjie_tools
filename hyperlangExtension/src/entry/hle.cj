@@ -201,14 +201,21 @@ public class A2CJ {
 
     public func transType(typeType: TypeType): Tokens {
         let ret = Tokens()
-        ret.append(Token(TokenKind.COMMENT, typeType.comment) + nl)
+        ret.append(Token(TokenKind.COMMENT, escapeRawComment(typeType.comment)) + nl)
         typeType.gconfig = gconfig
         ret.append(typeType.generate() + nl)
         ret
     }
 
     public func transConst(constType: VariableType): Tokens {
-        let commentToken = Token(TokenKind.COMMENT, constType.comment)
+        // No-initializer case: JS side wraps comment in synthetic /* ... */ and
+        // appends */ to value; inner content already escaped on JS side.
+        // With-initializer case: comment is raw d.ts text, needs escaping.
+        let commentToken = if (constType.value.endsWith("*/")) {
+            Token(TokenKind.COMMENT, constType.comment)
+        } else {
+            Token(TokenKind.COMMENT, escapeRawComment(constType.comment))
+        }
         let token = Token(TokenKind.IDENTIFIER, constType.signature())
         Tokens(commentToken, nl, token, nl)
     }

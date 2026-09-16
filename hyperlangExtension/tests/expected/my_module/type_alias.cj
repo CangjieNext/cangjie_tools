@@ -12,88 +12,88 @@ import ohos.base.*
 import std.math.numeric.*
 import std.collection.{ HashMap }
 
-
+/*  */
 public type TA10 = Float64
 
-
+/*  */
 public type TA20 = String
 
-
+/*  */
 public type TA30 = Bool
 
-
+/*  */
 public type TA40 = BigInt
 
-
+/*  */
 public type TA50 = JSValue/* FIXME: `object` */
 
-
+/*  */
 public type TA60 = JSValue/* FIXME: `symbol` */
 
-
+/*  */
 public type TA70 = Unit
 
-
+/*  */
 public type TA80 = JSValue/* FIXME: `undefined` */
 
-
+/*  */
 public type TA90 = JSValue/* FIXME: `any` */
 
-
+/*  */
 public type TA100 = JSValue/* FIXME: `unknown` */
 
-
+/*  */
 public type TA110 = JSValue/* FIXME: `never` */
 
-
+/*  */
 public type TA200 = () -> Unit
 
-
+/*  */
 public type TA210< V > = (V) -> Unit/* FIXME: `<V>(arg: V) => void` */
 
-
+/*  */
 public type TA220< V, W > = (V) -> W/* FIXME: `<V, W extends string>(arg: V) => W` */
 
-
+/*  */
 public type TA230< V, W > = (V) -> W/* FIXME: `<V, W extends string>(arg: V) => W` */
 
-
+/*  */
 public type TA240 = (Array<Float64>) -> Unit
 
-
+/*  */
 public type TA250 = (?Float64) -> Unit
 
-
+/*  */
 public type TA300 = JSValue/* FIXME: `Promise<string>` */
 
-
+/*  */
 public type TA310 = Array<JSValue/* FIXME: `Promise<string>` */>
 
-
+/*  */
 public type TA400 = JSValue/* FIXME: `Pick` */
 
-
+/*  */
 public type TA410 = JSValue/* FIXME: `Omit` */
 
-
+/*  */
 public type TA420 = JSValue/* FIXME: `Omit` */
 
-
+/*  */
 public type TA500 = JSValue/* FIXME: `123` */
 
-
+/*  */
 public type TA510 = JSValue/* FIXME: `"abc"` */
 
-
+/*  */
 public type TA520 = JSValue/* FIXME: `null` */
 
-
+/*  */
 public type TA600 = (Float64, String, Float64)
 
-
+/*  */
 public type TA700 = Option<HashMap<String, JSValue/* FIXME: `unknown` */>>
 
-
+/*  */
 public enum TA710 {
     | AAA
     | BBB
@@ -114,7 +114,7 @@ public enum TA710 {
     }
 }
 
-
+/*  */
 public enum TA720 {
     | NUMBER(Float64)
     | STRING(String)
@@ -137,7 +137,7 @@ public enum TA720 {
     }
 }
 
-
+/*  */
 public enum TA730 {
     | PROMISE_STRING_(JSValue/* FIXME: `Promise<string>` */)
     | STRING(String)
@@ -157,7 +157,7 @@ public enum TA730 {
     }
 }
 
-
+/*  */
 public enum TA740 {
     | LITERAL_111
     | TA740TA710(TA710)
@@ -174,28 +174,28 @@ public enum TA740 {
     }
 }
 
-
+/*  */
 public type TA810 = JSValue/* FIXME: `{ x: number; y: string }` */
 
-
+/*  */
 public type TA820 = JSValue/* FIXME: `{ [number]: string }` */
 
-
+/*  */
 public type TA830 = JSValue/* FIXME: `{ (arg: number) => string }` */
 
-
+/*  */
 public type TA900 = JSValue/* FIXME: `UnsupportedType[TypeOperator]` */
 
-
+/*  */
 public type TA910 = JSValue/* FIXME: `UnsupportedType[TypeOperator]` */
 
-
+/*  */
 public type TA1000 = JSValue/* FIXME: `UnsupportedType[TypeQuery]` */
 
-
+/*  */
 public type TA1010 = JSValue/* FIXME: `ReturnType` */
 
-
+/*  */
 public enum ARK1 {
     | NULL
     | NUMBER(Float64)
@@ -293,13 +293,13 @@ public enum ARK1 {
     }
 }
 
-// 交叉类型别名
+/* // 交叉类型别名 */
 public type User = JSValue/* FIXME: `{ id: number; name: string } & { isActive: boolean }` */
 
-// 泛型类型别名
+/* // 泛型类型别名 */
 public type ApiResponse = JSValue/* FIXME: `{ data: T; status: number }` */
 
-
+/*  */
 public type AnimationItem = JSValue/* FIXME: `{ name: string; name1: string }` */
 
 

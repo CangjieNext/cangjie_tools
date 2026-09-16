@@ -48,7 +48,7 @@ public func createSub(): JSValue/* FIXME: `Inheritances.SubClass` */ {
 
 
 /***********OBJECT***********/
-
+/*  */
 /*interface ExportedInterface {
     myOption?: String;
     }*/

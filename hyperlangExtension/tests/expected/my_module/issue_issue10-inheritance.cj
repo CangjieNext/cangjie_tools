@@ -11,7 +11,7 @@ import ohos.ark_interop_helper.*
 import ohos.base.*
 
 /***********OBJECT***********/
-
+/*  */
 /*interface I {
     p: number;
     p1: number;
@@ -43,7 +43,7 @@ public open class I {
     }
 }
 
-
+/*  */
 /*class DeclareKeyword C {
     p: number;
     p1: number;
