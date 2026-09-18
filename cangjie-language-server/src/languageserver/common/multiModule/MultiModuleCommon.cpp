@@ -81,7 +81,8 @@ void GetMacroLibPath(const std::string &targetLib,
     std::unordered_set<std::string> soRecordMap;
     std::unordered_set<std::string> folderRecordMap;
     for (const auto &item : moduleInfoMap) {
-        const std::string soFolderPath = JoinPath(targetLib, item.second.moduleName);
+        // CJPM stores an org::module under module@org, not its source-level name.
+        const std::string soFolderPath = JoinPath(targetLib, ToCjoFileName(item.second.moduleName));
         if (!FileExist(soFolderPath) || folderRecordMap.find(soFolderPath) != folderRecordMap.end()) {
             continue;
         }
