@@ -190,6 +190,13 @@ private:
             return sameIndent;
         }
         if (!isFirstOnThisLine) {
+            // A comment can split "} else/catch/finally/while" across lines.
+            // Keep the continuation keyword aligned with the preceding block.
+            if (!isComment && std::prev(tokenToIndent)->kind == TokenKind::RCURL &&
+                (tokenToIndent->kind == TokenKind::ELSE || tokenToIndent->kind == TokenKind::CATCH ||
+                    tokenToIndent->kind == TokenKind::FINALLY || tokenToIndent->kind == TokenKind::WHILE)) {
+                return sameIndent;
+            }
             // pattern matching 'case' always creats indented region
             if (firstOnThisLine->kind == TokenKind::CASE) {
                 return oneLevelIndented;
