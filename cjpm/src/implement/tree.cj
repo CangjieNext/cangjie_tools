@@ -61,7 +61,12 @@ func startTree(treeConfig: TreeConfig): Bool {
     packageOrder.reverse()
 
     for ((fullName, v) in dataModel.packageDepMap) {
-        treeConfig.deps[fullName] = TreeItem(v.packagePath, v.version, HashSet<String>(v.requires))
+        let binaryPath = if (dataModel.binaryPkgList.contains(fullName)) {
+            dataModel.binaryPkgList[fullName].libPath
+        } else {
+            ""
+        }
+        treeConfig.deps[fullName] = TreeItem(v.packagePath, binaryPath, v.version, HashSet<String>(v.requires))
     }
 
     if (!treeConfig.defaultPkg.isEmpty()) {
@@ -147,12 +152,13 @@ func printTreeStr(treeConfig: TreeConfig, name: String, level: Int32): Unit {
         if (!version.isEmpty()) {
             print(" ${version}")
         }
+        var packagePath = treeConfig.deps[name].binaryPath
         let allPaths = treeConfig.deps[name].packagePath.allPaths
         if (allPaths.size > 0) {
-            let packagePath = allPaths[0].toString()
-            if (!packagePath.isEmpty()) {
-                print(" (${packagePath})")
-            }
+            packagePath = allPaths[0].toString()
+        }
+        if (!packagePath.isEmpty()) {
+            print(" (${packagePath})")
         }
     }
 
