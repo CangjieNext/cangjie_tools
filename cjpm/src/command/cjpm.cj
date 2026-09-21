@@ -39,6 +39,8 @@ Use "cjpm [subcommand] --help" for more information about a command."""
 public open class Handle {
     public var cmdName: String = ""
     public var arguments: Array<String> = Array<String>()
+    public var shortOptionSpec: String = ""
+    public var longOptionSpecs: Array<String> = Array<String>()
 
     public open func handleCommand(): Bool {
         return false
@@ -48,7 +50,21 @@ public open class Handle {
         if (this.arguments.isEmpty()) {
             return false
         }
-        return this.arguments.contains("-h") || this.arguments.contains("--help")
+
+        let helpLongOptionSpecs = ArrayList<String>()
+        helpLongOptionSpecs.add(all: this.longOptionSpecs)
+        helpLongOptionSpecs.add("help")
+        let (argMap, unparseArgs) = getParseOption(
+            this.arguments, "${this.shortOptionSpec}h", helpLongOptionSpecs.toArray())
+        if (!getBoolOption(argMap, "-h", "--help")) {
+            return false
+        }
+        for (arg in unparseArgs) {
+            if (arg.startsWith("-")) {
+                return false
+            }
+        }
+        return true
     }
 
     public open func printHelp(): Unit {
