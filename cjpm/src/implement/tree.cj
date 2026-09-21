@@ -147,9 +147,12 @@ func printTreeStr(treeConfig: TreeConfig, name: String, level: Int32): Unit {
         if (!version.isEmpty()) {
             print(" ${version}")
         }
-        let packagePath: String = treeConfig.deps[name].packagePath.allPaths[0].toString()
-        if (!packagePath.isEmpty()) {
-            print(" (${packagePath})")
+        let allPaths = treeConfig.deps[name].packagePath.allPaths
+        if (allPaths.size > 0) {
+            let packagePath = allPaths[0].toString()
+            if (!packagePath.isEmpty()) {
+                print(" (${packagePath})")
+            }
         }
     }
 
