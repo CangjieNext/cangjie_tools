@@ -690,7 +690,7 @@ private:
 
     void BuildIndexFromCjo();
 
-    void BuildIndexFromCache(const std::string &package);
+    bool BuildIndexFromCache(const std::string &package);
 
     void BuildIndex(const std::unique_ptr<LSPCompilerInstance> &ci, bool isFullCompilation = false);
 
