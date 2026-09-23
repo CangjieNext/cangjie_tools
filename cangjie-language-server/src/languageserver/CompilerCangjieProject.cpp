@@ -1708,12 +1708,16 @@ void CompilerCangjieProject::FullCompilation()
 #ifndef TEST_FLAG
     // try to load cache and package status
     for (auto &package : sortResult) {
-        if (LoadASTCache(package)) {
-            if (!useDB) {
-                BuildIndexFromCache(package);
-            }
+        if (!LoadASTCache(package)) {
             continue;
         }
+        if (useDB || BuildIndexFromCache(package)) {
+            continue;
+        }
+        // MemIndex is rebuilt on every LSP startup. If only the AST cache is
+        // available, compile the package again so index-backed features do not
+        // silently miss symbols from unopened files.
+        cjoManager->UpdateStatus({package}, DataStatus::STALE);
     }
 #endif
     auto token = callback->CreateProgressToken();
@@ -2903,25 +2907,28 @@ void CompilerCangjieProject::BuildIndexFromCjo()
     }
 }
 // LCOV_EXCL_START
-void CompilerCangjieProject::BuildIndexFromCache(const std::string &package) {
-        std::string sourceCodePath = GetPathFromPkg(package);
-        if (sourceCodePath.empty()) {
-            sourceCodePath = package;
-        }
-        std::string shardIdentifier = Digest(sourceCodePath);
-        auto indexCache = cacheManager->LoadIndexShard(package, shardIdentifier);
-        if (!indexCache.has_value()) {
-            return;
-        }
-        {
-            std::unique_lock<std::mutex> indexLock(mtx);
-            (void) memIndex->pkgSymsMap.insert_or_assign(package, indexCache->get()->symbols);
-            (void) memIndex->pkgRefsMap.insert_or_assign(package, indexCache->get()->refs);
-            (void) memIndex->pkgRelationsMap.insert_or_assign(package, indexCache->get()->relations);
-            (void) memIndex->pkgExtendsMap.insert_or_assign(package, indexCache->get()->extends);
-            (void) memIndex->pkgCrossSymsMap.insert_or_assign(package, indexCache->get()->crossSymbols);
-            (void) memIndex->pkgReExportSymsMap.insert_or_assign(package, indexCache->get()->reExportSymbols);
-        }
+bool CompilerCangjieProject::BuildIndexFromCache(const std::string &package)
+{
+    std::string sourceCodePath = GetPathFromPkg(package);
+    if (sourceCodePath.empty()) {
+        sourceCodePath = package;
+    }
+    std::string shardIdentifier = Digest(sourceCodePath);
+    auto indexCache = cacheManager->LoadIndexShard(package, shardIdentifier);
+    if (!indexCache.has_value()) {
+        return false;
+    }
+
+    {
+        std::unique_lock<std::mutex> indexLock(mtx);
+        (void) memIndex->pkgSymsMap.insert_or_assign(package, indexCache->get()->symbols);
+        (void) memIndex->pkgRefsMap.insert_or_assign(package, indexCache->get()->refs);
+        (void) memIndex->pkgRelationsMap.insert_or_assign(package, indexCache->get()->relations);
+        (void) memIndex->pkgExtendsMap.insert_or_assign(package, indexCache->get()->extends);
+        (void) memIndex->pkgCrossSymsMap.insert_or_assign(package, indexCache->get()->crossSymbols);
+        (void) memIndex->pkgReExportSymsMap.insert_or_assign(package, indexCache->get()->reExportSymbols);
+    }
+    return true;
 }
 // LCOV_EXCL_STOP
 std::unordered_set<std::string> CompilerCangjieProject::GetOneModuleDeps(
