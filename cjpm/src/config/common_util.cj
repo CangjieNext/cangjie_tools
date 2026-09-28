@@ -36,7 +36,7 @@ public func execWithOutput(exeTool: String, arguments: ArrayList<String>,
     envMap!: HashMap<String, String> = HashMap<String, String>(), timeout!: Option<Duration> = None,
     workingDirectory!: ?Path = None, spawnForScript!: Bool = false): (Bool, String, String) {
     let subProcess: SubProcess
-    var returnCode: Int64
+    var returnCode: Int64 = -1
     var outInfo = ""
     var errInfo = ""
     try {
@@ -56,16 +56,19 @@ public func execWithOutput(exeTool: String, arguments: ArrayList<String>,
                 stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
         }
 
-        if (spawnForScript) {
-            let outInfoFuture = spawn {StringReader(subProcess.stdOutPipe).readToEnd()}
-            let errInfoFuture = spawn {StringReader(subProcess.stdErrPipe).readToEnd()}
-            outInfo = outInfoFuture.get()
-            errInfo = errInfoFuture.get()
-        } else {
-            outInfo = StringReader(subProcess.stdOutPipe).readToEnd()
-            errInfo = StringReader(subProcess.stdErrPipe).readToEnd()
+        try {
+            if (spawnForScript) {
+                let outInfoFuture = spawn {StringReader(subProcess.stdOutPipe).readToEnd()}
+                let errInfoFuture = spawn {StringReader(subProcess.stdErrPipe).readToEnd()}
+                outInfo = outInfoFuture.get()
+                errInfo = errInfoFuture.get()
+            } else {
+                outInfo = StringReader(subProcess.stdOutPipe).readToEnd()
+                errInfo = StringReader(subProcess.stdErrPipe).readToEnd()
+            }
+        } finally {
+            returnCode = subProcess.wait(timeout: timeout)
         }
-        returnCode = subProcess.wait(timeout: timeout)
         return (returnCode == 0, outInfo, errInfo)
     } catch (e: Exception) {
         eprintln(e.message)
