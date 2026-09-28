@@ -30,6 +30,20 @@ bool StartsWith(const std::string& str, const std::string prefix)
 {
     return (str.rfind(prefix, 0) == 0);
 }
+
+std::string EscapeSnippetText(const std::string &text)
+{
+    std::string escaped;
+    escaped.reserve(text.size());
+    for (char ch : text) {
+        // Escape source text only; the surrounding snippet placeholders remain active.
+        if (ch == '$' || ch == '}' || ch == '\\') {
+            escaped += '\\';
+        }
+        escaped += ch;
+    }
+    return escaped;
+}
 } // namespace
 
 namespace ark {
@@ -1062,7 +1076,6 @@ void ItemResolverUtil::ResolveFuncTypeParamInsert(std::string &detail,
     }
     std::unordered_set<std::string> parameterNameSet;
     size_t parameterNum = 1;
-    std::string paramInsert;
     for (size_t i = 0; i < paramCount; i++) {
         auto &paramType = paramTypes[i];
         if (!paramType) {
@@ -1075,23 +1088,25 @@ void ItemResolverUtil::ResolveFuncTypeParamInsert(std::string &detail,
             detail += "${" + std::to_string(numParm) + ":";
             numParm++;
         }
+        std::string paramInsert;
         if (paramType->typeParameterName.empty() && needDefaultParamName) {
-            GenerateUniqueParamName(detail, parameterNameSet, parameterNum);
+            GenerateUniqueParamName(paramInsert, parameterNameSet, parameterNum);
         }
         bool getTypeByNodeAndType = GetString(*paramType->GetTy()) == "UnknownType" ||
                                     (sourceManager && (paramType->astKind == Cangjie::AST::ASTKind::FUNC_TYPE ||
                                                           paramType->astKind == Cangjie::AST::ASTKind::TUPLE_TYPE));
         if (paramType && !Ty::IsInitialTy(paramType->aliasTy)) {
-            ItemResolverUtil::DealAliasType(paramType.get(), detail);
+            ItemResolverUtil::DealAliasType(paramType.get(), paramInsert);
         } else if (getTypeByNodeAndType) {
-            ItemResolverUtil::AddTypeByNodeAndType(detail, filePath, paramType.get(), sourceManager);
+            ItemResolverUtil::AddTypeByNodeAndType(paramInsert, filePath, paramType.get(), sourceManager);
         } else {
             if (!paramType->typeParameterName.empty()) {
-                detail += paramType->typeParameterName + ": ";
+                paramInsert += paramType->typeParameterName + ": ";
                 parameterNameSet.insert(paramType->typeParameterName);
             }
-            detail += GetString(*paramType->GetTy());
+            paramInsert += GetString(*paramType->GetTy());
         }
+        detail += EscapeSnippetText(paramInsert);
         firstParams = false;
         if (numParm >= 0) {
             detail += "}";
@@ -1141,19 +1156,22 @@ int ItemResolverUtil::ResolveFuncParamInsert(std::string &detail, const std::str
             assignExpr = assignExpr->desugarExpr;
         }
         bool hasDefault = param->GetTy() && assignExpr && !assignExpr->ToString().empty();
-        resolveTypeName(detail, true);
+        std::string paramInsert;
+        resolveTypeName(paramInsert, true);
         if (hasDefault) {
-            detail += " = ";
-            ItemResolverUtil::AddTypeByNodeAndType(detail, myFilePath, assignExpr, sourceManager);
+            paramInsert += " = ";
+            ItemResolverUtil::AddTypeByNodeAndType(paramInsert, myFilePath, assignExpr, sourceManager);
         }
+        detail += EscapeSnippetText(paramInsert);
         return cur;
     };
 
     auto handlePositional = [&detail, paramName, resolveTypeName](int cur) {
         detail += "${" + std::to_string(cur) + ":";
         cur++;
-        detail += (paramName.empty() ? "" : (paramName + ": "));
-        resolveTypeName(detail, false);
+        std::string paramInsert = paramName.empty() ? "" : (paramName + ": ");
+        resolveTypeName(paramInsert, false);
+        detail += EscapeSnippetText(paramInsert);
         return cur;
     };
 
@@ -1363,8 +1381,10 @@ void ItemResolverUtil::ResolveFollowLambdaFuncInsert(std::string &detail, const 
     insertText += " => ";
     if (funcType->retType && !ItemResolverUtil::FetchTypeString(*funcType->retType).empty()) {
         insertText += "${" + std::to_string(numParm) + ":";
-        ItemResolverUtil::DealTypeDetail(insertText, funcType->retType.get(),
+        std::string returnType;
+        ItemResolverUtil::DealTypeDetail(returnType, funcType->retType.get(),
             myFilePath, sourceManager);
+        insertText += EscapeSnippetText(returnType);
         insertText += "}";
     }
     insertText += " }";
@@ -1462,8 +1482,10 @@ void ItemResolverUtil::ResolveFollowLambdaVarInsert(std::string &detail, const C
     flInsertText += " => ";
     if (lastFuncType->retType && !ItemResolverUtil::FetchTypeString(*lastFuncType->retType).empty()) {
         flInsertText += "${" + std::to_string(flNumParm) + ":";
-        ItemResolverUtil::DealTypeDetail(flInsertText, lastFuncType->retType.get(),
+        std::string returnType;
+        ItemResolverUtil::DealTypeDetail(returnType, lastFuncType->retType.get(),
             myFilePath, sourceManager);
+        flInsertText += EscapeSnippetText(returnType);
         flInsertText += "}";
     }
     flInsertText += " }";
