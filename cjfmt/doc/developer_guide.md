@@ -223,6 +223,25 @@ cjfmt -d testsrc/ -o /home/../testout   // Error if source directory doesn't exi
 cjfmt -f a.cj -c ./cangjie-format.toml
 ```
 
+### Blank Lines Between Variable Declarations
+
+Adjacent variable declarations in the same scope preserve the spacing from the source. Top-level variables and member variables follow the same rule:
+
+| Blank lines in the source | Blank lines after formatting |
+| --- | --- |
+| 0 | 0 |
+| 1 or more | 1 |
+
+This rule applies to `var`, `let`, and destructuring declarations without a configuration option. If comments occur between declarations, the original spacing before and after each comment is preserved with at most one blank line. Functions, type declarations, and declaration block boundaries retain their own separation rules.
+
+After building cjfmt and configuring the SDK runtime environment, run the blank-line regression tests from the `cjfmt` directory:
+
+```shell
+python3 -m unittest discover -s tests
+```
+
+The tests use `build/build/bin/cjfmt` by default. Set `CJFMT_BINARY` to test another executable.
+
 ### Partial Formatting
 
 `cjfmt -l`
