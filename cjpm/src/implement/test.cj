@@ -18,6 +18,11 @@ import cjpm.config.*
 import cjpm.util.{Result, PackageFqName}
 
 var dependencyMap: HashMap<String, HashSet<String>> = HashMap<String, HashSet<String>>()
+// test runner 编译时需要解析各测试包及其依赖：普通包的 .cjo 位于
+// <targetDir>/<rootPkgName>/，而多平台源码集（[[source-set]]）包的产物在其
+// outputSuffix 子目录（如 <targetDir>/<rootPkgName>/linux/product）下。
+// 仅给 targetDir 无法覆盖后者，故在 prepareTest 阶段按依赖逐个收集。
+var depImportPaths: ArrayList<String> = ArrayList<String>()
 @When[os == "Windows"]
 const TEST_GCNO_FILE: String = "$test"
 @When[os != "Windows"]
@@ -403,6 +408,11 @@ func prepareTest(res: ModuleResolve, testConfig: TestConfig): (HashMap<PackageFq
     var testPkgsMap = HashMap<PackageFqName, PkgDescTest>()
     // Record all dependency.
     dependencyMap = getDependencyMap(res, testConfig)
+    // 依赖产物目录（供 test runner 编译使用）
+    depImportPaths = ArrayList<String>()
+    for (r in res.resolves) {
+        depImportPaths.add(getResolvePackageDir(r, testConfig.globalConfig.targetDir))
+    }
     // Record c libs.
     var cLibPathSet = HashSet<String>()
 
@@ -576,7 +586,7 @@ func getLinkList(res: ModuleResolve, fullName: String, requires: HashSet<String>
         if (r.isPureTestPkg()) {
             continue
         }
-        let libPath = Path(testConfig.globalConfig.targetDir).join(swapOrgName(r.rootPkgName)).toString()
+        let libPath = getResolvePackageDir(r, testConfig.globalConfig.targetDir)
         validCommand.add(all: linkPackage(r.fullName, libPath, testConfig.isLto), at: 0)
     }
 
@@ -652,6 +662,16 @@ public func getOutput(targetDir: String, fullName: String, isCross: Bool): Strin
     return getUnittestOutput(output, isCross)
 }
 
+// 依赖包的产物目录：多平台源码集的产物带 outputSuffix 子目录（与 getRootPackageDir 同规则）
+func getResolvePackageDir(r: ResolveItem, targetDir: String): String {
+    let rootName = swapOrgName(r.rootPkgName)
+    if (r.packagePath.isMultiplatform) {
+        return getPath(targetDir.replace(UNITTEST_BIN, RELEASE), rootName,
+            r.packagePath.product.outputSuffix.toString())
+    }
+    return Path(targetDir).join(rootName).toString()
+}
+
 func getRootPackageDir(pkgInfo: PkgTestInfo, targetDir: String) {
     let pkgRootName = swapOrgName(pkgInfo.fqname.value.split(".")[0])
     if (pkgInfo.packagePath.isMultiplatform) {
@@ -674,6 +694,10 @@ func addOptionsForSeparateCompilation(pkgInfo: PkgTestInfo, testConfig: TestConf
 func packageTest(pkgInfo: PkgTestInfo, testConfig: TestConfig, hasProdFiles: Bool): Bool {
     let cmdList = ArrayList<String>()
     cmdList.add(all: [])
+    // 依赖包的产物目录（多平台源码集包带 outputSuffix 子目录）
+    for (p in depImportPaths where directoryExists(p)) {
+        cmdList.add(all: ["--import-path", p])
+    }
     for (p in testConfig.globalConfig.cjPathList where directoryExists(p)) {
         cmdList.add(all: ["--import-path", p])
     }
@@ -1124,6 +1148,11 @@ class DummyTestFile {
             cmdList.add(all: ["--import-path", testConfig.globalConfig.targetDir])
         }
 
+        // 依赖包的产物目录：多平台源码集（[[source-set]]）的 .cjo 位于
+        // <targetDir>/<pkg>/<outputSuffix>/ 下，兜底路径无法命中
+        for (p in depImportPaths where directoryExists(p)) {
+            cmdList.add(all: ["--import-path", p])
+        }
         for (p in testConfig.globalConfig.cjPathList where directoryExists(p)) {
             cmdList.add(all: ["--import-path", p])
         }
@@ -1172,9 +1201,24 @@ main() { testRunnerEntryMain() }"""
         if (testConfig.isCov) {
             cmdList.add("--coverage")
         }
+        // 与 packageTest 保持一致：多平台源码集（[[source-set]]）等 experimental 特性
+        // 编出的依赖包元数据带 experimental 标记，不传该开关会报 "version ... are incompatible"
+        if (state.isExperimental) {
+            cmdList.add("--experimental")
+        }
         cmdList.add(Path(testConfig.globalConfig.targetDir).join(UNITTEST_BIN).join("testrunner.cj").toString())
         cmdList.add(all: ["-o", getOutput(testConfig.globalConfig.targetDir, TestRunner.PKG_FULL_NAME, false)])
-
+        // test runner 的 main 引用各测试包（及它们的依赖），必须能解析到这些包的 .cjo。
+        // 只依赖隐式搜索只能命中 <targetDir>/<pkg>/ 一层，多平台源码集依赖
+        // （产物在 outputSuffix 子目录下）会解析失败。
+        for (p in depImportPaths where directoryExists(p)) {
+            if (!cmdList.contains(p)) {
+                cmdList.add(all: ["--import-path", p])
+            }
+        }
+        for (p in testConfig.globalConfig.cjPathList where directoryExists(p)) {
+            cmdList.add(all: ["--import-path", p])
+        }
 
         let envBuilder = EnvironmentBuilder()
         envBuilder.prepend(LD_PATH, testConfig.globalConfig.ldPath)
