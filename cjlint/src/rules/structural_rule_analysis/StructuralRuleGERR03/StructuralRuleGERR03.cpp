@@ -30,19 +30,7 @@ void StructuralRuleGERR03::FindMemberAccess(Ptr<Cangjie::AST::Node> node)
                 if (!IsCatchingNoneValueException(tryExpr)) {
                     return;
                 }
-                inNoneValueExceptionTry++;
-                if (tryExpr.tryBlock != nullptr) {
-                    FindMemberAccess(tryExpr.tryBlock.get());
-                }
-                inNoneValueExceptionTry--;
-                for (auto &catchBlock : tryExpr.catchBlocks) {
-                    if (catchBlock != nullptr) {
-                        FindMemberAccess(catchBlock.get());
-                    }
-                }
-                if (tryExpr.finallyBlock != nullptr) {
-                    FindMemberAccess(tryExpr.finallyBlock.get());
-                }
+                ProcessTryExpr(tryExpr);
                 action = VisitAction::SKIP_CHILDREN;
             });
         return action;
@@ -74,6 +62,23 @@ bool StructuralRuleGERR03::IsCatchingNoneValueException(const Cangjie::AST::TryE
         }
     }
     return false;
+}
+
+void StructuralRuleGERR03::ProcessTryExpr(const Cangjie::AST::TryExpr &tryExpr)
+{
+    inNoneValueExceptionTry++;
+    if (tryExpr.tryBlock != nullptr){
+        FindMemberAccess(tryExpr.tryBlock.get());
+    }
+    inNoneValueExceptionTry--;
+    for (auto &catchBlock : tryExpr.catchBlocks) {
+        if (catchBlock != nullptr) {
+            FindMemberAccess(catchBlock.get());
+        }
+    }
+    if (tryExpr.finallyBlock != nullptr) {
+        FindMemberAccess(tryExpr.finallyBlock.get());
+    }
 }
 
 void StructuralRuleGERR03::CheckMemberAccessAttribute(const Cangjie::AST::MemberAccess &memberAccess)
