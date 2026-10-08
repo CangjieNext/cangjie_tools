@@ -7,6 +7,7 @@
 #ifndef LSPSERVER_UNUSED_SYMBOL_DIAG_H
 #define LSPSERVER_UNUSED_SYMBOL_DIAG_H
 
+#include <optional>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -21,6 +22,9 @@
 #include "cangjie/AST/Walker.h"
 
 namespace ark {
+
+/// Return the original raw identifier's zero-based UTF-16 range for an unused diagnostic.
+std::optional<Range> GetRawUnusedDiagnosticRange(const DiagnosticToken& diagnostic, const ArkAST& ast);
 
 /// Macro names whose decorated class/struct (and all their members)
 /// should be excluded from unused symbol reporting.

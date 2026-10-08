@@ -13,6 +13,7 @@
 #include <algorithm>
 
 #include "cangjie/Frontend/CompilerInstance.h"
+#include "capabilities/diagnostic/UnusedSymbolDiag.h"
 #include "capabilities/semanticHighlight/SemanticTokensAdaptor.h"
 #include "capabilities/shutdown/Shutdown.h"
 #include "common/Utils.h"
@@ -1371,12 +1372,20 @@ void ArkLanguageServer::ReadyForDiagnostics(std::string file,
     notification.uri.file = URI::URIFromAbsolutePath(file).ToString();
     ArkAST *arkAst = CompilerCangjieProject::GetInstance()->GetArkAST(file);
     AddDiagnosticQuickFix(diagnostics, arkAst, file);
+    const bool hasRawIdentifiers = arkAst && std::any_of(arkAst->tokens.begin(), arkAst->tokens.end(),
+        [](const Token& token) {
+            return token.Value().find('`') != std::string::npos;
+        });
     for (auto &diagnostic: diagnostics) {
+        const auto rawUnusedRange = hasRawIdentifiers ? GetRawUnusedDiagnosticRange(diagnostic, *arkAst) : std::nullopt;
         diagnostic.range = TransformFromIDE2Char(diagnostic.range);
         if (arkAst != nullptr) {
             UpdateRange(arkAst->tokens, diagnostic.range, *arkAst->file, false);
         }
         diagnostic.range = TransformFromChar2IDE(diagnostic.range);
+        if (rawUnusedRange) {
+            diagnostic.range = *rawUnusedRange;
+        }
     }
 
     notification.diagnostics = std::move(diagnostics);
