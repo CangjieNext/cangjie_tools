@@ -1354,6 +1354,64 @@ bool ArkLanguageServer::WhetherSupportVersionInDiag() const
     return clientCapabilities.textDocumentClientCapabilities.diagnosticVersionSupport;
 }
 
+static bool MatchesRawUnusedDiagnostic(Ptr<const Decl> decl, const DiagnosticToken& diagnostic, const ArkAST& ast)
+{
+    if (!decl || !decl->identifier.IsRaw() || decl->curMacroCall || decl->isInMacroCall ||
+        decl->identifier.Begin().fileID != ast.fileID) {
+        return false;
+    }
+    auto pos = decl->GetIdentifierPos();
+    if (decl->astKind != ASTKind::FUNC_PARAM && !decl->TestAttr(Attribute::ENUM_CONSTRUCTOR) &&
+        (IsGlobalOrMember(*decl) || decl->astKind == ASTKind::FUNC_DECL ||
+            (isLambda(*decl) && diagnostic.message.find("Lambda '") == 0))) {
+        PositionUTF8ToIDE(ast.tokens, pos, *decl);
+    }
+    const auto name = std::string(decl->identifier);
+    return pos.line == diagnostic.range.start.line + 1 && pos.column == diagnostic.range.start.column + 1 &&
+        diagnostic.message.find("'" + name + "'") != std::string::npos;
+}
+
+static std::optional<Range> GetRawIdentifierSourceRange(const Decl& decl, const ArkAST& ast)
+{
+    const auto begin = decl.identifier.Begin();
+    const auto end = decl.identifier.End();
+    if (begin.line <= 0 || begin.column <= 0 || end.fileID != begin.fileID || end.line != begin.line ||
+        end.column <= begin.column) {
+        return std::nullopt;
+    }
+    const auto sourceName = ast.sourceManager->GetContentBetween(begin, end);
+    if (sourceName.empty() || sourceName.size() != static_cast<size_t>(end.column - begin.column)) {
+        return std::nullopt;
+    }
+    const auto prefix = ast.sourceManager->GetContentBetween({begin.fileID, begin.line, 1}, begin);
+    if (prefix.size() != static_cast<size_t>(begin.column - 1)) {
+        return std::nullopt;
+    }
+    const auto column = CountUnicodeCharacters(prefix);
+    return Range{{begin.fileID, begin.line - 1, column},
+        {begin.fileID, begin.line - 1, column + CountUnicodeCharacters(sourceName)}};
+}
+
+static std::optional<Range> GetRawUnusedDiagnosticRange(const DiagnosticToken& diagnostic, const ArkAST& ast)
+{
+    if (!diagnostic.diagFix || !diagnostic.diagFix->removeUnusedSymbol || !ast.sourceManager || !ast.file) {
+        return std::nullopt;
+    }
+    std::optional<Range> range;
+    ConstWalker(ast.file, [&](Ptr<const Node> node) {
+        auto decl = DynamicCast<const Decl*>(node);
+        if (!MatchesRawUnusedDiagnostic(decl, diagnostic, ast)) {
+            return VisitAction::WALK_CHILDREN;
+        }
+        range = GetRawIdentifierSourceRange(*decl, ast);
+        if (range) {
+            return VisitAction::STOP_NOW;
+        }
+        return VisitAction::WALK_CHILDREN;
+    }).Walk();
+    return range;
+}
+
 void ArkLanguageServer::ReadyForDiagnostics(std::string file,
     int64_t version, std::vector<DiagnosticToken> diagnostics)
 {
@@ -1371,12 +1429,20 @@ void ArkLanguageServer::ReadyForDiagnostics(std::string file,
     notification.uri.file = URI::URIFromAbsolutePath(file).ToString();
     ArkAST *arkAst = CompilerCangjieProject::GetInstance()->GetArkAST(file);
     AddDiagnosticQuickFix(diagnostics, arkAst, file);
+    const bool hasRawIdentifiers = arkAst && std::any_of(arkAst->tokens.begin(), arkAst->tokens.end(),
+        [](const Token& token) {
+            return token.Value().find('`') != std::string::npos;
+        });
     for (auto &diagnostic: diagnostics) {
+        const auto rawUnusedRange = hasRawIdentifiers ? GetRawUnusedDiagnosticRange(diagnostic, *arkAst) : std::nullopt;
         diagnostic.range = TransformFromIDE2Char(diagnostic.range);
         if (arkAst != nullptr) {
             UpdateRange(arkAst->tokens, diagnostic.range, *arkAst->file, false);
         }
         diagnostic.range = TransformFromChar2IDE(diagnostic.range);
+        if (rawUnusedRange) {
+            diagnostic.range = *rawUnusedRange;
+        }
     }
 
     notification.diagnostics = std::move(diagnostics);
