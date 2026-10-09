@@ -1303,3 +1303,17 @@
 {"diagnostic":{"testFile":"LSP_Diagnostic_Module_Name_Conflict.test"}}
 {"diagnostic":{"testFile":"LSP_Diagnostic_Module_Name_Conflict_No_Relation.test"}}
 {"diagnostic":{"testFile":"LSP_Diagnostic_RawUnusedIdentifier_001.test"}}
+{"diagnostic":{"testFile":"LSP_Diagnostic_Unused_Default_001_UserDefaultUsed.test"}}
+{"diagnostic":{"testFile":"LSP_Diagnostic_Unused_Default_002_RequiredNamedUsed.test"}}
+{"diagnostic":{"testFile":"LSP_Diagnostic_Unused_Default_003_TrueUnusedParameter.test"}}
+{"diagnostic":{"testFile":"LSP_Diagnostic_Unused_Default_004_OmittedUnusedNamed.test"}}
+{"diagnostic":{"testFile":"LSP_Diagnostic_Unused_Default_005_MultipleDefaults.test"}}
+{"diagnostic":{"testFile":"LSP_Diagnostic_Unused_Default_006_LocalLambda.test"}}
+{"diagnostic":{"testFile":"LSP_Diagnostic_Unused_Default_007_MethodGenericConstructor.test"}}
+{"diagnostic":{"testFile":"LSP_Diagnostic_Unused_Default_008_SameNameFileIsolation.test"}}
+{"diagnostic":{"testFile":"LSP_Diagnostic_Unused_Default_009_CrossFileNamedUsage.test"}}
+{"diagnostic":{"testFile":"LSP_Diagnostic_Unused_Default_010_EnumPatterns.test"}}
+{"diagnostic":{"testFile":"LSP_Diagnostic_Unused_Default_011_ClosureDefault.test"}}
+{"diagnostic":{"testFile":"LSP_Diagnostic_Unused_Default_012_IncrementalAddDefault.test"}}
+{"diagnostic":{"testFile":"LSP_Diagnostic_Unused_Default_013_IncrementalRemoveDefault.test"}}
+{"diagnostic":{"testFile":"LSP_Diagnostic_Unused_Default_014_MacroDefaultUsed.test"}}

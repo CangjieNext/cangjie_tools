@@ -5,6 +5,7 @@
 # See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 set(UNIT_TESTS_SRC
+        languageserver/capabilities/diagnostic/UnusedSymbolDiagTest.cpp
         json-rpc/ProtocolTest.cpp
         languageserver/capabilities/fileRefactor/FileMoveTest.cpp
         languageserver/capabilities/fileRefactor/FileRefactorTest.cpp

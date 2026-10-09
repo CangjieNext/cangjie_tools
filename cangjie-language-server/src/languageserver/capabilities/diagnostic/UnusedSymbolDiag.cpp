@@ -10,7 +10,7 @@
 #include "../../common/Utils.h"
 #include "cangjie/AST/Node.h"
 #include "cangjie/AST/Walker.h"
-#include <chrono>
+#include <unordered_map>
 
 namespace ark {
 using namespace Cangjie;
@@ -424,44 +424,241 @@ static bool IsInComponentMacro(const Node* node)
 }
 
 // ---------------------------------------------------------------------------
-// Pre-built usage sets for O(1) lookup during unused-symbol detection.
-// Replaces per-decl FindDeclUsage walks (each scanning the whole package)
-// with a single package walk that populates these sets up front.
+// Collect only declarations that the current file's diagnostics will query.
+// The package walk resolves their original FindDeclUsage identities once.
 // ---------------------------------------------------------------------------
 namespace {
-struct UsageSets {
-    // Decls referenced directly via node->GetTarget() (pointer match).
-    std::unordered_set<const Decl*> usedByPtr;
-    // FuncParams referenced indirectly via named-arg call sites.
-    // Collected when a NameReferenceExpr targets a FuncDecl whose
-    // callOrPattern is a CallExpr with named args matching the
-    // function's named params. Mirrors FindNamedFuncParamUsage's
-    // second walk, but uses node->GetTarget() (not ce->resolvedFunction)
-    // to match the original's less-aggressive matching.
-    std::unordered_set<const Decl*> usedByNamedArg;
-    // Decls referenced from a source position different from the decl's
-    // own position. Used by enum-variant detection to filter out
-    // self-position matches (macro artifacts where a decl references itself).
-    std::unordered_set<const Decl*> usedByPtrExternal;
+enum class LocalSymbolKind : uint8_t { NONE, VARIABLE, PARAMETER, ENUM_VARIANT };
 
-    bool IsUsed(const Decl& decl) const
+struct UsageQuery {
+    const Decl* decl;
+    uint32_t firstNamedParam = UINT32_MAX;
+    LocalSymbolKind kind = LocalSymbolKind::NONE;
+    bool used = false;
+};
+
+struct NamedParamLink {
+    uint32_t parameter;
+    uint32_t next;
+};
+
+static size_t LocationHash(const Decl& decl)
+{
+    return std::hash<uint64_t>{}(decl.begin.Hash64()) ^
+        (std::hash<uint64_t>{}(decl.end.Hash64()) << 1) ^
+        (std::hash<const File*>{}(decl.curFile.get()) << 2);
+}
+
+static bool SameLocation(const Decl& source, const Decl& target)
+{
+    return source.begin == target.begin && source.end == target.end && source.curFile == target.curFile;
+}
+
+static size_t MacroIdentityHash(const Decl& decl)
+{
+    return std::hash<const Ty*>{}(decl.GetTy().get()) ^
+        (std::hash<std::string>{}(decl.identifier.Val()) << 1);
+}
+
+struct UsageSets {
+    explicit UsageSets(const Package& package) : searchingPackage(&package) {}
+
+    const Package* searchingPackage;
+    // Keep one compact state per query. Hashed indices store only the hash and
+    // query offset; equality is checked against the original declaration.
+    std::vector<UsageQuery> queries;
+    std::vector<NamedParamLink> namedParams;
+    std::unordered_map<const Decl*, uint32_t> namedFunctions;
+    std::unordered_multimap<size_t, uint32_t> byLocation;
+    std::unordered_multimap<size_t, uint32_t> byMacroFunc;
+    std::unordered_multimap<std::string, uint32_t> byExceptionalName;
+    const File* queryFile = nullptr;
+    bool singleFile = true;
+
+    uint32_t AddQuery(const Decl& decl, LocalSymbolKind kind)
     {
-        return usedByPtr.count(&decl) > 0 || usedByNamedArg.count(&decl) > 0;
+        auto index = static_cast<uint32_t>(queries.size());
+        queries.push_back({&decl, UINT32_MAX, kind, false});
+        return index;
     }
 
-    bool IsUsedExternal(const Decl& decl) const
+    void Add(const Decl& decl, LocalSymbolKind kind)
     {
-        return usedByPtrExternal.count(&decl) > 0;
+        auto parameterIndex = AddQuery(decl, kind);
+        if (kind != LocalSymbolKind::PARAMETER) {
+            return;
+        }
+        auto param = DynamicCast<const FuncParam*>(&decl);
+        if (!param || !param->isNamedParam || !param->outerDecl ||
+            param->outerDecl->astKind != ASTKind::FUNC_DECL) {
+            return;
+        }
+        auto function = param->outerDecl.get();
+        auto match = namedFunctions.find(function);
+        uint32_t functionIndex;
+        if (match == namedFunctions.end()) {
+            functionIndex = AddQuery(*function, LocalSymbolKind::NONE);
+            namedFunctions.emplace(function, functionIndex);
+        } else {
+            functionIndex = match->second;
+        }
+        auto previous = queries[functionIndex].firstNamedParam;
+        queries[functionIndex].firstNamedParam = static_cast<uint32_t>(namedParams.size());
+        namedParams.push_back({parameterIndex, previous});
+    }
+
+    void BuildIndex()
+    {
+        queries.shrink_to_fit();
+        byLocation.reserve(queries.size());
+        queryFile = queries.empty() ? nullptr : queries.front().decl->curFile.get();
+        for (uint32_t i = 0; i < queries.size(); ++i) {
+            const auto& decl = *queries[i].decl;
+            singleFile = singleFile && decl.curFile.get() == queryFile;
+            byLocation.emplace(LocationHash(decl), i);
+            if (decl.isInMacroCall) {
+                auto ty = decl.GetTy();
+                if (ty && ty->kind == TypeKind::TYPE_FUNC) {
+                    byMacroFunc.emplace(MacroIdentityHash(decl), i);
+                }
+            }
+            bool inSamePkg = decl.curFile && decl.curFile->curPackage == searchingPackage;
+            bool partialDecl = (!decl.outerDecl && !decl.TestAttr(Attribute::GLOBAL)) ||
+                (decl.outerDecl && decl.outerDecl->astKind == ASTKind::FUNC_DECL);
+            if (!inSamePkg && !partialDecl) {
+                byExceptionalName.emplace(GetDefinedDecl(&decl)->identifier.Val(), i);
+            }
+        }
+    }
+
+    void Match(uint32_t index, Ptr<Node> node, Ptr<Node>& realNode)
+    {
+        auto& query = queries[index];
+        if (!query.used && query.kind != LocalSymbolKind::NONE) {
+            if (query.kind == LocalSymbolKind::ENUM_VARIANT) {
+                if (!realNode) {
+                    realNode = GetRealNode(node);
+                }
+                query.used = realNode->begin != query.decl->begin || realNode->end != query.decl->end;
+            } else {
+                query.used = true;
+            }
+        }
+        while (query.firstNamedParam != UINT32_MAX &&
+            queries[namedParams[query.firstNamedParam].parameter].used) {
+            query.firstNamedParam = namedParams[query.firstNamedParam].next;
+        }
+        if (query.firstNamedParam == UINT32_MAX) {
+            if (query.kind == LocalSymbolKind::NONE) {
+                query.used = true;
+            }
+            return;
+        }
+        if (!realNode) {
+            realNode = GetRealNode(node);
+        }
+        auto ref = DynamicCast<NameReferenceExpr*>(realNode);
+        auto call = ref ? DynamicCast<CallExpr*>(ref->callOrPattern) : nullptr;
+        if (!call || call->args.empty()) {
+            return;
+        }
+        for (auto link = query.firstNamedParam; link != UINT32_MAX; link = namedParams[link].next) {
+            auto& parameter = queries[namedParams[link].parameter];
+            if (parameter.used) {
+                continue;
+            }
+            for (auto& arg : call->args) {
+                if (arg && arg->name == parameter.decl->identifier) {
+                    parameter.used = true;
+                    break;
+                }
+            }
+        }
+        while (query.firstNamedParam != UINT32_MAX &&
+            queries[namedParams[query.firstNamedParam].parameter].used) {
+            query.firstNamedParam = namedParams[query.firstNamedParam].next;
+        }
+        if (query.kind == LocalSymbolKind::NONE && query.firstNamedParam == UINT32_MAX) {
+            query.used = true;
+        }
+    }
+
+    void Record(const Decl& target, Ptr<Node> node)
+    {
+        Ptr<Node> realNode;
+        if (!singleFile || target.curFile.get() == queryFile) {
+            auto locations = byLocation.equal_range(LocationHash(target));
+            for (auto it = locations.first; it != locations.second; ++it) {
+                auto& query = queries[it->second];
+                if (query.used && query.firstNamedParam == UINT32_MAX) {
+                    continue;
+                }
+                if (query.decl == &target || SameLocation(*query.decl, target)) {
+                    Match(it->second, node, realNode);
+                }
+            }
+        }
+        if (!byMacroFunc.empty()) {
+            auto ty = target.GetTy();
+            if (ty && ty->kind == TypeKind::TYPE_FUNC) {
+                auto macroFunctions = byMacroFunc.equal_range(MacroIdentityHash(target));
+                for (auto it = macroFunctions.first; it != macroFunctions.second; ++it) {
+                    auto& query = queries[it->second];
+                    if (query.used && query.firstNamedParam == UINT32_MAX) {
+                        continue;
+                    }
+                    auto& decl = *query.decl;
+                    if (decl.GetTy() == ty && decl.identifier.Val() == target.identifier.Val()) {
+                        Match(it->second, node, realNode);
+                    }
+                }
+            }
+        }
+        if (!byExceptionalName.empty()) {
+            auto names = byExceptionalName.equal_range(GetDefinedDecl(&target)->identifier.Val());
+            for (auto it = names.first; it != names.second; ++it) {
+                auto& query = queries[it->second];
+                if (query.used && query.firstNamedParam == UINT32_MAX) {
+                    continue;
+                }
+                if (CheckDeclEqual(*query.decl, target)) {
+                    Match(it->second, node, realNode);
+                }
+            }
+        }
+    }
+
+    void ReleaseIndex()
+    {
+        decltype(byLocation){}.swap(byLocation);
+        decltype(byMacroFunc){}.swap(byMacroFunc);
+        decltype(byExceptionalName){}.swap(byExceptionalName);
+        decltype(namedFunctions){}.swap(namedFunctions);
+        decltype(namedParams){}.swap(namedParams);
+    }
+
+    void AppendDiagnostics(const std::string& filePath, std::vector<DiagnosticToken>& diagnostics) const
+    {
+        for (auto& query : queries) {
+            if (query.used || query.kind == LocalSymbolKind::NONE) {
+                continue;
+            }
+            auto& decl = *query.decl;
+            auto position = decl.GetIdentifierPos();
+            SymbolLocation loc{position, position + CountUnicodeCharacters(decl.identifier), filePath};
+            const char* description = query.kind == LocalSymbolKind::VARIABLE ? "Variable" :
+                query.kind == LocalSymbolKind::PARAMETER ? "Parameter" : "Enum variant";
+            diagnostics.push_back(UnusedSymbolDiag::CreateUnusedDiag(decl.identifier, loc, description));
+        }
     }
 };
-}  // namespace
+} // namespace
 
 // ---------------------------------------------------------------------------
-// Helper: Check and report unused local variable.
+// Helper: Collect a local variable query.
 // ---------------------------------------------------------------------------
-static void CheckUnusedVarDecl(VarDecl* varDecl,
-    const std::string& filePath, std::vector<DiagnosticToken>& diagnostics,
-    const UsageSets& usage)
+static void CollectVarQuery(VarDecl* varDecl,
+    UsageSets& usage)
 {
     // Skip variables in @Component/@Entry macro-expanded code
     if (IsInComponentMacro(varDecl)) {
@@ -474,18 +671,8 @@ static void CheckUnusedVarDecl(VarDecl* varDecl,
         return;
     }
 
-    bool isGlobalOrMember = IsGlobalOrMember(*varDecl);
-    if (!isGlobalOrMember) {
-        if (!usage.IsUsed(*varDecl)) {
-            auto identifierPos = varDecl->GetIdentifierPos();
-            SymbolLocation loc{
-                identifierPos,
-                identifierPos + CountUnicodeCharacters(varDecl->identifier),
-                filePath
-            };
-            diagnostics.push_back(UnusedSymbolDiag::CreateUnusedDiag(
-                varDecl->identifier, loc, "Variable"));
-        }
+    if (!IsGlobalOrMember(*varDecl)) {
+        usage.Add(*varDecl, LocalSymbolKind::VARIABLE);
     }
 }
 
@@ -528,11 +715,10 @@ static bool IsInMacroGeneratedFunc(const FuncParam* funcParam)
 }
 
 // ---------------------------------------------------------------------------
-// Helper: Check and report unused function parameter.
+// Helper: Collect a function parameter query.
 // ---------------------------------------------------------------------------
-static void CheckUnusedFuncParam(FuncParam* funcParam,
-    const std::string& filePath, std::vector<DiagnosticToken>& diagnostics,
-    const UsageSets& usage)
+static void CollectParamQuery(FuncParam* funcParam,
+    UsageSets& usage)
 {
     bool isComponentGen = IsComponentGeneratedParam(funcParam);
     bool isInCompMacro = IsInComponentMacro(funcParam);
@@ -550,28 +736,16 @@ static void CheckUnusedFuncParam(FuncParam* funcParam,
         return;
     }
 
-    if (usage.IsUsed(*funcParam)) {
-        return;
-    }
-
-    auto identifierPos = funcParam->GetIdentifierPos();
-    SymbolLocation loc{
-        identifierPos,
-        identifierPos + CountUnicodeCharacters(funcParam->identifier),
-        filePath
-    };
-    diagnostics.push_back(UnusedSymbolDiag::CreateUnusedDiag(
-        funcParam->identifier, loc, "Parameter"));
+    usage.Add(*funcParam, LocalSymbolKind::PARAMETER);
 }
 
 // ---------------------------------------------------------------------------
-// Helper: Check and report unused enum variant (enum constructor).
+// Helper: Collect an enum variant query (enum constructor).
 // Enum variants can be FuncDecl (with associated values) or VarDecl
 // (without associated values), both stored in EnumDecl::constructors.
 // ---------------------------------------------------------------------------
-static void CheckUnusedEnumVariantCommon(Decl& decl,
-    const std::string& filePath, std::vector<DiagnosticToken>& diagnostics,
-    const SymbolIndex* index, const UsageSets& usage)
+static void CollectEnumQuery(Decl& decl,
+    const SymbolIndex* index, UsageSets& usage)
 {
     if (index != nullptr) {
         auto symId = GetDeclSymbolID(decl);
@@ -579,47 +753,34 @@ static void CheckUnusedEnumVariantCommon(Decl& decl,
             return;
         }
     }
-    if (usage.IsUsedExternal(decl)) {
-        return;
-    }
-    auto identifierPos = decl.GetIdentifierPos();
-    SymbolLocation loc{
-        identifierPos,
-        identifierPos + CountUnicodeCharacters(decl.identifier),
-        filePath
-    };
-    diagnostics.push_back(UnusedSymbolDiag::CreateUnusedDiag(
-        decl.identifier, loc, "Enum variant"));
+    usage.Add(decl, LocalSymbolKind::ENUM_VARIANT);
 }
 
 // ---------------------------------------------------------------------------
 // Walker visitor for local symbol analysis
 // ---------------------------------------------------------------------------
 static void HandleMacroCallFuncParam(FuncParam* funcParam,
-    const std::string& filePath, std::vector<DiagnosticToken>& diagnostics,
-    const UsageSets& usage)
+    UsageSets& usage)
 {
     if (!funcParam || funcParam->isMemberParam) {
         return;
     }
     if (!IsInMacroGeneratedFunc(funcParam) && !ShouldSkipFuncParam(funcParam)) {
-        CheckUnusedFuncParam(funcParam, filePath, diagnostics, usage);
+        CollectParamQuery(funcParam, usage);
     }
 }
 
 static void HandleVarDecl(Ptr<Node> node,
-    const std::string& filePath, std::vector<DiagnosticToken>& diagnostics,
-    const UsageSets& usage)
+    UsageSets& usage)
 {
     auto varDecl = DynamicCast<VarDecl*>(node);
     if (varDecl && !DynamicCast<FuncParam*>(node)) {
-        CheckUnusedVarDecl(varDecl, filePath, diagnostics, usage);
+        CollectVarQuery(varDecl, usage);
     }
 }
 
 static void HandleFuncParam(FuncParam* funcParam,
-    const std::string& filePath, std::vector<DiagnosticToken>& diagnostics,
-    const UsageSets& usage)
+    UsageSets& usage)
 {
     // Skip member params (e.g. `public let a: String` in primary constructors).
     // These are class members handled by the index layer (Analyze() checks
@@ -630,13 +791,12 @@ static void HandleFuncParam(FuncParam* funcParam,
         return;
     }
     if (!ShouldSkipFuncParam(funcParam)) {
-        CheckUnusedFuncParam(funcParam, filePath, diagnostics, usage);
+        CollectParamQuery(funcParam, usage);
     }
 }
 
 static void HandleEnumDecl(Ptr<Node> node,
-    const std::string& filePath, std::vector<DiagnosticToken>& diagnostics,
-    const SymbolIndex* index, const UsageSets& usage)
+    const SymbolIndex* index, UsageSets& usage)
 {
     auto enumDecl = DynamicCast<EnumDecl*>(node);
     if (!enumDecl) {
@@ -644,17 +804,15 @@ static void HandleEnumDecl(Ptr<Node> node,
     }
     for (auto& ctor : enumDecl->constructors) {
         if (ctor && !ctor->isInMacroCall) {
-            CheckUnusedEnumVariantCommon(*ctor, filePath, diagnostics, index, usage);
+            CollectEnumQuery(*ctor, index, usage);
         }
     }
 }
 
-static VisitAction CollectUnusedLocalDiags(
+static VisitAction CollectLocalQueries(
     Ptr<Node> node,
-    const std::string& filePath,
-    std::vector<DiagnosticToken>& diagnostics,
     const SymbolIndex* index,
-    const UsageSets& usage)
+    UsageSets& usage)
 {
     auto decl = DynamicCast<Decl*>(node);
     if (!decl || decl->TestAttr(Attribute::IMPLICIT_ADD)) {
@@ -668,81 +826,23 @@ static VisitAction CollectUnusedLocalDiags(
     auto funcParam = DynamicCast<FuncParam*>(node);
 
     if (decl->isInMacroCall) {
-        HandleMacroCallFuncParam(funcParam, filePath, diagnostics, usage);
+        HandleMacroCallFuncParam(funcParam, usage);
         return VisitAction::WALK_CHILDREN;
     }
 
-    HandleVarDecl(node, filePath, diagnostics, usage);
-    HandleFuncParam(funcParam, filePath, diagnostics, usage);
-    HandleEnumDecl(node, filePath, diagnostics, index, usage);
+    HandleVarDecl(node, usage);
+    HandleFuncParam(funcParam, usage);
+    HandleEnumDecl(node, index, usage);
 
     return VisitAction::WALK_CHILDREN;
 }
 
 // ---------------------------------------------------------------------------
-// Helper: Find a named param in a FuncDecl that matches the given arg name.
-// Returns the matching FuncParam Decl, or nullptr if no match.
-// ---------------------------------------------------------------------------
-static const Decl* FindNamedParam(const FuncDecl& fd, const SrcIdentifier& name)
-{
-    if (name.Empty()) {
-        return nullptr;
-    }
-    for (auto& param : fd.funcBody->paramLists[0]->params) {
-        if (param && param->isNamedParam && param->identifier == name) {
-            return param.get();
-        }
-    }
-    return nullptr;
-}
-
-// ---------------------------------------------------------------------------
-// Helper: Collect named-arg indirect references for FuncParams.
-// If a NameReferenceExpr targets a FuncDecl whose callOrPattern is a
-// CallExpr with named args, mark the corresponding named params as used.
-// Uses node->GetTarget() (not ce->resolvedFunction) to match the
-// original FindNamedFuncParamUsage's matching logic.
-// ---------------------------------------------------------------------------
-static void CollectNamedArgUsage(Ptr<Node> node, Decl* target, UsageSets& usage)
-{
-    auto ref = DynamicCast<NameReferenceExpr*>(node.get());
-    if (!ref) {
-        return;
-    }
-    auto fd = DynamicCast<const FuncDecl*>(target);
-    if (!fd || !fd->funcBody || fd->funcBody->paramLists.empty() ||
-        !fd->funcBody->paramLists[0]) {
-        return;
-    }
-    auto ce = DynamicCast<CallExpr*>(ref->callOrPattern);
-    if (!ce) {
-        return;
-    }
-    for (auto& arg : ce->args) {
-        if (!arg) {
-            continue;
-        }
-        auto param = FindNamedParam(*fd, arg->name);
-        if (param) {
-            (void)usage.usedByNamedArg.insert(param);
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Single-pass usage set builder: walks the whole package once and records
-// all decl usage references. Replaces O(D) per-decl FindDeclUsage walks
-// (each of which scanned the whole package) with one O(P x F) walk + O(D)
-// hash lookups in the Check* helpers above.
-//
-// Captures three categories of usage, matching the matching rules used by
-// FindUsage / FindNamedFuncParamUsage / HasDeclUsageExcludingSelfPos:
-//   1. usedByPtr          -- direct target pointer refs (FindUsage fast path)
-//   2. usedByNamedArg     -- named-arg indirect refs (FindNamedFuncParamUsage
-//                            2nd walk, via node->GetTarget() + callOrPattern)
-//   3. usedByPtrExternal  -- refs from a different source position than the
-//                            target decl (HasDeclUsageExcludingSelfPos filter,
-//                            for enum-variant self-position edge cases)
+// Walk the package once, preserving FindUsage's pointer, source-location and
+// macro-function matches. Exceptional declarations outside the source package
+// retain CheckDeclEqual matching through an index of referenced names.
+// Named arguments and enum self-position filtering use GetRealNode, just as
+// FindDeclUsage does, so desugared expressions retain their source semantics.
 // ---------------------------------------------------------------------------
 static void BuildUsageSets(Package& package, UsageSets& usage)
 {
@@ -758,20 +858,8 @@ static void BuildUsageSets(Package& package, UsageSets& usage)
                 Walker(it.get(), collector).Walk();
             }
         }
-        // Direct target reference. For local decls this is the only FindUsage
-        // matching path that fires (partialDecl=true forces continueNext=true,
-        // so the slow CheckDeclEqual path is unreachable).
         if (auto target = node->GetTarget()) {
-            (void)usage.usedByPtr.insert(target);
-            if (node->begin != target->begin || node->end != target->end) {
-                (void)usage.usedByPtrExternal.insert(target);
-            }
-            CollectNamedArgUsage(node, target, usage);
-        } else if (DynamicCast<NameReferenceExpr*>(node.get()) != nullptr) {
-            // DEBUG: log RefExpr nodes with null target
-            auto filePath = node->curFile ? node->curFile->filePath : "null";
-            Trace::Log("NameRefExpr null target:", "file =", filePath,
-                "line =", node->begin.line, "col =", node->begin.column);
+            usage.Record(*target, node);
         }
         return VisitAction::WALK_CHILDREN;
     };
@@ -779,7 +867,7 @@ static void BuildUsageSets(Package& package, UsageSets& usage)
 }
 
 // ---------------------------------------------------------------------------
-// Local symbol analysis: detect unused local variables and non-named params
+// Local symbol analysis: detect unused local variables and function params
 // ---------------------------------------------------------------------------
 std::vector<DiagnosticToken> UnusedSymbolDiag::AnalyzeLocalSymbols(
     const File& file,
@@ -792,22 +880,21 @@ std::vector<DiagnosticToken> UnusedSymbolDiag::AnalyzeLocalSymbols(
         return diagnostics;
     }
 
-    // Phase 1: single package-wide walk to build usage sets.
-    // Replaces O(D) nested FindDeclUsage walks (each scanning the whole
-    // package) with one O(P x F) walk followed by O(D) hash lookups.
-    UsageSets usage;
-    BuildUsageSets(package, usage);
-
-    // Phase 2: walk the current file only, dispatching to Check* helpers
-    // which now consult the pre-built usage sets instead of triggering
-    // nested full-package walks.
+    // The same two AST walks as the optimized implementation: collect the
+    // current file's actual queries first, then resolve all package references.
+    UsageSets usage(package);
     std::function<VisitAction(Ptr<Node>)> collector =
         [&](Ptr<Node> node) -> VisitAction {
-            return CollectUnusedLocalDiags(node, file.filePath,
-                                           diagnostics, index, usage);
+            return CollectLocalQueries(node, index, usage);
         };
-
     Walker(const_cast<File*>(&file), collector).Walk();
+    if (usage.queries.empty()) {
+        return diagnostics;
+    }
+    usage.BuildIndex();
+    BuildUsageSets(package, usage);
+    usage.ReleaseIndex();
+    usage.AppendDiagnostics(file.filePath, diagnostics);
     UpdateRawUnusedDiagnosticRanges(diagnostics, file.filePath);
     return diagnostics;
 }
