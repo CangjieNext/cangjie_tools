@@ -167,11 +167,17 @@ std::optional<std::pair<std::vector<Token>, std::vector<Token>>> ExtractTokensBe
     }
     auto origFragment = std::vector<Token>(originalTokensSubsetFirst, originalTokensSubsetEnd);
     auto outputFragment = std::vector<Token>(outputTokensSubsetFirst, outputTokensSubsetEnd);
+    if (origFragment.empty() || outputFragment.empty()) {
+        return std::nullopt;
+    }
     while (origFragment.back().kind == TokenKind::NL) {
         origFragment.pop_back();
     }
     while (outputFragment.back().kind == TokenKind::NL) {
         outputFragment.pop_back();
+    }
+    if (origFragment.empty() || outputFragment.empty()) {
+        return std::nullopt;
     }
     return std::make_pair(std::move(origFragment), std::move(outputFragment));
 }
