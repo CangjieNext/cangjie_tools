@@ -1,0 +1,1 @@
+{"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{"uri":"file:///unused-default-params/src/cross_decl.cj","diagnostics":[{"range":{"start":{"line":8,"character":39},"end":{"line":8,"character":43}},"severity":4,"tags":[1],"source":"Cangjie","code":0,"message":"Parameter 'name' is declared but never used"}]}}
