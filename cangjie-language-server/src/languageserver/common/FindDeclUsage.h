@@ -18,6 +18,8 @@ using namespace AST;
 bool CheckFunctionEqual(const FuncDecl& srcFunc, const FuncDecl& targetFunc);
 bool CheckTypeEqual(Ty& src, Ty& target);
 bool CheckDeclEqual(const Decl& source, const Decl& target);
+Ptr<const Decl> GetDefinedDecl(Ptr<const Decl> decl);
+Ptr<Node> GetRealNode(Ptr<Node> node);
 std::unordered_set<Ptr<Node> > FindDeclUsage(const Decl &decl, Node &root, bool isRename = false);
 }
 #endif
