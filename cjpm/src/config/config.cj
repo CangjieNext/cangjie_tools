@@ -283,6 +283,8 @@ public struct CjcInfo {
             throw CliFailError(["Error: no target info in output of command 'cjc -v':", output])
         }
 
+        // This string is hashed verbatim by the incremental engine as the identity of the
+        // compiler (see `ReadCjcVersion`), so it must be kept in its full form, not truncated.
         let version = output.split(versionPrefix)[1].trimAscii().split(' ', 1, removeEmpty: true)[0]
         let targetString = output.split(targetPrefix)[1].trimAscii()
         let target = Triple.fromString(targetString).getOrThrow { err => CliFailError([err]) }

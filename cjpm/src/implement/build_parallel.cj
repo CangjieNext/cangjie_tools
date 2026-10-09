@@ -282,6 +282,8 @@ func parallelBuild(module: ModuleResolve, buildConfig: BuildConfig): Bool {
         module, buildConfig
     )
 
+    registerReadCjcVersionTask(engine)
+
     registerCompileTasks(
         compileTasksData, typeInfoOnlyDeps, buildConfig, engine
     )
@@ -514,6 +516,24 @@ private func registerReadCompilerOptionsTask(engine: IncrementalEngine, compileT
     )
 }
 
+private func registerReadCjcVersionTask(engine: IncrementalEngine): Unit {
+    let id = TaskId.ReadCjcVersion
+
+    if (engine.taskContext.taskStorage.contains(id)) {
+        return
+    }
+
+    let comp: () -> CjcVersion = { =>
+        CjcVersion(state.cjcInfo.version)
+    }
+    engine.taskContext.createTask(
+        id: id,
+        dependencies: [],
+        comp: comp,
+        cache: engine.cache
+    )
+}
+
 // Create task of compiler call, which returns the locations of expected to be produced artifacts
 private func registerCompilerCallTaskWithDeps(engine: IncrementalEngine, compileTask: CompileTask, deps: Array<TaskId>, buildConfig: BuildConfig) {
     let id = compileTask.id
@@ -640,6 +660,30 @@ extend CompilerOptions <: SerializableIncData<CompilerOptions> {
     }
 }
 
+private struct CjcVersion <: Serializable<CjcVersion> {
+    CjcVersion(
+        let version: String
+    ) { }
+
+    public func serialize(): DataModel {
+        version.serialize()
+    }
+
+    public static func deserialize(dm: DataModel): CjcVersion {
+        let dmstr = dm as DataModelString ?? throw DataModelException("this data is not DataModelString")
+        CjcVersion(dmstr.getValue())
+    }
+}
+
+extend CjcVersion <: SerializableIncData<CjcVersion> {
+    public func incHash(): ?Hash {
+        if (version.isEmpty()) {
+            return None
+        }
+        return version.hashCode()
+    }
+}
+
 private enum ArtifactCheckKind <: ToString & Serializable<ArtifactCheckKind> {
     | CheckExists
     | CheckTimestamp
@@ -760,6 +804,7 @@ public enum TaskId <: Serializable<TaskId> & ToString {
     | Monitor(String, String, Bool, Bool, String)
     | Generated(UInt64)
     | BuildScriptCompile
+    | ReadCjcVersion
     | Unknown(String)
 
     public func toString(): String {
@@ -771,6 +816,7 @@ public enum TaskId <: Serializable<TaskId> & ToString {
             case Monitor(fullName, target, debug, mock, sourceSetDir) => "monitor~${fullName}|${target}|${debug}|${mock}|${sourceSetDir}"
             case Generated(i) => "${i}~"
             case BuildScriptCompile => "build-script~"
+            case ReadCjcVersion => "cjc-version~"
             case Unknown(s) => s
         }
     }
@@ -843,6 +889,7 @@ public enum TaskId <: Serializable<TaskId> & ToString {
                     values.get(5) ?? ""
                 )
             case "build-script" => TaskId.BuildScriptCompile
+            case "cjc-version" => TaskId.ReadCjcVersion
             case "monitor" =>
                 TaskId.Monitor(
                     values[0],
@@ -1290,6 +1337,7 @@ func createPackageCompileTasks(r: ResolveItem, buildConfig: BuildConfig, product
             }
             requireTasks.add(TaskId.ReadPackageSource(fullName, sourceSetDir))
             requireTasks.add(TaskId.ReadCompilerOptions(fullName, target, isDebug, mockSupported, sourceSetDir))
+            requireTasks.add(TaskId.ReadCjcVersion)
 
             let (outLogFile, errLogFile) = getLogFile(logPath, taskId)
 
