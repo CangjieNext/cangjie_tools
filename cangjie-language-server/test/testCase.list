@@ -1308,3 +1308,4 @@
 {"completion":{"testFile":"LSP_Completion_Paren_As_Prefix.test","id":"9"}}
 {"completion":{"testFile":"LSP_Completion_Paren_Lambda_Shadow.test","id":"9"}}
 {"completion":{"testFile":"LSP_Completion_Paren_Nested_Return.test","id":"9"}}
+{"diagnostic":{"testFile":"LSP_Diagnostic_Tracked_DotCj_Delete.test"}}
