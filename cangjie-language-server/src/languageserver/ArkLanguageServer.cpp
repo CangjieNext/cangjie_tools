@@ -813,8 +813,7 @@ void ArkLanguageServer::OnDocumentLink(const DocumentLinkParams &params, nlohman
 bool ArkLanguageServer::CheckIsCangjieWatchedFile(const std::string &file, FileChangeType type) const
 {
     if (type == FileChangeType::DELETED) {
-        // didOpen can track paths such as ".cj", which HasExtension does not recognize.
-        // A deleted document must be removed based on its recorded identity.
+        // Use tracked paths for deletion since HasExtension rejects ".cj".
         return DocMgr.ContainsFile(file);
     }
     if (!FileUtil::HasExtension(file, CANGJIE_FILE_EXTENSION())) {
