@@ -1,0 +1,14 @@
+cjfmt/src/Format/FormatCodeProcessor.cpp
+  h_4d070aafa41132 424-426,444-451,473-474,476-480,489-490,493-497,512
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9076b25aff12dace21820182866519d9ee72310a",
+  "prompts": {},
+  "humans": {
+    "h_4d070aafa41132": {
+      "author": "Cangjie-SCH <sunchihao@h-partners.com>"
+    }
+  }
+}
