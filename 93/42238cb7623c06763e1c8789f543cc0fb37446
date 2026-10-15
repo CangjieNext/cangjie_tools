@@ -1,0 +1,14 @@
+cjlint/doc/developer_guide_zh.md
+  h_fe069fe836a3e3 395,447
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9342238cb7623c06763e1c8789f543cc0fb37446",
+  "prompts": {},
+  "humans": {
+    "h_fe069fe836a3e3": {
+      "author": "zxudong <zxudong.zhang@huawei.com>"
+    }
+  }
+}
