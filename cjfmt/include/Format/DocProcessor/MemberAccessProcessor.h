@@ -16,8 +16,6 @@ public:
     void DocToString(std::string& formatted, int& pos, std::pair<Doc, Mode>& current,
         std::vector<std::pair<Doc, Mode>>& leftCmd) override;
 
-private:
-    void NonMethodChianProcessor(Doc& member, int& pos, std::string& formatted);
 };
 } // namespace Cangjie::Format
 #endif // CJFMT_MEMBERACCESSPROCESSOR_H
