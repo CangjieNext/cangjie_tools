@@ -21,32 +21,44 @@ void BinaryExprFormatter::AddBinaryExpr(Doc& doc, const Cangjie::AST::BinaryExpr
 {
     doc.type = DocType::FILL;
     doc.indent = level;
+    doc.layout = LayoutPolicy::FILL;
 
     // Follow only an existing left-associated chain of the same operator. Parentheses, precedence and
     // right-associated subexpressions remain intact; this changes layout without regrouping the AST.
     std::vector<const BinaryExpr*> chain;
     const auto* current = &binaryExpr;
-    while (true) {
+    while (current != nullptr) {
         chain.emplace_back(current);
         auto left = As<ASTKind::BINARY_EXPR>(current->leftExpr.get());
         if (!left || left->op != binaryExpr.op || left->hasSemi) {
-            break;
+            current = nullptr;
+        } else {
+            current = left;
         }
-        current = left;
     }
 
-    Ptr<Expr> operand = current->leftExpr.get();
+    Ptr<Expr> operand = chain.back()->leftExpr.get();
     for (auto it = chain.rbegin(); it != chain.rend(); ++it) {
         const auto& operation = **it;
         Doc chunk(DocType::CONCAT, level, "");
         chunk.members.emplace_back(astToFormatSource.ASTToDoc(operand, level));
-        bool preserveOperatorLineBreak = operation.leftExpr->end.line < operation.operatorPos.line;
-        preserveOperatorLineBreak
-            ? chunk.members.emplace_back(DocType::LINE, level + 1, "")
-            : chunk.members.emplace_back(DocType::STRING, level, " ");
+        chunk.members.emplace_back(DocType::STRING, level, " ");
         chunk.members.emplace_back(DocType::STRING, level, TOKENS[static_cast<int>(operation.op)]);
         doc.members.emplace_back(std::move(chunk));
-        doc.members.emplace_back(DocType::SOFTLINE_WITH_SPACE, level + 1, "");
+        Doc separator(DocType::SOFTLINE_WITH_SPACE, level + 1, "");
+        // Logical/coalescing breaks are preferred over ordinary arithmetic
+        // breaks when a line has several legal candidates.
+        switch (operation.op) {
+            case TokenKind::COALESCING:
+            case TokenKind::OR:
+            case TokenKind::AND:
+                separator.breakKind = BreakKind::LOGICAL;
+                break;
+            default:
+                separator.breakKind = BreakKind::BINARY;
+                break;
+        }
+        doc.members.emplace_back(std::move(separator));
         operand = operation.rightExpr.get();
     }
     Doc last(DocType::CONCAT, level, "");
