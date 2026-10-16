@@ -208,7 +208,7 @@ Use "cjpm [subcommand] --help" for more information about a command.
 [package] # 单模块配置字段，与 workspace 字段不能同时存在
   cjc-version = "1.0.0" # 所需 `cjc` 的最低版本要求，必需
   name = "demo" # 模块名及模块 root 包名，必需
-  organization = "" # 组织名, 非必需
+  organization = "" # 组织名，非必需。配置后模块源码中的包声明及包导入需以 "组织名::" 为前缀，产物名/目录名将以 "@组织名" 为后缀；仅想标注作者信息时请留空
   description = "nothing here" # 描述信息，非必需
   version = "1.0.0" # 模块版本信息，必需
   compile-option = "" # 额外编译命令选项，非必需

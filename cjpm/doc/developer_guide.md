@@ -202,7 +202,7 @@ Example configuration:
 [package] # Single-module configuration (mutually exclusive with [workspace])
   cjc-version = "1.0.0" # Minimum required `cjc` version (required)
   name = "demo" # Module name and root package name (required)
-  organization = "" # Organization name (optional)
+  organization = "" # Organization name (optional). When set, package declarations/imports in the module source code must be prefixed with "<organization>::", and artifact names/directories get an "@<organization>" suffix; leave it empty if only used to mark authorship
   description = "nothing here" # Description (optional)
   version = "1.0.0" # Module version (required)
   compile-option = "" # Additional compile options (optional)
