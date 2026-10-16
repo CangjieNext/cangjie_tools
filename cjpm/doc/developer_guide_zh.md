@@ -283,7 +283,7 @@ Use "cjpm [subcommand] --help" for more information about a command.
 
     - `dependencies` 字段：
 
-        该字段通过源码方式导入依赖的其它仓颉模块，里面配置了当前构建所需要的其它模块的信息。目前，该字段支持本地路径依赖和远程 `git` 依赖。
+        该字段通过源码方式导入依赖的其他仓颉模块，里面配置了当前构建所需要的其他模块的信息。目前，该字段支持本地路径依赖和远程 `git` 依赖。
 
         ```toml
         [dependencies]
