@@ -24,8 +24,6 @@ cjtrace-recover/src
 
 ## 安装和使用指导
 
-## 安装和使用指导
-
 ### 构建准备
 
 `cjtrace-recover` 需要以下工具来构建：
