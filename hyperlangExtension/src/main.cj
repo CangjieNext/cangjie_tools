@@ -411,7 +411,7 @@ func parseFile(arkpath: String, outDir: String, jsASTPath: String, gconfig: Glob
     }
 
     //扫描整个ark json文件，将内容保存在全局变量gconfig里,gconfig的声明在globalConfig.cj
-    //如若需要指定cj json，可以考虑扩容GlobalConfig 类
+    //如若需要指定cj json，可以考虑扩展 GlobalConfig 类
     let fileContent = String.fromUtf8(File.readFrom(arkJson))
     let transform = Transform(fileContent)
     let jsonContent = JsonValue.fromStr(fileContent)
