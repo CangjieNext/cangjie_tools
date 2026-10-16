@@ -118,7 +118,7 @@ python3 build.py install
 
 ### 更多构建选项
 
-`python3 build.py build` 命令也支持其它参数设置，具体可通过如下命令来查询：
+`python3 build.py build` 命令也支持其他参数设置，具体可通过如下命令来查询：
 
 ```shell
 python3 build.py build -h
