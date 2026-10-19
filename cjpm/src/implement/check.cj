@@ -7,7 +7,6 @@
 package cjpm.implement
 
 import std.collection.*
-import std.fs.*
 import cjpm.config.*
 
 // Dependency resolve.
@@ -15,37 +14,12 @@ func resolve(globalConfig: GlobalConfig, isScriptDep!: Bool = false,
     rootTomlDocument!: ?ModuleTomlDocument = None): (DepModel, Bool, Bool) {
     var dm = DepModel(globalConfig)
 
-    let (loadFlag, lockFile) = if (isScriptDep) {
-        (true, ModuleLock())
-    } else {
-        loadLockFile(globalConfig.rootPath)
-    }
-    if (!loadFlag) {
-        return (dm, false, false)
-    }
-
-    let (checkSuccessful, mockUsed) = dm.resolve(globalConfig.rootPath, lockFile.requires, isScriptDep,
+    let lockFile = commandLock(globalConfig.rootPath) ?? return (dm, false, false)
+    let entries = if (isScriptDep) { lockFile.scripts } else { lockFile.requires }
+    let (checkSuccessful, mockUsed) = dm.resolve(globalConfig.rootPath, entries, isScriptDep,
         rootTomlDocument: rootTomlDocument)
     if (!checkSuccessful) {
         return (dm, false, mockUsed)
-    }
-
-    let depMap = dm.depAnalysisEngine.getDepMap()
-    // Don't lock path dependencies since it would only cause problems for transitive path dependencies
-    depMap.removeIf {_, v => v.path.isSome()}
-
-    if (!isScriptDep) {
-        var lockFilePath: String = Path(globalConfig.rootPath).join(LOCK_FILE_NAME).toString()
-        // Overwrite file only if we have meaningful changes in case field serialization order got changed
-        if (lockFile.requires != depMap || !fileExists(lockFilePath)) {
-            if (!lockFile.requires.isEmpty() && !deleteFile(lockFilePath)) {
-                return (dm, false, mockUsed)
-            }
-
-            if (!creatLockFile(globalConfig.rootPath, ModuleLock(depMap, lockFile.scripts))) {
-                return (dm, false, mockUsed)
-            }
-        }
     }
 
     // combined is only used in cjpm build
@@ -73,6 +47,10 @@ func resolve(globalConfig: GlobalConfig, isScriptDep!: Bool = false,
 
     stripSuperPkgForcedRequires(dm)
 
+    if (!stageResolvedLock(globalConfig.rootPath, dm.depAnalysisEngine, globalConfig.rootName,
+        isScriptDep: isScriptDep)) {
+        return (dm, false, mockUsed)
+    }
     return (dm, true, mockUsed)
 }
 

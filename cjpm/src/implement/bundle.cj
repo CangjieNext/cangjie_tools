@@ -468,7 +468,8 @@ func verifyReadme(): Bool {
 }
 
 // uncompress cjp package
-func uncompressCjp(org: String, name: String, version: String, buffer: Array<UInt8>, localRepo: String): (Bool, String) {
+func uncompressCjp(org: String, name: String, version: String, buffer: Array<UInt8>, localRepo: String,
+    replaceSource!: Bool = false): (Bool, String) {
     // prepare temp directory
     let finalDirName = "${name}-${version}"
     let repositoryTempPath = Path(localRepo).join("source").
@@ -494,6 +495,11 @@ func uncompressCjp(org: String, name: String, version: String, buffer: Array<UIn
             join(if (org.isEmpty()) { "default" } else { org }).
             join(finalDirName)
         if (dirList.iterator().any({f: FileInfo => f.name == "${finalDirName}"})) {
+            // A v1 cache hit must use the verified archive, not a stale or edited
+            // extracted tree. Extraction succeeds before replacing the old tree.
+            if (replaceSource && !deleteDirectory(finalRepositoryPath.toString())) {
+                return (false, "failed to replace cached source directory")
+            }
             rename(Path(repositoryTempPath).join(finalDirName), to: finalRepositoryPath, overwrite: true)
         } else {
             return (false, "${finalDirName} load failed with incorrect content in cjp package")

@@ -36,7 +36,7 @@ class DepModel {
     // Replace map
     public var replaceMap: HashMap<String, DepInfo> = HashMap<String, DepInfo>()
     // Locked dep map
-    public var lockedMap: HashMap<String, DepInfo> = HashMap<String, DepInfo>()
+    public var lockedMap = HashMap<String, LockEntry>()
     // All package dependency information for the current project.
     public var packageDepMap: HashMap<String, ResolveItem> = HashMap<String, ResolveItem>()
     // All binary dependency information for the all module.
@@ -104,7 +104,7 @@ class DepModel {
         return
     }
 
-    public func resolve(path: String, locked: HashMap<String, DepInfo>, isScriptDep: Bool,
+    public func resolve(path: String, locked: HashMap<String, LockEntry>, isScriptDep: Bool,
         rootTomlDocument!: ?ModuleTomlDocument = None): BuildCheckResult {
         // initialize dep-analysis engine
         this.depAnalysisEngine.isTest = this.globalConfig.isTest
@@ -112,23 +112,19 @@ class DepModel {
         this.depAnalysisEngine.rootModulePath = this.globalConfig.modulePath
 
         // move repo-deps from cjpm.lock into engine
-        this.depAnalysisEngine.recordLock(locked)
+        this.depAnalysisEngine.recordLockedEntries(locked)
+        this.lockedMap = locked
 
-        // first process locked dependencies as if they are directly required.
+        // Resolve only dependencies reached from the current manifests.
         this.globalConfig.scriptList = ArrayList<ScriptConfig>()
 
         if (!COMMON_INFO.inWorkspace) {
             this.globalConfig.modulePath = this.globalConfig.rootPath
-            this.lockedMap = locked
             if (this.depCheck(path, "", "", None, rootTomlDocument: rootTomlDocument) == FAILED_BUILD_CHECK_RESULT) {
                 return FAILED_BUILD_CHECK_RESULT
             }
         } else {
             this.replaceMap = COMMON_INFO.replaceDeps
-            let (flag, _) = this.processDependencyModule(locked, "", "", true)
-            if (!flag) {
-                return FAILED_BUILD_CHECK_RESULT
-            }
         }
 
         if (!COMMON_INFO.memberModule.isEmpty()) {
@@ -307,10 +303,6 @@ class DepModel {
             if (!checkProjectCombineAtDepResolve(this.globalConfig, tomlInfo)) {
                 return FAILED_BUILD_CHECK_RESULT
             }
-            let (flag, _) = this.processDependencyModule(this.lockedMap, "", "", true)
-            if (!flag) {
-                return FAILED_BUILD_CHECK_RESULT
-            }
         }
 
         if (!tomlInfo.profile.build.combined.isEmpty() && !this.globalConfig.isProjectCombine) {
@@ -341,7 +333,8 @@ class DepModel {
                 return FAILED_BUILD_CHECK_RESULT
             }
         } else {
-            let curDepInfo = DepInfo(getCanonicalPath(curModulePath))
+            let curDepInfo = this.globalConfig.scriptDepSources.get(tomlInfo.pkg.name) ??
+                DepInfo(getCanonicalPath(curModulePath))
             curDepInfo.outputType = tomlInfo.pkg.outputType
             if (this.depAnalysisEngine.finalDepMap.contains(tomlInfo.pkg.name)) {
                 let (isAlternative, errInfo) = this.depAnalysisEngine.finalDepMap[tomlInfo.pkg.name].sourceInfo.isAlternative(curDepInfo)
@@ -358,7 +351,8 @@ class DepModel {
             this.depAnalysisEngine.addDepInfo(tomlInfo.pkg.name, curDepInfo)
         }
         this.depAnalysisEngine.addDepPath(tomlInfo.pkg.name, curModulePath)
-        this.depAnalysisEngine.addDepToml(tomlInfo.pkg.name, tomlInfo)
+        this.depAnalysisEngine.addDepToml(tomlInfo.pkg.name, tomlInfo,
+            includeTests: this.globalConfig.isTest)
         this.depAnalysisEngine.addDepRoot(tomlInfo.pkg.name, this.globalConfig.modulePath)
 
         return this.processDependencyModule(tomlInfo.dependencies, curModulePath, tomlInfo.pkg.name, false)
@@ -1089,6 +1083,9 @@ class DepModel {
                 }
             }
 
+            if (!applyLockedGit(finalDepInfo, this.lockedMap.get(name))) {
+                return FAILED_BUILD_CHECK_RESULT
+            }
             this.depAnalysisEngine.addDepInfo(name, finalDepInfo)
 
             let depInfo: DepInfo = this.depAnalysisEngine.finalDepMap[name].sourceInfo

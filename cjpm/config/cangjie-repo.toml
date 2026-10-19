@@ -9,4 +9,4 @@
 
 [repository.home]
     registry = "https://pkg.cangjie-lang.cn/registry"   # url of central repository
-    token = ""                                          # token of current user
+    token = "" # token of current user
