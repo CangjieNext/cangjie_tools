@@ -33,12 +33,7 @@ public func doUpdate(): Bool {
         return false
     }
 
-    let (loadFlag, lockFile) = loadLockFile(DIR_CURRENT)
-    if (!loadFlag) {
-        return false
-    }
-
-    if (!deleteFile(LOCK_FILE_NAME)) {
+    if (commandLock(DIR_CURRENT).isNone()) {
         return false
     }
 
@@ -80,11 +75,12 @@ public func doUpdate(): Bool {
         }
     }
 
-    // Don't add path dependencies for 'cjpm.lock'
-    let depMap = UPDATE_ANALYSIS_ENGINE.getDepMap()
-    depMap.removeIf {_, v => v.path.isSome()}
-
-    return creatLockFile(DIR_CURRENT, ModuleLock(depMap, lockFile.scripts))
+    let rootName = if (COMMON_INFO.inWorkspace) { WORKSPACE_NAME } else {
+        if (tomlInfo.pkg.organization.isEmpty()) { tomlInfo.pkg.name } else {
+            "${tomlInfo.pkg.organization}::${tomlInfo.pkg.name}"
+        }
+    }
+    return stageResolvedLock(DIR_CURRENT, UPDATE_ANALYSIS_ENGINE, rootName)
 }
 
 func updateDepMap(path: String, preName: String, prePath: String, requires: ?DepInfo): Bool {
@@ -116,6 +112,10 @@ func updateDepMap(path: String, preName: String, prePath: String, requires: ?Dep
         return false
     }
 
+    if (tomlInfo.isWorkSpaceConfig) {
+        return true
+    }
+
     if (let Some(depInfo) <- requires) {
         // verify that `requires` block that added this module is compatible with its medatada
         if (preName != tomlInfo.pkg.name) {
@@ -128,6 +128,8 @@ func updateDepMap(path: String, preName: String, prePath: String, requires: ?Dep
         UPDATE_ANALYSIS_ENGINE.addDepInfo(tomlInfo.pkg.name, DepInfo(getCanonicalPath(curModulePath)))
     }
     UPDATE_ANALYSIS_ENGINE.addDepPath(tomlInfo.pkg.name, curModulePath)
+    // update traverses both maps below, unlike build's already merged map.
+    UPDATE_ANALYSIS_ENGINE.addDepToml(tomlInfo.pkg.name, tomlInfo, includeTests: true)
 
     tomlInfo.pkg.path = curModulePath
     return updateDepModule(tomlInfo.dependencies, curModulePath, tomlInfo.pkg.name, "dependencies") &&

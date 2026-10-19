@@ -8,6 +8,7 @@ package cjpm
 
 import std.env.*
 import cjpm.command.*
+import cjpm.implement.flushCommandLocks
 import cjpm.util.CliFailError
 
 func getCommandArgs(): Array<String> {
@@ -50,6 +51,10 @@ main(): Int64 {
             return 1
         }
 
+        if (!flushCommandLocks()) {
+            cmdHandler.printError()
+            return 1
+        }
         cmdHandler.printPass()
     } catch (e: CliFailError) {
         eprintln(e.message)

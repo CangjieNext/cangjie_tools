@@ -1132,6 +1132,8 @@ public class Stack<T> {
 }
 
 public class GlobalConfig {
+    // Direct script dependencies retain their Git source when built as workspace members.
+    public var scriptDepSources = HashMap<String, DepInfo>()
     public var isVerbose: Bool = false
     public var isDebug: Bool = false
     public var isTest: Bool = false
