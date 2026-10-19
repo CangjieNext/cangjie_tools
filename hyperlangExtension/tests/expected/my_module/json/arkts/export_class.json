@@ -1,0 +1,58 @@
+{
+	"type": [],
+	"info": {},
+	"method": [],
+	"class": [
+		{
+			"type": [],
+			"info": {
+				"name": "UserInfoManager",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "userPreferences",
+						"value": "",
+						"type": "{ [key: String]: String | number | boolean }",
+						"modifier": [],
+						"isOptional": true,
+						"typeNode": "(literal (index (string) (union (string) (number) (boolean))))",
+						"inferredType": "(literal (index (string) (union (string) (number) (boolean))))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		}
+	],
+	"interface": [],
+	"struct": [],
+	"enum": [],
+	"variable": [],
+	"module": [],
+	"import": [],
+	"symbols": {},
+	"exports": {}
+}

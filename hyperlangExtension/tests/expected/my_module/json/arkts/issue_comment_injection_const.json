@@ -1,0 +1,102 @@
+{
+	"type": [
+		{
+			"type": [],
+			"info": {
+				"name": "EvilTypeAliasWithComment",
+				"type": "",
+				"typeNode": "(string)",
+				"comment": "// 行注释包含 */ — 类型别名，走 transType 路径\n// evil_type_alias_inject() */"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"info": {},
+	"method": [],
+	"class": [],
+	"interface": [],
+	"struct": [],
+	"enum": [],
+	"variable": [
+		{
+			"type": [],
+			"info": {
+				"name": "EVIL_CONST_WITH_VALUE",
+				"value": "\"safe_value\"",
+				"type": "string",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"isOptional": false,
+				"comment": "// 测试用例：注释注入漏洞修复验证\n// 覆盖路径：\n//   - hle.cj transConst（有初始化值）→ escapeRawComment\n//   - analysis.js visitVariable1（无初始化值）→ JS 侧转义\n//   - hle.cj transType → escapeRawComment\n// 攻击载荷：d.ts 行注释中包含 */ 以尝试在重包裹块注释时注入\n// 行注释包含 */ — 有初始化值，走 escapeRawComment 路径\n// evil_const_with_value_inject() */",
+				"typeNode": "(string)"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "EVIL_CONST_NO_INIT",
+				"value": "0/* FIXME: Initialization is required */\n*/",
+				"type": "string",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"isOptional": false,
+				"comment": "/*\n// 行注释包含 *\\/ — 无初始化值，走 JS 侧 escape 路径\n// evil_const_no_init_inject() *\\/",
+				"typeNode": "(string)"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "EVIL_CONST_LINE_COMMENT",
+				"value": "42",
+				"type": "number",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"isOptional": false,
+				"comment": "// 行注释包含 */ — 另一个有值常量\n// evil_line_comment_inject() */",
+				"typeNode": "(number)"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"module": [],
+	"import": [],
+	"symbols": {},
+	"exports": {}
+}

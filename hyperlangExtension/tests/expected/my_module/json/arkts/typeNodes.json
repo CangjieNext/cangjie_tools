@@ -1,0 +1,1387 @@
+{
+	"type": [],
+	"info": {},
+	"method": [
+		{
+			"type": [],
+			"info": {
+				"name": "returnType10",
+				"param": [],
+				"return": "any",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [],
+				"returnTypeNode": "(any)",
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"class": [
+		{
+			"type": [],
+			"info": {
+				"name": "ArrayTypesC",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "arr10",
+						"value": "",
+						"type": "Array<Error>",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(ref Array (ref Error))",
+						"inferredType": "(array (ref Error))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "arr11",
+						"value": "",
+						"type": "Array<Error>",
+						"modifier": [],
+						"isOptional": true,
+						"typeNode": "(ref Array (ref Error))",
+						"inferredType": "(array (ref Error))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "arr20",
+						"value": "",
+						"type": "number[]",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(array (number))",
+						"inferredType": "(array (number))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "arr21",
+						"value": "",
+						"type": "number[]",
+						"modifier": [],
+						"isOptional": true,
+						"typeNode": "(array (number))",
+						"inferredType": "(array (number))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		}
+	],
+	"interface": [
+		{
+			"type": [],
+			"info": {
+				"name": "BasicTypes",
+				"modifier": [],
+				"father": [],
+				"typeParameters": [],
+				"comment": "// These interfaces are used for testing type syntax of the typescript compiler.\n// Properties are named after the syntax kinds as in tsc."
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "numberKeyword",
+						"value": "",
+						"type": "number",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(number)",
+						"inferredType": "(number)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "stringKeyword",
+						"value": "",
+						"type": "String",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(string)",
+						"inferredType": "(string)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "booleanKeyword",
+						"value": "",
+						"type": "boolean",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(boolean)",
+						"inferredType": "(boolean)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "bigintKeyword",
+						"value": "",
+						"type": "bigint",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(bigint)",
+						"inferredType": "(bigint)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "objectKeyword",
+						"value": "",
+						"type": "object",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(object)",
+						"inferredType": "(object)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "symbolKeyword",
+						"value": "",
+						"type": "symbol",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(symbol)",
+						"inferredType": "(symbol)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "voidKeyword",
+						"value": "",
+						"type": "void",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(void)",
+						"inferredType": "(void)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "undefinedKeyword",
+						"value": "",
+						"type": "undefined",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(undefined)",
+						"inferredType": "(undefined)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "anyKeyword",
+						"value": "",
+						"type": "any",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(any)",
+						"inferredType": "(any)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "unknownKeyword",
+						"value": "",
+						"type": "unknown",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(unknown)",
+						"inferredType": "(unknown)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "neverKeyword",
+						"value": "",
+						"type": "never",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(never)",
+						"inferredType": "(never)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "FunctionTypes",
+				"modifier": [],
+				"father": [],
+				"typeParameters": [
+					{
+						"name": "V"
+					},
+					{
+						"name": "W"
+					}
+				],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "functionType1",
+						"value": "",
+						"type": "() => void",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(function () (void))",
+						"inferredType": "(function () (void))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "functionType10",
+						"value": "",
+						"type": "(arg: V) => void",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(function () (void) (parameter arg (ref V)))",
+						"inferredType": "(function () (void) (parameter arg (ref V)))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "functionType11",
+						"value": "",
+						"type": "(arg: V) => W",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(function () (ref W) (parameter arg (ref V)))",
+						"inferredType": "(function () (ref W) (parameter arg (ref V)))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "functionType12",
+						"value": "",
+						"type": "(arg: V) => W",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(function () (ref W) (parameter arg (ref V)))",
+						"inferredType": "(function () (ref W) (parameter arg (ref V)))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "functionType20",
+						"value": "",
+						"type": "(...a: number[]) => void",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(function () (void) (parameter a (array (number))))",
+						"inferredType": "(function () (void) (parameter a (array (number))))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "functionType30",
+						"value": "",
+						"type": "(a?: number) => void",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(function () (void) (parameter a (number) optional))",
+						"inferredType": "(function () (void) (parameter a (number) optional))",
+						"comment": "// functionType21: (...a?: number[]) => void; // illegal"
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "ComplexTypes",
+				"modifier": [],
+				"father": [],
+				"typeParameters": [
+					{
+						"name": "T"
+					},
+					{
+						"name": "U"
+					}
+				],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "typeReference10",
+						"value": "",
+						"type": "U",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(ref U)",
+						"inferredType": "(ref U)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "typeReference20",
+						"value": "",
+						"type": "ComplexTypes<T, U>",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(ref ComplexTypes (ref T) (ref U))",
+						"inferredType": "(ref ComplexTypes (ref T) (ref U))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "typeReference21",
+						"value": "",
+						"type": "Promise<T>",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(ref Promise (ref T))",
+						"inferredType": "(ref Promise (ref T))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "typeReference30",
+						"value": "",
+						"type": "Pick<ComplexTypes<T, U>, 'literalType1'>",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(ref Pick (ref ComplexTypes (ref T) (ref U)) (StringLiteral \"literalType1\"))",
+						"inferredType": "(ref Pick (ref ComplexTypes (ref T) (ref U)) (StringLiteral \"literalType1\"))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "literalType1",
+						"value": "",
+						"type": "123",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(NumericLiteral 123)",
+						"inferredType": "(NumericLiteral 123)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "literalType2",
+						"value": "",
+						"type": "\"abc\"",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(StringLiteral \"abc\")",
+						"inferredType": "(StringLiteral \"abc\")",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "literalType3",
+						"value": "",
+						"type": "null",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(null)",
+						"inferredType": "(null)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "arrayType1",
+						"value": "",
+						"type": "number[]",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(array (number))",
+						"inferredType": "(array (number))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "arrayType2",
+						"value": "",
+						"type": "U[]",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(array (ref U))",
+						"inferredType": "(array (ref U))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "unionType",
+						"value": "",
+						"type": "number | U",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(union (number) (ref U))",
+						"inferredType": "(union (number) (ref U))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "intersectionType",
+						"value": "",
+						"type": "object & Record<U, T>",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(intersection (object) (ref Record (ref U) (ref T)))",
+						"inferredType": "(intersection (object) (ref Record (ref U) (ref T)))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "parenthesizedType1",
+						"value": "",
+						"type": "(any)",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(any)",
+						"inferredType": "(any)",
+						"comment": "// parenthesized types are sometimes necessary in program text, but never in ast"
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "parenthesizedType2",
+						"value": "",
+						"type": "(U | number)[]",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(array (union (ref U) (number)))",
+						"inferredType": "(array (union (number) (ref U)))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "tupleType",
+						"value": "",
+						"type": "[number, number, String]",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(tuple (number) (number) (string))",
+						"inferredType": "(tuple (number) (number) (string))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "typeLiteral10",
+						"value": "",
+						"type": "{ x: number; y: U; }",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(literal (prop x (number)) (prop y (ref U)))",
+						"inferredType": "(literal (prop x (number)) (prop y (ref U)))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "typeLiteral20",
+						"value": "",
+						"type": "{ [p: number]: String; [p: symbol]: T }",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(literal (index (number) (string)) (index (symbol) (ref T)))",
+						"inferredType": "(literal (index (number) (string)) (index (symbol) (ref T)))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "typeLiteral30",
+						"value": "",
+						"type": "{ (): void; (number): String }",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(literal (call () (void)) (call () (string) (parameter number (any))))",
+						"inferredType": "(literal (call () (void)) (call () (string) (parameter number (any))))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "typeOperator1",
+						"value": "",
+						"type": "keyof ComplexTypes<T, U>",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(unsupported TypeOperator)",
+						"inferredType": "(unsupported TypeOperator)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "typeOperator10",
+						"value": "",
+						"type": "readonly number[]",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(unsupported TypeOperator)",
+						"inferredType": "(unsupported TypeOperator)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "typeQuery",
+						"value": "",
+						"type": "typeof setTimeout",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(unsupported TypeQuery)",
+						"inferredType": "(function () (number) (parameter handler (ref TimerHandler)) (parameter timeout (number) optional) (parameter arguments (array (any))))",
+						"comment": "// type queries are evaluated by type inference, resulting in the actual type"
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "mappedType10",
+						"value": "",
+						"type": "{ [k in keyof ComplexTypes<T, U>]: number }",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(unsupported MappedType)",
+						"inferredType": "(literal (prop typeReference10 (number)) (prop typeReference20 (number)) (prop typeReference21 (number)) (prop typeReference30 (number)) (prop literalType1 (number)) (prop literalType2 (number)) (prop literalType3 (number)) (prop arrayType1 (number)) (prop ... 13 more ... (any)) (prop mappedType20 (number)))",
+						"comment": "// mapped types could be evaluated to another type by type inference"
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "mappedType20",
+						"value": "",
+						"type": "{ [k in keyof Promise<U>]: number }",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(unsupported MappedType)",
+						"inferredType": "(literal (prop then (number)) (prop catch (number)))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "NestedTypes",
+				"modifier": [],
+				"father": [],
+				"typeParameters": [
+					{
+						"name": "T"
+					}
+				],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "nested10",
+						"value": "",
+						"type": "{\n\t\tx: { value: number; unit: String; } | number;\n\t\ty: { value: number; unit: String; } | number;\n\t}",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(literal (prop x (union (literal (prop value (number)) (prop unit (string))) (number))) (prop y (union (literal (prop value (number)) (prop unit (string))) (number))))",
+						"inferredType": "(literal (prop x (union (number) (literal (prop value (number)) (prop unit (string))))) (prop y (union (number) (literal (prop value (number)) (prop unit (string))))))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "Optionals",
+				"modifier": [],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "optionalField1",
+						"value": "",
+						"type": "number",
+						"modifier": [],
+						"isOptional": true,
+						"typeNode": "(number)",
+						"inferredType": "(number)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "optionalParam10",
+						"value": "",
+						"type": "(a: number, b?: String) => void",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(function () (void) (parameter a (number)) (parameter b (string) optional))",
+						"inferredType": "(function () (void) (parameter a (number)) (parameter b (string) optional))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "InferredTypes",
+				"modifier": [],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "inferred1",
+						"value": "",
+						"type": "number & String",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(intersection (number) (string))",
+						"inferredType": "(never)",
+						"comment": "// this is evaluated to never type"
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "inferred10",
+						"value": "",
+						"type": "ReturnType<typeof setTimeout>",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(ref ReturnType (unsupported TypeQuery))",
+						"inferredType": "(number)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "UnsupportedTypes",
+				"modifier": [],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "unsupported10",
+						"value": "",
+						"type": "{ [123]: String; }",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(literal)",
+						"inferredType": "(literal)",
+						"comment": "// the following types are hard to support, or can not easily be handled"
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "unsupported20",
+						"value": "",
+						"type": "{ ['234']: number; }",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(literal)",
+						"inferredType": "(literal)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "unsupported30",
+						"value": "",
+						"type": "{ [Symbol.toStringTag]: number }",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(literal)",
+						"inferredType": "(literal)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "ArrayTypesI",
+				"modifier": [],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "arr10",
+						"value": "",
+						"type": "Array<Error>",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(ref Array (ref Error))",
+						"inferredType": "(array (ref Error))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "arr11",
+						"value": "",
+						"type": "Array<Error>",
+						"modifier": [],
+						"isOptional": true,
+						"typeNode": "(ref Array (ref Error))",
+						"inferredType": "(array (ref Error))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "arr20",
+						"value": "",
+						"type": "number[]",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(array (number))",
+						"inferredType": "(array (number))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "arr21",
+						"value": "",
+						"type": "number[]",
+						"modifier": [],
+						"isOptional": true,
+						"typeNode": "(array (number))",
+						"inferredType": "(array (number))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		}
+	],
+	"struct": [],
+	"enum": [],
+	"variable": [],
+	"module": [],
+	"import": [],
+	"symbols": {},
+	"exports": {}
+}

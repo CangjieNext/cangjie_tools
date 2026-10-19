@@ -1,0 +1,416 @@
+{
+	"type": [],
+	"info": {},
+	"method": [],
+	"class": [
+		{
+			"type": [],
+			"info": {
+				"name": "TDDiagBuilder",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "constructor",
+						"param": [],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": true,
+						"parameters": [],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "PLATFORM_OA",
+						"value": "0",
+						"type": "number",
+						"modifier": [
+							"StaticKeyword",
+							"ReadonlyKeyword"
+						],
+						"isOptional": false,
+						"typeNode": "(number)",
+						"inferredType": "(any)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "PLATFORM_PRO",
+						"value": "3",
+						"type": "number",
+						"modifier": [
+							"StaticKeyword",
+							"ReadonlyKeyword"
+						],
+						"isOptional": false,
+						"typeNode": "(number)",
+						"inferredType": "(any)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "appId",
+						"value": "",
+						"type": "String",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(string)",
+						"inferredType": "(string)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "appKey",
+						"value": "",
+						"type": "String",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(string)",
+						"inferredType": "(string)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "appVersion",
+						"value": "",
+						"type": "String",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(string)",
+						"inferredType": "(string)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "platform1",
+						"value": "",
+						"type": "number",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(number)",
+						"inferredType": "(number)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "loggerAdapter",
+						"value": "",
+						"type": "LoggerAdapter | null | undefined",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(union (ref LoggerAdapter) (null) (undefined))",
+						"inferredType": "(ref LoggerAdapter)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "logUploadListener",
+						"value": "",
+						"type": "LogUploadListener",
+						"modifier": [],
+						"isOptional": true,
+						"typeNode": "(ref LogUploadListener)",
+						"inferredType": "(ref LogUploadListener)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "initiativeUploadWhiteListTags",
+						"value": "",
+						"type": "Array<String>",
+						"modifier": [],
+						"isOptional": true,
+						"typeNode": "(ref Array (string))",
+						"inferredType": "(array (string))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "xgTrafficQuota",
+						"value": "",
+						"type": "number",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(number)",
+						"inferredType": "(number)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "platform",
+						"value": "",
+						"type": "String | null",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(union (string) (null))",
+						"inferredType": "(string)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "crashListener",
+						"value": "",
+						"type": "ICrashListener | null",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(union (ref ICrashListener) (null))",
+						"inferredType": "(any)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "d10",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "getInstance",
+						"param": [],
+						"return": "d10",
+						"modifier": [
+							"StaticKeyword"
+						],
+						"isConstructor": false,
+						"parameters": [],
+						"returnTypeNode": "(ref d10)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "putSync",
+						"param": [
+							"key: string",
+							"value: number | string | boolean | Array<number> | Array<string> | Array<boolean>"
+						],
+						"return": "d10",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "key",
+								"type": "(string)",
+								"optional": false
+							},
+							{
+								"name": "value",
+								"type": "(union (number) (string) (boolean) (ref Array (number)) (ref Array (string)) (ref Array (boolean)))",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(ref d10)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"interface": [],
+	"struct": [],
+	"enum": [],
+	"variable": [],
+	"module": [],
+	"import": [
+		{
+			"type": [],
+			"info": {
+				"name": "import { LoggerAdapter } from './interface'",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"symbols": {},
+	"exports": {}
+}

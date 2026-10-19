@@ -1,0 +1,189 @@
+{
+	"type": [],
+	"info": {},
+	"method": [
+		{
+			"type": [],
+			"info": {
+				"name": "setMode",
+				"param": [
+					"mode: \"*/evil_in_func_param()/*\""
+				],
+				"return": "void",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "mode",
+						"type": "(StringLiteral \"*/evil_in_func_param()/*\")",
+						"optional": false
+					}
+				],
+				"returnTypeNode": "(void)",
+				"typeParameters": [],
+				"comment": "// 测试用例：注释注入漏洞修复验证\n// 覆盖路径：mergeCommentToken 的 brief 参数（来自函数签名）\n// 攻击载荷：函数参数类型为字符串字面量，其中包含 */ 以尝试在 @brief 注释中注入\n// 漏洞2: 函数参数含字符串字面量类型 → mergeCommentToken 的 @brief 注入"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "setConfig",
+				"param": [
+					"key: \"*/key_inject/*\"",
+					"value: \"*/value_inject/*\""
+				],
+				"return": "\"*/return_inject/*\"",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "key",
+						"type": "(StringLiteral \"*/key_inject/*\")",
+						"optional": false
+					},
+					{
+						"name": "value",
+						"type": "(StringLiteral \"*/value_inject/*\")",
+						"optional": false
+					}
+				],
+				"returnTypeNode": "(StringLiteral \"*/return_inject/*\")",
+				"typeParameters": [],
+				"comment": "// 多参数场景"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "withSinceComment",
+				"param": [
+					"param: \"*/since_inject/*\""
+				],
+				"return": "void",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "param",
+						"type": "(StringLiteral \"*/since_inject/*\")",
+						"optional": false
+					}
+				],
+				"returnTypeNode": "(void)",
+				"typeParameters": [],
+				"comment": "// 带注释的函数\n/**\n * @since 8.0.0\n */"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"class": [],
+	"interface": [
+		{
+			"type": [],
+			"info": {
+				"name": "ICommentInjection",
+				"modifier": [],
+				"father": [],
+				"typeParameters": [],
+				"comment": "// 接口方法"
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "methodWithStringParam",
+						"param": [
+							"mode: \"*/interface_method_inject/*\""
+						],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "mode",
+								"type": "(StringLiteral \"*/interface_method_inject/*\")",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": "/**\n     * @since 1.0.0\n     */"
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "methodWithLineComment",
+						"param": [],
+						"return": "\"*/line_comment_return/*\"",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [],
+						"returnTypeNode": "(StringLiteral \"*/line_comment_return/*\")",
+						"typeParameters": [],
+						"comment": "// 普通行注释包含 */"
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"struct": [],
+	"enum": [],
+	"variable": [],
+	"module": [],
+	"import": [],
+	"symbols": {},
+	"exports": {}
+}

@@ -1,0 +1,101 @@
+{
+	"type": [],
+	"info": {},
+	"method": [],
+	"class": [],
+	"interface": [
+		{
+			"type": [],
+			"info": {
+				"name": "IObjectInjection",
+				"modifier": [
+					"ExportKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": "// 测试用例：注释注入漏洞修复验证\n// 覆盖路径：\n//   - trans_object.cj generate() → escapeRawComment(arkComment)\n//   - trans_object.cj genPropDeclare → escapeRawComment(arkProp.comment)\n//   - trans_enum.cj generate() → escapeRawComment(comment)\n// 攻击载荷：interface/enum/属性行注释中包含 */ \n// evil_interface_inject() */"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "evilProperty",
+						"value": "",
+						"type": "String",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(string)",
+						"inferredType": "(string)",
+						"comment": "// evil_property_inject() */"
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "anotherProperty",
+						"value": "",
+						"type": "number",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(number)",
+						"inferredType": "(number)",
+						"comment": "// evil_property2_inject() */"
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		}
+	],
+	"struct": [],
+	"enum": [
+		{
+			"type": [],
+			"info": {
+				"name": "EvilEnum",
+				"item-value": [
+					"EvilMember = 0",
+					"Normal = 1"
+				],
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"comment": "// evil_enum_inject() */"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"variable": [],
+	"module": [],
+	"import": [],
+	"symbols": {},
+	"exports": {}
+}

@@ -1,0 +1,729 @@
+{
+	"type": [
+		{
+			"type": [],
+			"info": {
+				"name": "TA10",
+				"type": "",
+				"typeNode": "(number)",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA20",
+				"type": "",
+				"typeNode": "(string)",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA30",
+				"type": "",
+				"typeNode": "(boolean)",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA40",
+				"type": "",
+				"typeNode": "(bigint)",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA50",
+				"type": "",
+				"typeNode": "(object)",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA60",
+				"type": "",
+				"typeNode": "(symbol)",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA70",
+				"type": "",
+				"typeNode": "(void)",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA80",
+				"type": "",
+				"typeNode": "(undefined)",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA90",
+				"type": "",
+				"typeNode": "(any)",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA100",
+				"type": "",
+				"typeNode": "(unknown)",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA110",
+				"type": "",
+				"typeNode": "(never)",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA200",
+				"type": "",
+				"typeNode": "(function () (void))",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA210",
+				"type": "",
+				"typeNode": "(function ((V)) (void) (parameter arg (ref V)))",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA220",
+				"type": "",
+				"typeNode": "(function ((V) (W (string))) (ref W) (parameter arg (ref V)))",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA230",
+				"type": "",
+				"typeNode": "(function ((V) (W (string))) (ref W) (parameter arg (ref V)))",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA240",
+				"type": "",
+				"typeNode": "(function () (void) (parameter a (array (number))))",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA250",
+				"type": "",
+				"typeNode": "(function () (void) (parameter a (number) optional))",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA300",
+				"type": "",
+				"typeNode": "(ref Promise (string))",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA310",
+				"type": "",
+				"typeNode": "(array (ref Promise (string)))",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA400",
+				"type": "",
+				"typeNode": "(ref Pick (ref Promise (void)) (StringLiteral \"then\"))",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA410",
+				"type": "",
+				"typeNode": "(ref Omit (ref Promise (void)) (StringLiteral \"\"))",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA420",
+				"type": "",
+				"typeNode": "(ref Omit (ref Promise (void)) (StringLiteral \"\"))",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA500",
+				"type": "",
+				"typeNode": "(NumericLiteral 123)",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA510",
+				"type": "",
+				"typeNode": "(StringLiteral \"abc\")",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA520",
+				"type": "",
+				"typeNode": "(null)",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA600",
+				"type": "",
+				"typeNode": "(tuple (number) (string) (number))",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA700",
+				"type": "",
+				"typeNode": "(union (ref Record (string) (unknown)) (null))",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA710",
+				"type": "",
+				"typeNode": "(union (StringLiteral \"aaa\") (StringLiteral \"bbb\") (StringLiteral \"ccc\") (StringLiteral \"ddd\"))",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA720",
+				"type": "",
+				"typeNode": "(union (number) (string))",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA730",
+				"type": "",
+				"typeNode": "(union (ref Promise (string)) (string))",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA740",
+				"type": "",
+				"typeNode": "(union (StringLiteral \"111\") (ref TA710))",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA810",
+				"type": "",
+				"typeNode": "(literal (prop x (number)) (prop y (string)))",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA820",
+				"type": "",
+				"typeNode": "(literal (index (number) (string)))",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA830",
+				"type": "",
+				"typeNode": "(literal (call () (string) (parameter arg (number))))",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA900",
+				"type": "",
+				"typeNode": "(unsupported TypeOperator)",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA910",
+				"type": "",
+				"typeNode": "(unsupported TypeOperator)",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA1000",
+				"type": "",
+				"typeNode": "(unsupported TypeQuery)",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TA1010",
+				"type": "",
+				"typeNode": "(ref ReturnType (unsupported TypeQuery))",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "ARK1",
+				"type": "",
+				"typeNode": "(union (null) (number) (string) (boolean) (ref Uint8Array) (ref Float32Array) (bigint) (ref Int8Array) (ref Int16Array) (ref Uint16Array) (ref Uint32Array) (ref Int32Array) (ref BigInt64Array) (ref BigUint64Array) (ref Float64Array))",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "User",
+				"type": "",
+				"typeNode": "(intersection (literal (prop id (number)) (prop name (string))) (literal (prop isActive (boolean))))",
+				"comment": "// 交叉类型别名"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "ApiResponse",
+				"type": "",
+				"typeNode": "(literal (prop data (ref T)) (prop status (number)))",
+				"comment": "// 泛型类型别名"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "AnimationItem",
+				"type": "",
+				"typeNode": "(literal (prop name (string)) (prop name1 (string)))",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"info": {},
+	"method": [],
+	"class": [],
+	"interface": [],
+	"struct": [],
+	"enum": [],
+	"variable": [],
+	"module": [],
+	"import": [],
+	"symbols": {},
+	"exports": {}
+}

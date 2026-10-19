@@ -1,0 +1,66 @@
+{
+	"type": [],
+	"info": {},
+	"method": [],
+	"class": [
+		{
+			"type": [],
+			"info": {
+				"name": "Greeter",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": "//构造函数"
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "constructor",
+						"param": [
+							"greeting : string"
+						],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": true,
+						"parameters": [
+							{
+								"name": "greeting",
+								"type": "(string)",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"interface": [],
+	"struct": [],
+	"enum": [],
+	"variable": [],
+	"module": [],
+	"import": [],
+	"symbols": {},
+	"exports": {}
+}

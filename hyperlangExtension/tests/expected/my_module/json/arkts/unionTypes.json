@@ -1,0 +1,322 @@
+{
+	"type": [],
+	"info": {},
+	"method": [
+		{
+			"type": [],
+			"info": {
+				"name": "testUnion",
+				"param": [
+					"s: string"
+				],
+				"return": "boolean | String",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "s",
+						"type": "(string)",
+						"optional": false
+					}
+				],
+				"returnTypeNode": "(union (boolean) (string))",
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "testUnion1",
+				"param": [
+					"s: string | number"
+				],
+				"return": "boolean | String",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "s",
+						"type": "(union (string) (number))",
+						"optional": false
+					}
+				],
+				"returnTypeNode": "(union (boolean) (string))",
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"class": [
+		{
+			"type": [],
+			"info": {
+				"name": "UnionTypes",
+				"modifier": [
+					"ExportKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "getValueOrError",
+						"param": [],
+						"return": "number | String",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [],
+						"returnTypeNode": "(union (number) (string))",
+						"typeParameters": [],
+						"comment": "// Method returning a union type"
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "setValue",
+						"param": [
+							"value: string"
+						],
+						"return": "number | boolean",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "value",
+								"type": "(string)",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(union (number) (boolean))",
+						"typeParameters": [],
+						"comment": "// Method with union type parameter"
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "t_null",
+						"value": "",
+						"type": "number | null",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(union (number) (null))",
+						"inferredType": "(number)",
+						"comment": "// Properties with union types"
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "null_t",
+						"value": "",
+						"type": "null | String",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(union (null) (string))",
+						"inferredType": "(string)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "t1_t2",
+						"value": "",
+						"type": "boolean | String",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(union (boolean) (string))",
+						"inferredType": "(union (string) (boolean))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "t_undefined",
+						"value": "",
+						"type": "number | undefined",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(union (number) (undefined))",
+						"inferredType": "(number)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "undefined",
+						"value": "",
+						"type": "undefined | String",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(union (undefined) (string))",
+						"inferredType": "(string)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "t3",
+						"value": "",
+						"type": "number | String | boolean",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(union (number) (string) (boolean))",
+						"inferredType": "(union (string) (number) (boolean))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "t4",
+						"value": "",
+						"type": "number | String | boolean | null | undefined",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(union (number) (string) (boolean) (null) (undefined))",
+						"inferredType": "(union (string) (number) (boolean))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "t5",
+						"value": "",
+						"type": "number | String | boolean | bigint| void",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(union (number) (string) (boolean) (bigint) (void))",
+						"inferredType": "(union (string) (number) (bigint) (boolean) (void))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		}
+	],
+	"interface": [],
+	"struct": [],
+	"enum": [],
+	"variable": [],
+	"module": [],
+	"import": [],
+	"symbols": {},
+	"exports": {}
+}

@@ -1,0 +1,653 @@
+{
+	"type": [],
+	"info": {},
+	"method": [],
+	"class": [
+		{
+			"type": [],
+			"info": {
+				"name": "SubInterface",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"father": [
+					"SuperInterface"
+				],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "p",
+						"value": "",
+						"type": "number",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(number)",
+						"inferredType": "(number)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "p1",
+						"value": "",
+						"type": "number",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(number)",
+						"inferredType": "(number)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "SuperClass",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword",
+					"FirstContextualKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "p",
+						"value": "",
+						"type": "number",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(number)",
+						"inferredType": "(number)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "SubClass",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"father": [
+					"SuperClass"
+				],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "p",
+						"value": "",
+						"type": "number",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(number)",
+						"inferredType": "(number)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "SuperClass1",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "p",
+						"value": "",
+						"type": "number",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(number)",
+						"inferredType": "(number)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "SubClass1",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"father": [
+					"SuperClass1"
+				],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "p",
+						"value": "",
+						"type": "number",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(number)",
+						"inferredType": "(number)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		}
+	],
+	"interface": [
+		{
+			"type": [],
+			"info": {
+				"name": "SuperInterface",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "p",
+						"value": "",
+						"type": "number",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(number)",
+						"inferredType": "(number)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "A",
+				"modifier": [],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "p",
+						"value": "",
+						"type": "number",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(number)",
+						"inferredType": "(number)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "B",
+				"modifier": [],
+				"father": [
+					"A"
+				],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "p1",
+						"value": "",
+						"type": "number",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(number)",
+						"inferredType": "(number)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "C",
+				"modifier": [],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "f",
+						"param": [],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "D",
+				"modifier": [],
+				"father": [
+					"C"
+				],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "E",
+				"modifier": [],
+				"father": [
+					"A"
+				],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "F",
+				"modifier": [],
+				"father": [
+					"C"
+				],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "g",
+						"param": [],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "BuglyLogAdapter",
+				"modifier": [
+					"ExportKeyword"
+				],
+				"father": [
+					"p29"
+				],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "INamespace",
+				"modifier": [
+					"ExportKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "options",
+						"value": "",
+						"type": "{ [k: String]: any }",
+						"modifier": [],
+						"isOptional": true,
+						"typeNode": "(literal (index (string) (any)))",
+						"inferredType": "(literal (index (string) (any)))",
+						"comment": "/* Namespace options */"
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "nested",
+						"value": "",
+						"type": "{ [k: String]: AnyNestedObject }",
+						"modifier": [],
+						"isOptional": true,
+						"typeNode": "(literal (index (string) (ref AnyNestedObject)))",
+						"inferredType": "(literal (index (string) (ref AnyNestedObject)))",
+						"comment": "/* Nested object descriptors */"
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "IService",
+				"modifier": [
+					"ExportKeyword"
+				],
+				"father": [
+					"INamespace"
+				],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "methods",
+						"value": "",
+						"type": "{ [k: String]: IMethod }",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(literal (index (string) (ref IMethod)))",
+						"inferredType": "(literal (index (string) (ref IMethod)))",
+						"comment": "/* Method descriptors */"
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		}
+	],
+	"struct": [],
+	"enum": [],
+	"variable": [],
+	"module": [],
+	"import": [
+		{
+			"type": [],
+			"info": {
+				"name": "import {p29} from \"./superInterface\"",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"symbols": {},
+	"exports": {}
+}

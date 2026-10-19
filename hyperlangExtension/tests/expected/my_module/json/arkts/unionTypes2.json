@@ -1,0 +1,181 @@
+{
+	"type": [],
+	"info": {},
+	"method": [],
+	"class": [],
+	"interface": [
+		{
+			"type": [],
+			"info": {
+				"name": "UserProfile",
+				"modifier": [],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "id",
+						"value": "",
+						"type": "number|String",
+						"modifier": [],
+						"isOptional": true,
+						"typeNode": "(union (number) (string))",
+						"inferredType": "(union (string) (number))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "array",
+						"value": "",
+						"type": "(number | String)[]",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(array (union (number) (string)))",
+						"inferredType": "(array (union (string) (number)))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "test",
+						"value": "",
+						"type": "(num: number | String) => String",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(function () (string) (parameter num (union (number) (string))))",
+						"inferredType": "(function () (string) (parameter num (union (string) (number))))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "test1",
+						"value": "",
+						"type": "number|(boolean | String)[]",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(union (number) (array (union (boolean) (string))))",
+						"inferredType": "(union (number) (array (union (string) (boolean))))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "test2",
+						"value": "",
+						"type": "number| boolean[]",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(union (number) (array (boolean)))",
+						"inferredType": "(union (number) (array (boolean)))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "name",
+						"value": "",
+						"type": "String",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(string)",
+						"inferredType": "(string)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "address",
+						"value": "",
+						"type": "{\n      city: String;\n      zipCode: String;\n    }",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(literal (prop city (string)) (prop zipCode (string)))",
+						"inferredType": "(literal (prop city (string)) (prop zipCode (string)))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		}
+	],
+	"struct": [],
+	"enum": [],
+	"variable": [],
+	"module": [],
+	"import": [],
+	"symbols": {},
+	"exports": {}
+}

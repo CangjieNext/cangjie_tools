@@ -1,0 +1,100 @@
+{
+	"type": [
+		{
+			"type": [],
+			"info": {
+				"name": "EvilStringLiteral",
+				"type": "",
+				"typeNode": "(StringLiteral \"*/evil_code_in_typealias()/*\")",
+				"comment": "// 测试用例：注释注入漏洞修复验证\n// 覆盖路径：type_conversion.cj toCJType 的 FIXME 注释\n// 攻击载荷：字符串字面量类型中包含 */ 以尝试闭合块注释\n// 漏洞1: 字符串字面量类型别名 → toCJType 的 /* FIXME: `${ty}` */ 注入"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "EvilStringLiteral2",
+				"type": "",
+				"typeNode": "(StringLiteral \"*/inject_in_single_quote/*\")",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "EvilUnion",
+				"type": "",
+				"typeNode": "(union (StringLiteral \"*/break_out_union/*\") (StringLiteral \"normal\"))",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "EvilPromise",
+				"type": "",
+				"typeNode": "(ref Promise (StringLiteral \"*/promise_inject/*\"))",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "EvilFunc",
+				"type": "",
+				"typeNode": "(function () (StringLiteral \"*/func_return_inject/*\"))",
+				"comment": "// 漏洞1b: 字符串字面量作为函数返回类型"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"info": {},
+	"method": [],
+	"class": [],
+	"interface": [],
+	"struct": [],
+	"enum": [],
+	"variable": [],
+	"module": [],
+	"import": [],
+	"symbols": {},
+	"exports": {}
+}

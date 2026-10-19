@@ -1,0 +1,612 @@
+{
+	"type": [
+		{
+			"type": [],
+			"info": {
+				"name": "ErrorCode",
+				"type": "",
+				"typeNode": "(number)",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"info": {},
+	"method": [
+		{
+			"type": [],
+			"info": {
+				"name": "on",
+				"param": [
+					"key: string",
+					"cb: (r: Record<string, string>, option, t?:number) => void"
+				],
+				"return": "void",
+				"modifier": [
+					"ExportKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "key",
+						"type": "(string)",
+						"optional": false
+					},
+					{
+						"name": "cb",
+						"type": "(function () (void) (parameter r (ref Record (string) (string))) (parameter option (any)) (parameter t (number) optional))",
+						"optional": false
+					}
+				],
+				"returnTypeNode": "(void)",
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "off",
+				"param": [
+					"key: string",
+					"cb?: (r: Record<string, string>, t:number) => void"
+				],
+				"return": "void",
+				"modifier": [
+					"ExportKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "key",
+						"type": "(string)",
+						"optional": false
+					},
+					{
+						"name": "cb",
+						"type": "(function () (void) (parameter r (ref Record (string) (string))) (parameter t (number)))",
+						"optional": true
+					}
+				],
+				"returnTypeNode": "(void)",
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"class": [
+		{
+			"type": [],
+			"info": {
+				"name": "MyListener4",
+				"modifier": [],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "on",
+						"param": [
+							"key: string",
+							"cb: (r: ListenerStatusString) => void"
+						],
+						"return": "void",
+						"modifier": [
+							"StaticKeyword"
+						],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "key",
+								"type": "(string)",
+								"optional": false
+							},
+							{
+								"name": "cb",
+								"type": "(function () (void) (parameter r (ref ListenerStatusString)))",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"interface": [
+		{
+			"type": [],
+			"info": {
+				"name": "TestListener",
+				"modifier": [],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "onStart",
+						"value": "",
+						"type": "() => void",
+						"modifier": [],
+						"isOptional": true,
+						"typeNode": "(function () (void))",
+						"inferredType": "(function () (void))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "onDestroy",
+						"value": "",
+						"type": "() => void",
+						"modifier": [],
+						"isOptional": true,
+						"typeNode": "(function () (void))",
+						"inferredType": "(function () (void))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "onError",
+						"value": "",
+						"type": "(code: ErrorCode, msg: String) => void",
+						"modifier": [],
+						"isOptional": true,
+						"typeNode": "(function () (void) (parameter code (ref ErrorCode)) (parameter msg (string)))",
+						"inferredType": "(function () (void) (parameter code (number)) (parameter msg (string)))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "onTouch",
+						"value": "",
+						"type": "() => void",
+						"modifier": [],
+						"isOptional": true,
+						"typeNode": "(function () (void))",
+						"inferredType": "(function () (void))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "onEvent",
+						"value": "",
+						"type": "(e: EventType) => void",
+						"modifier": [],
+						"isOptional": true,
+						"typeNode": "(function () (void) (parameter e (ref EventType)))",
+						"inferredType": "(function () (void) (parameter e (ref EventType)))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "MyListener",
+				"modifier": [],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "on",
+						"param": [
+							"key: string",
+							"cb: (r: Record<string, string>) => void"
+						],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "key",
+								"type": "(string)",
+								"optional": false
+							},
+							{
+								"name": "cb",
+								"type": "(function () (void) (parameter r (ref Record (string) (string))))",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "off",
+						"param": [
+							"key: string",
+							"cb: (r: Record<string, string>, t:number) => void"
+						],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "key",
+								"type": "(string)",
+								"optional": false
+							},
+							{
+								"name": "cb",
+								"type": "(function () (void) (parameter r (ref Record (string) (string))) (parameter t (number)))",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "MyListener2",
+				"modifier": [],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "on",
+						"param": [
+							"key: string",
+							"cb: (r: ListenerStatusNumeric) => void"
+						],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "key",
+								"type": "(string)",
+								"optional": false
+							},
+							{
+								"name": "cb",
+								"type": "(function () (void) (parameter r (ref ListenerStatusNumeric)))",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "MyListener3",
+				"modifier": [],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "on",
+						"param": [
+							"key: string",
+							"cb: (r: ListenerStatusString) => void"
+						],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "key",
+								"type": "(string)",
+								"optional": false
+							},
+							{
+								"name": "cb",
+								"type": "(function () (void) (parameter r (ref ListenerStatusString)))",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "MyListener5",
+				"modifier": [],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "on",
+						"param": [
+							"key: string",
+							"cb: Callback<number>"
+						],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "key",
+								"type": "(string)",
+								"optional": false
+							},
+							{
+								"name": "cb",
+								"type": "(ref Callback (number))",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"struct": [],
+	"enum": [
+		{
+			"type": [],
+			"info": {
+				"name": "EventType",
+				"item-value": [
+					"DefaultEvent"
+				],
+				"modifier": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "ListenerStatusNumeric",
+				"item-value": [
+					"on",
+					"off"
+				],
+				"modifier": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "ListenerStatusString",
+				"item-value": [
+					"on = ON",
+					"off = OFF"
+				],
+				"modifier": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"variable": [],
+	"module": [],
+	"import": [],
+	"symbols": {
+		"EventType": "enum-numeric",
+		"ListenerStatusNumeric": "enum-numeric",
+		"ListenerStatusString": "enum-string"
+	},
+	"exports": {}
+}

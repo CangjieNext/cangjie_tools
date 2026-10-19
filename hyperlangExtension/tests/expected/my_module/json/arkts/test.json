@@ -1,0 +1,130 @@
+{
+	"type": [],
+	"info": {},
+	"method": [],
+	"class": [
+		{
+			"type": [],
+			"info": {
+				"name": "PushReporter",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "getTags",
+						"param": [
+							"t12: Callback<Record<string, any>>"
+						],
+						"return": "void",
+						"modifier": [
+							"StaticKeyword"
+						],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "t12",
+								"type": "(ref Callback (ref Record (string) (any)))",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "MessagePackage",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "idt",
+						"value": "",
+						"type": "idt_struct",
+						"modifier": [
+							"StaticKeyword"
+						],
+						"isOptional": false,
+						"typeNode": "(ref idt_struct)",
+						"inferredType": "(ref idt_struct)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		}
+	],
+	"interface": [],
+	"struct": [],
+	"enum": [],
+	"variable": [],
+	"module": [],
+	"import": [
+		{
+			"type": [],
+			"info": {
+				"name": "import { Callback } from '@ohos.base';",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"symbols": {},
+	"exports": {}
+}

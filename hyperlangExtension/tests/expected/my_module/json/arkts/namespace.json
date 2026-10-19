@@ -1,0 +1,149 @@
+{
+	"type": [],
+	"info": {},
+	"method": [],
+	"class": [],
+	"interface": [],
+	"struct": [],
+	"enum": [],
+	"variable": [],
+	"module": [
+		{
+			"type": [],
+			"info": {
+				"name": "A",
+				"comment": "// Copyright (c) Huawei Technologies Co., Ltd. 2026. All rights reserved.\n// This source file is part of the Cangjie project, licensed under Apache-2.0\n// with Runtime Library Exception.\n//\n// See https://cangjie-lang.cn/pages/LICENSE for license information."
+			},
+			"method": [],
+			"class": [],
+			"interface": [
+				{
+					"type": [],
+					"info": {
+						"name": "B",
+						"modifier": [],
+						"father": [],
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "C",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [
+				{
+					"type": [],
+					"info": {
+						"name": "D",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [
+						{
+							"type": [],
+							"info": {
+								"name": "E",
+								"modifier": [],
+								"father": [],
+								"typeParameters": [],
+								"comment": ""
+							},
+							"method": [],
+							"class": [],
+							"interface": [],
+							"struct": [],
+							"enum": [],
+							"variable": [],
+							"module": [],
+							"import": []
+						}
+					],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "F",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [
+				{
+					"type": [],
+					"info": {
+						"name": "G",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [
+						{
+							"type": [],
+							"info": {
+								"name": "H",
+								"modifier": [],
+								"father": [],
+								"typeParameters": [],
+								"comment": ""
+							},
+							"method": [],
+							"class": [],
+							"interface": [],
+							"struct": [],
+							"enum": [],
+							"variable": [],
+							"module": [],
+							"import": []
+						}
+					],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"import": []
+		}
+	],
+	"import": [],
+	"symbols": {},
+	"exports": {}
+}

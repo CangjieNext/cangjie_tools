@@ -1,0 +1,446 @@
+{
+	"type": [],
+	"info": {},
+	"method": [
+		{
+			"type": [],
+			"info": {
+				"name": "as1",
+				"param": [
+					"callback:AsyncCallback<void>"
+				],
+				"return": "void",
+				"modifier": [
+					"ExportKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "callback",
+						"type": "(ref AsyncCallback (void))",
+						"optional": false
+					}
+				],
+				"returnTypeNode": "(void)",
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "as2",
+				"param": [
+					"callback:AsyncCallback<string>"
+				],
+				"return": "void",
+				"modifier": [
+					"ExportKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "callback",
+						"type": "(ref AsyncCallback (string))",
+						"optional": false
+					}
+				],
+				"returnTypeNode": "(void)",
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "as3",
+				"param": [
+					"callback:AsyncCallback<Colors>"
+				],
+				"return": "void",
+				"modifier": [
+					"ExportKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "callback",
+						"type": "(ref AsyncCallback (ref Colors))",
+						"optional": false
+					}
+				],
+				"returnTypeNode": "(void)",
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "as4",
+				"param": [
+					"callback:AsyncCallback<Array<number>>"
+				],
+				"return": "void",
+				"modifier": [
+					"ExportKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "callback",
+						"type": "(ref AsyncCallback (ref Array (number)))",
+						"optional": false
+					}
+				],
+				"returnTypeNode": "(void)",
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "as5",
+				"param": [
+					"callback:AsyncCallback<bigint>"
+				],
+				"return": "void",
+				"modifier": [
+					"ExportKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "callback",
+						"type": "(ref AsyncCallback (bigint))",
+						"optional": false
+					}
+				],
+				"returnTypeNode": "(void)",
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "as6",
+				"param": [
+					"callback:AsyncCallback<Uint8Array>"
+				],
+				"return": "void",
+				"modifier": [
+					"ExportKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "callback",
+						"type": "(ref AsyncCallback (ref Uint8Array))",
+						"optional": false
+					}
+				],
+				"returnTypeNode": "(void)",
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"class": [
+		{
+			"type": [],
+			"info": {
+				"name": "ASC",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "constructor",
+						"param": [
+							"param1:string",
+							"param2:{a:number,b:string}",
+							"param3:number",
+							"funcParam:()=>string",
+							"callback?:AsyncCallback<string>"
+						],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": true,
+						"parameters": [
+							{
+								"name": "param1",
+								"type": "(string)",
+								"optional": false
+							},
+							{
+								"name": "param2",
+								"type": "(literal (prop a (number)) (prop b (string)))",
+								"optional": false
+							},
+							{
+								"name": "param3",
+								"type": "(number)",
+								"optional": false
+							},
+							{
+								"name": "funcParam",
+								"type": "(function () (string))",
+								"optional": false
+							},
+							{
+								"name": "callback",
+								"type": "(ref AsyncCallback (string))",
+								"optional": true
+							}
+						],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "AS1",
+						"param": [
+							"callback:AsyncCallback<void>"
+						],
+						"return": "void",
+						"modifier": [
+							"StaticKeyword"
+						],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "callback",
+								"type": "(ref AsyncCallback (void))",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "ForParamToJs",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "constructor",
+						"param": [
+							"param2:Colors",
+							"param3:BigInt",
+							"param4:Uint8Array",
+							"param5:number[]",
+							"param6:Array<number>",
+							"callback:AsyncCallback<string>",
+							"paramEnum:Array<Colors>",
+							"param7?:Array<number>",
+							"param8?:Colors",
+							"param9?:Array<UInt8>"
+						],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": true,
+						"parameters": [
+							{
+								"name": "param2",
+								"type": "(ref Colors)",
+								"optional": false
+							},
+							{
+								"name": "param3",
+								"type": "(ref BigInt)",
+								"optional": false
+							},
+							{
+								"name": "param4",
+								"type": "(ref Uint8Array)",
+								"optional": false
+							},
+							{
+								"name": "param5",
+								"type": "(array (number))",
+								"optional": false
+							},
+							{
+								"name": "param6",
+								"type": "(ref Array (number))",
+								"optional": false
+							},
+							{
+								"name": "callback",
+								"type": "(ref AsyncCallback (string))",
+								"optional": false
+							},
+							{
+								"name": "paramEnum",
+								"type": "(ref Array (ref Colors))",
+								"optional": false
+							},
+							{
+								"name": "param7",
+								"type": "(ref Array (number))",
+								"optional": true
+							},
+							{
+								"name": "param8",
+								"type": "(ref Colors)",
+								"optional": true
+							},
+							{
+								"name": "param9",
+								"type": "(ref Array (ref UInt8))",
+								"optional": true
+							}
+						],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"interface": [],
+	"struct": [],
+	"enum": [
+		{
+			"type": [],
+			"info": {
+				"name": "Colors",
+				"item-value": [
+					"Red = RED",
+					"Green = GREEN",
+					"Blue = BLUE"
+				],
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"variable": [],
+	"module": [],
+	"import": [],
+	"symbols": {
+		"Colors": "enum-string"
+	},
+	"exports": {}
+}

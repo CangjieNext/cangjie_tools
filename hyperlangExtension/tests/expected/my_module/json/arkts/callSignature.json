@@ -1,0 +1,821 @@
+{
+	"type": [],
+	"info": {},
+	"method": [
+		{
+			"type": [],
+			"info": {
+				"name": "MockSetup",
+				"param": [
+					"target: Object",
+					"propertyName: string | Symbol",
+					"descriptor: TypedPropertyDescriptor<() => void>"
+				],
+				"return": "void",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "target",
+						"type": "(ref Object)",
+						"optional": false
+					},
+					{
+						"name": "propertyName",
+						"type": "(union (string) (ref Symbol))",
+						"optional": false
+					},
+					{
+						"name": "descriptor",
+						"type": "(ref TypedPropertyDescriptor (function () (void)))",
+						"optional": false
+					}
+				],
+				"returnTypeNode": "(void)",
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"class": [
+		{
+			"type": [],
+			"info": {
+				"name": "ArgumentMatchers",
+				"modifier": [
+					"ExportKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "matchRegexs",
+						"param": [
+							"Regex: RegExp"
+						],
+						"return": "void",
+						"modifier": [
+							"StaticKeyword"
+						],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "Regex",
+								"type": "(ref RegExp)",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "any",
+						"value": "",
+						"type": "unsupported FirstToken",
+						"modifier": [
+							"StaticKeyword"
+						],
+						"isOptional": false,
+						"typeNode": "(unsupported FirstToken)",
+						"inferredType": "(any)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "anyString",
+						"value": "",
+						"type": "unsupported FirstToken",
+						"modifier": [
+							"StaticKeyword"
+						],
+						"isOptional": false,
+						"typeNode": "(unsupported FirstToken)",
+						"inferredType": "(any)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "anyBoolean",
+						"value": "",
+						"type": "unsupported FirstToken",
+						"modifier": [
+							"StaticKeyword"
+						],
+						"isOptional": false,
+						"typeNode": "(unsupported FirstToken)",
+						"inferredType": "(any)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "anyNumber",
+						"value": "",
+						"type": "unsupported FirstToken",
+						"modifier": [
+							"StaticKeyword"
+						],
+						"isOptional": false,
+						"typeNode": "(unsupported FirstToken)",
+						"inferredType": "(any)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "anyObj",
+						"value": "",
+						"type": "unsupported FirstToken",
+						"modifier": [
+							"StaticKeyword"
+						],
+						"isOptional": false,
+						"typeNode": "(unsupported FirstToken)",
+						"inferredType": "(any)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "anyFunction",
+						"value": "",
+						"type": "unsupported FirstToken",
+						"modifier": [
+							"StaticKeyword"
+						],
+						"isOptional": false,
+						"typeNode": "(unsupported FirstToken)",
+						"inferredType": "(any)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "MockKit",
+				"modifier": [
+					"ExportKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "constructor",
+						"param": [],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": true,
+						"parameters": [],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "mockFunc",
+						"param": [
+							"obj: Object",
+							"func: Function"
+						],
+						"return": "Function",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "obj",
+								"type": "(ref Object)",
+								"optional": false
+							},
+							{
+								"name": "func",
+								"type": "(ref Function)",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(ref Function)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "mockObject",
+						"param": [
+							"obj: Object"
+						],
+						"return": "Object",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "obj",
+								"type": "(ref Object)",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(ref Object)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "verify",
+						"param": [
+							"methodName: String",
+							"argsArray: Array<any>"
+						],
+						"return": "VerificationMode",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "methodName",
+								"type": "(ref String)",
+								"optional": false
+							},
+							{
+								"name": "argsArray",
+								"type": "(ref Array (any))",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(ref VerificationMode)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "ignoreMock",
+						"param": [
+							"obj: Object",
+							"func: Function"
+						],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "obj",
+								"type": "(ref Object)",
+								"optional": false
+							},
+							{
+								"name": "func",
+								"type": "(ref Function)",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "clear",
+						"param": [
+							"obj: Object"
+						],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "obj",
+								"type": "(ref Object)",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "clearAll",
+						"param": [],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"interface": [
+		{
+			"type": [],
+			"info": {
+				"name": "when",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "afterReturn",
+						"param": [
+							"value: any"
+						],
+						"return": "any",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "value",
+								"type": "(any)",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(any)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "afterReturnNothing",
+						"param": [],
+						"return": "undefined",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [],
+						"returnTypeNode": "(undefined)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "afterAction",
+						"param": [
+							"action: any"
+						],
+						"return": "any",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "action",
+								"type": "(any)",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(any)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "afterThrow",
+						"param": [
+							"e_msg: string"
+						],
+						"return": "String",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "e_msg",
+								"type": "(string)",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(string)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "",
+						"param": [
+							"argMatchers?: any"
+						],
+						"return": "when",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [],
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "VerificationMode",
+				"modifier": [
+					"ExportKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "times",
+						"param": [
+							"count: Number"
+						],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "count",
+								"type": "(ref Number)",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "never",
+						"param": [],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "once",
+						"param": [],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "atLeast",
+						"param": [
+							"count: Number"
+						],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "count",
+								"type": "(ref Number)",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "atMost",
+						"param": [
+							"count: Number"
+						],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "count",
+								"type": "(ref Number)",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"struct": [],
+	"enum": [],
+	"variable": [
+		{
+			"type": [],
+			"info": {
+				"name": "when",
+				"value": "0/* FIXME: Initialization is required */\n*/",
+				"type": "when",
+				"modifier": [
+					"ExportKeyword"
+				],
+				"isOptional": false,
+				"comment": "/*\n",
+				"typeNode": "(ref when)"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"module": [],
+	"import": [],
+	"symbols": {},
+	"exports": {}
+}

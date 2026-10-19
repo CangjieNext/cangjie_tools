@@ -1,0 +1,190 @@
+{
+	"type": [],
+	"info": {},
+	"method": [],
+	"class": [],
+	"interface": [
+		{
+			"type": [],
+			"info": {
+				"name": "Item",
+				"modifier": [],
+				"father": [],
+				"typeParameters": [
+					{
+						"name": "T"
+					}
+				],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "id",
+						"value": "",
+						"type": "number",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(number)",
+						"inferredType": "(number)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "name",
+						"value": "",
+						"type": "String",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(string)",
+						"inferredType": "(string)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "category",
+						"value": "",
+						"type": "T",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(ref T)",
+						"inferredType": "(ref T)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "Item1",
+				"modifier": [],
+				"father": [],
+				"typeParameters": [
+					{
+						"name": "T"
+					},
+					{
+						"name": "U"
+					}
+				],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "id",
+						"value": "",
+						"type": "number",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(number)",
+						"inferredType": "(number)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "name",
+						"value": "",
+						"type": "U",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(ref U)",
+						"inferredType": "(ref U)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "category",
+						"value": "",
+						"type": "T",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(ref T)",
+						"inferredType": "(ref T)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		}
+	],
+	"struct": [],
+	"enum": [],
+	"variable": [],
+	"module": [],
+	"import": [],
+	"symbols": {},
+	"exports": {}
+}

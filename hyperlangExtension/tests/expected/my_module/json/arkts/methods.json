@@ -1,0 +1,2416 @@
+{
+	"type": [],
+	"info": {},
+	"method": [
+		{
+			"type": [],
+			"info": {
+				"name": "test",
+				"param": [],
+				"return": "Promise<String>",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [],
+				"returnTypeNode": "(ref Promise (string))",
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "onEnumCb",
+				"param": [
+					"p1: number | boolean",
+					"p2: Record<string, number> | Uint8Array | string"
+				],
+				"return": "String",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "p1",
+						"type": "(union (number) (boolean))",
+						"optional": false
+					},
+					{
+						"name": "p2",
+						"type": "(union (ref Record (string) (number)) (ref Uint8Array) (string))",
+						"optional": false
+					}
+				],
+				"returnTypeNode": "(string)",
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "logClass",
+				"param": [
+					"target: any"
+				],
+				"return": "void",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "target",
+						"type": "(any)",
+						"optional": false
+					}
+				],
+				"returnTypeNode": "(void)",
+				"typeParameters": [],
+				"comment": "// 带装饰器的类"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "getFavoriteNumber",
+				"param": [
+					"t: T"
+				],
+				"return": "T",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "t",
+						"type": "(ref T)",
+						"optional": false
+					}
+				],
+				"returnTypeNode": "(ref T)",
+				"typeParameters": [
+					{
+						"name": "T"
+					}
+				],
+				"comment": "// 泛型"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "test1",
+				"param": [
+					"name:string"
+				],
+				"return": "Promise<void>",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "name",
+						"type": "(string)",
+						"optional": false
+					}
+				],
+				"returnTypeNode": "(ref Promise (void))",
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "testUnion1",
+				"param": [
+					"t: string | undefined"
+				],
+				"return": "undefined | String",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "t",
+						"type": "(union (string) (undefined))",
+						"optional": false
+					}
+				],
+				"returnTypeNode": "(union (undefined) (string))",
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "testUnion2",
+				"param": [
+					"t: null | T",
+					"s: A | B"
+				],
+				"return": "null | String",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "t",
+						"type": "(union (null) (ref T))",
+						"optional": false
+					},
+					{
+						"name": "s",
+						"type": "(union (ref A) (ref B))",
+						"optional": false
+					}
+				],
+				"returnTypeNode": "(union (null) (string))",
+				"typeParameters": [
+					{
+						"name": "T"
+					},
+					{
+						"name": "A"
+					},
+					{
+						"name": "B"
+					}
+				],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "testUnion3",
+				"param": [
+					"t: number[] | null"
+				],
+				"return": "null | number[]",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "t",
+						"type": "(union (array (number)) (null))",
+						"optional": false
+					}
+				],
+				"returnTypeNode": "(union (null) (array (number)))",
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "testUnion4",
+				"param": [
+					"t: Record<string, Uint8Array>| null"
+				],
+				"return": "void",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "t",
+						"type": "(union (ref Record (string) (ref Uint8Array)) (null))",
+						"optional": false
+					}
+				],
+				"returnTypeNode": "(void)",
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "RecordAndOptionalTest",
+				"param": [
+					"eventID: string",
+					"params?: Record<string, string | number>"
+				],
+				"return": "void",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "eventID",
+						"type": "(string)",
+						"optional": false
+					},
+					{
+						"name": "params",
+						"type": "(ref Record (string) (union (string) (number)))",
+						"optional": true
+					}
+				],
+				"returnTypeNode": "(void)",
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "RecordTest3",
+				"param": [
+					"eventID: string",
+					"params: Record<string, string | number>"
+				],
+				"return": "void",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "eventID",
+						"type": "(string)",
+						"optional": false
+					},
+					{
+						"name": "params",
+						"type": "(ref Record (string) (union (string) (number)))",
+						"optional": false
+					}
+				],
+				"returnTypeNode": "(void)",
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "RecordAndOptionalTest1",
+				"param": [
+					"eventID: string",
+					"params?: Record<string, string | number>",
+					"params1?: Record<string, string | number>"
+				],
+				"return": "void",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "eventID",
+						"type": "(string)",
+						"optional": false
+					},
+					{
+						"name": "params",
+						"type": "(ref Record (string) (union (string) (number)))",
+						"optional": true
+					},
+					{
+						"name": "params1",
+						"type": "(ref Record (string) (union (string) (number)))",
+						"optional": true
+					}
+				],
+				"returnTypeNode": "(void)",
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "RecordTest1",
+				"param": [
+					"eventID: string",
+					"params: Record<string, string | number>",
+					"params1: Record<string, string | number>"
+				],
+				"return": "void",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "eventID",
+						"type": "(string)",
+						"optional": false
+					},
+					{
+						"name": "params",
+						"type": "(ref Record (string) (union (string) (number)))",
+						"optional": false
+					},
+					{
+						"name": "params1",
+						"type": "(ref Record (string) (union (string) (number)))",
+						"optional": false
+					}
+				],
+				"returnTypeNode": "(void)",
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "RecordAndOptionalTest2",
+				"param": [
+					"eventID: string",
+					"params?: Record<string, string | number>",
+					"params1?: Record<string, string | number>"
+				],
+				"return": "void",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "eventID",
+						"type": "(string)",
+						"optional": false
+					},
+					{
+						"name": "params",
+						"type": "(ref Record (string) (union (string) (number)))",
+						"optional": true
+					},
+					{
+						"name": "params1",
+						"type": "(ref Record (string) (union (string) (number)))",
+						"optional": true
+					}
+				],
+				"returnTypeNode": "(void)",
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "RecordTest2",
+				"param": [
+					"eventID: string",
+					"params: Record<string, number>",
+					"params1: Record<string, number>"
+				],
+				"return": "void",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "eventID",
+						"type": "(string)",
+						"optional": false
+					},
+					{
+						"name": "params",
+						"type": "(ref Record (string) (number))",
+						"optional": false
+					},
+					{
+						"name": "params1",
+						"type": "(ref Record (string) (number))",
+						"optional": false
+					}
+				],
+				"returnTypeNode": "(void)",
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "RecordAndOptionalTest3",
+				"param": [
+					"eventID: string",
+					"params: Record<string, string | number> | null",
+					"params1: Record<string, string | number>|undefined"
+				],
+				"return": "void",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "eventID",
+						"type": "(string)",
+						"optional": false
+					},
+					{
+						"name": "params",
+						"type": "(union (ref Record (string) (union (string) (number))) (null))",
+						"optional": false
+					},
+					{
+						"name": "params1",
+						"type": "(union (ref Record (string) (union (string) (number))) (undefined))",
+						"optional": false
+					}
+				],
+				"returnTypeNode": "(void)",
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"class": [
+		{
+			"type": [],
+			"info": {
+				"name": "CM",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "f00",
+						"param": [
+							"x: (obj: IM, cb: (msg: EMStr) => void) => void"
+						],
+						"return": "void",
+						"modifier": [
+							"StaticKeyword"
+						],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "x",
+								"type": "(function () (void) (parameter obj (ref IM)) (parameter cb (function () (void) (parameter msg (ref EMStr)))))",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "f01",
+						"param": [
+							"x: (obj: IM, cb: Callback<EMStr>) => void"
+						],
+						"return": "void",
+						"modifier": [
+							"StaticKeyword"
+						],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "x",
+								"type": "(function () (void) (parameter obj (ref IM)) (parameter cb (ref Callback (ref EMStr))))",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "f1",
+						"param": [],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "f2",
+						"param": [
+							"s: string"
+						],
+						"return": "number",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "s",
+								"type": "(string)",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(number)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "f3",
+						"param": [
+							"r: Record<string, string>"
+						],
+						"return": "EMNum",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "r",
+								"type": "(ref Record (string) (string))",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(ref EMNum)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "f4",
+						"param": [
+							"e: EMStr"
+						],
+						"return": "(s: String) => void",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "e",
+								"type": "(ref EMStr)",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(function () (void) (parameter s (string)))",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "f5",
+						"param": [
+							"cb: (s: string, n: number) => string"
+						],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "cb",
+								"type": "(function () (string) (parameter s (string)) (parameter n (number)))",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "f6",
+						"param": [
+							"evt: EMNum",
+							"cb: () => Record<number, Uint8Array>"
+						],
+						"return": "boolean",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "evt",
+								"type": "(ref EMNum)",
+								"optional": false
+							},
+							{
+								"name": "cb",
+								"type": "(function () (ref Record (number) (ref Uint8Array)))",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(boolean)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "f7",
+						"param": [
+							"p: bigint",
+							"cb: (p: bigint) => void"
+						],
+						"return": "bigint",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "p",
+								"type": "(bigint)",
+								"optional": false
+							},
+							{
+								"name": "cb",
+								"type": "(function () (void) (parameter p (bigint)))",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(bigint)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "f8",
+						"param": [
+							"result: string | Promise<string>"
+						],
+						"return": "boolean",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "result",
+								"type": "(union (string) (ref Promise (string)))",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(boolean)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "f9",
+						"param": [
+							"evt: EMNum",
+							"cb: () => Record<string, Uint8Array>"
+						],
+						"return": "boolean",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "evt",
+								"type": "(ref EMNum)",
+								"optional": false
+							},
+							{
+								"name": "cb",
+								"type": "(function () (ref Record (string) (ref Uint8Array)))",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(boolean)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "sa",
+						"value": "",
+						"type": "String",
+						"modifier": [
+							"StaticKeyword"
+						],
+						"isOptional": false,
+						"typeNode": "(string)",
+						"inferredType": "(string)",
+						"comment": "// 静态成员"
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "ma",
+						"value": "",
+						"type": "String",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(string)",
+						"inferredType": "(string)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "mb",
+						"value": "",
+						"type": "EMStr",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(ref EMStr)",
+						"inferredType": "(ref EMStr)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "mc",
+						"value": "",
+						"type": "(s: String, n: EMNum) => void",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(function () (void) (parameter s (string)) (parameter n (ref EMNum)))",
+						"inferredType": "(function () (void) (parameter s (string)) (parameter n (ref EMNum)))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TE",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "constructor",
+						"param": [
+							"callback:AsyncCallback<string>",
+							"param1?:Array<UInt8>",
+							"param2?:Array<string>"
+						],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": true,
+						"parameters": [
+							{
+								"name": "callback",
+								"type": "(ref AsyncCallback (string))",
+								"optional": false
+							},
+							{
+								"name": "param1",
+								"type": "(ref Array (ref UInt8))",
+								"optional": true
+							},
+							{
+								"name": "param2",
+								"type": "(ref Array (string))",
+								"optional": true
+							}
+						],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": "/**\n  * @since 1.0.0\n  */"
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "f1",
+						"param": [],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "f1",
+						"param": [
+							"result: string | Promise<string>"
+						],
+						"return": "Promise<String>",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "result",
+								"type": "(union (string) (ref Promise (string)))",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(ref Promise (string))",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "Greeter",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": "// 构造函数"
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "constructor",
+						"param": [
+							"greeting: string"
+						],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": true,
+						"parameters": [
+							{
+								"name": "greeting",
+								"type": "(string)",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "Person",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "AnimalProtect",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "makeSound",
+						"param": [],
+						"return": "void",
+						"modifier": [
+							"ProtectedKeyword"
+						],
+						"isConstructor": false,
+						"parameters": [],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": "// 受保护方法"
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "name",
+						"value": "",
+						"type": "String",
+						"modifier": [
+							"ProtectedKeyword"
+						],
+						"isOptional": false,
+						"typeNode": "(string)",
+						"inferredType": "(string)",
+						"comment": "// 受保护属性"
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "Car",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "brand",
+						"value": "",
+						"type": "String",
+						"modifier": [
+							"ReadonlyKeyword"
+						],
+						"isOptional": false,
+						"typeNode": "(string)",
+						"inferredType": "(string)",
+						"comment": "// 只读属性"
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "name",
+						"value": "",
+						"type": "String",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(string)",
+						"inferredType": "(string)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "Box",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"father": [],
+				"typeParameters": [
+					{
+						"name": "T"
+					}
+				],
+				"comment": "// 泛型成员"
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "getValue",
+						"param": [],
+						"return": "T",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [],
+						"returnTypeNode": "(ref T)",
+						"typeParameters": [],
+						"comment": "// 方法"
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "value",
+						"value": "",
+						"type": "T",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(ref T)",
+						"inferredType": "(ref T)",
+						"comment": "// 属性"
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "Shape",
+				"modifier": [
+					"DeclareKeyword",
+					"FirstContextualKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": "// 抽象类"
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "getArea",
+						"param": [],
+						"return": "number",
+						"modifier": [
+							"FirstContextualKeyword"
+						],
+						"isConstructor": false,
+						"parameters": [],
+						"returnTypeNode": "(number)",
+						"typeParameters": [],
+						"comment": "// 抽象方法"
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "Car1",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"father": [
+					"Drivable"
+				],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "start",
+						"param": [],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "stop",
+						"param": [],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "Animal",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": "// 继承类"
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "constructor",
+						"param": [
+							"name: string"
+						],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": true,
+						"parameters": [
+							{
+								"name": "name",
+								"type": "(string)",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "move",
+						"param": [
+							"distance: number"
+						],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "distance",
+								"type": "(number)",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "name",
+						"value": "",
+						"type": "String",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(string)",
+						"inferredType": "(string)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "Dog",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"father": [
+					"Animal"
+				],
+				"typeParameters": [],
+				"comment": "// Dog.d.ts"
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "bark",
+						"param": [],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "Calculator",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": "// 重载方法"
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "add",
+						"param": [
+							"x: number",
+							"y: number"
+						],
+						"return": "number",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "x",
+								"type": "(number)",
+								"optional": false
+							},
+							{
+								"name": "y",
+								"type": "(number)",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(number)",
+						"typeParameters": [],
+						"comment": "// 方法重载"
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "add",
+						"param": [
+							"x: string",
+							"y: string"
+						],
+						"return": "String",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "x",
+								"type": "(string)",
+								"optional": false
+							},
+							{
+								"name": "y",
+								"type": "(string)",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(string)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "add",
+						"param": [
+							"x: any",
+							"y: any"
+						],
+						"return": "any",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "x",
+								"type": "(any)",
+								"optional": false
+							},
+							{
+								"name": "y",
+								"type": "(any)",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(any)",
+						"typeParameters": [],
+						"comment": "// 实现"
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "MyClass",
+				"modifier": [
+					"Decorator",
+					"DeclareKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "constructor",
+						"param": [
+							"name: string"
+						],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": true,
+						"parameters": [
+							{
+								"name": "name",
+								"type": "(string)",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "name",
+						"value": "",
+						"type": "String",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(string)",
+						"inferredType": "(string)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "RecordTest",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "recordTest",
+						"value": "",
+						"type": "Record<String, String>",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(ref Record (string) (string))",
+						"inferredType": "(ref Record (string) (string))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "recordTest1",
+						"value": "",
+						"type": "Record<String, String | number>",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(ref Record (string) (union (string) (number)))",
+						"inferredType": "(ref Record (string) (union (string) (number)))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "recordTest2",
+						"value": "",
+						"type": "Record<String, String> | null",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(union (ref Record (string) (string)) (null))",
+						"inferredType": "(ref Record (string) (string))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "recordTest3",
+						"value": "",
+						"type": "Record<String, String | number> | null",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(union (ref Record (string) (union (string) (number))) (null))",
+						"inferredType": "(ref Record (string) (union (string) (number)))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		}
+	],
+	"interface": [
+		{
+			"type": [],
+			"info": {
+				"name": "IM",
+				"modifier": [],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "f1",
+						"param": [],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "f2",
+						"param": [
+							"s: string"
+						],
+						"return": "number",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "s",
+								"type": "(string)",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(number)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "f3",
+						"param": [
+							"r: Record<string, string>"
+						],
+						"return": "EMNum",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "r",
+								"type": "(ref Record (string) (string))",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(ref EMNum)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "f4",
+						"param": [
+							"e: EMStr"
+						],
+						"return": "(s: String) => void",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "e",
+								"type": "(ref EMStr)",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(function () (void) (parameter s (string)))",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "f5",
+						"param": [
+							"cb: (obj: CM, n: number) => string"
+						],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "cb",
+								"type": "(function () (string) (parameter obj (ref CM)) (parameter n (number)))",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "f6",
+						"param": [
+							"evt: EMNum",
+							"cb: () => Record<number, Uint8Array>"
+						],
+						"return": "boolean",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "evt",
+								"type": "(ref EMNum)",
+								"optional": false
+							},
+							{
+								"name": "cb",
+								"type": "(function () (ref Record (number) (ref Uint8Array)))",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(boolean)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "f7",
+						"param": [
+							"p: bigint",
+							"cb: (p: bigint) => void"
+						],
+						"return": "bigint",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "p",
+								"type": "(bigint)",
+								"optional": false
+							},
+							{
+								"name": "cb",
+								"type": "(function () (void) (parameter p (bigint)))",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(bigint)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "f8",
+						"param": [
+							"evt: EMNum",
+							"cb: () => Record<string, Uint8Array>"
+						],
+						"return": "boolean",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "evt",
+								"type": "(ref EMNum)",
+								"optional": false
+							},
+							{
+								"name": "cb",
+								"type": "(function () (ref Record (string) (ref Uint8Array)))",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(boolean)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "Drivable",
+				"modifier": [],
+				"father": [],
+				"typeParameters": [],
+				"comment": "// 类实现接口"
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "start",
+						"param": [],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "stop",
+						"param": [],
+						"return": "void",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [],
+						"returnTypeNode": "(void)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"struct": [],
+	"enum": [
+		{
+			"type": [],
+			"info": {
+				"name": "EMNum",
+				"item-value": [
+					"E1 = 111",
+					"E2 = 222",
+					"E3 = 333"
+				],
+				"modifier": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "EMStr",
+				"item-value": [
+					"EA = aaa",
+					"EB = bbb",
+					"EC = ccc"
+				],
+				"modifier": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"variable": [],
+	"module": [],
+	"import": [],
+	"symbols": {
+		"EMNum": "enum-numeric",
+		"EMStr": "enum-string"
+	},
+	"exports": {}
+}

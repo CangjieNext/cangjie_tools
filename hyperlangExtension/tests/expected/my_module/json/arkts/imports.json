@@ -1,0 +1,235 @@
+{
+	"type": [],
+	"info": {},
+	"method": [
+		{
+			"type": [],
+			"info": {
+				"name": "createSub",
+				"param": [],
+				"return": "Inheritances.SubClass",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [],
+				"returnTypeNode": "(ref Inheritances.SubClass)",
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"class": [],
+	"interface": [],
+	"struct": [],
+	"enum": [],
+	"variable": [
+		{
+			"type": [],
+			"info": {
+				"name": "value1",
+				"value": "0/* FIXME: Initialization is required */\n*/",
+				"type": "MyStringEnum",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"isOptional": false,
+				"comment": "/*\n",
+				"typeNode": "(ref MyStringEnum)"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "value2",
+				"value": "0/* FIXME: Initialization is required */\n*/",
+				"type": "MyNumericEnum",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"isOptional": false,
+				"comment": "/*\n",
+				"typeNode": "(ref MyNumericEnum)"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"module": [
+		{
+			"type": [],
+			"info": {
+				"name": "./exportAlias",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [
+				{
+					"type": [],
+					"info": {
+						"name": "ExportedInterface",
+						"modifier": [],
+						"father": [],
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [
+						{
+							"type": [],
+							"info": {
+								"name": "myOption",
+								"value": "",
+								"type": "String",
+								"modifier": [],
+								"isOptional": true,
+								"typeNode": "(string)",
+								"inferredType": "(string)",
+								"comment": ""
+							},
+							"method": [],
+							"class": [],
+							"interface": [],
+							"struct": [],
+							"enum": [],
+							"variable": [],
+							"module": [],
+							"import": []
+						}
+					],
+					"module": [],
+					"import": []
+				}
+			],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"import": [
+		{
+			"type": [],
+			"info": {
+				"name": "import { a } from '@umeng/common';",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "import buffer from '@ohos.buffer';",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "import { e } from \"../g/h\";",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "import { MyStringEnum, MyNumericEnum } from './exportAlias';",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "import * as Inheritances from './inheritances';",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "import { ExportedInterface } from './exportAlias';",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"symbols": {
+		"MyStringEnum": "enum-string",
+		"MyNumericEnum": "enum-numeric"
+	},
+	"exports": {}
+}

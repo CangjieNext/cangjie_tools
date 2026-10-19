@@ -1,0 +1,151 @@
+{
+	"type": [
+		{
+			"type": [],
+			"info": {
+				"name": "BasicTuple",
+				"type": "",
+				"typeNode": "(tuple (number) (string) (boolean))",
+				"comment": "//简单元组类型"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "OptionalElementTuple",
+				"type": "",
+				"typeNode": "(tuple (number) (optional (string)) (optional (boolean)))",
+				"comment": "//元组类型的可选类型"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "HeterogeneousTuple",
+				"type": "",
+				"typeNode": "(tuple (string) (number) (boolean) (ref Date))",
+				"comment": "//异构元组类型"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "RestTuple",
+				"type": "",
+				"typeNode": "(tuple (string) (unsupported RestType))",
+				"comment": "//元组的剩余元素"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "FixedLengthTuple",
+				"type": "",
+				"typeNode": "(tuple (number) (string) (boolean))",
+				"comment": "//包含固定长度的元组"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TupleArray",
+				"type": "",
+				"typeNode": "(array (tuple (number) (string)))",
+				"comment": "//元组与数组的结合"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TwoDimensionalTuple",
+				"type": "",
+				"typeNode": "(tuple (tuple (number) (string)) (tuple (boolean) (ref Date)))",
+				"comment": "//多维元组"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "UnionTuple",
+				"type": "",
+				"typeNode": "(tuple (union (string) (number)) (boolean) (ref Date))",
+				"comment": "//元组与联合类型结合"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"info": {},
+	"method": [],
+	"class": [],
+	"interface": [],
+	"struct": [],
+	"enum": [],
+	"variable": [],
+	"module": [],
+	"import": [],
+	"symbols": {},
+	"exports": {}
+}

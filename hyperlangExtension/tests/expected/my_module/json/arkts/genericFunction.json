@@ -1,0 +1,217 @@
+{
+	"type": [],
+	"info": {},
+	"method": [
+		{
+			"type": [],
+			"info": {
+				"name": "testGeneric",
+				"param": [
+					"t: T"
+				],
+				"return": "T",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "t",
+						"type": "(ref T)",
+						"optional": false
+					}
+				],
+				"returnTypeNode": "(ref T)",
+				"typeParameters": [
+					{
+						"name": "T"
+					}
+				],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "testMultiGenericT",
+				"param": [
+					"t: T",
+					"m: M"
+				],
+				"return": "T",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "t",
+						"type": "(ref T)",
+						"optional": false
+					},
+					{
+						"name": "m",
+						"type": "(ref M)",
+						"optional": false
+					}
+				],
+				"returnTypeNode": "(ref T)",
+				"typeParameters": [
+					{
+						"name": "T"
+					},
+					{
+						"name": "M"
+					}
+				],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "testMultiGenericM",
+				"param": [
+					"t: T",
+					"m: M"
+				],
+				"return": "M",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "t",
+						"type": "(ref T)",
+						"optional": false
+					},
+					{
+						"name": "m",
+						"type": "(ref M)",
+						"optional": false
+					}
+				],
+				"returnTypeNode": "(ref M)",
+				"typeParameters": [
+					{
+						"name": "T"
+					},
+					{
+						"name": "M"
+					}
+				],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "init",
+				"param": [
+					"type: string",
+					"data: any"
+				],
+				"return": "void",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "type",
+						"type": "(string)",
+						"optional": false
+					},
+					{
+						"name": "data",
+						"type": "(any)",
+						"optional": false
+					}
+				],
+				"returnTypeNode": "(void)",
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "getObject",
+				"param": [
+					"extra: number",
+					"info: string"
+				],
+				"return": "void",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "extra",
+						"type": "(number)",
+						"optional": false
+					},
+					{
+						"name": "info",
+						"type": "(string)",
+						"optional": false
+					}
+				],
+				"returnTypeNode": "(void)",
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"class": [],
+	"interface": [],
+	"struct": [],
+	"enum": [],
+	"variable": [],
+	"module": [],
+	"import": [],
+	"symbols": {},
+	"exports": {}
+}

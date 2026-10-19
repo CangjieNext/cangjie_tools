@@ -1,0 +1,190 @@
+{
+	"type": [
+		{
+			"type": [],
+			"info": {
+				"name": "a1",
+				"type": "",
+				"typeNode": "(union (string) (number))",
+				"comment": "// type alias"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"info": {},
+	"method": [
+		{
+			"type": [],
+			"info": {
+				"name": "test",
+				"param": [
+					"a:a1"
+				],
+				"return": "String|number",
+				"modifier": [
+					"ExportKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "a",
+						"type": "(ref a1)",
+						"optional": false
+					}
+				],
+				"returnTypeNode": "(union (string) (number))",
+				"typeParameters": [],
+				"comment": "// global func"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"class": [
+		{
+			"type": [],
+			"info": {
+				"name": "A",
+				"modifier": [
+					"ExportKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "test1",
+						"param": [
+							"a:a1"
+						],
+						"return": "String|number",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "a",
+								"type": "(ref a1)",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(union (string) (number))",
+						"typeParameters": [],
+						"comment": "// member function"
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "test2",
+						"param": [
+							"a: string|number"
+						],
+						"return": "number",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "a",
+								"type": "(union (string) (number))",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(number)",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "a",
+						"value": "",
+						"type": "a1",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(ref a1)",
+						"inferredType": "(ref a1)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "b",
+						"value": "",
+						"type": "boolean | String",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(union (boolean) (string))",
+						"inferredType": "(union (string) (boolean))",
+						"comment": "// property"
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		}
+	],
+	"interface": [],
+	"struct": [],
+	"enum": [],
+	"variable": [],
+	"module": [],
+	"import": [],
+	"symbols": {},
+	"exports": {}
+}

@@ -1,0 +1,484 @@
+{
+	"type": [],
+	"info": {},
+	"method": [],
+	"class": [
+		{
+			"type": [],
+			"info": {
+				"name": "C1",
+				"modifier": [],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "sa",
+						"value": "123",
+						"type": "number",
+						"modifier": [
+							"StaticKeyword"
+						],
+						"isOptional": false,
+						"typeNode": "(number)",
+						"inferredType": "(any)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "sb",
+						"value": "",
+						"type": "String",
+						"modifier": [
+							"StaticKeyword"
+						],
+						"isOptional": false,
+						"typeNode": "(string)",
+						"inferredType": "(string)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "sc",
+						"value": "\"abc\"",
+						"type": "String",
+						"modifier": [
+							"StaticKeyword"
+						],
+						"isOptional": true,
+						"typeNode": "(string)",
+						"inferredType": "(string)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "sd",
+						"value": "999",
+						"type": "number",
+						"modifier": [
+							"StaticKeyword",
+							"ReadonlyKeyword"
+						],
+						"isOptional": false,
+						"typeNode": "(number)",
+						"inferredType": "(any)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "se",
+						"value": "\"zzz\"",
+						"type": "String",
+						"modifier": [
+							"StaticKeyword",
+							"ReadonlyKeyword"
+						],
+						"isOptional": false,
+						"typeNode": "(string)",
+						"inferredType": "(string)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "va",
+						"value": "234",
+						"type": "number",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(number)",
+						"inferredType": "(number)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "vb",
+						"value": "",
+						"type": "Float32Array",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(ref Float32Array)",
+						"inferredType": "(ref Float32Array)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "vc",
+						"value": "",
+						"type": "MyNumericEnum",
+						"modifier": [],
+						"isOptional": true,
+						"typeNode": "(ref MyNumericEnum)",
+						"inferredType": "(ref E1)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "vd",
+						"value": "\"def\"",
+						"type": "string",
+						"modifier": [],
+						"isOptional": true,
+						"typeNode": "(string)",
+						"inferredType": "(any)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "ve",
+						"value": "",
+						"type": "bigint[]",
+						"modifier": [],
+						"isOptional": true,
+						"typeNode": "(array (bigint))",
+						"inferredType": "(array (bigint))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		}
+	],
+	"interface": [
+		{
+			"type": [],
+			"info": {
+				"name": "I1",
+				"modifier": [],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "a",
+						"value": "",
+						"type": "number",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(number)",
+						"inferredType": "(number)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "b",
+						"value": "",
+						"type": "String",
+						"modifier": [],
+						"isOptional": true,
+						"typeNode": "(string)",
+						"inferredType": "(string)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "c",
+						"value": "",
+						"type": "Uint8Array",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(ref Uint8Array)",
+						"inferredType": "(ref Uint8Array)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "d",
+						"value": "",
+						"type": "ArrayBuffer",
+						"modifier": [],
+						"isOptional": true,
+						"typeNode": "(ref ArrayBuffer)",
+						"inferredType": "(ref ArrayBuffer)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "e",
+						"value": "",
+						"type": "Float32Array",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(ref Float32Array)",
+						"inferredType": "(ref Float32Array)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "f",
+						"value": "",
+						"type": "boolean",
+						"modifier": [],
+						"isOptional": true,
+						"typeNode": "(boolean)",
+						"inferredType": "(boolean)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "g",
+						"value": "",
+						"type": "Record<String, Uint8Array>",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(ref Record (string) (ref Uint8Array))",
+						"inferredType": "(ref Record (string) (ref Uint8Array))",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "h",
+						"value": "",
+						"type": "MyStringEnum",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(ref MyStringEnum)",
+						"inferredType": "(ref MyStringEnum)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "i",
+						"value": "",
+						"type": "bigint",
+						"modifier": [],
+						"isOptional": false,
+						"typeNode": "(bigint)",
+						"inferredType": "(bigint)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		}
+	],
+	"struct": [],
+	"enum": [],
+	"variable": [],
+	"module": [],
+	"import": [
+		{
+			"type": [],
+			"info": {
+				"name": "import { MyStringEnum, MyNumericEnum } from './exportAlias';",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"symbols": {
+		"MyStringEnum": "enum-string",
+		"MyNumericEnum": "enum-numeric"
+	},
+	"exports": {}
+}

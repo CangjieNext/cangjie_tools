@@ -1,0 +1,456 @@
+{
+	"type": [],
+	"info": {},
+	"method": [],
+	"class": [
+		{
+			"type": [],
+			"info": {
+				"name": "BuildProfile",
+				"modifier": [
+					"ExportKeyword",
+					"DefaultKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [
+				{
+					"type": [],
+					"info": {
+						"name": "j",
+						"value": "\"0.3.6\"",
+						"type": "string",
+						"modifier": [
+							"StaticKeyword",
+							"ReadonlyKeyword"
+						],
+						"isOptional": false,
+						"typeNode": "(string)",
+						"inferredType": "(any)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "m",
+						"value": "\"release\"",
+						"type": "string",
+						"modifier": [
+							"StaticKeyword",
+							"ReadonlyKeyword"
+						],
+						"isOptional": false,
+						"typeNode": "(string)",
+						"inferredType": "(any)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "DEBUG",
+						"value": "false",
+						"type": "boolean",
+						"modifier": [
+							"StaticKeyword",
+							"ReadonlyKeyword"
+						],
+						"isOptional": false,
+						"typeNode": "(boolean)",
+						"inferredType": "(any)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "o",
+						"value": "\"default\"",
+						"type": "string",
+						"modifier": [
+							"StaticKeyword",
+							"ReadonlyKeyword"
+						],
+						"isOptional": false,
+						"typeNode": "(string)",
+						"inferredType": "(any)",
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"module": [],
+			"import": []
+		}
+	],
+	"interface": [],
+	"struct": [],
+	"enum": [],
+	"variable": [
+		{
+			"type": [],
+			"info": {
+				"name": "aesEncText",
+				"value": "0/* FIXME: Initialization is required */\n*/",
+				"type": "typeof Aes.aesEncText",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"isOptional": false,
+				"comment": "/*\n",
+				"typeNode": "(unsupported TypeQuery)"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "c1",
+				"value": "1.2",
+				"type": "number",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"isOptional": false,
+				"comment": "",
+				"typeNode": "(number)"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "c2",
+				"value": "1",
+				"type": "number",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"isOptional": false,
+				"comment": "",
+				"typeNode": "(number)"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "c3",
+				"value": "0x2",
+				"type": "number",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"isOptional": false,
+				"comment": "",
+				"typeNode": "(number)"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "c4",
+				"value": "\"str\"",
+				"type": "string",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"isOptional": false,
+				"comment": "",
+				"typeNode": "(string)"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "c5",
+				"value": "\"123\"",
+				"type": "string",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"isOptional": false,
+				"comment": "",
+				"typeNode": "(string)"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "c6",
+				"value": "0/* FIXME: Initialization is required */\n*/",
+				"type": "unsupported FirstToken",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"isOptional": false,
+				"comment": "/*\n",
+				"typeNode": "(unsupported FirstToken)"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "c7",
+				"value": "0/* FIXME: Initialization is required */\n*/",
+				"type": "string",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"isOptional": false,
+				"comment": "/*\n",
+				"typeNode": "(string)"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "c8",
+				"value": "\"1\"",
+				"type": "string",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"isOptional": false,
+				"comment": "",
+				"typeNode": "(string)"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "c9",
+				"value": "c1",
+				"type": "unsupported FirstToken",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"isOptional": false,
+				"comment": "",
+				"typeNode": "(unsupported FirstToken)"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "j",
+				"value": "\"0.3.6\"",
+				"type": "string",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"isOptional": false,
+				"comment": "",
+				"typeNode": "(string)"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "m",
+				"value": "\"release\"",
+				"type": "string",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"isOptional": false,
+				"comment": "",
+				"typeNode": "(string)"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "DEBUG",
+				"value": "false",
+				"type": "boolean",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"isOptional": false,
+				"comment": "",
+				"typeNode": "(boolean)"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "o",
+				"value": "\"default\"",
+				"type": "string",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"isOptional": false,
+				"comment": "",
+				"typeNode": "(string)"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"module": [],
+	"import": [],
+	"symbols": {},
+	"exports": {}
+}

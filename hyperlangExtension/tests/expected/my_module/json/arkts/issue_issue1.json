@@ -1,0 +1,66 @@
+{
+	"type": [
+		{
+			"type": [],
+			"info": {
+				"name": "TB230",
+				"type": "",
+				"typeNode": "(function ((V) (W (union (StringLiteral \"abc\") (StringLiteral \"def\")))) (ref W) (parameter arg (ref V)))",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TB300",
+				"type": "",
+				"typeNode": "(ref Promise (number))",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "TB310",
+				"type": "",
+				"typeNode": "(array (ref Promise (boolean)))",
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"info": {},
+	"method": [],
+	"class": [],
+	"interface": [],
+	"struct": [],
+	"enum": [],
+	"variable": [],
+	"module": [],
+	"import": [],
+	"symbols": {},
+	"exports": {}
+}

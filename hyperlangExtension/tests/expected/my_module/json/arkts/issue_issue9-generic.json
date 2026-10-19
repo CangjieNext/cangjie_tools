@@ -1,0 +1,276 @@
+{
+	"type": [],
+	"info": {},
+	"method": [
+		{
+			"type": [],
+			"info": {
+				"name": "testGeneric",
+				"param": [
+					"t:T"
+				],
+				"return": "T | String",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "t",
+						"type": "(ref T)",
+						"optional": false
+					}
+				],
+				"returnTypeNode": "(union (ref T) (string))",
+				"typeParameters": [
+					{
+						"name": "T"
+					}
+				],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "testGeneric1",
+				"param": [
+					"t:T"
+				],
+				"return": "T | U | String",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "t",
+						"type": "(ref T)",
+						"optional": false
+					}
+				],
+				"returnTypeNode": "(union (ref T) (ref U) (string))",
+				"typeParameters": [
+					{
+						"name": "T"
+					},
+					{
+						"name": "U"
+					}
+				],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"class": [
+		{
+			"type": [],
+			"info": {
+				"name": "A",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"father": [],
+				"typeParameters": [
+					{
+						"name": "T"
+					},
+					{
+						"name": "U"
+					}
+				],
+				"comment": ""
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "f1",
+						"param": [
+							"t:T"
+						],
+						"return": "T | String",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "t",
+								"type": "(ref T)",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(union (ref T) (string))",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "f2",
+						"param": [
+							"t:T"
+						],
+						"return": "T | U | String",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "t",
+								"type": "(ref T)",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(union (ref T) (ref U) (string))",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"interface": [
+		{
+			"type": [],
+			"info": {
+				"name": "B",
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"father": [],
+				"typeParameters": [
+					{
+						"name": "W"
+					},
+					{
+						"name": "M"
+					}
+				],
+				"comment": ""
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "f1",
+						"param": [
+							"t:T"
+						],
+						"return": "T | W | String",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "t",
+								"type": "(ref T)",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(union (ref T) (ref W) (string))",
+						"typeParameters": [
+							{
+								"name": "T"
+							}
+						],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "f2",
+						"param": [
+							"t:T"
+						],
+						"return": "T | M | String",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "t",
+								"type": "(ref T)",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(union (ref T) (ref M) (string))",
+						"typeParameters": [
+							{
+								"name": "T"
+							}
+						],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"struct": [],
+	"enum": [],
+	"variable": [],
+	"module": [],
+	"import": [],
+	"symbols": {},
+	"exports": {}
+}

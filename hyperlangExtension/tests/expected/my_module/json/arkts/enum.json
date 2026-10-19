@@ -1,0 +1,155 @@
+{
+	"type": [],
+	"info": {},
+	"method": [],
+	"class": [],
+	"interface": [],
+	"struct": [],
+	"enum": [
+		{
+			"type": [],
+			"info": {
+				"name": "Colors",
+				"item-value": [
+					"Red = RED",
+					"Green = GREEN",
+					"Blue = BLUE",
+					"Yellow = 'YELLOW'"
+				],
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"comment": "// 字符串枚举"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "Status",
+				"item-value": [
+					"Pending",
+					"Approved",
+					"Rejected"
+				],
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"comment": "// 数字枚举"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "Status1",
+				"item-value": [
+					"Pending = 3",
+					"Approved = 4",
+					"Rejected = 5"
+				],
+				"modifier": [
+					"DeclareKeyword",
+					"ConstKeyword"
+				],
+				"comment": "// 常量枚举\n// constants.d.ts"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "Response1",
+				"item-value": [
+					"No = 0",
+					"Yes = YES"
+				],
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"comment": "// 异构枚举\n// response.d.ts"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "SystemErrorCode",
+				"item-value": [
+					"success = 0",
+					"invalidInput = 1",
+					"networkError = 2",
+					"internalError = 3"
+				],
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"comment": "// @systemapi"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		},
+		{
+			"type": [],
+			"info": {
+				"name": "LegacyStatus",
+				"item-value": [
+					"active = 0",
+					"inactive = 1",
+					"pending = 2"
+				],
+				"modifier": [
+					"DeclareKeyword"
+				],
+				"comment": "// @deprecated"
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"variable": [],
+	"module": [],
+	"import": [],
+	"symbols": {},
+	"exports": {}
+}

@@ -1,0 +1,53 @@
+{
+	"type": [],
+	"info": {},
+	"method": [
+		{
+			"type": [],
+			"info": {
+				"name": "compress1",
+				"param": [
+					"src: Uint8Array | number[]",
+					"maxSize?: number"
+				],
+				"return": "Uint8Array",
+				"modifier": [
+					"ExportKeyword"
+				],
+				"isConstructor": false,
+				"parameters": [
+					{
+						"name": "src",
+						"type": "(union (ref Uint8Array) (array (number)))",
+						"optional": false
+					},
+					{
+						"name": "maxSize",
+						"type": "(number)",
+						"optional": true
+					}
+				],
+				"returnTypeNode": "(ref Uint8Array)",
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"class": [],
+	"interface": [],
+	"struct": [],
+	"enum": [],
+	"variable": [],
+	"module": [],
+	"import": [],
+	"symbols": {},
+	"exports": {}
+}

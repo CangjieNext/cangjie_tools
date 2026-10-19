@@ -1,0 +1,149 @@
+{
+	"type": [],
+	"info": {},
+	"method": [],
+	"class": [
+		{
+			"type": [],
+			"info": {
+				"name": "AnonymousClass",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "f1",
+						"param": [
+							"p: {n: number}"
+						],
+						"return": "{n: number}",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "p",
+								"type": "(literal (prop n (number)))",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(literal (prop n (number)))",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "f2",
+						"param": [
+							"n: number"
+						],
+						"return": "Promise<String>",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "n",
+								"type": "(number)",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(ref Promise (string))",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "f3",
+						"param": [
+							"n: number"
+						],
+						"return": "Promise<{\n        msg: String;\n    }>",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "n",
+								"type": "(number)",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(ref Promise (literal (prop msg (string))))",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				},
+				{
+					"type": [],
+					"info": {
+						"name": "f4",
+						"param": [],
+						"return": "Promise<{\n        msg: String;\n        data: String;\n        code?: undefined;\n    } | {\n        code: number;\n        msg: String;\n        data?: undefined;\n    }>",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [],
+						"returnTypeNode": "(ref Promise (union (literal (prop msg (string)) (prop data (string)) (prop code (undefined) optional)) (literal (prop code (number)) (prop msg (string)) (prop data (undefined) optional))))",
+						"typeParameters": [],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"interface": [],
+	"struct": [],
+	"enum": [],
+	"variable": [],
+	"module": [],
+	"import": [],
+	"symbols": {},
+	"exports": {}
+}

@@ -1,0 +1,71 @@
+{
+	"type": [],
+	"info": {},
+	"method": [],
+	"class": [
+		{
+			"type": [],
+			"info": {
+				"name": "C",
+				"modifier": [
+					"ExportKeyword",
+					"DeclareKeyword"
+				],
+				"father": [],
+				"typeParameters": [],
+				"comment": ""
+			},
+			"method": [
+				{
+					"type": [],
+					"info": {
+						"name": "f",
+						"param": [
+							"p:T"
+						],
+						"return": "number | String",
+						"modifier": [],
+						"isConstructor": false,
+						"parameters": [
+							{
+								"name": "p",
+								"type": "(ref T)",
+								"optional": false
+							}
+						],
+						"returnTypeNode": "(union (number) (string))",
+						"typeParameters": [
+							{
+								"name": "T"
+							}
+						],
+						"comment": ""
+					},
+					"method": [],
+					"class": [],
+					"interface": [],
+					"struct": [],
+					"enum": [],
+					"variable": [],
+					"module": [],
+					"import": []
+				}
+			],
+			"class": [],
+			"interface": [],
+			"struct": [],
+			"enum": [],
+			"variable": [],
+			"module": [],
+			"import": []
+		}
+	],
+	"interface": [],
+	"struct": [],
+	"enum": [],
+	"variable": [],
+	"module": [],
+	"import": [],
+	"symbols": {},
+	"exports": {}
+}
