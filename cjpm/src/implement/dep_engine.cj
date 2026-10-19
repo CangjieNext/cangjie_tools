@@ -25,6 +25,9 @@ public class FinalDepModule {
     public var sourcePath: String = ""          // path of source code
     public var tomlInfo: TomlInfo = TomlInfo()  // standardized toml data
     public var rootModulePath: String = ""      // path of root module for this analysis
+    // Local/Git declarations after target/profile/test merging, before package
+    // scanning. None distinguishes an unresolved module from a leaf module.
+    public var resolvedDependencies: ?HashSet<String> = None
 }
 
 /*
@@ -48,6 +51,18 @@ public class DepAnalysisEngine {
     // central-repo dependencies collected by DepModel.depCheck
     // records repo-deps imported by cjpm.lock
     public let lockRepoDepMap: HashMap<String, String> = HashMap<String, String>()
+    public var lockedEntries = HashMap<String, LockEntry>()
+
+    public func recordLockedEntries(entries: HashMap<String, LockEntry>): Unit {
+        this.lockedEntries = entries
+        for ((name, entry) in entries) {
+            if (let Some(legacy) <- entry.legacy) {
+                if (legacy.isCenterRepoDep()) { this.lockRepoDepMap.add(name, legacy.version.getOrThrow()) }
+            } else if (let Some(source) <- entry.source) {
+                if (source.startsWith("registry+")) { this.lockRepoDepMap.add(name, entry.version.getOrThrow()) }
+            }
+        }
+    }
     // records repo-deps imported by local/git deps
     public let repoDepList: ArrayList<(String, DepInfo)> = ArrayList<(String, DepInfo)>()
     // records of replace modules
@@ -449,24 +464,24 @@ public class DepAnalysisEngine {
                     let sourcePath = Path(this.depot.localRepo).join("source").
                         join(if (org.isEmpty()) { "default" } else { org }).
                         join("${name}-${version}").toString()
-                    if (!directoryExists(sourcePath)) {
-                        try {
-                            let (flag, output) = this.depot.download(name, org, version)
-                            if (!flag) {
-                                eprintln("Error: ${output}")
-                                return false
-                            }
-                        } catch (e: CryptoException | TlsException) {
-                            eprintln("Error: ${e.message}")
-                            eprintln("Error: please ensure that openssl has been correctly installed and configured according to the \"Usage Instruction\" section of the documentation")
-                            return false
-                        } catch (e: Exception) {
-                            eprintln("Error: ${e.message}")
-                            if (e.message.contains("HttpEngine1#connect")) {
-                                eprintln("Error: unable to connect to https server.")
-                            }
+                    try {
+                        let previous = this.lockedEntries.get(fullName)
+                        // Only retain the checksum when reusing the same locked version.
+                        let retained: ?LockEntry = if (let Some(entry) <- previous && entry.legacy.isNone() &&
+                            entry.version == Some(version) && (entry.source ?? "").startsWith("registry+")) {
+                            previous
+                        } else { None }
+                        let (flag, output) = this.depot.loadVerifiedArtifact(name, org, version,
+                            this.indexMap[fullName][version].sha256sum, locked: retained)
+                        if (!flag) {
+                            eprintln("Error: ${output}")
                             return false
                         }
+                    } catch (_: Exception) {
+                        eprintln("Error: failed to verify registry dependency, please try 'cjpm update'")
+                        return false
+                    } finally {
+                        downloadSem.release()
                     }
 
                     // save final module
@@ -482,7 +497,6 @@ public class DepAnalysisEngine {
                         this.finalDepMap.add(fullName, finalDep)
                     }
 
-                    downloadSem.release()
                     return true
                 }
             )
@@ -520,9 +534,14 @@ public class DepAnalysisEngine {
         finalDepMap[name].sourcePath = depPath
     }
 
-    public func addDepToml(name: String, depToml: TomlInfo): Unit {
+    public func addDepToml(name: String, depToml: TomlInfo, includeTests!: Bool = false): Unit {
         initFinalKey(name)
         finalDepMap[name].tomlInfo = depToml
+        let dependencies = HashSet<String>(depToml.dependencies.keys())
+        if (includeTests) {
+            dependencies.add(all: depToml.testDependencies.keys())
+        }
+        finalDepMap[name].resolvedDependencies = Some(dependencies)
     }
 
     public func addDepRoot(name: String, depRoot: String): Unit {

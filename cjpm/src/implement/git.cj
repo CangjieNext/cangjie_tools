@@ -96,14 +96,22 @@ public func downloadGitDep(name: String, v: DepInfo): ?(String, String, Bool) {
     }
 
     let url = v.git ?? return None
-    if (!checkSafeUrl(url)) {
-        eprintln("Error: invalid remote url: '${url}'")
+    try {
+        normalizeLockSourceUrl(url)
+    } catch (_: Exception) {
+        eprintln("Error: Git source cannot be safely recorded; remove credentials and query parameters from its URL")
         return None
     }
     let targetCommit = v.commitId ?? git.getCommitHashFromName(url, v.branch ?? v.tag) ?? return None
     let dependencyPath = gitStoragePath.join(swapOrgName(name)).join(targetCommit).toString()
     if (directoryExists(dependencyPath)) {
-        return (dependencyPath, targetCommit, false)
+        let commit = resolvedGitCommit(dependencyPath) ?? return None
+        if (v.commitId.isSome() && Regex("^([0-9a-f]{40}|[0-9a-f]{64})$").matches(targetCommit) &&
+            commit != targetCommit) {
+            eprintln("Error: cached Git commit differs from locked revision, please try 'cjpm update'")
+            return None
+        }
+        return (dependencyPath, commit, false)
     } else {
         try {
             Directory.create(dependencyPath, recursive: true)
@@ -113,10 +121,26 @@ public func downloadGitDep(name: String, v: DepInfo): ?(String, String, Bool) {
 
         let result = git.clone(url, dependencyPath, targetCommit)
         if (result) {
-            return checkGitWorkspace(url, dependencyPath, targetCommit, gitStoragePath)
+            let commit = resolvedGitCommit(dependencyPath) ?? return None
+            return checkGitWorkspace(url, dependencyPath, commit, gitStoragePath)
         }
 
         deleteDirectory(dependencyPath)
         return None
     }
+}
+
+// Resolve abbreviated revisions and annotated tags to the checked-out commit.
+// Explicit paths avoid inheriting GIT_DIR from another dependency's clone.
+func resolvedGitCommit(path: String): ?String {
+    let (ok, output, _) = execWithOutput("git", ArrayList<String>([
+        "--git-dir", Path(path).join(".git").toString(), "--work-tree", path,
+        "rev-parse", "--verify", "HEAD^{commit}"
+    ]))
+    let commit = output.trimAscii()
+    if (!ok || !Regex("^([0-9a-f]{40}|[0-9a-f]{64})$").matches(commit)) {
+        eprintln("Error: cannot resolve full Git commit for dependency")
+        return None
+    }
+    return Some(commit)
 }

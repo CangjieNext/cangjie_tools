@@ -10,6 +10,7 @@ import std.net.*
 import std.io.*
 import std.fs.*
 import std.collection.*
+import std.regex.*
 import stdx.net.http.*
 import stdx.net.tls.common.*
 import stdx.net.tls.*
@@ -49,6 +50,13 @@ public class Depot {
 
         if (baseUrl.isEmpty()) {
             eprintln("${alertLevel}: get registry of [repository.home] failed, please check if cangjie-repo.toml is set up correctly")
+            return false
+        }
+
+        try {
+            normalizeLockSourceUrl(baseUrl, registry: true)
+        } catch (_: Exception) {
+            eprintln("${alertLevel}: registry source cannot be safely recorded; use the separate token setting for credentials")
             return false
         }
 
@@ -126,7 +134,8 @@ public class Depot {
     }
 
     // download package from central repository
-    public func download(name: String, org: String, version: String): (Bool, String) {
+    public func download(name: String, org: String, version: String,
+        expectedChecksum!: ?String = None): (Bool, String) {
         var downloadUrl = baseUrl + "/pkg/${name}/${version}"
         var orgStr = ""
         if (!org.isEmpty()) {
@@ -183,6 +192,19 @@ public class Depot {
             let sha256Instance = SHA256()
             sha256Instance.write(buffer.toArray())
             let sha256sum = toHexString(sha256Instance.finish())
+            if (let Some(expected) <- expectedChecksum) {
+                if ("sha256:${sha256sum}" != expected) {
+                    return (false, "downloaded artifact checksum mismatch, please try 'cjpm update'")
+                }
+                // Retain exactly the verified bytes for later offline validation.
+                try {
+                    saveVerifiedArtifact(this, name, org, version, buffer.toArray())
+                } catch (_: Exception) {
+                    return (false, "failed to save verified artifact ${name}-${version} ${orgStr}to cache")
+                }
+                return uncompressCjp(org, name, version, buffer.toArray(), this.localRepo,
+                    replaceSource: true)
+            }
             let indexPath = this.getIndex(name, org)
             if (indexPath.isEmpty()) {
                 return (false, "index error while downloading ${name}-${version} ${orgStr}")
@@ -349,5 +371,83 @@ public class Depot {
             return indexPath
         }
         return ""
+    }
+
+    // Separate registries even when name/version coincide. This cache contains
+    // the original archive, not a digest of an extracted (possibly modified) tree.
+    public func artifactCachePath(name: String, org: String, version: String): Path {
+        let source = normalizeLockSourceUrl(this.baseUrl, registry: true)
+        let sourceKey = artifactChecksum(source.toArray()).removePrefix("sha256:")
+        return Path(this.localRepo).join("artifacts").join(sourceKey).
+            join(if (org.isEmpty()) { "default" } else { org }).join("${name}-${version}.cjp")
+    }
+
+    // Used by v1 resolution before consuming source files. Legacy source-only
+    // caches are insufficient evidence: fetch the archive if it is absent.
+    public func loadVerifiedArtifact(name: String, org: String, version: String,
+        indexChecksum: String, locked!: ?LockEntry = None): (Bool, String) {
+        try {
+            let source = "registry+${normalizeLockSourceUrl(this.baseUrl, registry: true)}"
+            let expected = registryLockChecksum(indexChecksum)
+            checkRegistryLock(source, version, expected, locked)
+            let archive = artifactCachePath(name, org, version)
+            if (!fileExists(archive.toString())) {
+                return this.download(name, org, version, expectedChecksum: Some(expected))
+            }
+            // Hash the exact bytes that will be extracted, avoiding a second read
+            // between validation and consumption of the cached artifact.
+            let bytes = File.readFrom(archive)
+            if (artifactChecksum(bytes) != expected) {
+                return (false, "cached artifact checksum mismatch, please try 'cjpm update'")
+            }
+            return uncompressCjp(org, name, version, bytes, this.localRepo, replaceSource: true)
+        } catch (_: Exception) {
+            return (false, "cannot verify registry artifact or source, please try 'cjpm update'")
+        }
+    }
+}
+
+public func registryLockChecksum(indexChecksum: String): String {
+    let checksum = indexChecksum.toAsciiLower()
+    if (!Regex("^[0-9a-f]{64}$").matches(checksum)) {
+        throw Exception("invalid registry checksum")
+    }
+    return "sha256:${checksum}"
+}
+
+func artifactChecksum(bytes: Array<Byte>): String {
+    let digest = SHA256()
+    digest.write(bytes)
+    return "sha256:${toHexString(digest.finish())}"
+}
+
+// Never replace a locked checksum with a new index value. A different selected
+// version is a new artifact; command integration decides which lock is retained.
+public func checkRegistryLock(source: String, version: String, checksum: String,
+    locked: ?LockEntry): Unit {
+    if (let Some(previous) <- locked) {
+        if (previous.version != Some(version) || previous.source != Some(source) ||
+            previous.checksum != Some(checksum)) {
+            throw Exception("registry metadata differs from lock file, please try 'cjpm update'")
+        }
+    }
+}
+
+func saveVerifiedArtifact(depot: Depot, name: String, org: String, version: String, bytes: Array<Byte>): Unit {
+    let archive = depot.artifactCachePath(name, org, version)
+    // Several downloads share this parent. Use the synchronized helper so
+    // existing directories and concurrent creation are both handled safely.
+    if (!createDirectory(archive.parent.toString())) {
+        throw Exception("failed to create artifact cache directory")
+    }
+    let temp = File.createTemp(archive.parent)
+    let tempPath = temp.info.path
+    try {
+        temp.write(bytes)
+        temp.close()
+        rename(tempPath, to: archive, overwrite: true)
+    } finally {
+        temp.close()
+        if (fileExists(tempPath.toString())) { remove(tempPath) }
     }
 }

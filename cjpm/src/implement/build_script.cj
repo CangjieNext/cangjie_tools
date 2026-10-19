@@ -185,58 +185,37 @@ func getDepPath(modulePath: String, depName: String, depInfo: DepInfo): Option<S
     }
 }
 
-func getScriptDeps(scriptConfig: ScriptConfig): HashMap<String, DepInfo> {
+func getScriptDeps(scriptConfig: ScriptConfig): ?HashMap<String, DepInfo> {
     let deps = scriptConfig.scriptDep
-    let (loadFlag, lockFile) = loadLockFile(scriptConfig.modulePath)
-    if (!loadFlag) {
-        return deps
-    }
-
-    for ((depName, depInfo) in lockFile.scripts) {
-        if (deps.contains(depName)) {
-            deps.add(depName, depInfo)
-        }
+    let locked = commandLock(scriptConfig.modulePath) ?? return None
+    for ((name, info) in deps) {
+        if (!applyLockedGit(info, locked.scripts.get(name))) { return None }
     }
     return deps
-}
-
-func writeScriptLock(rootPath: String, scriptDeps: HashMap<String, DepInfo>): Bool {
-    if (scriptDeps.isEmpty()) {
-        return true
-    }
-
-    let (loadFlag, lockFile) = loadLockFile(rootPath)
-    if (!loadFlag) {
-        return false
-    }
-
-    scriptDeps.removeIf {_, v => v.path.isSome()}
-    var lockFilePath: String = Path(rootPath).join(LOCK_FILE_NAME).toString()
-    // Overwrite file only if we have meaningful changes in case field serialization order got changed
-    if (lockFile.scripts != scriptDeps || !fileExists(lockFilePath)) {
-        if (!lockFile.scripts.isEmpty() && !deleteFile(lockFilePath)) {
-            return false
-        }
-
-        if (!creatLockFile(rootPath, ModuleLock(lockFile.requires, scriptDeps))) {
-            return false
-        }
-    }
-
-    return true
 }
 
 func buildScriptExe(scriptConfig: ScriptConfig): Bool {
     let crossCompileBackup: String = crossCompileTarget
     crossCompileTarget = ""
 
+    try {
+        return buildScriptExeWithHostTarget(scriptConfig, crossCompileBackup)
+    } finally {
+        crossCompileTarget = crossCompileBackup
+    }
+}
+
+func buildScriptExeWithHostTarget(scriptConfig: ScriptConfig, originalTarget: String): Bool {
     let buildConfig = BuildConfig()
-    let scriptDeps = getScriptDeps(scriptConfig)
+    let scriptDeps = getScriptDeps(scriptConfig) ?? return false
     if (!scriptDeps.isEmpty()) {
         var depPathList: ArrayList<String> = ArrayList<String>()
         for ((depName, depInfo) in scriptDeps) {
             let depPath: String = getDepPath(scriptConfig.modulePath, depName, depInfo) ?? return false
             depPathList.add(depPath)
+            if (depInfo.isGitDep()) {
+                buildConfig.globalConfig.scriptDepSources.add(depName, depInfo)
+            }
         }
 
         buildConfig.isVerbose = scriptConfig.isVerbose
@@ -256,15 +235,17 @@ func buildScriptExe(scriptConfig: ScriptConfig): Bool {
 
         let commonInfoCache: CommonInfo = COMMON_INFO
         COMMON_INFO = CommonInfo()
-        if (!doBuild(tomlInfo, buildConfig, isScriptDep: true)) {
-            return false
+        try {
+            if (!doBuild(tomlInfo, buildConfig, isScriptDep: true)) {
+                return false
+            }
+        } finally {
+            COMMON_INFO = commonInfoCache
         }
-        COMMON_INFO = commonInfoCache
         scriptConfig.scriptLdPath.add(all: buildConfig.globalConfig.ldPath)
     }
 
-    crossCompileTarget = crossCompileBackup
-
+    crossCompileTarget = originalTarget
     if (!makeScriptExe(scriptConfig, buildConfig)) {
         return false
     }
@@ -274,7 +255,11 @@ func buildScriptExe(scriptConfig: ScriptConfig): Bool {
         return false
     }
 
-    return writeScriptLock(scriptConfig.modulePath, scriptDeps)
+    if (scriptDeps.isEmpty()) {
+        return stageResolvedLock(scriptConfig.modulePath, DepAnalysisEngine(), WORKSPACE_NAME,
+            isScriptDep: true)
+    }
+    return true
 }
 
 func relocateScript(scriptConfig: ScriptConfig): Bool {
