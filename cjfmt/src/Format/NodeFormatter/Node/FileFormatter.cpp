@@ -4,6 +4,7 @@
 //
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
+#include <algorithm>
 #include <vector>
 #include "cangjie/AST/Node.h"
 #include "Format/ASTToFormatSource.h"
@@ -25,6 +26,41 @@ std::vector<Cangjie::Position> GetWhenOrForeignPositions(const AST::Decl& decl)
         }
     }
     return result;
+}
+
+// Flattening a singleton block must not merge a block annotation with a
+// member annotation of the same name. Their source positions distinguish
+// the two scopes even when the block has no second member to share them.
+std::vector<Position> GetSingleForeignBlockPositions(const Decl& decl,
+    const std::unordered_map<Position, int, PositionHasher>& positions)
+{
+    auto foreign = std::find_if(decl.modifiers.begin(), decl.modifiers.end(),
+        [](const auto& modifier) { return modifier.modifier == TokenKind::FOREIGN; });
+    if (foreign == decl.modifiers.end()) {
+        return {};
+    }
+    auto count = positions.find(foreign->begin);
+    if (count == positions.end() || count->second != 1) {
+        return {};
+    }
+    std::vector<Position> prefix;
+    bool needsBlock = false;
+    for (const auto& annotation : decl.annotations) {
+        if (!(annotation->begin < foreign->begin)) {
+            continue;
+        }
+        prefix.emplace_back(annotation->begin);
+        needsBlock = needsBlock || std::any_of(decl.annotations.begin(), decl.annotations.end(),
+            [&annotation, &foreign](const auto& member) {
+                return foreign->begin < member->begin && annotation->kind == member->kind &&
+                    annotation->identifier == member->identifier;
+            });
+    }
+    if (!needsBlock) {
+        return {};
+    }
+    prefix.emplace_back(foreign->begin);
+    return prefix;
 }
 
 void AddPackageSpec(Doc& doc, const Cangjie::AST::File& file, ASTToFormatSource& astToFormatSource, int level)
@@ -174,8 +210,15 @@ void FileFormatter::AddFile(Doc& doc, const Cangjie::AST::File& file, int level)
         bool isFirstInBlock = false;
         bool isLastInBlock = false;
 
+        auto singleBlockPositions = GetSingleForeignBlockPositions(*it->get(), modifierOrAnnoToPosMap);
         std::vector<Cangjie::Position> beforeBlockAnnotationsPositions;
         for (auto pos : GetWhenOrForeignPositions(*it->get())) {
+            if (std::find(singleBlockPositions.begin(), singleBlockPositions.end(), pos) != singleBlockPositions.end()) {
+                beforeBlockAnnotationsPositions.emplace_back(pos);
+                isFirstInBlock = true;
+                isLastInBlock = true;
+                continue;
+            }
             if (modifierOrAnnoToPosMap.find(pos) != modifierOrAnnoToPosMap.end() && modifierOrAnnoToPosMap[pos] > 1) {
                 beforeBlockAnnotationsPositions.emplace_back(pos);
                 if (mapCopy[pos] == modifierOrAnnoToPosMap[pos]) {
