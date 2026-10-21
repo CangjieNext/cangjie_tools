@@ -1,0 +1,22 @@
+cangjie-language-server/src/languageserver/capabilities/refactor/TweakUtils.cpp
+  h_e3f698405e4cb3 180-234
+cangjie-language-server/test/unitTests/languageserver/capabilities/refactor/IntroduceFieldTest.cpp
+  h_e3f698405e4cb3 8-9,162-222
+cangjie-language-server/src/languageserver/capabilities/refactor/TweakUtils.h
+  h_e3f698405e4cb3 47-49
+cangjie-language-server/src/languageserver/capabilities/refactor/tweaks/IntroduceField.cpp
+  h_e3f698405e4cb3 410-414
+cangjie-language-server/src/languageserver/capabilities/refactor/tweaks/IntroduceParameter.cpp
+  h_e3f698405e4cb3 324-328,810-813,815-817,819-823,825-833,835-838,840-844,846-859,861-865,916-920,940,942-943,946,999,1007,1009,1014,1047,1049-1050,1059,1075,1089,1093,1319-1320,1437-1438,1447
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "e4056a38b150439b97d5dd541c6099fc61a355b5",
+  "prompts": {},
+  "humans": {
+    "h_e3f698405e4cb3": {
+      "author": "savage <wangjunwei26@huawei.com>"
+    }
+  }
+}
