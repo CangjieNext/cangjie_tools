@@ -1,0 +1,20 @@
+cangjie-language-server/src/languageserver/common/multiModule/ModuleManger.cpp
+  s_9fd913373cfa9e::t_60f0d2ac472cf8 54
+  s_9fd913373cfa9e::t_2bdcf9ee38d70e 39-40,55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "c05bde633a0cad05b62934d487947a28c915c4c4",
+  "prompts": {},
+  "sessions": {
+    "s_9fd913373cfa9e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a070ef-a3ba-7941-b186-9fc190f58f6e",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "savage <wangjunwei26@huawei.com>"
+    }
+  }
+}
