@@ -1,0 +1,28 @@
+cangjie-language-server/test/message/applyEdit/ExtractInterface_Apply_020.base
+  s_72b46a82551b03::t_89331c3b7afbfd 1
+cangjie-language-server/src/languageserver/capabilities/refactor/tweaks/ExtractInterface.cpp
+  s_72b46a82551b03::t_a046a8e4e9b319 58,320-323,326,1223-1241,1280-1281,1339,1443,1508-1517,1887,1991,1993-1995,2003-2008,2010-2011,2300-2302,2658-2660,2728-2767,2849,2954
+cangjie-language-server/test/unitTests/languageserver/capabilities/refactor/ExtractInterfaceTest.cpp
+  s_72b46a82551b03::t_58662b6df02373 59,281-285
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "b3e2dfd22ac3de54d9465fd12094c79bb75c30f6",
+  "prompts": {},
+  "humans": {
+    "h_e3f698405e4cb3": {
+      "author": "savage <wangjunwei26@huawei.com>"
+    }
+  },
+  "sessions": {
+    "s_72b46a82551b03": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6a29-649b-7cc1-accd-a3235fd38611",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": null
+    }
+  }
+}
