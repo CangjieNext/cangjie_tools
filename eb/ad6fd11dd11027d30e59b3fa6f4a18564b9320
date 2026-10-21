@@ -1,0 +1,48 @@
+cangjie-language-server/src/languageserver/ArkASTWorker.cpp
+  h_e3f698405e4cb3 275-279,344
+cangjie-language-server/src/languageserver/ArkLanguageServer.cpp
+  h_e3f698405e4cb3 593-595,1439,1463-1464
+cangjie-language-server/src/languageserver/ArkServer.cpp
+  h_e3f698405e4cb3 1182-1185
+cangjie-language-server/src/languageserver/CompilerCangjieProject.cpp
+  h_e3f698405e4cb3 2611-2614,3094
+cangjie-language-server/src/languageserver/capabilities/completion/CompletionImpl.cpp
+  h_e3f698405e4cb3 580,715
+cangjie-language-server/src/languageserver/capabilities/fileRefactor/FileRefactor.cpp
+  h_e3f698405e4cb3 13-14
+cangjie-language-server/src/languageserver/capabilities/refactor/tweaks/ExtractFunction.cpp
+  h_e3f698405e4cb3 336,904
+cangjie-language-server/src/languageserver/capabilities/refactor/tweaks/ExtractInterface.cpp
+  h_e3f698405e4cb3 1161,1173
+cangjie-language-server/src/languageserver/capabilities/refactor/tweaks/InlineFunction.cpp
+  h_e3f698405e4cb3 180-182,187-189,653
+cangjie-language-server/src/languageserver/common/PositionResolver.cpp
+  h_e3f698405e4cb3 467
+cangjie-language-server/src/languageserver/index/CjdIndex.cpp
+  h_e3f698405e4cb3 9,334
+cangjie-language-server/src/languageserver/index/IndexDatabase.cpp
+  h_e3f698405e4cb3 62,67
+cangjie-language-server/src/languageserver/index/IndexStorage.cpp
+  h_e3f698405e4cb3 48-50,107-114,116-119,121-122,128-130,132-135,137-143,149-151,153-156,158-164,210-217,219-222,224-225,248-255,257-260,262-263,296-298
+cangjie-language-server/src/languageserver/logger/CrashReporter.cpp
+  h_e3f698405e4cb3 11,44-45
+cangjie-language-server/src/languageserver/logger/Logger.cpp
+  h_e3f698405e4cb3 179
+cangjie-language-server/src/languageserver/sql/wrapper/SQLiteAPI.cpp
+  h_e3f698405e4cb3 112,117-118,126,132-133,179-181
+cangjie-language-server/src/languageserver/sql/wrapper/SQLiteAPI.h
+  h_e3f698405e4cb3 95,105
+cangjie-language-server/src/launcher/main.cpp
+  h_e3f698405e4cb3 73
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "ebad6fd11dd11027d30e59b3fa6f4a18564b9320",
+  "prompts": {},
+  "humans": {
+    "h_e3f698405e4cb3": {
+      "author": "savage <wangjunwei26@huawei.com>"
+    }
+  }
+}
