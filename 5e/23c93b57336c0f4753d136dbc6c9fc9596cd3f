@@ -1,0 +1,33 @@
+cangjie-language-server/src/languageserver/common/ItemResolverUtil.cpp
+  s_cf5cad5a110709::t_264d783d764e13 216-219
+  s_cf5cad5a110709::t_70e3764f36d4e6 1636-1664
+cangjie-language-server/src/languageserver/common/ItemResolverUtil.h
+  s_cf5cad5a110709::t_47067c743e00ed 163-165
+cangjie-language-server/test/unitTests/languageserver/common/ItemResolverUtilTest.cpp
+  s_780024f31c8dc3::t_182942c20650d6 540,557,564,566
+  s_780024f31c8dc3::t_bb05fa172d0e59 531-539,541-556,558-563,565,567-584
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "5e23c93b57336c0f4753d136dbc6c9fc9596cd3f",
+  "prompts": {},
+  "sessions": {
+    "s_780024f31c8dc3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05afa-e082-7722-ab5e-5b30df6a6d71",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "savage <wangjunwei26@huawei.com>"
+    },
+    "s_cf5cad5a110709": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fa926185affel30VuoSTRGGOWa",
+        "model": "unknown"
+      },
+      "human_author": "savage <wangjunwei26@huawei.com>"
+    }
+  }
+}
