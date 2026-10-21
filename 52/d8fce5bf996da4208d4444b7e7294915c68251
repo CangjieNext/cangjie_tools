@@ -1,0 +1,21 @@
+cangjie-language-server/test/unitTests/languageserver/index/IndexStorageTest.cpp
+  s_1b4941397282ff::t_da837edcfc9a62 804-824
+cangjie-language-server/src/languageserver/capabilities/hover/HoverImpl.h
+  s_1b4941397282ff::t_0dea4960d66238 50-51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "52d8fce5bf996da4208d4444b7e7294915c68251",
+  "prompts": {},
+  "sessions": {
+    "s_1b4941397282ff": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fb4b8795cffee12mGqiYFgDlhb",
+        "model": "unknown"
+      },
+      "human_author": "savage <wangjunwei26@huawei.com>"
+    }
+  }
+}
