@@ -1,0 +1,68 @@
+cangjie-language-server/src/languageserver/sql/index/Statements.sql
+  s_3b0f556dd7da99::t_50d7b539fcad7e 141-142
+  s_3b0f556dd7da99::t_ae28caeff4cdc5 187
+cangjie-language-server/src/languageserver/index/IndexDatabase.cpp
+  s_3b0f556dd7da99::t_a7a6984be30ca6 1096
+  s_3b0f556dd7da99::t_2c2122677bcc95 1053
+  s_3b0f556dd7da99::t_21bd954ea7fa60 1130
+  s_3b0f556dd7da99::t_d64dc665a1e92f 168-169
+  s_3b0f556dd7da99::t_e59163f2e2e2de 95
+cangjie-language-server/src/languageserver/index/CjdIndex.h
+  s_3b0f556dd7da99::t_cbda63a3e2dc65 96-102
+  s_3b0f556dd7da99::t_a8cf98f839e00c 93-95
+  s_3b0f556dd7da99::t_3f23dff441f69b 90-92,121-125,158-160
+cangjie-language-server/src/languageserver/sql/index/CreateDB.sql
+  s_3b0f556dd7da99::t_f796bf4e0189ea 222-223
+  s_3b0f556dd7da99::t_d609d4ef8d7f8e 111-112
+  s_3b0f556dd7da99::t_928d86cc477469 265-266
+  s_3b0f556dd7da99::t_c76e8566a433ef 12
+  s_3b0f556dd7da99::t_d3c708a19f3527 183-184
+cangjie-language-server/test/unitTests/languageserver/index/IndexStorageTest.cpp
+  s_96086fa2bacd02::t_259641b8795403 784-803,816
+cangjie-language-server/src/languageserver/index/IndexStorage.cpp
+  s_3b0f556dd7da99::t_6a1be7bec3e80e 383
+  s_3b0f556dd7da99::t_ce61555b09e56f 193-195
+  s_3b0f556dd7da99::t_73dcff12be4563 359
+cangjie-language-server/src/languageserver/index/IndexDatabase.h
+  s_1b4941397282ff::t_faeda210ffdfd7 30
+cangjie-language-server/generate/index.fbs
+  s_3b0f556dd7da99::t_b559466dca2a5b 80
+cangjie-language-server/src/languageserver/index/CjdIndex.cpp
+  s_96086fa2bacd02::t_5b5db8775eace2 8,154,157,159,163,166,168-176,178,182-242
+  s_96086fa2bacd02::t_2f2ab6988d1b50 243
+  s_3b0f556dd7da99::t_16ee45675c3370 368,371
+cangjie-language-server/src/languageserver/index/SymbolCollector.cpp
+  s_3b0f556dd7da99::t_6b374c82a09ca7 530,533-545,556
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "dc1c6618f12c0d621e656eae8ddc5d2be6715558",
+  "prompts": {},
+  "sessions": {
+    "s_1b4941397282ff": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fb4b8795cffee12mGqiYFgDlhb",
+        "model": "unknown"
+      },
+      "human_author": "savage <wangjunwei26@huawei.com>"
+    },
+    "s_3b0f556dd7da99": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1e2d0b3b-1aeb-4281-bae5-3d4d17e889f3",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "savage <wangjunwei26@huawei.com>"
+    },
+    "s_96086fa2bacd02": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07fdf-f9bf-7c61-8f4c-6fd543648678",
+        "model": "gpt-5.6-luna"
+      },
+      "human_author": null
+    }
+  }
+}
