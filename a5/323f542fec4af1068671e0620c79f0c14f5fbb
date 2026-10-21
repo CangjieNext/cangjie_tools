@@ -1,0 +1,27 @@
+cangjie-language-server/test/testChr/refactor/src/ExtractInterface/extract_interface_interface_all.cj
+  s_0e02dd6b6038de::t_7ba5df8ba510ec 1-10
+cangjie-language-server/test/message/applyEdit/ExtractInterface_Apply_022.base
+  s_0e02dd6b6038de::t_256e22910504a4 1
+cangjie-language-server/test/message/applyEdit/ExtractInterface_Apply_022.test
+  s_0e02dd6b6038de::t_7ba5df8ba510ec 1-7
+cangjie-language-server/src/languageserver/capabilities/refactor/tweaks/ExtractInterface.cpp
+  s_0e02dd6b6038de::t_85d6e6545da062 77,1278-1289,1352-1356,2173-2176,2868-2869,2884
+cangjie-language-server/test/testCase.list
+  s_0e02dd6b6038de::t_94c1eda64540c9 1250
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "a5323f542fec4af1068671e0620c79f0c14f5fbb",
+  "prompts": {},
+  "sessions": {
+    "s_0e02dd6b6038de": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f7e3b-e3f6-73e0-a803-1d6475663380",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": null
+    }
+  }
+}
