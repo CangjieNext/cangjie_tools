@@ -1,0 +1,29 @@
+cangjie-language-server/src/languageserver/capabilities/hover/HoverImpl.cpp
+  s_0a0853e28a9d5a::t_1a69cb23e7316e 46-77,84,88,91,96-98,101,104,107,110-111,118
+  s_0a0853e28a9d5a::t_ae1f77455a8758 78-83
+  s_0a0853e28a9d5a::t_4a735d55c37547 85-87
+  s_0a0853e28a9d5a::t_41255f189932ca 89-90
+  s_0a0853e28a9d5a::t_a035b11af35245 92-95
+  s_0a0853e28a9d5a::t_11e07f9a11efea 99-100
+  s_0a0853e28a9d5a::t_1f53cad9716eef 102-103
+  s_0a0853e28a9d5a::t_12471d9f4ac13a 105-106
+  s_0a0853e28a9d5a::t_fc7e2f3371692a 108-109
+  s_0a0853e28a9d5a::t_d20e7f5c8de550 112-117
+  s_0a0853e28a9d5a::t_5ec51311df7c46 119
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.13",
+  "base_commit_sha": "3a6ae88b3cb31d50f5965b013105db89307986f0",
+  "prompts": {},
+  "sessions": {
+    "s_0a0853e28a9d5a": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_09ffc4677ffewRVSuzfwzdsGxB",
+        "model": "unknown"
+      },
+      "human_author": "lilei-ide <lilei105@huawei.com>"
+    }
+  }
+}
