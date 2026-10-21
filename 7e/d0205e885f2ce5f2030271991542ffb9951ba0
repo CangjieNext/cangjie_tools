@@ -1,0 +1,40 @@
+cangjie-language-server/src/languageserver/CompilerCangjieProject.cpp
+  h_8f530f3d668cf8 889-890,893,1469-1475,3046,3051-3053,3057
+cangjie-language-server/src/languageserver/common/multiModule/ModuleManger.cpp
+  h_8f530f3d668cf8 92,102,104-105,109-115,119-123
+cangjie-language-server/src/languageserver/common/multiModule/MultiModuleCommon.h
+  h_8f530f3d668cf8 32
+cangjie-language-server/test/message/goToDefinition/LSP_GoToDefinition_Common_Specific_003.base
+  h_8f530f3d668cf8 1
+cangjie-language-server/test/message/goToDefinition/LSP_GoToDefinition_Common_Specific_003.test
+  h_8f530f3d668cf8 1-7
+cangjie-language-server/test/testCase.list
+  h_8f530f3d668cf8 599
+cangjie-language-server/test/testChr/newFeature/commonSpecificTestPro/lib/cjpm.toml
+  h_8f530f3d668cf8 1-50
+cangjie-language-server/test/testChr/newFeature/commonSpecificTestPro/lib/common/logic.cj
+  h_8f530f3d668cf8 1-12
+cangjie-language-server/test/testChr/newFeature/commonSpecificTestPro/lib/common/main.cj
+  h_8f530f3d668cf8 1-14
+cangjie-language-server/test/testChr/newFeature/commonSpecificTestPro/lib/platform1/logic.cj
+  h_8f530f3d668cf8 1-19
+cangjie-language-server/test/testChr/newFeature/commonSpecificTestPro/lib/platform2/logic.cj
+  h_8f530f3d668cf8 1-19
+cangjie-language-server/test/testChr/newFeature/commonSpecificTestPro/lib/platform3/logic.cj
+  h_8f530f3d668cf8 1-13
+cangjie-language-server/test/testChr/newFeature/commonSpecificTestPro/tests/cangjie/example.cj
+  h_8f530f3d668cf8 1-11
+cangjie-language-server/test/testChr/newFeature/commonSpecificTestPro/tests/cjpm.toml
+  h_8f530f3d668cf8 1-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "7ed0205e885f2ce5f2030271991542ffb9951ba0",
+  "prompts": {},
+  "humans": {
+    "h_8f530f3d668cf8": {
+      "author": "tiantianok <chenliufei3@h-partners.com>"
+    }
+  }
+}
