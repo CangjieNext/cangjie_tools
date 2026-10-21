@@ -1,0 +1,58 @@
+cjcompat/src/main.cpp
+  h_fe069fe836a3e3 1-26
+cjcompat/doc/developer_guide.md
+  h_fe069fe836a3e3 1-193
+cjcompat/src/Diff/Diff.cpp
+  h_fe069fe836a3e3 1-862
+cjcompat/src/CheckersAndRules/ModifiedDecls.cpp
+  h_fe069fe836a3e3 1-277
+cjcompat/src/CheckersAndRules/AddedDeletedDecls.cpp
+  h_fe069fe836a3e3 1-194
+cjcompat/doc/user_guide_zh.md
+  h_fe069fe836a3e3 1-99,101-115,118-132,134-138,140-148,151-165,167-184,187-201,203-220,223-237,239-252
+cjcompat/src/CheckersAndRules/ModifiedMemberFunc.cpp
+  h_fe069fe836a3e3 1-1263
+cjcompat/src/CheckersAndRules/GenericParamAndConstraint.cpp
+  h_fe069fe836a3e3 1-495
+cjcompat/src/CheckersAndRules/ModifiedDeclModifier.cpp
+  h_fe069fe836a3e3 1-107
+cjcompat/doc/library_evolution_spec/source_zh_cn/Chapter_02_Overview.md
+  h_fe069fe836a3e3 1-22
+cjcompat/src/CMakeLists.txt
+  h_fe069fe836a3e3 1-51
+cjcompat/src/CheckersAndRules/FuncParamsAndReturn.cpp
+  h_fe069fe836a3e3 1-62
+cjcompat/build/build.py
+  h_fe069fe836a3e3 1-276
+cjcompat/CMakeLists.txt
+  h_fe069fe836a3e3 1-209
+cjcompat/src/Logger/Logger.cpp
+  h_fe069fe836a3e3 1-62
+cjcompat/src/CheckersAndRules/ClassInstanceMemerFuncs.cpp
+  h_fe069fe836a3e3 1-419
+cjcompat/src/CheckersAndRules/ModifiedMemberVar.cpp
+  h_fe069fe836a3e3 1-319
+cjcompat/src/CjoLoader/CjoLoader.cpp
+  h_fe069fe836a3e3 1-46
+cjcompat/src/CheckersAndRules/ModifiedPackageDecl.cpp
+  h_fe069fe836a3e3 1-18
+cjcompat/src/CheckersAndRules/DeletedChangedInheritedTypes.cpp
+  h_fe069fe836a3e3 1-225
+cjcompat/src/Option/Option.cpp
+  h_fe069fe836a3e3 1-212
+cjcompat/src/Dsl/Dsl.cpp
+  h_fe069fe836a3e3 1-1073
+cjcompat/include/cjcompat/Cjcompat.h
+  h_fe069fe836a3e3 6,9,12,14,20,23,25-26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "5013c495c2d53a9060d8803b4bc4ffe33c10c448",
+  "prompts": {},
+  "humans": {
+    "h_fe069fe836a3e3": {
+      "author": "zxudong <zxudong.zhang@huawei.com>"
+    }
+  }
+}
