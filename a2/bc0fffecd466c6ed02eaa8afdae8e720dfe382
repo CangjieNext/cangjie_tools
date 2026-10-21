@@ -1,0 +1,14 @@
+third_party/demangler/Demangler.h
+  h_520cfa385ff215 18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "a2bc0fffecd466c6ed02eaa8afdae8e720dfe382",
+  "prompts": {},
+  "humans": {
+    "h_520cfa385ff215": {
+      "author": "xushengj <xushengjie9@huawei.com>"
+    }
+  }
+}
