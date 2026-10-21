@@ -1,0 +1,18 @@
+cangjie-language-server/CMakeLists.txt
+  h_e3f698405e4cb3 44
+cangjie-language-server/src/languageserver/capabilities/diagnostic/UnusedSymbolDiag.cpp
+  h_e3f698405e4cb3 702
+cangjie-language-server/src/languageserver/common/multiModule/ModuleManger.cpp
+  h_e3f698405e4cb3 39-40,54-55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "7266ad525b0b832f87ce60c322f7a76ae86021fc",
+  "prompts": {},
+  "humans": {
+    "h_e3f698405e4cb3": {
+      "author": "savage <wangjunwei26@huawei.com>"
+    }
+  }
+}
