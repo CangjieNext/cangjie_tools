@@ -1,0 +1,26 @@
+cangjie-language-server/src/languageserver/capabilities/refactor/tweaks/IntroduceParameter.cpp
+  s_72b46a82551b03::t_93342af9a92425 772
+cangjie-language-server/src/languageserver/capabilities/refactor/tweaks/IntroduceParameter.h
+  s_72b46a82551b03::t_f4006ede6db617 52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "441b81c81752e438a2b37849f4bdc0e2849b3592",
+  "prompts": {},
+  "humans": {
+    "h_e3f698405e4cb3": {
+      "author": "savage <wangjunwei26@huawei.com>"
+    }
+  },
+  "sessions": {
+    "s_72b46a82551b03": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6a29-649b-7cc1-accd-a3235fd38611",
+        "model": "unknown"
+      },
+      "human_author": "savage <wangjunwei26@huawei.com>"
+    }
+  }
+}
