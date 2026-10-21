@@ -1,0 +1,38 @@
+cjfmt/src/Format/SimultaneousIterator.cpp
+  s_35d3654904da3f::t_8ce0952e8e513e 29-31,43
+  s_35d3654904da3f::t_7577d24e005a2a 26-28,32-42,44,148-149,151-152
+  s_4ad279cb31150e::t_48bc736bbbfded 174-176,183-185,189
+cjfmt/include/Format/CommentHandler.h
+  s_4ad279cb31150e::t_84582fc5ae4e2b 15-16,21-22,25
+cjfmt/src/Format/ASTToFormatSource.cpp
+  s_35d3654904da3f::t_981a46677a844e 54-56,58-61
+cjfmt/src/Format/FormatCodeProcessor.cpp
+  s_35d3654904da3f::t_1b7d708c633bd3 345-347,423-425,435-436,463-491,498-505,571-590,682-686,693
+cjfmt/src/Format/CommentHandler.cpp
+  s_4ad279cb31150e::t_ce555ff352d368 32,34-62,87-89,147,277-282,354-355,357-371,373,375
+  s_35d3654904da3f::t_7577d24e005a2a 356
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7880578dad060d1620475a7396ea48eb6037fed7",
+  "prompts": {},
+  "sessions": {
+    "s_35d3654904da3f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12006-dac0-74f1-a30d-36fb61fc4555",
+        "model": "gpt-6-astra"
+      },
+      "human_author": null
+    },
+    "s_4ad279cb31150e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0f0d5-8823-76d2-98df-2d93a869e140",
+        "model": "unknown"
+      },
+      "human_author": "Cangjie-SCH <sunchihao@h-partners.com>"
+    }
+  }
+}
