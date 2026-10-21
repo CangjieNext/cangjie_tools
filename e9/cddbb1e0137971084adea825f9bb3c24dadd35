@@ -1,0 +1,65 @@
+cangjie-language-server/test/message/codeAction/IntroduceParameter_Constraint_003.base
+  s_163af6d1c0d64f::t_9742bb45bd781f 1
+cangjie-language-server/test/message/codeAction/IntroduceParameter_Constraint_004.test
+  s_163af6d1c0d64f::t_9c9e14a1c328c5 4-5
+  s_163af6d1c0d64f::t_9a370eac7575e7 1-3
+  s_163af6d1c0d64f::t_202a4692b83cb9 6-7
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_023.base
+  s_163af6d1c0d64f::t_e2076c0bc21d27 1
+cangjie-language-server/test/message/codeAction/IntroduceParameter_Constraint_004.base
+  s_163af6d1c0d64f::t_9742bb45bd781f 1
+cangjie-language-server/test/testChr/refactor/src/IntroduceParameter/introduce_parameter_tuple.cj
+  s_163af6d1c0d64f::t_9c9e14a1c328c5 1-6
+  s_163af6d1c0d64f::t_321b926fddd62a 7-9
+  s_163af6d1c0d64f::t_9e017894d5ac3b 10-11
+cangjie-language-server/test/message/codeAction/IntroduceParameter_Constraint_003.test
+  s_163af6d1c0d64f::t_9c9e14a1c328c5 4-5
+  s_163af6d1c0d64f::t_bf5cb8fa7e896f 1-3
+  s_163af6d1c0d64f::t_9469c923d45b28 6-7
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_023.test
+  s_163af6d1c0d64f::t_9c9e14a1c328c5 4-5
+  s_163af6d1c0d64f::t_6827ceccd529af 1-3
+  s_163af6d1c0d64f::t_f4c9c0356eacc1 6-7
+cangjie-language-server/test/testChr/refactor/src/IntroduceParameter/introduce_parameter_const.cj
+  s_163af6d1c0d64f::t_9c9e14a1c328c5 1-6
+  s_163af6d1c0d64f::t_3f72c4cec750b3 7-9
+  s_163af6d1c0d64f::t_b9a2686ec48a2a 10-11
+cangjie-language-server/test/testChr/refactor/src/IntroduceParameter/introduce_parameter_if_let.cj
+  s_163af6d1c0d64f::t_9c9e14a1c328c5 1-6
+  s_163af6d1c0d64f::t_1393a0174f7688 7-9
+  s_163af6d1c0d64f::t_e1a63b8978f0db 10-13
+cangjie-language-server/src/languageserver/capabilities/refactor/TweakUtils.cpp
+  s_163af6d1c0d64f::t_b421411275881b 10,118-197,563
+cangjie-language-server/src/languageserver/capabilities/refactor/TweakUtils.h
+  s_163af6d1c0d64f::t_c13ab61d20d41f 41-48
+cangjie-language-server/src/languageserver/capabilities/refactor/tweaks/IntroduceField.cpp
+  s_163af6d1c0d64f::t_73372e673b8caa 152-154,164-166,435-440,446
+cangjie-language-server/src/languageserver/capabilities/refactor/tweaks/IntroduceField.h
+  s_163af6d1c0d64f::t_15508ca55c2c1f 25-26
+cangjie-language-server/src/languageserver/capabilities/refactor/tweaks/IntroduceParameter.cpp
+  s_163af6d1c0d64f::t_0b2e8e30dbaf72 290,330-339,346
+cangjie-language-server/src/languageserver/capabilities/refactor/tweaks/IntroduceParameter.h
+  s_163af6d1c0d64f::t_4f7c5ee066099c 22-24
+cangjie-language-server/test/testCase.list
+  s_163af6d1c0d64f::t_11784cdbfbee4c 1223-1224,1290
+cangjie-language-server/test/unitTests/languageserver/capabilities/refactor/IntroduceFieldTest.cpp
+  s_163af6d1c0d64f::t_0385f3a408d4ab 144-145
+cangjie-language-server/test/unitTests/languageserver/capabilities/refactor/IntroduceParameterTest.cpp
+  s_163af6d1c0d64f::t_6a24f4de913b3c 8,30-41,176
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "e9cddbb1e0137971084adea825f9bb3c24dadd35",
+  "prompts": {},
+  "sessions": {
+    "s_163af6d1c0d64f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f5e42-2710-70a3-b79b-b0aa2b19539a",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "savage <wangjunwei26@huawei.com>"
+    }
+  }
+}
