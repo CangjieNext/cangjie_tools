@@ -1,0 +1,199 @@
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_003.test
+  s_310eb918852375::t_a06096bc4b7076 4
+cangjie-language-server/test/testChr/refactor/src/ExtractInterface/extract_interface_interface_all.cj
+  s_1b4941397282ff::t_67d0b67fc84c65 7-8
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_011.base
+  s_310eb918852375::t_a06096bc4b7076 1
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_010.base
+  s_310eb918852375::t_16fcc6bdda5158 1
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_014.base
+  s_310eb918852375::t_a06096bc4b7076 1
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_016.base
+  s_310eb918852375::t_296fbc76a10959 1
+cangjie-language-server/test/message/codeAction/IntroduceParameter_Constraint_003.base
+  s_1b4941397282ff::t_77bb39dd1ba88c 1
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_023.test
+  s_310eb918852375::t_a06096bc4b7076 4
+cangjie-language-server/test/message/applyEdit/ExtractInterface_Apply_002.base
+  s_1b4941397282ff::t_708f02cc87044f 1
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_016.test
+  s_310eb918852375::t_a06096bc4b7076 3-5
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_008.base
+  s_310eb918852375::t_16fcc6bdda5158 1
+cangjie-language-server/test/message/applyEdit/ExtractInterface_Apply_019.base
+  s_1b4941397282ff::t_41d49010f41358 1
+cangjie-language-server/test/message/applyEdit/ExtractInterface_Apply_007.base
+  s_1b4941397282ff::t_1dc35b7e2c7c94 1
+cangjie-language-server/test/testChr/refactor/src/IntroduceParameter/introduce_parameter_apply_022.cj
+  s_310eb918852375::t_d84d5f42465eef 1-22
+cangjie-language-server/test/message/codeAction/IntroduceField_Constraint_004.base
+  s_310eb918852375::t_123212040c85f5 1
+cangjie-language-server/test/message/applyEdit/ExtractInterface_Apply_011.base
+  s_1b4941397282ff::t_7707321bbe3bec 1
+cangjie-language-server/test/message/codeAction/IntroduceParameter_Constraint_002.test
+  s_1b4941397282ff::t_d64567d7e27a56 4-5
+cangjie-language-server/test/testChr/refactor/src/IntroduceParameter/introduce_parameter_apply_020.cj
+  s_310eb918852375::t_d84d5f42465eef 1-15
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_009.test
+  s_310eb918852375::t_75c5c147a811ef 5
+  s_310eb918852375::t_a06096bc4b7076 4
+cangjie-language-server/test/message/applyEdit/ExtractInterface_Apply_004.base
+  s_1b4941397282ff::t_7308edffe24e3a 1
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_002.test
+  s_310eb918852375::t_75c5c147a811ef 5
+  s_310eb918852375::t_a06096bc4b7076 4
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_004.test
+  s_310eb918852375::t_a06096bc4b7076 4
+  s_310eb918852375::t_75c5c147a811ef 5
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_021.test
+  s_310eb918852375::t_a06096bc4b7076 3-5
+cangjie-language-server/src/languageserver/capabilities/refactor/tweaks/IntroduceParameter.cpp
+  s_1b4941397282ff::t_bc8816a148ffae 1279-1285
+cangjie-language-server/test/message/applyEdit/IntroduceField_Apply_013.test
+  s_310eb918852375::t_16fcc6bdda5158 4-5
+cangjie-language-server/test/testChr/refactor/src/IntroduceParameter/introduce_parameter_apply_019.cj
+  s_310eb918852375::t_d84d5f42465eef 1-16
+cangjie-language-server/test/featureTest/codeAction/CodeActionTest.cpp
+  s_1b4941397282ff::t_1b84bfe4b1d63c 57
+cangjie-language-server/test/message/applyEdit/IntroduceField_Apply_013.base
+  s_310eb918852375::t_16fcc6bdda5158 1
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_001.test
+  s_310eb918852375::t_a06096bc4b7076 4
+cangjie-language-server/test/message/applyEdit/ExtractMethod_Apply_003.test
+  s_1b4941397282ff::t_90089109ea201e 4-5
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_019.base
+  s_310eb918852375::t_a06096bc4b7076 1
+cangjie-language-server/test/message/applyEdit/IntroduceField_Apply_012.test
+  s_310eb918852375::t_16fcc6bdda5158 4-5
+cangjie-language-server/test/testChr/refactor/src/IntroduceParameter/introduce_parameter_apply_021.cj
+  s_310eb918852375::t_d84d5f42465eef 1-26
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_018.test
+  s_310eb918852375::t_a06096bc4b7076 3-5
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_006.base
+  s_310eb918852375::t_16fcc6bdda5158 1
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_002.base
+  s_310eb918852375::t_16fcc6bdda5158 1
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_019.test
+  s_310eb918852375::t_a06096bc4b7076 3-5
+cangjie-language-server/test/testChr/refactor/src/ExtractInterface/extract_interface_constructor.cj
+  s_310eb918852375::t_d84d5f42465eef 10,12,20-22,25-26,28
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_005.test
+  s_310eb918852375::t_75c5c147a811ef 5
+  s_310eb918852375::t_a06096bc4b7076 4
+cangjie-language-server/test/message/applyEdit/IntroduceField_Apply_010.base
+  s_310eb918852375::t_16fcc6bdda5158 1
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_014.test
+  s_310eb918852375::t_a06096bc4b7076 4-5
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_012.base
+  s_310eb918852375::t_296fbc76a10959 1
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_013.test
+  s_310eb918852375::t_a06096bc4b7076 4-5
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_005.base
+  s_310eb918852375::t_16fcc6bdda5158 1
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_010.test
+  s_310eb918852375::t_a06096bc4b7076 4
+  s_310eb918852375::t_75c5c147a811ef 5
+cangjie-language-server/test/message/applyEdit/ExtractInterface_Apply_021.base
+  s_1b4941397282ff::t_dc4390aa96af14 1
+cangjie-language-server/test/featureTest/applyEdit/ApplyEditTest.cpp
+  s_1b4941397282ff::t_db4ac4c657e0c4 56
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_018.base
+  s_310eb918852375::t_f816a4b8ce324c 1
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_017.test
+  s_310eb918852375::t_a06096bc4b7076 4
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_020.base
+  s_310eb918852375::t_a06096bc4b7076 1
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_021.base
+  s_310eb918852375::t_f816a4b8ce324c 1
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_012.test
+  s_310eb918852375::t_a06096bc4b7076 3-5
+cangjie-language-server/test/message/applyEdit/IntroduceField_Apply_010.test
+  s_310eb918852375::t_16fcc6bdda5158 4-5
+cangjie-language-server/test/message/applyEdit/IntroduceField_Apply_012.base
+  s_310eb918852375::t_16fcc6bdda5158 1
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_022.base
+  s_310eb918852375::t_a06096bc4b7076 1
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_020.test
+  s_310eb918852375::t_a06096bc4b7076 3-5
+cangjie-language-server/test/message/applyEdit/ExtractInterface_Apply_020.test
+  s_1b4941397282ff::t_c9ca1084f8f3aa 1-7
+cangjie-language-server/test/testChr/refactor/src/IntroduceParameter/introduce_parameter_apply_018.cj
+  s_310eb918852375::t_d84d5f42465eef 1-20
+cangjie-language-server/test/message/applyEdit/ExtractInterface_Apply_022.base
+  s_1b4941397282ff::t_3bbaf55544e5f1 1
+cangjie-language-server/test/message/applyEdit/ExtractInterface_Apply_015.base
+  s_1b4941397282ff::t_15de5d271f7b9c 1
+cangjie-language-server/test/testChr/refactor/src/ExtractInterface/extract_interface_rename_inherited.cj
+  s_1b4941397282ff::t_bcf153ffeabf0c 7-8
+cangjie-language-server/test/testChr/refactor/src/IntroduceParameter/introduce_parameter.cj
+  s_310eb918852375::t_a06096bc4b7076 156-171
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_013.base
+  s_310eb918852375::t_a06096bc4b7076 1
+cangjie-language-server/test/message/applyEdit/ExtractInterface_Apply_021.test
+  s_1b4941397282ff::t_4969a7fb0ee03c 1-7
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_015.base
+  s_310eb918852375::t_58a01e29680d3e 1
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_007.test
+  s_310eb918852375::t_a06096bc4b7076 4
+  s_310eb918852375::t_75c5c147a811ef 5
+cangjie-language-server/test/message/codeAction/IntroduceParameter_Constraint_004.base
+  s_310eb918852375::t_123212040c85f5 1
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_006.test
+  s_310eb918852375::t_75c5c147a811ef 5
+  s_310eb918852375::t_a06096bc4b7076 4
+cangjie-language-server/test/message/applyEdit/ExtractMethod_Apply_003.base
+  s_1b4941397282ff::t_c3a7c74d12a4b0 1
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_009.base
+  s_310eb918852375::t_16fcc6bdda5158 1
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_004.base
+  s_310eb918852375::t_16fcc6bdda5158 1
+cangjie-language-server/test/message/applyEdit/ExtractInterface_Apply_007.test
+  s_1b4941397282ff::t_01a45ae8237a2d 5
+cangjie-language-server/test/message/codeAction/IntroduceParameter_Constraint_002.base
+  s_1b4941397282ff::t_b37ed503ad158a 1
+cangjie-language-server/test/message/applyEdit/ExtractInterface_Apply_020.base
+  s_1b4941397282ff::t_aa0f15dc14d0d1 1
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_008.test
+  s_310eb918852375::t_75c5c147a811ef 5
+  s_310eb918852375::t_a06096bc4b7076 4
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_011.test
+  s_310eb918852375::t_a06096bc4b7076 3-5
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_015.test
+  s_310eb918852375::t_75c5c147a811ef 5
+  s_310eb918852375::t_a06096bc4b7076 4
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_007.base
+  s_310eb918852375::t_16fcc6bdda5158 1
+cangjie-language-server/test/message/applyEdit/ExtractInterface_Apply_022.test
+  s_1b4941397282ff::t_a9b3bce2ce3364 1-7
+cangjie-language-server/test/message/applyEdit/IntroduceParameter_Apply_022.test
+  s_310eb918852375::t_a06096bc4b7076 3-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "a536e9d23fa6515cf82501889105c6c9b1fabf34",
+  "prompts": {},
+  "humans": {
+    "h_e3f698405e4cb3": {
+      "author": "savage <wangjunwei26@huawei.com>"
+    }
+  },
+  "sessions": {
+    "s_1b4941397282ff": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fb4b8795cffee12mGqiYFgDlhb",
+        "model": "unknown"
+      },
+      "human_author": "savage <wangjunwei26@huawei.com>"
+    },
+    "s_310eb918852375": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fb3568840ffeLVLNt7okvQ5AQ0",
+        "model": "unknown"
+      },
+      "human_author": null
+    }
+  }
+}
