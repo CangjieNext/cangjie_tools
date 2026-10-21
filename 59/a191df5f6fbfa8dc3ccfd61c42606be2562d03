@@ -1,0 +1,19 @@
+cangjie-language-server/src/launcher/main.cpp
+  h_e3f698405e4cb3 86-88,91-92,102-104,106
+  h_e3f698405e4cb3 89,105
+cangjie-language-server/src/languageserver/capabilities/refactor/tweaks/InlineFunction.cpp
+  h_e3f698405e4cb3 79-81,86-88,135-137,142-144
+cangjie-language-server/src/languageserver/sql/wrapper/Connection.h
+  h_e3f698405e4cb3 193-194,209-210
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "59a191df5f6fbfa8dc3ccfd61c42606be2562d03",
+  "prompts": {},
+  "humans": {
+    "h_e3f698405e4cb3": {
+      "author": "savage <wangjunwei26@huawei.com>"
+    }
+  }
+}
