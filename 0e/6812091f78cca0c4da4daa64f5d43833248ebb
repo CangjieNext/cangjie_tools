@@ -1,0 +1,35 @@
+cangjie-language-server/src/languageserver/capabilities/refactor/tweaks/IntroduceParameter.cpp
+  s_cffb9df16797fa::t_a7a77d2495c2b2 810-813,815-817,819-833,835-838,840-844,846-859,861-865,916-922,939-940,942-943,946,999,1007,1009,1014,1047,1049-1050,1059,1075,1088-1089,1093,1319-1320,1437-1438,1447
+  s_cffb9df16797fa::t_41922a28389588 324-328
+cangjie-language-server/src/languageserver/capabilities/refactor/TweakUtils.cpp
+  s_cffb9df16797fa::t_41922a28389588 180-232
+  s_cffb9df16797fa::t_97de739ddb8972 233-234
+cangjie-language-server/src/languageserver/capabilities/refactor/TweakUtils.h
+  s_cffb9df16797fa::t_41922a28389588 47-49
+cangjie-language-server/src/languageserver/capabilities/refactor/tweaks/IntroduceField.cpp
+  s_cffb9df16797fa::t_41922a28389588 410-414
+cangjie-language-server/test/unitTests/languageserver/capabilities/refactor/IntroduceFieldTest.cpp
+  h_e3f698405e4cb3 171,176,183,190,195,204,209,216,224
+  s_cffb9df16797fa::t_0d725ce5015941 8-9,162-170,172-175,177-182,184-189,191-194,196-203,205-208,210-215,217-223
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "0e6812091f78cca0c4da4daa64f5d43833248ebb",
+  "prompts": {},
+  "humans": {
+    "h_e3f698405e4cb3": {
+      "author": "savage <wangjunwei26@huawei.com>"
+    }
+  },
+  "sessions": {
+    "s_cffb9df16797fa": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fa12c-8803-78d2-990b-67854953edbb",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": null
+    }
+  }
+}
