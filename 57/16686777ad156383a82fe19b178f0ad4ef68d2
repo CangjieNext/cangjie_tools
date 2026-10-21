@@ -1,0 +1,22 @@
+cjlint/src/rules/structural_rule_analysis/StructuralRuleGERR03/StructuralRuleGERR03.cpp
+  s_81651642d837ad::t_0a82a139ddab36 22-48,53,67,71-72
+  s_81651642d837ad::t_a036bc7050c87e 54-56,64-66
+  s_81651642d837ad::t_290f929b01bb48 69-70
+  s_81651642d837ad::t_1f692e3e772126 73-75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "5716686777ad156383a82fe19b178f0ad4ef68d2",
+  "prompts": {},
+  "sessions": {
+    "s_81651642d837ad": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f6156747bffezD6WP05UlKa84T",
+        "model": "unknown"
+      },
+      "human_author": "zxudong <zxudong.zhang@huawei.com>"
+    }
+  }
+}
