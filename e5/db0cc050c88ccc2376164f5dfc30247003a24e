@@ -1,0 +1,41 @@
+cjpm/src/config/lock.cj
+  s_048de643d4ae87::t_dc28757671ace5 53,177-178,269
+  s_048de643d4ae87::t_25ca4dd726fad8 12-13,19,54,56,67,70,72-73,134,179-180,223,239,257-267
+  s_048de643d4ae87::t_98de3dd893e7e2 280-282,284-288,290-334,336-337,339-349,352-358,360-361,375-381,387-422
+  s_048de643d4ae87::t_b1bbffae106ca7 350-351
+  s_048de643d4ae87::t_beebbf9245b58d 283,289,335,338,359,362-374,382-386
+cjpm/src/implement/dep_engine.cj
+  s_048de643d4ae87::t_0965f7206a52e2 76,508-514,517-530
+  s_048de643d4ae87::t_b1bbffae106ca7 515-516
+cjpm/src/implement/build_script.cj
+  s_048de643d4ae87::t_0965f7206a52e2 172-174,178,211-218,221
+cjpm/src/config/dependencies.cj
+  s_048de643d4ae87::t_25ca4dd726fad8 27-30
+cjpm/src/implement/check.cj
+  s_048de643d4ae87::t_0965f7206a52e2 36-41
+cjpm/src/implement/update.cj
+  s_048de643d4ae87::t_0965f7206a52e2 83-84,128
+cjpm/src/implement/git.cj
+  s_048de643d4ae87::t_6b61cbce00227e 19-25,113,123-124
+cjpm/src/implement/dep_model.cj
+  s_048de643d4ae87::t_0965f7206a52e2 1050
+  s_048de643d4ae87::t_dc28757671ace5 116,1025-1029,1034-1035
+  s_048de643d4ae87::t_68bb0e884bc973 1031-1033
+  s_048de643d4ae87::t_e5632bcaa05e22 1030
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e5db0cc050c88ccc2376164f5dfc30247003a24e",
+  "prompts": {},
+  "sessions": {
+    "s_048de643d4ae87": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1576e-6021-7320-9464-f3a572d5c74a",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": null
+    }
+  }
+}
