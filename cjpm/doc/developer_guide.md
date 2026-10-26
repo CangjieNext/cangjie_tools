@@ -296,6 +296,10 @@ Key configuration fields:
         [target.x86_64-unknown-linux-gnu.release.bin-dependencies]
     ```
 
+### Central Repository TLS
+
+When publishing packages, downloading packages, or fetching indexes from an HTTPS central repository, `cjpm` uses the host name parsed from the registry URL as the TLS server name. With `strict-tls = true` (the default), the server certificate must be trusted and valid for that host name. The port and URL path are not part of the server name. The current stdx server-name verification uses DNS-name semantics, so configure a domain name for the registry; certificates containing only IP SANs are not supported by this verification method.
+
 ### Additional Features
 
 In addition to the aforementioned commands and configuration items, `cjpm` also supports other features such as build scripts, command extensions, etc.

@@ -15,6 +15,7 @@ import stdx.net.tls.common.*
 import stdx.net.tls.*
 import stdx.crypto.digest.*
 import stdx.encoding.hex.*
+import stdx.encoding.url.URL
 import stdx.serialization.serialization.*
 import stdx.encoding.json.*
 import cjpm.config.*
@@ -87,6 +88,7 @@ public class Depot {
 
         // building client
         var tlsConfig = TlsClientConfig()
+        tlsConfig.serverName = URL.parse(baseUrl).hostName
         if (!this.global.strictTls) {
             tlsConfig.verifyMode = TrustAll
         }
@@ -135,6 +137,7 @@ public class Depot {
 
         // building client
         var tlsConfig = TlsClientConfig()
+        tlsConfig.serverName = URL.parse(baseUrl).hostName
         if (!this.global.strictTls) {
             tlsConfig.verifyMode = TrustAll
         }
@@ -238,6 +241,7 @@ public class Depot {
 
         // building client
         var tlsConfig = TlsClientConfig()
+        tlsConfig.serverName = URL.parse(baseUrl).hostName
         if (!this.global.strictTls) {
             tlsConfig.verifyMode = TrustAll
         }
