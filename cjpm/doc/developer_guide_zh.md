@@ -339,6 +339,10 @@ Use "cjpm [subcommand] --help" for more information about a command.
         [target.x86_64-unknown-linux-gnu.release.bin-dependencies]
     ```
 
+### 中心仓 TLS 校验
+
+向 HTTPS 中心仓发布包、下载包或获取索引时，`cjpm` 使用从 registry URL 解析出的主机名作为 TLS 服务器名称。`strict-tls = true`（默认）时，服务端证书必须受信任且对该主机名有效。端口和 URL 路径不包含在服务器名称中。当前 stdx 的服务器名称校验使用 DNS 名称语义，中心仓应配置域名；仅包含 IP SAN 的证书不支持此校验方式。
+
 ### 其他功能
 
 除了上述命令和配置项之外，`cjpm` 还支持一些其他功能，例如构建脚本、命令扩展等。
