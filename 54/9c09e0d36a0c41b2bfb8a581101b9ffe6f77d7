@@ -1,0 +1,41 @@
+cjfmt/src/Format/NodeFormatter/Expr/ParenExprFormatter.cpp
+  s_059d99170394e5::t_b4c10ad19e4b83 22,37
+cjfmt/src/Format/DocProcessor/SoftLineTypeProcessor.cpp
+  s_059d99170394e5::t_b4c10ad19e4b83 16-19
+cjfmt/src/Format/FormatCodeProcessor.cpp
+  s_059d99170394e5::t_b4c10ad19e4b83 294-295
+cjfmt/src/Format/DocProcessor/SoftLineWithSpaceTypeProcessor.cpp
+  s_059d99170394e5::t_26e5003d0a34d7 16-18,20-21,27
+  s_059d99170394e5::t_b4c10ad19e4b83 19,22
+cjfmt/src/Format/DocProcessor/ArgsProcessor.cpp
+  s_059d99170394e5::t_36557efe7db718 20-42,108
+  s_059d99170394e5::t_26e5003d0a34d7 67-69,81
+  s_059d99170394e5::t_2c5a0e5fef36d2 91-107,109-110
+cjfmt/src/Format/NodeFormatter/Expr/BinaryExprFormatter.cpp
+  s_059d99170394e5::t_2c5a0e5fef36d2 22,25-53,55,57
+cjfmt/src/Format/DocProcessor/DocProcessor.cpp
+  s_059d99170394e5::t_b4c10ad19e4b83 16-24,27-35,37,39,41-42,49-55,60,89-100
+  s_059d99170394e5::t_26e5003d0a34d7 43,46,48,59,63-67
+cjfmt/src/Format/NodeFormatter/Node/FuncParamListFormatter.cpp
+  s_059d99170394e5::t_dfdad1ed846112 67,69-70,73,76
+  s_059d99170394e5::t_2dc9f96858121b 64
+  s_059d99170394e5::t_8c8e77e93be2a9 65
+cjfmt/include/Format/DocProcessor/DocProcessor.h
+  s_059d99170394e5::t_b4c10ad19e4b83 29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "549c09e0d36a0c41b2bfb8a581101b9ffe6f77d7",
+  "prompts": {},
+  "sessions": {
+    "s_059d99170394e5": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a13474-a064-7c03-b061-912f0c681411",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Cangjie-SCH <sunchihao@h-partners.com>"
+    }
+  }
+}

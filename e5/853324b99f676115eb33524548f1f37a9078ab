@@ -1,0 +1,208 @@
+cjfmt/src/Format/NodeFormatter/Expr/ParenExprFormatter.cpp
+  s_059d99170394e5::t_d21039b2b3c4db 23
+cjfmt/src/Format/NodeFormatter/Expr/MemberAccessFormatter.cpp
+  s_059d99170394e5::t_5b7a42ec092fb4 42
+cjfmt/src/Format/DocProcessor/DocProcessor.cpp
+  s_059d99170394e5::t_8b58d279bcde54 184
+  s_059d99170394e5::t_be7d8cafe57ee8 228
+  s_059d99170394e5::t_cded176e28708e 77,103,106,111,121,144-146
+  s_059d99170394e5::t_b4c10ad19e4b83 75-76
+  s_059d99170394e5::t_7209a3af98959e 30-52
+  s_059d99170394e5::t_830663eb5a356f 78-82,85-94,96-102,104-105,107-110,112,115-120,122-123
+  s_059d99170394e5::t_5ca0d1254d102a 171,173-183,186-189,191-192,198-209,251-254,256,258,260,262,264,266-267,284,286
+  s_059d99170394e5::t_062f7aa0ceb26e 185,190,227,230
+  s_059d99170394e5::t_bd9e805e07a29f 13,28,59-74,83-84,95
+  s_059d99170394e5::t_ce557170defeae 236-237
+  s_f273b8ed455895::t_29420544531eaf 14,16-20
+  s_059d99170394e5::t_d21039b2b3c4db 211-226,229,231-232,239-250
+  s_059d99170394e5::t_904b8a64e07b67 15,21-27,255,257,259,261,263,265,268,282
+  s_059d99170394e5::t_71d3170023ba84 29
+  s_059d99170394e5::t_2e18673ce926b6 172,210
+  s_f273b8ed455895::t_6cdbf916c1e9ac 113-114
+  s_059d99170394e5::t_22cd0bcb2affba 193-197,233-235,238,269-281,283,285
+cjfmt/src/Format/NodeFormatter/Type/TupleTypeFormatter.cpp
+  s_059d99170394e5::t_5b7a42ec092fb4 29,31,33-36,39
+cjfmt/src/Format/NodeFormatter/Node/ImportSpecFormatter.cpp
+  s_059d99170394e5::t_396122de156706 58-62
+cjfmt/src/Format/NodeFormatter/Node/GenericConstraintFormatter.cpp
+  s_059d99170394e5::t_4db97246a2c102 22-23,29-33,35,37-38
+cjfmt/include/Format/ASTToFormatSource.h
+  s_059d99170394e5::t_5b7a42ec092fb4 86
+  s_059d99170394e5::t_6b62cd4ea62b3e 87
+cjfmt/src/Format/DocProcessor/LambdaProcessor.cpp
+  s_059d99170394e5::t_3614424cb16fc5 14-18
+  s_059d99170394e5::t_ab7dbd03c869d7 22
+cjfmt/src/Format/NodeFormatter/Expr/TupleLitFormatter.cpp
+  s_059d99170394e5::t_5b7a42ec092fb4 22-23,26,31-33
+cjfmt/src/Format/DocProcessor/BreakParentTypeProcessor.cpp
+  s_059d99170394e5::t_8b58d279bcde54 13-14,16
+cjfmt/include/Format/CommentLayout.h
+  s_059d99170394e5::t_062f7aa0ceb26e 2-13,15-16
+  s_f273b8ed455895::t_b6cab58022e0e1 14
+  s_f273b8ed455895::t_30432d81297d1b 1
+cjfmt/src/Format/DocProcessor/ArgsProcessor.cpp
+  s_059d99170394e5::t_f10a126f5f9f1b 38,60-64
+cjfmt/src/Format/NodeFormatter/Node/FuncParamListFormatter.cpp
+  s_059d99170394e5::t_b734e040be96c8 9,85
+  s_059d99170394e5::t_d2ba857dccf89d 70-72
+cjfmt/src/Format/NodeFormatter/Expr/ArrayLitFormatter.cpp
+  s_059d99170394e5::t_d2ba857dccf89d 64-66
+cjfmt/src/Format/NodeFormatter/Type/RefTypeFormatter.cpp
+  s_059d99170394e5::t_5b7a42ec092fb4 29
+cjfmt/src/Format/NodeFormatter/Expr/TrailingClosureExprFormatter.cpp
+  s_059d99170394e5::t_3614424cb16fc5 35-40
+cjfmt/src/Format/DocProcessor/SoftLineWithSpaceTypeProcessor.cpp
+  s_059d99170394e5::t_8b58d279bcde54 22-23
+cjfmt/src/Format/DocProcessor/SoftLineTypeProcessor.cpp
+  s_059d99170394e5::t_8b58d279bcde54 19-22
+cjfmt/src/Format/DocProcessor/GroupProcessor.cpp
+  s_059d99170394e5::t_8db9d6494ac989 22-28
+  s_059d99170394e5::t_8b58d279bcde54 13,16-21,29,31
+cjfmt/src/Format/DocProcessor/ChoiceProcessor.cpp
+  s_059d99170394e5::t_b922798827438c 14-20,28,35,37
+  s_059d99170394e5::t_0396458d13efe8 29-34,36
+  s_059d99170394e5::t_a5df9587a3978f 21-27
+  s_059d99170394e5::t_662ebb61a001ae 2-13,38
+  s_f273b8ed455895::t_30432d81297d1b 1
+cjfmt/src/Format/DocProcessor/LambdaBodyProcessor.cpp
+  s_059d99170394e5::t_f37b1fb79dd8b4 11-12,14-19,21-22,24-27
+cjfmt/src/Format/NodeFormatter/Expr/BinaryExprFormatter.cpp
+  s_f273b8ed455895::t_ff67f5cd6c4f04 14-15,30-32,34-44,46
+  s_059d99170394e5::t_451e107dc65bc9 21,47
+  s_059d99170394e5::t_77ea5beaafec28 25-27
+  s_059d99170394e5::t_2c5a0e5fef36d2 45
+  s_059d99170394e5::t_f10a126f5f9f1b 52
+  s_059d99170394e5::t_d1b4555001521e 55-68
+cjfmt/src/Format/NodeFormatter/Type/FuncTypeFormatter.cpp
+  s_059d99170394e5::t_5b7a42ec092fb4 33,38-40
+cjfmt/src/Format/NodeFormatter/Expr/CallExprFormatter.cpp
+  s_059d99170394e5::t_ab7dbd03c869d7 45-47
+  s_059d99170394e5::t_d2ba857dccf89d 52-54
+cjfmt/src/Format/NodeFormatter/Decl/VarDeclFormatter.cpp
+  s_059d99170394e5::t_662ebb61a001ae 39
+cjfmt/src/Format/NodeFormatter/Expr/SubscriptExprFormatter.cpp
+  s_059d99170394e5::t_f10a126f5f9f1b 29-30,32,34-37,40-41
+cjfmt/src/Format/DocProcessor/ConcatTypeProcessor.cpp
+  s_059d99170394e5::t_7209a3af98959e 14,16-18
+cjfmt/include/Format/DocProcessor/ChoiceProcessor.h
+  s_059d99170394e5::t_662ebb61a001ae 2-19
+  s_f273b8ed455895::t_30432d81297d1b 1
+cjfmt/include/Format/NodeFormatter/ListLayout.h
+  s_f273b8ed455895::t_30432d81297d1b 1
+  s_059d99170394e5::t_b734e040be96c8 2-15,18-20
+  s_059d99170394e5::t_1d961d82f39216 16-17
+cjfmt/src/Format/DocProcessor/MemberAccessProcessor.cpp
+  s_059d99170394e5::t_de82ab426f2729 143-149,161
+  s_059d99170394e5::t_d6ee043f150eb2 165
+  s_059d99170394e5::t_997c4fda93335e 32
+  s_059d99170394e5::t_db1450dfaede23 39,41-44,46-47,82,85,131,134,136-141,152,164
+  s_059d99170394e5::t_640e09f74a18fa 15,25,27-30,34-36,151,153,162
+  s_059d99170394e5::t_ac65e14c7f2277 17-21,23,31
+  s_059d99170394e5::t_78c0ba5fe86991 22,24,26,157-160
+  s_059d99170394e5::t_144e6badb8530e 93-96,128
+  s_059d99170394e5::t_7580a6239959a0 10-11
+  s_059d99170394e5::t_1d961d82f39216 51,72,84,90-92
+  s_059d99170394e5::t_77ea5beaafec28 53-56,58-61,63,66,68-71,73,75-79,86,88-89,100,102-122,126-127,129,163
+  s_059d99170394e5::t_39c57832d1a70a 133,150,154-156
+cjfmt/src/Format/ASTToFormatSource.cpp
+  s_059d99170394e5::t_0396458d13efe8 251-253
+  s_059d99170394e5::t_662ebb61a001ae 249-250,255-256
+  s_059d99170394e5::t_5b7a42ec092fb4 257-276,283,291-293,305
+  s_059d99170394e5::t_b734e040be96c8 8,533,539
+  s_059d99170394e5::t_fac24dfcd0c9bc 254
+cjfmt/src/Format/NodeFormatter/Expr/AssignExprFormatter.cpp
+  s_059d99170394e5::t_662ebb61a001ae 25-26,28
+cjfmt/src/Format/NodeFormatter/Expr/RefExprFormatter.cpp
+  s_059d99170394e5::t_5b7a42ec092fb4 26
+cjfmt/include/Format/Doc.h
+  s_059d99170394e5::t_8b58d279bcde54 79
+  s_f273b8ed455895::t_c1db259b838d98 86-87
+  s_059d99170394e5::t_a5df9587a3978f 98
+  s_059d99170394e5::t_48d887045827e6 101
+  s_059d99170394e5::t_6b62cd4ea62b3e 55
+  s_059d99170394e5::t_8db9d6494ac989 88
+  s_059d99170394e5::t_3614424cb16fc5 97
+  s_059d99170394e5::t_57c8755e66a027 84-85,89-90,96,99-100
+cjfmt/include/Format/DocProcessor/DocProcessor.h
+  s_059d99170394e5::t_cded176e28708e 34
+  s_059d99170394e5::t_2e18673ce926b6 39
+  s_059d99170394e5::t_74981c037a427e 27-28
+  s_059d99170394e5::t_ce557170defeae 26
+  s_059d99170394e5::t_f6db27a3efca0e 37-38
+  s_059d99170394e5::t_7209a3af98959e 31
+  s_059d99170394e5::t_830663eb5a356f 35
+cjfmt/src/Format/NodeFormatter/Type/QualifiedTypeFormatter.cpp
+  s_059d99170394e5::t_5b7a42ec092fb4 33
+cjfmt/src/Format/FormatCodeProcessor.cpp
+  s_059d99170394e5::t_062f7aa0ceb26e 10,299-300,348,374
+  s_059d99170394e5::t_d1b4555001521e 17
+  s_059d99170394e5::t_7209a3af98959e 298
+  s_059d99170394e5::t_5ca0d1254d102a 302
+  s_059d99170394e5::t_662ebb61a001ae 12,296
+  s_f273b8ed455895::t_b6cab58022e0e1 379
+  s_059d99170394e5::t_1b6d86346235fc 301
+cjfmt/src/Format/DocProcessor/FillTypeProcessor.cpp
+  s_059d99170394e5::t_22cd0bcb2affba 132
+  s_059d99170394e5::t_49f024dcb44547 77-81
+  s_059d99170394e5::t_53fb5a084a8fbe 137-138,140-141,143-148,151-155,157-161,163-165,172
+  s_059d99170394e5::t_12d3ee61fd1ea6 48,69
+  s_059d99170394e5::t_5d012990600ffb 55-59,166-167,171,175-176,182,190,192-207,209-216
+  s_059d99170394e5::t_3ec05cdd84f30b 1,4-5,10,12,31-47,92,94-99,105,107-111,131,169,174,177-181,183-188,191,208,227,229,231
+  s_f273b8ed455895::t_a2e1ae08b43c79 16-18,20,22-23
+  s_059d99170394e5::t_b118b4d02a4391 49-54,68,70-76,82-90,100-102,104,112-130,133-134,168
+  s_059d99170394e5::t_15d48a12a7a2e9 60-67,135-136,139,142,149-150,156,162,170,173,189
+  s_059d99170394e5::t_2e18673ce926b6 91,103,217-226,228
+  s_059d99170394e5::t_5ca0d1254d102a 2-3,6-9,11,13-15,26-30,230,232-234
+  s_059d99170394e5::t_e569fb479ce9a7 19,21,24-25,93,106
+cjfmt/src/Format/NodeFormatter/Decl/VarWithPatternDeclFormatter.cpp
+  s_059d99170394e5::t_87150caacb6ead 47
+  s_059d99170394e5::t_9e872d7f3608ea 43-44
+cjfmt/src/Format/NodeFormatter/Expr/ReturnExprFormatter.cpp
+  s_059d99170394e5::t_b734e040be96c8 22-23
+cjfmt/include/Format/DocProcessor/FillTypeProcessor.h
+  s_f273b8ed455895::t_30432d81297d1b 1
+  s_059d99170394e5::t_5ca0d1254d102a 2-3,6-12,15-16,19-26
+  s_059d99170394e5::t_1b6d86346235fc 4-5
+  s_059d99170394e5::t_2e18673ce926b6 13-14,17-18
+cjfmt/src/Format/NodeFormatter/Node/FuncBodyFormatter.cpp
+  s_059d99170394e5::t_8db9d6494ac989 66-67
+  s_059d99170394e5::t_6061d2ac9b1eb9 69-76
+  s_059d99170394e5::t_b734e040be96c8 78-81,84
+cjfmt/src/Format/DocProcessor/StringTypeProcessor.cpp
+  s_059d99170394e5::t_22cd0bcb2affba 17
+cjfmt/src/Format/NodeFormatter/Expr/LitConstExprFormatter.cpp
+  s_059d99170394e5::t_17801fa3d2f43c 75-79,81,83,85,88,91,94
+  s_059d99170394e5::t_a5df9587a3978f 35-36
+cjfmt/src/Format/CommentLayout.cpp
+  s_059d99170394e5::t_d5743e0e7fe884 109-114,117-156,158-161,163-168,170-180,182-185,187,193,195,221-222
+  s_f273b8ed455895::t_30432d81297d1b 1
+  s_059d99170394e5::t_6b75b925656d27 23,204
+  s_059d99170394e5::t_062f7aa0ceb26e 2-7,10-22,24-66,68,70,77-78,80-81,87,89-91,93-94,100-105,115-116,157,169,186,188-190,192,218,224-225
+  s_f273b8ed455895::t_b6cab58022e0e1 8-9,198,205-209
+  s_059d99170394e5::t_da95c5bc193a20 67,69,71-76,79,82-86,88,92,95-99,106-108,191,194,196-197,199-203,210-217,219-220,223
+  s_059d99170394e5::t_1d961d82f39216 162,181
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e5853324b99f676115eb33524548f1f37a9078ab",
+  "prompts": {},
+  "sessions": {
+    "s_059d99170394e5": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a13474-a064-7c03-b061-912f0c681411",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": null
+    },
+    "s_f273b8ed455895": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a16360-e84d-7341-9eba-b323a00f2ff9",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": null
+    }
+  }
+}
