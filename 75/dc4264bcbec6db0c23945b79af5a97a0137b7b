@@ -1,0 +1,24 @@
+cjfmt/include/Format/NodeFormatter/Expr/LitConstExprFormatter.h
+  s_059d99170394e5::t_c12a1adb1f5e1b 19
+cjfmt/src/Format/NodeFormatter/Expr/LitConstExprFormatter.cpp
+  s_059d99170394e5::t_c12a1adb1f5e1b 53-62,64,151
+  s_059d99170394e5::t_8052852124a7ca 14-15,17-51,63
+cjfmt/src/Format/NodeFormatter/Expr/IfExprFormatter.cpp
+  s_059d99170394e5::t_6ee9b7201ea20f 22-24,46
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "75dc4264bcbec6db0c23945b79af5a97a0137b7b",
+  "prompts": {},
+  "sessions": {
+    "s_059d99170394e5": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a13474-a064-7c03-b061-912f0c681411",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": null
+    }
+  }
+}
