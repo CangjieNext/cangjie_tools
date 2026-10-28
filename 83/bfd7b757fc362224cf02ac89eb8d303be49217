@@ -1,0 +1,30 @@
+cjlint/src/rules/structural_rule_analysis/StructuralRuleGDCL01/StructuralRuleGDCL01.cpp
+  h_4d070aafa41132 74-81,151-163,168-175,403
+cjlint/src/rules/structural_rule_analysis/StructuralRuleGCON01/StructuralRuleGCON01.cpp
+  h_4d070aafa41132 67-69
+cjlint/src/rules/structural_rule_analysis/StructuralRuleGFUN02/StructuralRuleGFUN02.cpp
+  h_4d070aafa41132 31-34,45,48,67-106,109,111,113,117,126,133,145,159
+cjlint/src/rules/structural_rule_analysis/StructuralRuleGFUN02/StructuralRuleGFUN02.h
+  h_4d070aafa41132 25-29,32-36
+cjlint/src/rules/structural_rule_analysis/StructuralRuleGSYN01/StructuralRuleGSYN01.h
+  h_4d070aafa41132 111,113-118,120
+cjlint/src/rules/structural_rule_analysis/StructuralRuleGCLS01/StructuralRuleGCLS01.cpp
+  h_4d070aafa41132 105-106,108,111-112,114-116,118-126,209
+cjlint/src/rules/structural_rule_analysis/StructuralRuleP01/StructuralRuleP01.cpp
+  h_4d070aafa41132 150-151,157-165
+cjlint/src/rules/structural_rule_analysis/StructuralRuleGSYN01/StructuralRuleGSYN01.cpp
+  h_4d070aafa41132 20
+cjlint/config/structural_rule_G_OTH_02.json
+  h_4d070aafa41132 9-10,15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "83bfd7b757fc362224cf02ac89eb8d303be49217",
+  "prompts": {},
+  "humans": {
+    "h_4d070aafa41132": {
+      "author": "Cangjie-SCH <sunchihao@h-partners.com>"
+    }
+  }
+}
