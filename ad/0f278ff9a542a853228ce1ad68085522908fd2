@@ -1,0 +1,24 @@
+cjlint/src/rules/structural_rule_analysis/StructuralRuleGFUN02/StructuralRuleGFUN02.cpp
+  s_1c9350f5695e17::t_9ec041e64747fa 116,120-121,134-135,169
+  s_1c9350f5695e17::t_bf10d618d084cb 122,137,172
+  s_1c9350f5695e17::t_804799f838e32e 113-115,117,119,132-133,136,138-139
+cjlint/src/rules/structural_rule_analysis/StructuralRuleGFUN02/StructuralRuleGFUN02.h
+  s_1c9350f5695e17::t_9ec041e64747fa 29
+  s_1c9350f5695e17::t_bf10d618d084cb 30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ad0f278ff9a542a853228ce1ad68085522908fd2",
+  "prompts": {},
+  "sessions": {
+    "s_1c9350f5695e17": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17c96-b309-7673-a11f-47c957bc7bf4",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Cangjie-SCH <sunchihao@h-partners.com>"
+    }
+  }
+}
