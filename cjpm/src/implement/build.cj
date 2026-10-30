@@ -75,6 +75,10 @@ public func doBuild(tomlInfo: TomlInfo, buildConfig: BuildConfig, isScriptDep!: 
         return false
     }
 
+    if (!copyBinDependencyDylibs(buildConfig)) {
+        return false
+    }
+
     if (!buildConfig.globalConfig.isTest && buildConfig.globalConfig.isVerbose && buildConfig.packageList.exe.size > 0) {
         println("   Finished `build` profile compilation")
         println("   Executable files at `${Path(buildConfig.globalConfig.targetDir).join(BIN)}`")
@@ -100,6 +104,46 @@ public func doBuild(tomlInfo: TomlInfo, buildConfig: BuildConfig, isScriptDep!: 
         }
     }
 
+    return true
+}
+
+// Copy dynamic libraries declared by bin-dependencies next to the executable.
+// cjpm run injects these paths into the child process environment, but a binary
+// produced by cjpm build must also be runnable without that environment.
+func copyBinDependencyDylibs(buildConfig: BuildConfig): Bool {
+    if (buildConfig.packageList.exe.isEmpty()) {
+        return true
+    }
+    let binDeps = if (buildConfig.isCrossCompile) {
+        buildConfig.crossBinDepMap
+    } else {
+        buildConfig.binDepMap
+    }
+    let binDirectory = Path(buildConfig.globalConfig.targetDir).join(BIN).toString()
+    let copied = HashSet<String>()
+    try {
+        for ((_, moduleDeps) in binDeps) {
+            for ((_, info) in moduleDeps.packageRequires) {
+                if (info.isMacroPackage) {
+                    continue
+                }
+                let source = Path(info.libPath).join(makeDylibName(info.libName)).toString()
+                if (!fileExists(source)) {
+                    continue
+                }
+                let fileName = Path(source).fileName
+                if (copied.contains(fileName)) {
+                    continue
+                }
+                copied.add(fileName)
+                copy(Path(source), to: Path(binDirectory).join(fileName), overwrite: true)
+            }
+        }
+    } catch (e: Exception) {
+        eprintln(e.message)
+        eprintln("Error: failed to copy dynamic libraries from bin-dependencies to '${binDirectory}'")
+        return false
+    }
     return true
 }
 
