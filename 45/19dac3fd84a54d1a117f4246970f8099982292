@@ -1,0 +1,19 @@
+cjfmt/src/Format/FormatCodeProcessor.cpp
+  s_75f5d8a371f6dc::t_36dec0d8caeedb 330
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4519dac3fd84a54d1a117f4246970f8099982292",
+  "prompts": {},
+  "sessions": {
+    "s_75f5d8a371f6dc": {
+      "agent_id": {
+        "tool": "trae",
+        "id": "6ae3381f5d9c5b6f1f6b91e4",
+        "model": "DeepSeek-V4.1-Flash-1017__dev"
+      },
+      "human_author": "kkkkkkkbbbbbbb <songjian59@huawei.com>"
+    }
+  }
+}

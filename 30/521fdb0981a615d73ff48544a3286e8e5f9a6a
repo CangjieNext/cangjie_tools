@@ -1,0 +1,14 @@
+cjfmt/src/Format/FormatCodeProcessor.cpp
+  h_7fa24ec5a32f2d 330-331,472
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "30521fdb0981a615d73ff48544a3286e8e5f9a6a",
+  "prompts": {},
+  "humans": {
+    "h_7fa24ec5a32f2d": {
+      "author": "kkkkkkkbbbbbbb <songjian59@huawei.com>"
+    }
+  }
+}
