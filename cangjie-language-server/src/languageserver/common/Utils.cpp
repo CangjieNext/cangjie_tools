@@ -521,19 +521,11 @@ bool IsFuncSignatureIdentical(const Cangjie::AST::FuncDecl &funcDecl1, const Can
     if (funcDecl1.identifier != funcDecl2.identifier) {
         return false;
     }
-    auto funcTy1 = dynamic_cast<FuncTy *>(funcDecl1.GetTy().get());
-    auto funcTy2 = dynamic_cast<FuncTy *>(funcDecl2.GetTy().get());
-<<<<<<< HEAD
+    auto funcTy1 = dynamic_cast<FuncTy *>(funcDecl1.DataTy());
+    auto funcTy2 = dynamic_cast<FuncTy *>(funcDecl2.DataTy());
     if (!funcTy1 || !funcTy2 || !IsFuncNamedParameterIdentical(funcDecl1, funcDecl2) ||
         !IsFuncParameterTypesIdentical(*funcTy1, *funcTy2) ||
         !(CheckTypeCompatibility(funcTy1->retTy, funcTy2->retTy) == TypeCompatibility::IDENTICAL)) {
-||||||| constructed merge base
-    if (!funcTy1 || !funcTy2 || !IsFuncParameterTypesIdentical(*funcTy1, *funcTy2) ||
-        !(CheckTypeCompatibility(funcTy1->retTy, funcTy2->retTy) == TypeCompatibility::IDENTICAL)) {
-=======
-    if (!funcTy1 || !funcTy2 || !IsFuncParameterTypesIdentical(*funcTy1, *funcTy2) ||
-        !(CheckTypeCompatibility(funcTy1->retTy.get(), funcTy2->retTy.get()) == TypeCompatibility::IDENTICAL)) {
->>>>>>> feat: local mode
         return false;
     }
     return true;
