@@ -18,14 +18,8 @@
 #endif
 #include <functional>
 #include <cassert>
-<<<<<<< HEAD
 #include <cstdint>
 
-||||||| constructed merge base
-
-=======
-#include <cstdint>
->>>>>>> feat: local mode
 
 namespace Cangjie {
 
