@@ -6,7 +6,6 @@
 
 #include "ArkLanguageServer.h"
 #include "CompilerCangjieProject.h"
-#include <filesystem>
 #include <fstream>
 #include <gtest/gtest.h>
 #include <memory>
@@ -15,6 +14,19 @@
 #include <vector>
 #include <fstream>
 #include <cstdio>
+
+#if defined(__has_include)
+#if __has_include(<filesystem>)
+#include <filesystem>
+namespace fs = std::filesystem;
+#else
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+#endif
+#else
+#include <filesystem>
+namespace fs = std::filesystem;
+#endif
 
 using namespace ark;
 
@@ -45,7 +57,7 @@ Environment CreateTestEnvironment() {
     return env;
 }
 
-FileWatchedEvent CreateWatchedEvent(const std::filesystem::path &path, FileChangeType type)
+FileWatchedEvent CreateWatchedEvent(const fs::path &path, FileChangeType type)
 {
     TextDocumentIdentifier textDocument;
     textDocument.uri.file = URI::URIFromAbsolutePath(path.string()).ToString();
@@ -379,13 +391,12 @@ TEST_F(CompilerCangjieProjectTest, UsrCjoBytesSharedByPath)
 
 TEST_F(CompilerCangjieProjectTest, RealCangjieFileKeepsCreateChangeAndDeleteEvents)
 {
-    namespace fs = std::filesystem;
     const fs::path testRoot = fs::temp_directory_path() / "cangjie_lsp_watched_file_test";
     const fs::path file = testRoot / "example.cj";
     fs::remove_all(testRoot);
     ASSERT_TRUE(fs::create_directories(testRoot));
     {
-        std::ofstream stream(file);
+        std::ofstream stream(file.string());
         ASSERT_TRUE(stream.good());
     }
 
@@ -414,7 +425,7 @@ TEST_F(CompilerCangjieProjectTest, RealCangjieFileKeepsCreateChangeAndDeleteEven
 
 TEST_F(CompilerCangjieProjectTest, TrackedExtensionOnlyCangjieFileKeepsDeleteEvent)
 {
-    const auto file = std::filesystem::temp_directory_path() / "cangjie_lsp_dot_cj_delete" / ".cj";
+    const auto file = fs::temp_directory_path() / "cangjie_lsp_dot_cj_delete" / ".cj";
     // The file is already absent, but didOpen previously registered this document.
     server->AddDocWhenInitCompile(FileStore::NormalizePath(file.string()));
     DidChangeWatchedFilesParam params;
