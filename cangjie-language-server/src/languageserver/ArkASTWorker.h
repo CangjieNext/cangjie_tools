@@ -10,12 +10,15 @@
 #include <queue>
 #include <vector>
 #include <map>
+#include <memory>
 #include <sstream>
+#include "../json-rpc/Transport.h"
 #include "ArkThreading.h"
 #include "ArkAST.h"
 #include "CompilerCangjieProject.h"
 #include "capabilities/semanticHighlight/SemanticHighlightImpl.h"
 #include "common/Callbacks.h"
+#include "common/BasicHelper.h"
 #include "capabilities/diagnostic/LSPDiagObserver.h"
 
 namespace ark {
@@ -52,6 +55,9 @@ public:
     void RunWithAST(const std::string &name, const std::string &file,
                     std::function<void(InputsAndAST)> action, NeedDiagnostics needDiag);
 
+    void RunWithASTResult(const std::string &name, const std::string &file,
+        std::function<ValueOrError(const InputsAndAST &)> compute, Callback<ValueOrError> reply);
+
     void RunWithASTCache(
         const std::string &name, const std::string &file, Position pos, std::function<void(InputsAndAST)> action);
 
@@ -69,6 +75,20 @@ private:
 
     void StartTask(std::string name, std::function<void()> task, NeedDiagnostics needDiag, std::string filePath);
 
+    std::function<void()> CreateASTTask(const std::string &name, const std::string &file,
+        std::function<void(InputsAndAST)> action);
+
+    struct ResultReplies {
+        int64_t version;
+        std::function<ValueOrError(const InputsAndAST &)> compute;
+        std::vector<Callback<ValueOrError>> callbacks;
+
+        void Run(const InputsAndAST &inputs) const;
+    };
+
+    void StartResultTask(const std::string &name, const std::string &file,
+        std::function<void()> task, std::shared_ptr<ResultReplies> replies);
+
     // Helper to unify file id fetching for completion path.
     int GetFileIDForCompletion(const std::string &file) const;
 
@@ -85,6 +105,7 @@ private:
         std::string name;
         std::string filePath;
         NeedDiagnostics updateType = NeedDiagnostics::AUTO;
+        std::shared_ptr<ResultReplies> resultReplies;
     };
 
     Semaphore &barrier;

@@ -511,8 +511,7 @@ std::string ArkLanguageServer::GetContentsByFile(const std::string &file)
 
 int64_t ArkLanguageServer::GetVersionByFile(const std::string &file)
 {
-    DocCache::Doc doc = DocMgr.GetDoc(file);
-    return doc.version;
+    return DocMgr.GetVersion(file);
 }
 
 bool ArkLanguageServer::NeedReParser(const std::string &file)
