@@ -36,6 +36,8 @@ public:
 
     Doc GetDoc(const std::string &file);
 
+    std::int64_t GetVersion(const std::string &file) const;
+
     bool UpdateDoc(const std::string &file, std::int64_t version, bool needReParser,
                    const std::vector<TextDocumentContentChangeEvent> &contentChanges);
 
