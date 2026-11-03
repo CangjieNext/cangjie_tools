@@ -1,0 +1,21 @@
+cjhead/doc/developer_guide.md
+  s_c53306d66b610e::t_b548fb3a113452 86-108
+cjhead/doc/user_guide.md
+  s_c53306d66b610e::t_1602dbc185a3ad 69-84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "85af98ae8c9e6bd6d6f4c4973622360e4a52a0bb",
+  "prompts": {},
+  "sessions": {
+    "s_c53306d66b610e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18f92-b8b5-7223-9048-85cec00e40a9",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "wyq1213 <wangyinqiang2@huawei.com>"
+    }
+  }
+}
