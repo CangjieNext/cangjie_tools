@@ -18,9 +18,10 @@ std::set<std::string> cjlibSupportFeatures = {"SemanticTokens", "Definition"};
 std::set<std::string> hierarchyIgnoreRequest = {"SubTypes", "SuperTypes", "OnIncomingCalls", "OnOutgoingCalls"};
 }
 namespace ark {
-ArkASTWorker *ArkASTWorker::Create(AsyncTaskRunner &asyncTaskRunner, Semaphore &semaphore, Callbacks *c)
+ArkASTWorker *ArkASTWorker::Create(AsyncTaskRunner &asyncTaskRunner, Semaphore &semaphore, Callbacks *c,
+    ArkASTWorker *diagnosticWorker)
 {
-    auto worker = new (std::nothrow) ArkASTWorker(semaphore, c);
+    auto worker = new (std::nothrow) ArkASTWorker(semaphore, c, diagnosticWorker);
     if (worker == nullptr) {
         return nullptr;
     }
@@ -30,7 +31,10 @@ ArkASTWorker *ArkASTWorker::Create(AsyncTaskRunner &asyncTaskRunner, Semaphore &
     return worker;
 }
 
-ArkASTWorker::ArkASTWorker(Semaphore &semaphore, Callbacks *c) : barrier(semaphore), done(false), callback(c) {}
+ArkASTWorker::ArkASTWorker(Semaphore &semaphore, Callbacks *c, ArkASTWorker *diagnosticWorker)
+    : barrier(semaphore), done(false), callback(c), diagnosticWorker(diagnosticWorker ? diagnosticWorker : this)
+{
+}
 
 ArkASTWorker::~ArkASTWorker() {}
 
@@ -80,6 +84,9 @@ void ArkASTWorker::Run()
                 sLock.lock();
             }
             currentRequest.action();
+            if (diagnosticWorker == this) {
+                CompilerCangjieProject::GetInstance()->RefreshPendingInternalImportDiagnostics();
+            }
         }
     }
 }
@@ -331,6 +338,8 @@ void ArkASTWorker::DoCompletionWithASTCache(
     bool shouldIncrementCompile = !CompilerCangjieProject::GetInstance()->pLRUCache->HasCache(cacheKey);
     if (shouldIncrementCompile) {
         CompilerCangjieProject::GetInstance()->IncrementOnePkgCompile(absName, inputs.contents);
+        // Only restoring a semantic cache needs a retry; ordinary completion remains on its existing path.
+        diagnosticWorker->StartTask("RefreshInternalImportDiagnostics", [] {}, NeedDiagnostics::YES, "");
     }
 
     if (!IsFromCIMap(fullPkgName) && !IsFromCIMapNotInSrc(cacheKey)) {

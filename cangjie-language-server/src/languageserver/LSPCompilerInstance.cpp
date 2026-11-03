@@ -211,6 +211,18 @@ void LSPCompilerInstance::UpdateDepGraph(
     graph->UpdateDependencies(fullPkgName, upstreamPkgs, edges);
 }
 
+bool LSPCompilerInstance::Parse()
+{
+    const bool parsed = ExecuteCompilerApi("PerformParse", &CompilerInstance::PerformParse, this);
+    const auto packages = GetSourcePackages();
+    if (!pkgNameForPath.empty() && !invocation.globalOptions.packagePaths.empty() &&
+        !packages.empty() && packages.front()) {
+        // Package topology belongs to this parsed AST, not the invocation shared with completion.
+        packages.front()->noSubPkg = !ark::HasSubPackages(invocation.globalOptions.packagePaths.front());
+    }
+    return parsed;
+}
+
 void LSPCompilerInstance::PreCompileProcess()
 {
     diag.Reset();

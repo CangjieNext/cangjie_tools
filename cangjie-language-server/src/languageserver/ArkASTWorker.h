@@ -38,8 +38,9 @@ struct ThreadData {
 
 class ArkASTWorker {
 public:
-    ArkASTWorker(Semaphore &semaphore, Callbacks *c);
-    static ArkASTWorker* Create(AsyncTaskRunner &asyncTaskRunner, Semaphore &semaphore, Callbacks *c);
+    ArkASTWorker(Semaphore &semaphore, Callbacks *c, ArkASTWorker *diagnosticWorker = nullptr);
+    static ArkASTWorker* Create(AsyncTaskRunner &asyncTaskRunner, Semaphore &semaphore, Callbacks *c,
+        ArkASTWorker *diagnosticWorker = nullptr);
     ~ArkASTWorker();
 
     void Update(const ParseInputs &inputs, NeedDiagnostics needDiag);
@@ -100,6 +101,9 @@ private:
     bool isRun = false;
 
     Callbacks *callback;
+
+    // The ordinary worker owns diagnostic retries and outlives workers forwarding to it.
+    ArkASTWorker *const diagnosticWorker;
 
     std::string onEditName;
 

@@ -185,8 +185,8 @@ bool CompareCallHierarchyOutgoingCall(const CallHierarchyOutgoingCall &letf, con
 ArkServer::ArkServer(Callbacks *callbacks) : callback(callbacks)
 {
     arkScheduler = std::make_unique<ark::ArkScheduler>(callback);
-    arkSchedulerOfComplete = std::make_unique<ark::ArkScheduler>(callback);
-    arkSchedulerOfSignature = std::make_unique<ark::ArkScheduler>(callback);
+    arkSchedulerOfComplete = std::make_unique<ark::ArkScheduler>(callback, arkScheduler.get());
+    arkSchedulerOfSignature = std::make_unique<ark::ArkScheduler>(callback, arkScheduler.get());
 }
 
 void ArkServer::FindSemanticTokensHighlight(const std::string &file, const Callback<ValueOrError> &reply) const

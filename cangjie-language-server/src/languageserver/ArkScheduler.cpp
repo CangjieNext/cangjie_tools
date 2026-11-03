@@ -8,8 +8,12 @@
 #include "common/BasicHelper.h"
 
 namespace ark {
-    ArkScheduler::ArkScheduler(Callbacks *c) : barrier(1), workerThreads(new AsyncTaskRunner()), callback(c),
-                                               worker(ArkASTWorker::Create(*workerThreads, barrier, callback)) {}
+ArkScheduler::ArkScheduler(Callbacks *c, ArkScheduler *diagnosticScheduler)
+    : barrier(1), workerThreads(new AsyncTaskRunner()), callback(c),
+      worker(ArkASTWorker::Create(*workerThreads, barrier, callback,
+          diagnosticScheduler ? diagnosticScheduler->worker : nullptr))
+{
+}
 
 ArkScheduler::~ArkScheduler() noexcept
 {

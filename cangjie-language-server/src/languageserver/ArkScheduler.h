@@ -14,7 +14,7 @@
 namespace ark {
 class ArkScheduler {
 public:
-    explicit ArkScheduler(Callbacks *c);
+    explicit ArkScheduler(Callbacks *c, ArkScheduler *diagnosticScheduler = nullptr);
     ~ArkScheduler() noexcept;
 
     void Update(const ParseInputs &inputs, NeedDiagnostics needDiag) const;

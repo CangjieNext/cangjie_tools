@@ -395,5 +395,7 @@ std::string GetRealFilePathInCommonSpecific(Ptr<Cangjie::AST::Decl> decl);
 Ptr<Decl> GetRealTarget(Ptr<Decl> decl);
 
 bool CheckIsDirectory(const std::string &dirPath, bool isDelete = false);
+
+bool HasSubPackages(const std::string &pkgPath);
 }
 #endif // LSPSERVER_UTILS_H

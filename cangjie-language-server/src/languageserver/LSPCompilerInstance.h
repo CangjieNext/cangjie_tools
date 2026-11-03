@@ -103,10 +103,7 @@ public:
 
     bool ToImportPackage(const std::string &curModuleName, const std::string &cjoPackage);
 
-    bool Parse()
-    {
-        return ExecuteCompilerApi("PerformParse", &CompilerInstance::PerformParse, this);
-    }
+    bool Parse();
 
     bool ConditionCompile()
     {

@@ -67,6 +67,7 @@ public:
     std::string moduleName{};
     bool isSourceDir = false;
     bool needReCompile = false;
+    bool observedNoSubPkg = true; // Guarded by pkgInfoMutex after initialization.
     std::string sourceSetName{};
     PkgType pkgType = PkgType::NORMAL;
 
@@ -387,6 +388,9 @@ private:
 public:
     void IncrementForFileDelete(const std::string &fileName);
 
+    // Called by the AST worker after a task, including tasks that only validate weak-stale caches.
+    void RefreshPendingInternalImportDiagnostics();
+
     // after workspace init, can use it. pair::second = ModulePath
     std::pair<CangjieFileKind, std::string> GetCangjieFileKind(const std::string &filePath, bool isPkg = false) const;
 
@@ -665,6 +669,13 @@ private:
 
     void ClearCacheForDelete(const std::string &fullPkgName, const std::string &dirPath, bool isInModule);
 
+    void RefreshParentPackageAfterDelete(const std::string &deletedPackagePath);
+
+    bool TryRefreshInternalImportDiagnostics(const std::string &packagePath);
+
+    bool CollectInternalImportDiagnosticFiles(PkgInfo &pkgInfo, LSPCompilerInstance &ci,
+        std::vector<std::pair<std::string, int64_t>> &files);
+
     bool UpdateDependencies(std::string &fullPkgName, const std::unique_ptr<LSPCompilerInstance> &ci);
 
     bool ParseAndUpdateNotInSrcDep(const std::string &dirPath, const std::unique_ptr<LSPCompilerInstance> &newCI);
@@ -735,6 +746,8 @@ private:
 
     std::unique_ptr<lsp::BackgroundIndexDB> backgroundIndexDb;
     std::unordered_set<std::string> unusedSymbolsAnalyzedFileSet{};
+    // Owned by the serialized AST worker; keep paths across package renames and cache eviction.
+    std::unordered_set<std::string> pendingInternalImportDiagnostics;
     std::unordered_map<std::string, std::string> pathToFullPkgName;  // key: package path
     std::unordered_map<std::string, std::unordered_set<std::string>> realPkgToFullPkgName;
     std::mutex cimapMtx;

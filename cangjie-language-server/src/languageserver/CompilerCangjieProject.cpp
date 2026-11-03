@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 #include "CjoManager.h"
+#include "capabilities/diagnostic/InternalImportDiag.h"
 #include "capabilities/diagnostic/UnusedSymbolDiag.h"
 #include "cangjie/Frontend/CompilerInstance.h"
 #include "cangjie/Option/Option.h"
@@ -163,16 +164,8 @@ PkgInfo::PkgInfo(const std::string &pkgPath,
         compilerInvocation->globalOptions.enableMacroInLSP = true;
         compilerInvocation->globalOptions.macroLib = CompilerCangjieProject::GetInstance()->GetMacroLibs();
         compilerInvocation->globalOptions.executablePath = CompilerCangjieProject::GetInstance()->GetCjc();
-        auto dirs = GetDirectories(pkgPath);
-        bool hasSubPkg = false;
-        for (auto &dir : dirs) {
-            auto files = GetAllFilesUnderCurrentPath(dir.path, CANGJIE_FILE_EXTENSION());
-            if (!files.empty()) {
-                hasSubPkg = true;
-                break;
-            }
-        }
-        compilerInvocation->globalOptions.noSubPkg = !hasSubPkg;
+        observedNoSubPkg = !HasSubPackages(pkgPath);
+        compilerInvocation->globalOptions.noSubPkg = observedNoSubPkg;
         pkgType = packageType;
         if (packageType == PkgType::COMMON) {
             sourceSetName = "common";
@@ -223,6 +216,7 @@ void CompilerCangjieProject::ClearCacheForDelete(const std::string &fullPkgName,
     }
     LSPCompilerInstance::astDataMap.erase(fullPkgName);
     this->packageInstanceCache.erase(dirPath);
+    pendingInternalImportDiagnostics.erase(dirPath);
 }
 
 void CompilerCangjieProject::IncrementForFileDelete(const std::string &fileName)
@@ -264,6 +258,98 @@ void CompilerCangjieProject::IncrementForFileDelete(const std::string &fileName)
     }
     if (package->files.empty()) {
         ClearCacheForDelete(fullPkgName, isInModule ? dirPath : notInSrcCacheKey, isInModule);
+        if (isInModule) {
+            RefreshParentPackageAfterDelete(dirPath);
+        }
+    }
+}
+
+void CompilerCangjieProject::RefreshParentPackageAfterDelete(const std::string &deletedPackagePath)
+{
+    const auto parentPath = Normalize(GetDirPath(deletedPackagePath));
+    const auto parent = pathToFullPkgName.find(parentPath);
+    if (parent == pathToFullPkgName.end()) {
+        return;
+    }
+    const auto parentPkgName = parent->second;
+    const auto pkg = pkgInfoMap.find(parentPkgName);
+    if (pkg == pkgInfoMap.end()) {
+        return;
+    }
+    const bool noSubPkg = !HasSubPackages(parentPath);
+    std::lock_guard<std::mutex> lock(pkg->second->pkgInfoMutex);
+    if (pkg->second->observedNoSubPkg == noSubPkg) {
+        return;
+    }
+    pkg->second->observedNoSubPkg = noSubPkg;
+    pendingInternalImportDiagnostics.insert(parentPath);
+}
+
+bool CompilerCangjieProject::CollectInternalImportDiagnosticFiles(PkgInfo &pkgInfo, LSPCompilerInstance &ci,
+    std::vector<std::pair<std::string, int64_t>> &files)
+{
+    std::lock_guard<std::mutex> lock(pkgInfo.pkgInfoMutex);
+    for (const auto &file : pkgInfo.bufferCache) {
+        auto &sources = ci.GetSourceManager();
+        const auto fileId = sources.TryGetFileID(file.first);
+        if (!FileExist(file.first) || !fileId || sources.GetSource(*fileId).buffer != file.second) {
+            return false;
+        }
+        const auto version = callback->GetVersionByFile(file.first);
+        // A package compile may have consumed an edit without clearing another file's reparse flag.
+        if (callback->NeedReParser(file.first) && callback->GetContentsByFile(file.first) != file.second) {
+            return false;
+        }
+        files.emplace_back(file.first, version);
+    }
+    return !files.empty();
+}
+
+bool CompilerCangjieProject::TryRefreshInternalImportDiagnostics(const std::string &packagePath)
+{
+    const auto parent = pathToFullPkgName.find(packagePath);
+    if (parent == pathToFullPkgName.end() || pkgInfoMap.count(parent->second) == 0) {
+        return true;
+    }
+    const auto &pkgName = parent->second;
+    if (!pLRUCache->HasCache(pkgName) || cjoManager->GetStatus(pkgName) != DataStatus::FRESH) {
+        Trace::Log("Defer internal import diagnostics for unavailable/stale package: ", pkgName);
+        return false;
+    }
+    auto &ci = pLRUCache->Get(pkgName);
+    if (!ci || !ci->importManager) {
+        return false;
+    }
+    const auto packages = ci->GetSourcePackages();
+    if (packages.empty() || !packages.front()) {
+        return false;
+    }
+    std::vector<std::pair<std::string, int64_t>> files;
+    if (!CollectInternalImportDiagnosticFiles(*pkgInfoMap.at(pkgName), *ci, files)) {
+        Trace::Log("Defer internal import diagnostics for changed package sources: ", pkgName);
+        return false;
+    }
+    InternalImportDiag::Refresh(
+        *packages.front(), *ci->importManager, ci->diag, *callback, !HasSubPackages(packagePath));
+    for (const auto &file : files) {
+        if (callback->GetVersionByFile(file.first) != file.second) {
+            return false;
+        }
+    }
+    for (const auto &file : files) {
+        callback->ReadyForDiagnostics(file.first, file.second, callback->GetDiagsOfCurFile(file.first));
+    }
+    return true;
+}
+
+void CompilerCangjieProject::RefreshPendingInternalImportDiagnostics()
+{
+    for (auto it = pendingInternalImportDiagnostics.begin(); it != pendingInternalImportDiagnostics.end();) {
+        if (TryRefreshInternalImportDiagnostics(*it)) {
+            it = pendingInternalImportDiagnostics.erase(it);
+        } else {
+            ++it;
+        }
     }
 }
 
@@ -913,10 +999,13 @@ void CompilerCangjieProject::UpdateRelatedPackageStatus(const std::string &fullP
     auto found = fullPkgName.find_last_of(DOT());
     if (found != std::string::npos) {
         auto subPkgName = fullPkgName.substr(0, found);
-        if (pkgInfoMap.find(subPkgName) != pkgInfoMap.end() &&
-            pkgInfoMap[subPkgName]->compilerInvocation->globalOptions.noSubPkg) {
-            pkgInfoMap[subPkgName]->compilerInvocation->globalOptions.noSubPkg = false;
-            cjoManager->UpdateStatus({subPkgName}, DataStatus::STALE);
+        if (pkgInfoMap.find(subPkgName) != pkgInfoMap.end()) {
+            auto &parentInfo = *pkgInfoMap[subPkgName];
+            std::lock_guard<std::mutex> lock(parentInfo.pkgInfoMutex);
+            if (parentInfo.observedNoSubPkg) {
+                parentInfo.observedNoSubPkg = false;
+                cjoManager->UpdateStatus({subPkgName}, DataStatus::STALE);
+            }
         }
     }
 }

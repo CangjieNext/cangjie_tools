@@ -16,6 +16,16 @@ using namespace Cangjie::AST;
 using namespace Cangjie::FileUtil;
 
 namespace ark {
+bool HasSubPackages(const std::string &pkgPath)
+{
+    for (const auto &dir : Cangjie::FileUtil::GetDirectories(pkgPath)) {
+        if (!Cangjie::FileUtil::GetAllFilesUnderCurrentPath(dir.path, CONSTANTS::CANGJIE_FILE_EXTENSION()).empty()) {
+            return true;
+        }
+    }
+    return false;
+}
+
 const int NUMBER_FOR_LINE_COMMENT = 2; // length of "//"
 const int NUMBER_FOR_DOC_COMMENT = 3;  // length of "/**"
 const int CRLF_LENGTH = 2; // length of "\r\n"
