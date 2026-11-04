@@ -7,11 +7,14 @@
 #include "Format/FormatCodeProcessor.h"
 #include <regex>
 #include "Format/CommentHandler.h"
+#include "Format/CommentLayout.h"
 #include "Format/DocProcessor/ArgsProcessor.h"
+#include "Format/DocProcessor/ChoiceProcessor.h"
 #include "Format/DocProcessor/BreakParentTypeProcessor.h"
 #include "Format/DocProcessor/ConcatTypeProcessor.h"
 #include "Format/DocProcessor/DotProcessor.h"
 #include "Format/DocProcessor/FuncArgProcessor.h"
+#include "Format/DocProcessor/FillTypeProcessor.h"
 #include "Format/DocProcessor/GroupProcessor.h"
 #include "Format/DocProcessor/LambdaBodyProcessor.h"
 #include "Format/DocProcessor/LambdaProcessor.h"
@@ -290,7 +293,13 @@ void RegisterTypeNode(ASTToFormatSource& toSourceManager, FormattingOptions& opt
 void RegisterDocProcessors(ASTToFormatSource& toSourceManager, FormattingOptions& options)
 {
     toSourceManager.RegisterDocProcessors<StringTypeProcessor>(DocType::STRING, options);
+    toSourceManager.RegisterDocProcessors<ChoiceProcessor>(DocType::CHOICE, options);
     toSourceManager.RegisterDocProcessors<ConcatTypeProcessor>(DocType::CONCAT, options);
+    toSourceManager.RegisterDocProcessors<ConcatTypeProcessor>(DocType::ALIGN, options);
+    toSourceManager.RegisterDocProcessors<ConcatTypeProcessor>(DocType::LINE_SUFFIX, options);
+    toSourceManager.RegisterDocProcessors<ConcatTypeProcessor>(DocType::LINE_SUFFIX_BOUNDARY, options);
+    // Fill plans complete chunks and nested syntax breaks with a deterministic cost comparison.
+    toSourceManager.RegisterDocProcessors<FillTypeProcessor>(DocType::FILL, options);
     toSourceManager.RegisterDocProcessors<LineProcessor>(DocType::LINE, options);
     toSourceManager.RegisterDocProcessors<ArgsProcessor>(DocType::ARGS, options);
     toSourceManager.RegisterDocProcessors<FuncArgProcessor>(DocType::FUNC_ARG, options);
@@ -336,7 +345,7 @@ public:
         }
 
         std::string result;
-        auto formatted = TransformAstToText(file);
+        auto formatted = TransformAstToText(file, inputTokens);
         if (tracker.actuallyFormattedStart.has_value() && tracker.actuallyFormattedEnd.has_value()) {
             result = ConstructResultingText(file, inputTokens, formatted);
         } else {
@@ -362,11 +371,12 @@ private:
     RegionFormattingTracker tracker;
     FormattingOptions options;
 
-    std::string TransformAstToText(const OwnedPtr<File>& file)
+    std::string TransformAstToText(const OwnedPtr<File>& file, const std::vector<Token>& tokens)
     {
         ASTToFormatSource astTransformer(tracker, sm);
         SetupTranformer(astTransformer);
         Doc doc = astTransformer.ASTToDoc(file.get());
+        AddCommentBudgets(doc, tokens);
         return astTransformer.DocToString(doc);
     }
 
@@ -421,7 +431,9 @@ private:
         auto originalFragmentTokens = GetTokensBetweenPositions(originalFileAllTokens, formattedBegin, formattedEnd);
         auto formattedFragmentTokens = formattedTextTokens;
         if (originalFragmentTokens.empty() || formattedFragmentTokens.empty()) {
-            return rawCode;
+            auto result = rawCode;
+            FormatSelectedCommentsInText(originalFileAllTokens, result);
+            return result;
         }
         auto preciseFragmentBounds = tracker.GetPreciseFragmentBounds(sm);
         if (preciseFragmentBounds.has_value()) {
@@ -438,6 +450,14 @@ private:
             sm.GetContentBetween(originalFileAllTokens.front().Begin(), originalFragmentTokens.front().Begin());
         auto contentAfter =
             sm.GetContentBetween(originalFragmentTokens.back().End(), originalFileAllTokens.back().End());
+
+        // These pieces still have their original source positions. Comments inside
+        // fragmentText have already been handled by InsertComments.
+        const auto &source = sm.GetSource(originalFileAllTokens.front().Begin().fileID);
+        FormatSelectedCommentsInText(originalFileAllTokens, contentBefore,
+            source.PosToOffset(originalFileAllTokens.front().Begin()));
+        FormatSelectedCommentsInText(originalFileAllTokens, contentAfter,
+            source.PosToOffset(originalFragmentTokens.back().End()));
 
         (void)contentBefore.erase(contentBefore.find_last_not_of(" \t") + 1);
 
@@ -460,10 +480,14 @@ private:
         return contentBefore + fragmentText + contentAfter;
     }
 
-    void FormatSelectedCommentsInText(const std::vector<Token> &inputTokens, std::string &text)
+    void FormatSelectedCommentsInText(
+        const std::vector<Token> &inputTokens, std::string &text, size_t sourceOffset = 0)
     {
-        size_t searchFrom = 0;
-        for (const auto &token : inputTokens) {
+        const auto sourceEnd = sourceOffset + text.size();
+        // Only pass unchanged source slices here. Applying edits from right to left
+        // keeps every remaining token's original byte offset valid.
+        for (auto it = inputTokens.rbegin(); it != inputTokens.rend(); ++it) {
+            const auto &token = *it;
             if (token.kind != TokenKind::COMMENT || token.Value().find("\n") == std::string::npos) {
                 continue;
             }
@@ -472,20 +496,15 @@ private:
             if (token.Begin().line > regionToFormat.endLine || commentEndLine < regionToFormat.startLine) {
                 continue;
             }
-            auto begin = text.find(token.Value(), searchFrom);
-            if (begin == std::string::npos) {
+            const auto begin = sm.GetSource(token.Begin().fileID).PosToOffset(token.Begin());
+            if (begin < sourceOffset || begin > sourceEnd || token.Value().size() > sourceEnd - begin) {
                 continue;
             }
-            auto replacement = FormatCommentToken(token, token.Begin().column - 1);
-            auto lineStart = text.rfind('\n', begin == 0 ? 0 : begin - 1);
-            lineStart = lineStart == std::string::npos ? 0 : lineStart + 1;
-            auto prefix = text.substr(lineStart, begin - lineStart);
-            auto leadingIndent = prefix.find_first_not_of(" \t") == std::string::npos ? prefix.size() : 0;
-            if (leadingIndent != 0) {
-                begin = lineStart;
-            }
-            text.replace(begin, token.Value().size() + leadingIndent, replacement);
-            searchFrom = begin + replacement.size();
+            const auto indent = token.Begin().column - 1;
+            auto replacement = FormatCommentToken(token, indent);
+            // Preserve the first line's existing prefix, whether indentation or code.
+            replacement.erase(0, static_cast<size_t>(indent));
+            text.replace(begin - sourceOffset, token.Value().size(), replacement);
         }
     }
 
@@ -500,9 +519,7 @@ private:
                 FormatSelectedCommentsInText(inputTokens, result);
                 return result;
             }
-            auto result = ConstructTextForCodeFragment(inputTokens, formattedTokens);
-            FormatSelectedCommentsInText(inputTokens, result);
-            return result;
+            return ConstructTextForCodeFragment(inputTokens, formattedTokens);
         } else {
             return InsertComments(inputTokens, formattedTokens, sm, options);
         }

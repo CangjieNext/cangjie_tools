@@ -28,6 +28,10 @@ void StructuralRuleGFUN02::FuncParamFinder(Ptr<Node> node)
                 ProcessFuncDecl(funcDecl);
                 return VisitAction::SKIP_CHILDREN;
             },
+            [this](const LambdaExpr& lambdaExpr) {
+                ProcessLambdaExpr(lambdaExpr);
+                return VisitAction::SKIP_CHILDREN;
+            },
             []() { return VisitAction::WALK_CHILDREN; });
     });
     walker.Walk();
@@ -38,10 +42,10 @@ void StructuralRuleGFUN02::ProcessFuncDecl(const Cangjie::AST::FuncDecl &funcDec
     if (!funcDecl.funcBody) {
         return;
     }
-    std::map<std::string, PositionPair> paramMap;
+    std::map<std::string, ParamInfo> paramMap;
     for (auto &list : funcDecl.funcBody->paramLists) {
         for (auto &param : list->params) {
-            paramMap[param->identifier] = {param->identifier.Begin(), param->identifier.End()};
+            paramMap[param->identifier] = {param->identifier.Begin(), param->identifier.End(), param.get()};
         }
     }
     for (auto &list : funcDecl.funcBody->paramLists) {
@@ -60,32 +64,89 @@ void StructuralRuleGFUN02::ProcessFuncDecl(const Cangjie::AST::FuncDecl &funcDec
             FuncParamFinder(item.get());
         }
     }
+    ProcessNestedLambdas(funcDecl.funcBody->body.get());
 }
 
-void StructuralRuleGFUN02::EraseItemOfMap(const std::string& id, std::map<std::string, PositionPair>& paramMap)
+void StructuralRuleGFUN02::ProcessLambdaExpr(const Cangjie::AST::LambdaExpr &lambdaExpr)
 {
+    if (!lambdaExpr.funcBody) {
+        return;
+    }
+    std::map<std::string, ParamInfo> paramMap;
+    for (auto &list : lambdaExpr.funcBody->paramLists) {
+        for (auto &param : list->params) {
+            paramMap[param->identifier] = {param->identifier.Begin(), param->identifier.End(), param.get()};
+        }
+    }
+    for (auto &list : lambdaExpr.funcBody->paramLists) {
+        for (auto &param : list->params) {
+            if (param->assignment != nullptr) {
+                EraseUsedParams(param->assignment.get(), paramMap);
+            }
+        }
+    }
+    FuncParamFinderHelper(lambdaExpr.funcBody->body.get(), paramMap);
+    ProcessNestedLambdas(lambdaExpr.funcBody->body.get());
+}
+
+void StructuralRuleGFUN02::ProcessNestedLambdas(Ptr<Node> node)
+{
+    if (node == nullptr) {
+        return;
+    }
+    Walker walker(node, [this](Ptr<Node> child) -> VisitAction {
+        return match(*child)(
+            [this](const LambdaExpr& lambdaExpr) {
+                ProcessLambdaExpr(lambdaExpr);
+                return VisitAction::SKIP_CHILDREN;
+            },
+            [](const FuncDecl&) { return VisitAction::SKIP_CHILDREN; },
+            []() { return VisitAction::WALK_CHILDREN; });
+    });
+    walker.Walk();
+}
+
+void StructuralRuleGFUN02::EraseItemOfMap(const RefExpr &ref, std::map<std::string, ParamInfo>& paramMap)
+{
+    auto id = ref.ref.identifier.GetRawText();
     auto iter = paramMap.find(id);
-    if (iter != paramMap.end()) {
+    if (iter == paramMap.end()) {
+        return;
+    }
+    // A reference to a same-named local variable must not count as parameter use.
+    if (ref.ref.target.get() == iter->second.decl) {
         (void)paramMap.erase(id);
+    } else if (!ref.ref.target) {
+        // Missing imports or semantic errors may leave the target unresolved.
+        // Suppress only this parameter's diagnosis without treating it as definitely used.
+        iter->second.usageUncertain = true;
     }
 }
-void StructuralRuleGFUN02::EraseUsedParams(Ptr<Node> node, std::map<std::string, PositionPair>& paramMap)
+void StructuralRuleGFUN02::EraseUsedParams(Ptr<Node> node, std::map<std::string, ParamInfo>& paramMap)
 {
     if (node == nullptr) {
         return;
     }
 
     Walker walker(node, [&paramMap](Ptr<Node> node) -> VisitAction {
+        if (node->IsInvalid() || node->TestAttr(Attribute::IS_BROKEN) ||
+            node->TestAttr(Attribute::HAS_BROKEN)) {
+            // Error recovery may discard parameter references, so all remaining parameters
+            // in this function or lambda become uncertain. Other functions are still checked.
+            for (auto& param : paramMap) {
+                param.second.usageUncertain = true;
+            }
+        }
         match (*node)(
             [&paramMap](const RefExpr& refExpr) {
-                EraseItemOfMap(refExpr.ref.identifier.GetRawText(), paramMap);
+                EraseItemOfMap(refExpr, paramMap);
             },
             [&paramMap](const MacroExpandExpr& macroExpandExpr) {
                 for (auto& arg : macroExpandExpr.invocation.args) {
                     if (arg.kind != TokenKind::IDENTIFIER) {
                         continue;
                     }
-                    EraseItemOfMap(arg.Value(), paramMap);
+                    (void)paramMap.erase(arg.Value());
                 }
             });
         return VisitAction::WALK_CHILDREN;
@@ -97,7 +158,7 @@ void StructuralRuleGFUN02::EraseUsedParams(Ptr<Node> node, std::map<std::string,
  * The function that find the param which is used and delete it from param map.
  *
  */
-void StructuralRuleGFUN02::FuncParamFinderHelper(Ptr<Node> node, std::map<std::string, PositionPair>& paramMap)
+void StructuralRuleGFUN02::FuncParamFinderHelper(Ptr<Node> node, std::map<std::string, ParamInfo>& paramMap)
 {
     if (node == nullptr) {
         return;
@@ -105,13 +166,13 @@ void StructuralRuleGFUN02::FuncParamFinderHelper(Ptr<Node> node, std::map<std::s
 
     EraseUsedParams(node, paramMap);
 
-    // if the paramMap is not empty that means the param which in map is not be used, throw error.
+    // Remaining parameters have no confirmed use; diagnose only those with reliable usage information.
     if (!paramMap.empty()) {
         for (auto& param : paramMap) {
-            if (param.first == "_") {
+            if (param.first == "_" || param.second.usageUncertain) {
                 continue;
             }
-            Diagnose(param.second.first, param.second.second, CodeCheckDiagKind::G_FUN_02_unused_param_information,
+            Diagnose(param.second.begin, param.second.end, CodeCheckDiagKind::G_FUN_02_unused_param_information,
                 param.first.c_str());
         }
     }
