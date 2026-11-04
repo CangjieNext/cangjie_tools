@@ -138,7 +138,7 @@ void ArkASTWorker::StartTask(std::string name, std::function<void()> task,
     {
         std::lock_guard<std::mutex> lock(mutex);
 
-        if (name != "SemanticTokens") {
+        if (name != "SemanticTokens" && name != "DocumentSymbol") {
             requests.erase(
                 std::remove_if(requests.begin(), requests.end(), [&name, &filePath](const Request& req) {
                     return req.name == name && req.filePath == filePath;
