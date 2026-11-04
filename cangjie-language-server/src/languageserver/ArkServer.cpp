@@ -191,13 +191,11 @@ ArkServer::ArkServer(Callbacks *callbacks) : callback(callbacks)
 
 void ArkServer::FindSemanticTokensHighlight(const std::string &file, const Callback<ValueOrError> &reply) const
 {
-    auto action = [file, reply = std::move(reply)](const InputsAndAST &inputAST) {
+    auto compute = [file](const InputsAndAST &inputAST) {
         SemanticTokens result {};
         // To avoid queue task in runWithAST crashing
         if (inputAST.ast == nullptr || !CompilerCangjieProject::GetInstance()->FileHasSemaCache(file)) {
-            ValueOrError value(ValueOrErrorCheck::VALUE, nullptr);
-            reply(value);
-            return;
+            return ValueOrError(ValueOrErrorCheck::VALUE, nullptr);
         }
         SemanticTokensAdaptor::FindSemanticTokens(*(inputAST.ast), result, inputAST.ast->fileID);
         nlohmann::json jsonValue;
@@ -205,11 +203,10 @@ void ArkServer::FindSemanticTokensHighlight(const std::string &file, const Callb
         for (auto &iter : result.data) {
             (void)jsonValue["data"].push_back(iter);
         }
-        ValueOrError value(ValueOrErrorCheck::VALUE, jsonValue);
-        reply(value);
+        return ValueOrError(ValueOrErrorCheck::VALUE, jsonValue);
     };
 
-    arkScheduler->RunWithAST("SemanticTokens", file, action);
+    arkScheduler->RunWithASTResult("SemanticTokens", file, std::move(compute), reply);
 }
 
 
@@ -1095,15 +1092,13 @@ void ArkServer::AddDoc(const std::string &file, const std::string &contents,
 
 void ArkServer::FindDocumentSymbol(const DocumentSymbolParams &params, const Callback<ValueOrError> &reply) const
 {
-    auto action = [params, reply](const InputsAndAST &inputAST) mutable {
+    auto compute = [params](const InputsAndAST &inputAST) {
         std::vector<DocumentSymbol> result;
         auto filePath = FileStore::NormalizePath(URI::Resolve(params.textDocument.uri.file));
         // To avoid queue task in runWithAST crashing
         if (inputAST.ast == nullptr || !CompilerCangjieProject::GetInstance()->FileHasSemaCache(filePath)
             || Cangjie::FileUtil::HasExtension(filePath, CONSTANTS::CANGJIE_MACRO_FILE_EXTENSION())) {
-            ValueOrError value(ValueOrErrorCheck::VALUE, nullptr);
-            reply(value);
-            return;
+            return ValueOrError(ValueOrErrorCheck::VALUE, nullptr);
         }
         DocumentSymbolImpl::FindDocumentSymbols(*(inputAST.ast), result);
         nlohmann::json jsonValue;
@@ -1114,11 +1109,10 @@ void ArkServer::FindDocumentSymbol(const DocumentSymbolParams &params, const Cal
             }
             (void)jsonValue.push_back(temp);
         }
-        ValueOrError value(ValueOrErrorCheck::VALUE, jsonValue);
-        reply(value);
+        return ValueOrError(ValueOrErrorCheck::VALUE, jsonValue);
     };
     std::string file = FileStore::NormalizePath(URI::Resolve(params.textDocument.uri.file));
-    arkScheduler->RunWithAST("DocumentSymbol", file, action);
+    arkScheduler->RunWithASTResult("DocumentSymbol", file, std::move(compute), reply);
 }
 
 void ArkServer::FindOverrideMethods(const std::string &file,

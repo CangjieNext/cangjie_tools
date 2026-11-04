@@ -138,17 +138,15 @@ void ArkASTWorker::StartTask(std::string name, std::function<void()> task,
     {
         std::lock_guard<std::mutex> lock(mutex);
 
-        if (name != "SemanticTokens" && name != "DocumentSymbol") {
-            requests.erase(
-                std::remove_if(requests.begin(), requests.end(), [&name, &filePath](const Request& req) {
-                    return req.name == name && req.filePath == filePath;
-                }),
-                requests.end()
-            );
-        }
+        requests.erase(
+            std::remove_if(requests.begin(), requests.end(), [&name, &filePath](const Request& req) {
+                return !req.resultReplies && req.name == name && req.filePath == filePath;
+            }),
+            requests.end()
+        );
 
         // Allow this request to be cancelled if invalidated.
-        requests.push_back({std::move(task), std::move(name), filePath, needDiag});
+        requests.push_back({std::move(task), std::move(name), filePath, needDiag, nullptr});
     }
     requestsCV.notify_all();
 }
@@ -167,7 +165,72 @@ void ArkASTWorker::RunWithAST(const std::string &name,
         this->onEditName = file;
     }
 
-    auto task = [this, file, action = std::move(action), name]() mutable {
+    StartTask(name, CreateASTTask(name, file, std::move(action)), needDiag, file);
+}
+
+void ArkASTWorker::RunWithASTResult(const std::string &name, const std::string &file,
+    std::function<ValueOrError(const InputsAndAST &)> compute, Callback<ValueOrError> reply)
+{
+    if (IsInCjlibDir(file) && cjlibSupportFeatures.find(name) == cjlibSupportFeatures.end()) {
+        reply(ValueOrError(ValueOrErrorCheck::VALUE, nullptr));
+        return;
+    }
+    auto replies = std::make_shared<ResultReplies>(ResultReplies{
+        callback->GetVersionByFile(file), std::move(compute), {std::move(reply)}});
+    auto action = [replies](const InputsAndAST &inputs) {
+        replies->Run(inputs);
+    };
+    StartResultTask(name, file, CreateASTTask(name, file, std::move(action)), std::move(replies));
+}
+
+void ArkASTWorker::StartResultTask(const std::string &name, const std::string &file,
+    std::function<void()> task, std::shared_ptr<ResultReplies> replies)
+{
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        // Only consecutive, not-yet-started requests for the same version share a computation.
+        // Once Run() removes a task from this queue, its replies can no longer be extended.
+        if (!requests.empty()) {
+            auto &last = requests.back();
+            if (last.resultReplies && replies->version >= 0 && last.name == name && last.filePath == file &&
+                last.resultReplies->version == replies->version) {
+                last.resultReplies->callbacks.push_back(std::move(replies->callbacks.front()));
+                return;
+            }
+        }
+        requests.push_back({std::move(task), name, file,
+            NeedDiagnostics::YES, std::move(replies)});
+    }
+    requestsCV.notify_all();
+}
+
+void ArkASTWorker::ResultReplies::Run(const InputsAndAST &inputs) const
+{
+    auto result = compute(inputs);
+    for (const auto &reply : callbacks) {
+        reply(result);
+    }
+}
+
+void ArkASTWorker::PublishSemanticTokenDiagnostics(const std::string &file, int64_t version, ArkAST *ast)
+{
+    if (FileUtil::FileExist(file)) {
+        if (ast && ast->file && ast->packageInstance &&
+            ast->packageInstance->package) {
+            CompilerCangjieProject::GetInstance()->AnalyzeUnusedSymbolsForFile(
+                file, *ast->file, *ast->packageInstance->package.get());
+        }
+        std::vector<DiagnosticToken> diagnostics = callback->GetDiagsOfCurFile(file);
+        callback->ReadyForDiagnostics(file, version, diagnostics);
+    } else {
+        callback->ReadyForDiagnostics(file, version, {});
+    }
+}
+
+std::function<void()> ArkASTWorker::CreateASTTask(const std::string &name, const std::string &file,
+    std::function<void(InputsAndAST)> action)
+{
+    return [this, file, action = std::move(action), name]() mutable {
         bool needReParser = this->callback->NeedReParser(file);
         bool useASTCache = true;
         ParseInputs inputs;
@@ -211,22 +274,10 @@ void ArkASTWorker::RunWithAST(const std::string &name,
         }
         Logger::Instance().CleanKernelLog(std::this_thread::get_id());
         if (name == "SemanticTokens") {
-            if (FileUtil::FileExist(file)) {
-                if (ast && ast->file && ast->packageInstance &&
-                    ast->packageInstance->package) {
-                    CompilerCangjieProject::GetInstance()->AnalyzeUnusedSymbolsForFile(
-                        file, *ast->file, *ast->packageInstance->package.get());
-                }
-                std::vector<DiagnosticToken> diagnostics = callback->GetDiagsOfCurFile(file);
-                callback->ReadyForDiagnostics(file, inputs.version, diagnostics);
-            } else {
-                callback->ReadyForDiagnostics(file, inputs.version, {});
-            }
+            PublishSemanticTokenDiagnostics(file, inputs.version, ast);
         }
         action(InputsAndAST{inputs, ast, curOnEditName, useASTCache});
     };
-
-    StartTask(name, std::move(task), needDiag, file);
 }
 
 void ArkASTWorker::RunWithASTCache(

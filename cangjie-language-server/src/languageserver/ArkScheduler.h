@@ -21,6 +21,9 @@ public:
 
     void RunWithAST(const std::string &name, const std::string &file, std::function<void(InputsAndAST)> action) const;
 
+    void RunWithASTResult(const std::string &name, const std::string &file,
+        std::function<ValueOrError(const InputsAndAST &)> compute, Callback<ValueOrError> reply) const;
+
     void RunWithASTCache(
         const std::string &name, const std::string &file, Position pos, std::function<void(InputsAndAST)> action) const;
 

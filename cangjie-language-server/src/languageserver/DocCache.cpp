@@ -157,6 +157,13 @@ namespace ark {
         (void)Docs.erase(file);
     }
 
+    std::int64_t DocCache::GetVersion(const std::string &file) const
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        const auto iter = Docs.find(file);
+        return iter == Docs.end() ? -1 : iter->second.version;
+    }
+
     DocCache::Doc DocCache::GetDoc(const std::string &file)
     {
         std::lock_guard<std::mutex> lock(mutex);

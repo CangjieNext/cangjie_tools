@@ -33,6 +33,12 @@ void ArkScheduler::RunWithAST(const std::string &name, const std::string &file,
     worker->RunWithAST(name, file, std::move(action), NeedDiagnostics::YES);
 }
 
+void ArkScheduler::RunWithASTResult(const std::string &name, const std::string &file,
+    std::function<ValueOrError(const InputsAndAST &)> compute, Callback<ValueOrError> reply) const
+{
+    worker->RunWithASTResult(name, file, std::move(compute), std::move(reply));
+}
+
 void ArkScheduler::RunWithASTCache(
     const std::string &name, const std::string &file, Position pos, std::function<void(InputsAndAST)> action) const
 {
