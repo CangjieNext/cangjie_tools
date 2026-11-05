@@ -1,0 +1,14 @@
+.gitcode/CODEOWNERS
+  h_780b76454ef199 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a9a913c0c4d6fe36ed2e56714191a102918631ba",
+  "prompts": {},
+  "humans": {
+    "h_780b76454ef199": {
+      "author": "Mr_Kang_Yi <kangyi9@h-partners.com>"
+    }
+  }
+}
