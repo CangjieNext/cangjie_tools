@@ -1,0 +1,20 @@
+cjpm/src/implement/build.cj
+  s_6d6270afb16370::t_8cda6707133873 49-51,55,146-148
+  s_6d6270afb16370::t_77c03c8c0c13f8 54,142,145
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e7b9442610cd8c31c25153cbfd488ce5ffacb230",
+  "prompts": {},
+  "sessions": {
+    "s_6d6270afb16370": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a19f63-f19a-77a0-8b9b-985894f68149",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Cangjie-SCH <sunchihao@h-partners.com>"
+    }
+  }
+}
