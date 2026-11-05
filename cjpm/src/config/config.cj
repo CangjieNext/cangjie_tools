@@ -40,6 +40,11 @@ public const TEST_GCNO_OUTPUT: String = "test_gcno_output"
 public const INCREMENTAL_CACHE: String = "incremental-cache.json"
 public const WORKSPACE_NAME: String = "cjpm-workspace"
 public const DEP_INCREMENTAL_CACHE: String = ".dep-cache"
+// Exit codes used by cjpm itself when the target program can not be started.
+// They follow the POSIX shell convention: 127 means the command was not found,
+// 126 means it was found but can not be executed.
+public const EXIT_CODE_CANNOT_EXECUTE: Int64 = 126
+public const EXIT_CODE_COMMAND_NOT_FOUND: Int64 = 127
 public var maxParallelSize: Int64 = getCpus()
 public let CUR_PARALLEL_SIZE: AtomicInt64 = AtomicInt64(0)
 public var crossCompileTarget: String = ""

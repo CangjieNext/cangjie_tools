@@ -41,6 +41,9 @@ public open class Handle {
     public var arguments: Array<String> = Array<String>()
     public var shortOptionSpec: String = ""
     public var longOptionSpecs: Array<String> = Array<String>()
+    // The process exit code that cjpm should exit with when 'handleCommand'
+    // reports a failure. 0 means "not set", so the generic failure code is used.
+    public var exitCode: Int64 = 0
 
     public open func handleCommand(): Bool {
         return false

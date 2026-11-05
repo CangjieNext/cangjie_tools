@@ -31,6 +31,22 @@ public func execAndToTerminal(exeTool: String, arguments: Array<String>, timeout
     }
 }
 
+// Execute the command and return the exit code of the child process.
+// Returns 'None' when the child process can not be launched at all.
+public func execAndGetExitCode(exeTool: String, arguments: Array<String>, timeout!: Option<Duration> = None,
+    envBuilder!: EnvironmentBuilder = EnvironmentBuilder(), originalEnv!: ?Collection<(String, String)> = None,
+    workingDirectory!: ?Path = None): Option<Int64> {
+    try {
+        let env = envBuilder.finish(originalEnv ?? getVariables())
+        let subProcess = launch(exeTool, arguments, environment: env, workingDirectory: workingDirectory)
+        let returnCode = subProcess.wait(timeout: timeout)
+        return Some(returnCode)
+    } catch (e: Exception) {
+        eprintln(e.message)
+        return Option.None
+    }
+}
+
 // Execute the command and store the output.
 public func execWithOutput(exeTool: String, arguments: ArrayList<String>,
     envMap!: HashMap<String, String> = HashMap<String, String>(), timeout!: Option<Duration> = None,

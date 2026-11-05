@@ -11,15 +11,19 @@ import std.fs.*
 import cjpm.config.*
 import std.env.getVariables
 
-public func doRun(runConfig: RunConfig): Bool {
+// Returns the exit code that cjpm itself should exit with: the exit code of the
+// executable product when it was launched successfully, 127 when the product
+// does not exist, 126 when it exists but can not be executed, and 1 on the
+// other cjpm errors.
+public func doRun(runConfig: RunConfig): Int64 {
     if (!getOriginDirForRun(runConfig)) {
-        return false
+        return 1
     }
 
     let historyFile = Path(runConfig.originTargetPath).join(HISTORY_FILE_NAME).toString()
 
     let binPath = if (fileExists(historyFile)) {
-        let resInfo: ModuleResolve = loadHistoryFile(historyFile) ?? return false
+        let resInfo: ModuleResolve = loadHistoryFile(historyFile) ?? return 1
 
         let maybeResolveItem = resInfo.resolves.iterator()
             .filter { it => it.fullName == runConfig.rootPkgName} |> 
@@ -40,7 +44,7 @@ public func doRun(runConfig: RunConfig): Bool {
 
     if (!fileExists(runConfig.filePath)) {
         eprintln("Error: can not find the '${runConfig.filePath}' file")
-        return false
+        return EXIT_CODE_COMMAND_NOT_FOUND
     }
     runConfig.filePath = getCanonicalPath(runConfig.filePath)
 
@@ -102,7 +106,7 @@ func setTargetPathForRun(runConfig: RunConfig, tomlInfo: TomlInfo, configPath: S
     return true
 }
 
-func startRun(runConfig: RunConfig): Bool {
+func startRun(runConfig: RunConfig): Int64 {
     let envBuilder = EnvironmentBuilder.fromEnvConfig(runConfig.envConfig)
     addLibEnvConfig(envBuilder, runConfig.targetPath, runConfig.globalConfig.nativeDir, runConfig.originTargetPath)
 
@@ -123,8 +127,10 @@ func startRun(runConfig: RunConfig): Bool {
         println("Run current project: ${getCmdStr(envBuilder.asCliStrings(env), exeTool, args)}")
     }
 
-    execAndToTerminal(exeTool, args.toArray(), envBuilder: envBuilder, originalEnv: env)
-    return true
+    let exitCode = execAndGetExitCode(exeTool, args.toArray(), envBuilder: envBuilder, originalEnv: env)
+    // The product exists (checked by 'doRun'), so a failure here means it can not
+    // be executed at all: report it the way a POSIX shell reports 126.
+    return exitCode ?? EXIT_CODE_CANNOT_EXECUTE
 }
 
 func getCmdStr(envMap: HashMap<String, String>, exeTool: String, args: ArrayList<String>): String {

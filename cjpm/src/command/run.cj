@@ -156,7 +156,9 @@ Available options:
             return false
         }
 
-        return doRun(runConfig)
+        let exitCode = doRun(runConfig)
+        this.exitCode = exitCode
+        return exitCode == 0
     }
 }
 

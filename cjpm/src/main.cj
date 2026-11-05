@@ -36,6 +36,12 @@ main(): Int64 {
         }
 
         if (!cmdHandler.handleCommand()) {
+            // A command may report a failure that carries the real exit code of a
+            // subprocess (e.g. 'cjpm run' propagates the exit code of the product).
+            // In that case the code is passed through instead of the generic 1.
+            if (cmdHandler.exitCode != 0) {
+                return cmdHandler.exitCode
+            }
             cmdHandler.printError()
             return 1
         }
