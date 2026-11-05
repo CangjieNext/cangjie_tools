@@ -28,7 +28,7 @@
 
             </filefilter>
             <filefilter name="copyrightPolicyFilter" desc="">
-
+                <filteritem type="filepath" name=".*/hyperlangExtension/tests/c_cases/.*" desc="C测试用例头文件, 排除版权检查"/>
             </filefilter>
             <filefilter name="readmeFileNamePolicyFilter" desc="Filters for README file policies">
             </filefilter>
