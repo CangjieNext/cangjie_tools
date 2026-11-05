@@ -33,6 +33,7 @@ Available options:
   --no-feature-deduce           disables auto-enabling of features, deduced from other options, machine properties, etc.
   -m, --member <value>          specify a member module of the workspace
   --target <value>              generate code for the given target platform
+  --compat-version <value>      generate artifacts according to the specified compatibility version
   --target-dir <value>          specify target directory
   -o, --output <value>          specify product name when compiling an executable file
   -l, --lint                    enable cjlint code check
@@ -127,7 +128,8 @@ class BuildCommand <: Handle {
             return doTopLevelBuild(buildConfig)
         }
 
-        let (argMap, unparseArgs) = getParseOption(this.arguments, BUILD_SHORT_OPTION, BUILD_LONG_OPTION)
+        let args = handleCompatVersionOption(this.arguments) ?? return false
+        let (argMap, unparseArgs) = getParseOption(args, BUILD_SHORT_OPTION, BUILD_LONG_OPTION)
         let buildConfig = BuildConfig()
         buildConfig.isVerbose = getBoolOption(argMap, "-V", "--verbose")
         buildConfig.isIncremental = getBoolOption(argMap, "-i", "--incremental")

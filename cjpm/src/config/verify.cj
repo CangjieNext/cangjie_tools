@@ -342,6 +342,40 @@ public func envNameCheck(envName: String, cmd: String, configFilePath: String): 
 public func fixCompileOption(compileOption: String, configFilePath: String): String {
     var res = compileOption
     res = fixTestOption(res, configFilePath)
+    res = fixCompatVersionOption(res, configFilePath)
+    return res
+}
+
+/*
+ * Strip '--compat-version' written in compile-option: the compatibility target is decided
+ * by the build command, not by the project configuration.
+ */
+func fixCompatVersionOption(compileOption: String, configFilePath: String): String {
+    var flag = true
+    var res = compileOption
+    let tokens = res.split(" ")
+    let kept = ArrayList<String>()
+    var index = 0
+    while (index < tokens.size) {
+        let token = tokens[index]
+        if (token == "--compat-version") {
+            flag = false
+            index += 2
+            continue
+        }
+        if (token.startsWith("--compat-version=")) {
+            flag = false
+            index += 1
+            continue
+        }
+        kept.add(token)
+        index += 1
+    }
+    if (!flag) {
+        res = String.join(kept.toArray(), delimiter: " ")
+        eprintln("Warning: '--compat-version' in compile option of '${configFilePath}' will be ignored, " +
+            "compatibility version is specified by the build command")
+    }
     return res
 }
 

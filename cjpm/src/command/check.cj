@@ -22,6 +22,7 @@ Available option:
   -m, --member <value>    specify a member module of the workspace
   -h, --help              help for check
   --no-tests              exclude the test-dependencies
+  --compat-version <value>  generate artifacts according to the specified compatibility version
   --skip-script           disable script 'build.cj'."""
 
     init(args: Array<String>) {
@@ -48,7 +49,11 @@ Available option:
 func parseOptions(arguments: Array<String>): (Bool, String, Bool) {
     var memberModule = ""
     var testCheck = true
-    let (argMap, unparseArgs) = getParseOption(arguments, CHECK_SHORT_OPTION, CHECK_LONG_OPTION)
+    let args = match (handleCompatVersionOption(arguments)) {
+        case Some(v) => v
+        case None => return (false, memberModule, testCheck)
+    }
+    let (argMap, unparseArgs) = getParseOption(args, CHECK_SHORT_OPTION, CHECK_LONG_OPTION)
     if (let Some(val) <- handleMemberOption(argMap)) {
         memberModule = val
     } else {

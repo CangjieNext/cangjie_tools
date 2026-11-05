@@ -32,6 +32,7 @@ Available options:
   -m, --member <value>                    specify a member module of the workspace
   --target <value>                        unittest for the given target platform
   --target-dir <value>                    specify target directory
+  --compat-version <value>                compile benchmarks according to the specified compatibility version
   --dry-run                               print benchmarks without execution
   --filter <value>                        enable filter test
   --include-tags <value>                  run tests with specified tags
@@ -59,7 +60,8 @@ class BenchCommand <: Handle {
     }
 
     public override func handleCommand(): Bool {
-        let (argMap, unparseArgs) = getParseOption(this.arguments, BENCH_SHORT_OPTION, BENCH_LONG_OPTION)
+        let args = handleCompatVersionOption(this.arguments) ?? return false
+        let (argMap, unparseArgs) = getParseOption(args, BENCH_SHORT_OPTION, BENCH_LONG_OPTION)
 
         let testConfig = TestCommand.processTestCliOptions(argMap, unparseArgs) ?? return false
 

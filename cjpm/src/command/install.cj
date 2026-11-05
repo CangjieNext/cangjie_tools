@@ -34,6 +34,7 @@ Available option:
   -j, --jobs <N>            the number of jobs to spawn in parallel during the build process
   --cfg                     enable the customized option 'cfg'
   --target-dir <value>      specify target directory
+  --compat-version <value>  generate artifacts according to the specified compatibility version
   --name <value>            specify product name to install, default to install all products
   --skip-build              install binary in target directory directly without building
   --list                    list all installed modules and their versions
@@ -199,7 +200,8 @@ class InstallCommand <: Handle {
     }
 
     public override func handleCommand(): Bool {
-        let (argMap, unparseArgs) = getParseOption(this.arguments, INSTALL_SHORT_OPTION, INSTALL_LONG_OPTION)
+        let args = handleCompatVersionOption(this.arguments) ?? return false
+        let (argMap, unparseArgs) = getParseOption(args, INSTALL_SHORT_OPTION, INSTALL_LONG_OPTION)
 
         if (!handleRoot(argMap, unparseArgs)) {
             return false

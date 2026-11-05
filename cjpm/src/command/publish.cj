@@ -16,7 +16,8 @@ Usage:
 
 Available options:
   -h, --help              help for publish
-  -V, --verbose           enable verbose."""
+  -V, --verbose           enable verbose.
+  --compat-version <value>  generate artifacts according to the specified compatibility version"""
 
 let PUBLISH_SHORT_OPTION: String = "V"
 let PUBLISH_LONG_OPTION: Array<String> = ["verbose"]
@@ -35,7 +36,8 @@ class PublishCommand <: Handle {
     }
 
     public override func handleCommand(): Bool {
-        let (argMap, unparsedArgs) = getParseOption(this.arguments, PUBLISH_SHORT_OPTION, PUBLISH_LONG_OPTION)
+        let args = handleCompatVersionOption(this.arguments) ?? return false
+        let (argMap, unparsedArgs) = getParseOption(args, PUBLISH_SHORT_OPTION, PUBLISH_LONG_OPTION)
 
         if (unparsedArgs.size != 0) {
             eprintln("Error: unknown command '${unparsedArgs[0]}' for cjpm publish")

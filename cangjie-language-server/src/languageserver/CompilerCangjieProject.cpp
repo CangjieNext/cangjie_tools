@@ -8,12 +8,14 @@
 #include <algorithm>
 #include <atomic>
 #include <memory>
+#include <regex>
 #include <string>
 #include <utility>
 #include <vector>
 #include "CjoManager.h"
 #include "capabilities/diagnostic/InternalImportDiag.h"
 #include "capabilities/diagnostic/UnusedSymbolDiag.h"
+#include "cangjie/Basic/Version.h"
 #include "cangjie/Frontend/CompilerInstance.h"
 #include "cangjie/Option/Option.h"
 #include "cangjie/Utils/FileUtil.h"
@@ -87,6 +89,29 @@ std::unordered_set<std::string> GetImportedModules(const ImportSpec &importSpec)
     }
     AddModuleCandidate(importedModules, importContent.identifier.Val());
     return importedModules;
+}
+
+// Parse the two-segment compat version (major.minor) passed by plugins, e.g. "1.3".
+// Returns false when the format is invalid, so that the caller keeps the compiler default behavior.
+bool ParseCompatVersion(const std::string &compatVersion, Cangjie::VersionInfo &version)
+{
+    static const std::regex compatVersionRegex(R"(^([0-9]+)[.]([0-9]+)$)");
+    std::smatch match;
+    if (!std::regex_match(compatVersion, match, compatVersionRegex)) {
+        return false;
+    }
+    auto major = match[1].str();
+    auto minor = match[2].str();
+    // Reject values that can not be represented by uint32_t to avoid exceptions from std::stoul.
+    constexpr size_t MAX_DIGIT_COUNT = 9;
+    if (major.size() > MAX_DIGIT_COUNT || minor.size() > MAX_DIGIT_COUNT) {
+        return false;
+    }
+    version.major = static_cast<uint32_t>(std::stoul(major));
+    version.minor = static_cast<uint32_t>(std::stoul(minor));
+    version.patch = 0;
+    version.isValid = true;
+    return true;
 }
 } // namespace
 
@@ -162,6 +187,16 @@ PkgInfo::PkgInfo(const std::string &pkgPath,
                                                                GetConditionCompile(targetPackageName, moduleName);
         compilerInvocation->globalOptions.passedWhenCfgPaths = CompilerCangjieProject::GetInstance()->
                                                                GetConditionCompilePaths();
+        const auto &compatVersion = CompilerCangjieProject::GetInstance()->GetCompatVersion();
+        if (!compatVersion.empty()) {
+            Cangjie::VersionInfo compatVersionInfo;
+            if (ParseCompatVersion(compatVersion, compatVersionInfo)) {
+                compilerInvocation->globalOptions.compatVersion = compatVersionInfo;
+            } else {
+                Logger::Instance().LogMessage(MessageType::MSG_WARNING,
+                    "Invalid compatVersionOption \"" + compatVersion + "\" from initializationOptions, ignored.");
+            }
+        }
 #ifdef _WIN32
         compilerInvocation->globalOptions.target.os = Cangjie::Triple::OSType::WINDOWS;
 #elif __linux__
@@ -1942,6 +1977,10 @@ bool CompilerCangjieProject::Compiler(const std::string &moduleUri,
     modulesHome = ::ark::GetModulesHome(modulesHomeOption, environment.cangjieHome);
     stdLibPath = stdLibPathOption;
     cangjiePath = environment.cangjiePath;
+    // get compat version from initializationOptions, empty means the compiler default behavior
+    if (initializationOptions.contains(COMPAT_VERSION_OPTION())) {
+        compatVersion = initializationOptions.value(COMPAT_VERSION_OPTION(), "");
+    }
 
     // init moduleManger
     nlohmann::json multiModuleOption = nullptr;
@@ -2640,6 +2679,11 @@ std::vector<std::string> CompilerCangjieProject::GetMacroLibs() const
 std::string CompilerCangjieProject::GetCjc() const
 {
     return cjcPath;
+}
+
+std::string CompilerCangjieProject::GetCompatVersion() const
+{
+    return compatVersion;
 }
 
 std::unordered_map<std::string, std::string> CompilerCangjieProject::GetConditionCompile(

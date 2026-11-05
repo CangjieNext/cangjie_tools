@@ -38,6 +38,7 @@ Available options:
   -m, --member <value>                    specify a member module of the workspace
   --target <value>                        unittest for the given target platform
   --target-dir <value>                    specify target directory
+  --compat-version <value>                compile tests according to the specified compatibility version
   --dry-run                               print tests without execution
   --enable-features <value>               explicitly specify comma-separated list of features to be enabled
   --no-feature-deduce                     disables auto-enabling of features, deduced from other options, machine properties, etc.
@@ -97,7 +98,8 @@ class TestCommand <: Handle {
     }
 
     public override func handleCommand(): Bool {
-        let (argMap, unparseArgs) = getParseOption(this.arguments, TEST_SHORT_OPTION, TEST_LONG_OPTION)
+        let args = handleCompatVersionOption(this.arguments) ?? return false
+        let (argMap, unparseArgs) = getParseOption(args, TEST_SHORT_OPTION, TEST_LONG_OPTION)
 
         let testConfig = processTestCliOptions(argMap, unparseArgs) ?? return false
 

@@ -37,6 +37,79 @@ func getBoolOption(argMap: HashMap<String, String>, shortArg: String, longArg: S
     return (argMap.contains(shortArg) || argMap.contains(longArg))
 }
 
+// The compatibility target version option is handled before `std.argopt`, so that a
+// duplicate specification can be detected and the option never leaks into unparseArgs.
+let COMPAT_VERSION_OPTION: String = "--compat-version"
+let REGEXP_COMPAT_VERSION: String = "^([0-9]+)[.]([0-9]+)$"
+
+func isCompatVersionValue(value: String): Bool {
+    if (value.isEmpty()) {
+        return false
+    }
+    var matched = Regex(REGEXP_COMPAT_VERSION)
+    match (matched.find(value)) {
+        case Some(_) => return true
+        case None => return false
+    }
+}
+
+/*
+ * Extract and validate all `--compat-version <value>` occurrences from the raw arguments.
+ *
+ * The option is removed from the returned arguments. Values are only checked against the
+ * two-segment `major.minor` format: the supported version whitelist is owned by cjc, cjpm
+ * forwards the value and lets the compiler report unsupported versions.
+ *
+ * Returns None when a value is missing, malformed or specified with conflicting values.
+ */
+public func handleCompatVersionOption(arguments: Array<String>): Option<Array<String>> {
+    let filtered = ArrayList<String>()
+    var version = ""
+    var hasVersion = false
+    var index = 0
+    while (index < arguments.size) {
+        let arg = arguments[index]
+        var current = ""
+        var hasCurrent = false
+        if (arg == COMPAT_VERSION_OPTION) {
+            if (index + 1 >= arguments.size) {
+                eprintln("Error: the '${COMPAT_VERSION_OPTION}' option needs a value")
+                return None
+            }
+            current = arguments[index + 1]
+            hasCurrent = true
+            index += 2
+        } else if (arg.startsWith(COMPAT_VERSION_OPTION + "=")) {
+            current = arg.removePrefix(COMPAT_VERSION_OPTION + "=")
+            hasCurrent = true
+            index += 1
+        } else {
+            filtered.add(arg)
+            index += 1
+        }
+
+        if (hasCurrent) {
+            if (!isCompatVersionValue(current)) {
+                eprintln("Error: invalid value '${current}' for '${COMPAT_VERSION_OPTION}', " +
+                    "the example is '1.3'")
+                return None
+            }
+            if (hasVersion && version != current) {
+                eprintln("Error: the '${COMPAT_VERSION_OPTION}' option is specified with different values " +
+                    "'${version}' and '${current}'")
+                return None
+            }
+            version = current
+            hasVersion = true
+        }
+    }
+
+    if (hasVersion) {
+        compatVersion = version
+    }
+    return Some(filtered.toArray())
+}
+
 public func getParseOption(sysArgs: Array<String>, shortArg: String, longArgList: Array<String>):
     (HashMap<String, String>, Array<String>) {
     var ao = ArgOpt(sysArgs, shortArg, longArgList)

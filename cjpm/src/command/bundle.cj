@@ -18,6 +18,7 @@ Usage:
 Available options:
   -h, --help              help for bundle
   -V, --verbose           enable verbose
+  --compat-version <value>  generate artifacts according to the specified compatibility version
   --skip-test             make tarball without running cjpm test
   --skip-lint             make tarball without running cjlint."""
 
@@ -38,7 +39,8 @@ class BundleCommand <: Handle {
     }
 
     public override func handleCommand(): Bool {
-        let (argMap, unparsedArgs) = getParseOption(this.arguments, BUNDLE_SHORT_OPTION, BUNDLE_LONG_OPTION)
+        let args = handleCompatVersionOption(this.arguments) ?? return false
+        let (argMap, unparsedArgs) = getParseOption(args, BUNDLE_SHORT_OPTION, BUNDLE_LONG_OPTION)
 
         if (unparsedArgs.size != 0) {
             eprintln("Error: unknown command '${unparsedArgs[0]}' for cjpm bundle")

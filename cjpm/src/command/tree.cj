@@ -28,6 +28,7 @@ Available options:
   -p, --package <value>       package to be used as the root of the tree
   --invert <value>            invert the tree direction and focus on the given package
   --target <value>            display dependencies for the given target platform
+  --compat-version <value>    display dependencies for the specified compatibility version
   --no-tests                  exclude the test-dependencies
   --skip-script               disable script 'build.cj'."""
 
@@ -70,7 +71,8 @@ class TreeCommand <: Handle {
     }
 
     public override func handleCommand(): Bool {
-        let (argMap, unparseArgs) = getParseOption(this.arguments, TREE_SHORT_OPTION, TREE_LONG_OPTION)
+        let args = handleCompatVersionOption(this.arguments) ?? return false
+        let (argMap, unparseArgs) = getParseOption(args, TREE_SHORT_OPTION, TREE_LONG_OPTION)
         let treeConfig = TreeConfig()
         treeConfig.isVerbose = getBoolOption(argMap, "-V", "--verbose")
         treeConfig.noTest = getBoolOption(argMap, "--no-tests")

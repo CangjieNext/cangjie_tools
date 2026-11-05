@@ -28,6 +28,7 @@ Available options:
   --skip-build                skip compile, only run the executable product
   --run-args <value>          the arguments to pass to the executable product
   --target-dir <value>        specify target directory
+  --compat-version <value>    generate artifacts according to the specified compatibility version
   --enable-features <value>   explicitly specify comma-separated list of features to be enabled
   --no-feature-deduce         disables auto-enabling of features, deduced from other options, machine properties, etc.
   -g                          enable debug version
@@ -109,7 +110,8 @@ Available options:
                 afterRunArgs.add(nowArg)
             }
         }
-        let (argMap, unparseArgs) = getParseOption(beforeRunArgs.toArray(), RUN_SHORT_OPTION, RUN_LONG_OPTION)
+        let filteredArgs = handleCompatVersionOption(beforeRunArgs.toArray()) ?? return false
+        let (argMap, unparseArgs) = getParseOption(filteredArgs, RUN_SHORT_OPTION, RUN_LONG_OPTION)
 
         if (!handleUnparseArgs(unparseArgs)) {
             return false
